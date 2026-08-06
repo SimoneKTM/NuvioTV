@@ -6,6 +6,10 @@ import com.nuvio.tv.data.simkl.SimklAuthStorage
 import com.nuvio.tv.data.simkl.SimklApiSyncRemote
 import com.nuvio.tv.data.simkl.SimklSyncRemote
 import com.nuvio.tv.data.simkl.SimklSyncStorage
+import com.nuvio.tv.data.anilist.AndroidAniListAuthStorage
+import com.nuvio.tv.data.anilist.AndroidAniListSyncStorage
+import com.nuvio.tv.data.anilist.AniListAuthStorage
+import com.nuvio.tv.data.anilist.AniListSyncStorage
 import com.nuvio.tv.core.tracking.TrackingLibraryProvider
 import com.nuvio.tv.core.tracking.TrackingProvider
 import com.nuvio.tv.data.repository.TraktTrackingLibraryProvider
@@ -18,6 +22,8 @@ import com.nuvio.tv.data.repository.TraktTrackingProgressProvider
 import com.nuvio.tv.data.simkl.SimklTrackingHistoryWriter
 import com.nuvio.tv.data.simkl.SimklTrackingProgressProvider
 import com.nuvio.tv.data.simkl.SimklTrackingProvider
+import com.nuvio.tv.data.anilist.AniListLibraryProvider
+import com.nuvio.tv.data.anilist.AniListTrackingProvider
 import com.nuvio.tv.core.profile.ProfileScopedCredentialStore
 import dagger.Binds
 import dagger.Module
@@ -48,6 +54,20 @@ abstract class TrackingModule {
     abstract fun bindSimklSyncRemote(remote: SimklApiSyncRemote): SimklSyncRemote
 
     @Binds
+    @Singleton
+    abstract fun bindAniListAuthStorage(storage: AndroidAniListAuthStorage): AniListAuthStorage
+
+    @Binds
+    @IntoSet
+    abstract fun bindAniListProfileScopedCredentialStore(
+        storage: AndroidAniListAuthStorage
+    ): ProfileScopedCredentialStore
+
+    @Binds
+    @Singleton
+    abstract fun bindAniListSyncStorage(storage: AndroidAniListSyncStorage): AniListSyncStorage
+
+    @Binds
     @IntoSet
     abstract fun bindTraktTrackingLibraryProvider(
         provider: TraktTrackingLibraryProvider
@@ -57,6 +77,12 @@ abstract class TrackingModule {
     @IntoSet
     abstract fun bindSimklTrackingLibraryProvider(
         provider: SimklLibraryService
+    ): TrackingLibraryProvider
+
+    @Binds
+    @IntoSet
+    abstract fun bindAniListTrackingLibraryProvider(
+        provider: AniListLibraryProvider
     ): TrackingLibraryProvider
 
     @Binds
@@ -93,5 +119,11 @@ abstract class TrackingModule {
     @IntoSet
     abstract fun bindSimklTrackingProvider(
         provider: SimklTrackingProvider
+    ): TrackingProvider
+
+    @Binds
+    @IntoSet
+    abstract fun bindAniListTrackingProvider(
+        provider: AniListTrackingProvider
     ): TrackingProvider
 }

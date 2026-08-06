@@ -2756,4 +2756,31 @@
     <item quantity="one">%d selezionato</item>
     <item quantity="other">%d selezionati</item>
   </plurals>
+  <string name="anilist_name">AniList</string>
+  <string name="anilist_description">Collega AniList per sincronizzare liste e stati dei tuoi anime.</string>
+  <string name="anilist_connect">Collega AniList</string>
+  <string name="anilist_connect_instruction">Accedi alla pagina di autorizzazione AniList, poi incolla nel campo qui sotto il token di accesso ricevuto.</string>
+  <string name="anilist_open_authorize">Apri l\'autorizzazione AniList</string>
+  <string name="anilist_token_label">Token di accesso</string>
+  <string name="anilist_connected_as">Connesso come %1$s</string>
+  <string name="anilist_user_fallback">utente AniList</string>
+  <string name="anilist_sync_now">Sincronizza ora</string>
+  <string name="anilist_disconnect">Disconnetti AniList</string>
+  <string name="anilist_disconnect_title">Disconnettere AniList?</string>
+  <string name="anilist_disconnect_subtitle">Rimuove il token AniList e i dati AniList memorizzati da questo profilo.</string>
+  <string name="anilist_missing_credentials">Manca ANILIST_CLIENT_ID</string>
+  <string name="anilist_status_connected">Collegato a AniList</string>
+  <string name="anilist_status_disconnected">Disconnesso da AniList</string>
+  <string name="anilist_status_syncing">Sincronizzazione AniList…</string>
+  <string name="anilist_status_synced">Sincronizzazione AniList completata</string>
+  <string name="anilist_error_invalid_token">Il token non è valido o è scaduto. Riprova.</string>
+  <string name="anilist_error_authorization_revoked">Autorizzazione AniList revocata. Ricollega.</string>
+  <string name="anilist_error_network">Impossibile raggiungere AniList. Riprova.</string>
+  <string name="anilist_status_watching">In visione</string>
+  <string name="anilist_status_planning">Pianificato</string>
+  <string name="anilist_status_completed">Completato</string>
+  <string name="anilist_status_paused">In pausa</string>
+  <string name="anilist_status_dropped">Abbandonato</string>
+  <string name="anilist_status_repeating">Rivisto</string>
+  <string name="cd_anilist_logo">Logo AniList</string>
 </resources>

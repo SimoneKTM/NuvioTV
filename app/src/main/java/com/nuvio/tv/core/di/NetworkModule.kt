@@ -29,6 +29,12 @@ import com.nuvio.tv.data.simkl.SimklApiConfiguration
 import com.nuvio.tv.data.simkl.SimklAuthError
 import com.nuvio.tv.data.simkl.SimklAuthStorage
 import com.nuvio.tv.data.simkl.defaultSimklApiConfiguration
+import com.nuvio.tv.data.anilist.AniListApi
+import com.nuvio.tv.data.anilist.AniListApiConfiguration
+import com.nuvio.tv.data.anilist.AniListAuthError
+import com.nuvio.tv.data.anilist.AniListAuthStorage
+import com.nuvio.tv.data.anilist.OkHttpAniListEngine
+import com.nuvio.tv.data.anilist.defaultAniListApiConfiguration
 import com.nuvio.tv.LocaleCache
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -170,6 +176,40 @@ object NetworkModule {
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .build()
+
+    @Provides
+    @Singleton
+    @Named("anilist")
+    fun provideAniListOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
+        .dns(IPv4FirstDns())
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .build()
+
+    @Provides
+    @Singleton
+    fun provideAniListApiConfiguration(): AniListApiConfiguration = defaultAniListApiConfiguration()
+
+    @Provides
+    @Singleton
+    fun provideAniListApi(
+        @Named("anilist") okHttpClient: OkHttpClient,
+        configuration: AniListApiConfiguration,
+        storage: AniListAuthStorage
+    ): AniListApi = AniListApi(
+        configuration = configuration,
+        engine = OkHttpAniListEngine(okHttpClient),
+        accessToken = storage::accessToken,
+        onUnauthorized = {
+            storage.authorization()?.let { authorization ->
+                storage.clearAuth(
+                    error = AniListAuthError.AUTHORIZATION_REVOKED,
+                    scope = authorization.scope,
+                    expectedAccessToken = authorization.accessToken
+                )
+            }
+        }
+    )
 
     @Provides
     @Singleton

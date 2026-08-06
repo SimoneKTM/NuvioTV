@@ -11,6 +11,7 @@ import com.nuvio.tv.core.tracking.effectiveTrackingSourceSelection
 import com.nuvio.tv.data.local.TraktAuthDataStore
 import com.nuvio.tv.data.local.TraktSettingsDataStore
 import com.nuvio.tv.data.local.WatchProgressSource
+import com.nuvio.tv.data.anilist.AniListAuthRepository
 import com.nuvio.tv.data.simkl.SimklAnimeIdPreference
 import com.nuvio.tv.data.simkl.SimklAuthRepository
 import com.nuvio.tv.data.simkl.SimklSyncRepository
@@ -44,23 +45,29 @@ class TrackingSettingsViewModel @Inject constructor(
     private val settingsDataStore: TraktSettingsDataStore,
     private val simklSyncRepository: SimklSyncRepository,
     traktAuthDataStore: TraktAuthDataStore,
-    simklAuthRepository: SimklAuthRepository
+    simklAuthRepository: SimklAuthRepository,
+    anilistAuthRepository: AniListAuthRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TrackingSettingsUiState())
     val uiState: StateFlow<TrackingSettingsUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            combine(
+            val sourcePair = combine(
                 sourceController.watchProgressSource,
-                sourceController.librarySourceMode,
+                sourceController.librarySourceMode
+            ) { watchProgress, librarySource -> watchProgress to librarySource }
+            combine(
+                sourcePair,
                 traktAuthDataStore.state,
                 simklAuthRepository.state,
+                anilistAuthRepository.state,
                 settingsDataStore.simklAnimeIdPreference
-            ) { watchProgressSource, librarySourceMode, traktState, simklState, animeIdPref ->
+            ) { (watchProgressSource, librarySourceMode), traktState, simklState, anilistState, animeIdPref ->
                 val connectedProviderIds = buildSet {
                     if (traktState.isAuthenticated) add(TrackingProviderId.TRAKT)
                     if (simklState.isAuthenticated) add(TrackingProviderId.SIMKL)
+                    if (anilistState.isAuthenticated) add(TrackingProviderId.ANILIST)
                 }
                 val effective = effectiveTrackingSourceSelection(
                     requested = TrackingSourceSelection(watchProgressSource, librarySourceMode),
