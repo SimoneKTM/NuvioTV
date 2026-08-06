@@ -93,6 +93,9 @@ fun TrackingSettingsScreen(
         val connected = when (dismissOnConnected) {
             TrackingProviderId.TRAKT -> traktState.mode == TraktConnectionMode.CONNECTED
             TrackingProviderId.SIMKL -> simklState.mode == SimklConnectionMode.CONNECTED
+            TrackingProviderId.ANILIST,
+            TrackingProviderId.KITSU,
+            TrackingProviderId.MAL -> false
             null -> false
         }
         if (activeProvider == dismissOnConnected && connected) {
@@ -122,6 +125,9 @@ fun TrackingSettingsScreen(
         restoreFocusTarget = when (provider) {
             TrackingProviderId.TRAKT -> TrackingFocusTarget.TRAKT
             TrackingProviderId.SIMKL -> TrackingFocusTarget.SIMKL
+            TrackingProviderId.ANILIST,
+            TrackingProviderId.KITSU,
+            TrackingProviderId.MAL -> null
         }
         activeProvider = provider
         disconnectProvider = null
@@ -145,6 +151,11 @@ fun TrackingSettingsScreen(
                         simklViewModel.onConnect()
                     }
                 }
+            }
+            TrackingProviderId.ANILIST,
+            TrackingProviderId.KITSU,
+            TrackingProviderId.MAL -> {
+                // Wired up together with each tracker implementation.
             }
         }
     }
@@ -222,6 +233,11 @@ fun TrackingSettingsScreen(
                     dismissOnConnected = null
                 }
             )
+        }
+        TrackingProviderId.ANILIST,
+        TrackingProviderId.KITSU,
+        TrackingProviderId.MAL -> {
+            // Wired up together with each tracker implementation.
         }
         null -> Unit
     }
@@ -626,6 +642,9 @@ private fun simklConnectionPresentation(state: SimklSettingsUiState): TrackingCo
 private fun watchProgressSourceLabel(source: WatchProgressSource): String = when (source) {
     WatchProgressSource.TRAKT -> stringResource(R.string.trakt_name)
     WatchProgressSource.SIMKL -> stringResource(R.string.simkl_name)
+    WatchProgressSource.ANILIST -> stringResource(R.string.anilist_name)
+    WatchProgressSource.KITSU -> stringResource(R.string.kitsu_name)
+    WatchProgressSource.MAL -> stringResource(R.string.mal_name)
     WatchProgressSource.NUVIO_SYNC -> stringResource(R.string.trakt_watch_progress_source_nuvio)
 }
 
@@ -633,6 +652,9 @@ private fun watchProgressSourceLabel(source: WatchProgressSource): String = when
 private fun librarySourceLabel(mode: LibrarySourceMode): String = when (mode) {
     LibrarySourceMode.TRAKT -> stringResource(R.string.trakt_name)
     LibrarySourceMode.SIMKL -> stringResource(R.string.simkl_name)
+    LibrarySourceMode.ANILIST -> stringResource(R.string.anilist_name)
+    LibrarySourceMode.KITSU -> stringResource(R.string.kitsu_name)
+    LibrarySourceMode.MAL -> stringResource(R.string.mal_name)
     LibrarySourceMode.LOCAL -> stringResource(R.string.trakt_library_source_nuvio)
 }
 

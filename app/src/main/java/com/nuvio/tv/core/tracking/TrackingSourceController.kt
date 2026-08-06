@@ -84,6 +84,12 @@ class TrackingSourceController @Inject constructor(
                 watchedSeriesStateHolder.update(emptySet())
                 simklSyncRepository.refresh(TrackingRefreshIntent.USER_INITIATED)
             }
+            WatchProgressSource.ANILIST,
+            WatchProgressSource.KITSU,
+            WatchProgressSource.MAL -> {
+                watchedItemsPreferences.clearAll()
+                watchedSeriesStateHolder.update(emptySet())
+            }
             WatchProgressSource.NUVIO_SYNC -> {
                 repopulateWatchedItemsFromNuvioSync()
                 startupSyncService.requestSyncNow()

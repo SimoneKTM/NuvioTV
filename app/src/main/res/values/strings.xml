@@ -432,6 +432,9 @@
     <string name="tracking_trakt_progress_required">Available when Trakt is the Watch Progress source</string>
     <string name="trakt_name">Trakt</string>
     <string name="simkl_name">Simkl</string>
+    <string name="anilist_name">AniList</string>
+    <string name="kitsu_name">Kitsu</string>
+    <string name="mal_name">MyAnimeList</string>
     <string name="settings_about_subtitle">Version and policies</string>
     <string name="settings_network">Network speed</string>
     <string name="settings_network_subtitle">Latency and download diagnostics</string>
