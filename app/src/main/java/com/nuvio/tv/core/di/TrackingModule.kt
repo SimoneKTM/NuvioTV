@@ -19,6 +19,8 @@ import com.nuvio.tv.data.mal.AndroidMalSyncStorage
 import com.nuvio.tv.data.mal.MalAuthStorage
 import com.nuvio.tv.data.mal.MalSyncStorage
 import com.nuvio.tv.data.mal.MalLibraryProvider
+import com.nuvio.tv.data.mal.MalTrackingHistoryWriter
+import com.nuvio.tv.data.mal.MalTrackingProgressProvider
 import com.nuvio.tv.data.mal.MalTrackingProvider
 import com.nuvio.tv.core.tracking.TrackingLibraryProvider
 import com.nuvio.tv.core.tracking.TrackingProvider
@@ -136,6 +138,18 @@ abstract class TrackingModule {
     abstract fun bindMalTrackingLibraryProvider(
         provider: MalLibraryProvider
     ): TrackingLibraryProvider
+
+    @Binds
+    @IntoSet
+    abstract fun bindMalTrackingProgressProvider(
+        provider: MalTrackingProgressProvider
+    ): TrackingProgressProvider
+
+    @Binds
+    @IntoSet
+    abstract fun bindMalTrackingHistoryWriter(
+        writer: MalTrackingHistoryWriter
+    ): TrackingHistoryWriter
 
     @Binds
     @IntoSet

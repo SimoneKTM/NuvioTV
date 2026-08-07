@@ -27,7 +27,8 @@ data class MalLibraryItem(
     val totalEpisodes: Int? = null,
     val score: Int? = null,
     val status: MalMediaListStatus,
-    val updatedAt: Long = 0L
+    val updatedAt: Long = 0L,
+    val mediaType: String? = null
 )
 
 @Serializable
@@ -54,7 +55,8 @@ internal data class MalAnimeNode(
     val title: String? = null,
     @SerialName("main_picture") val mainPicture: MalPicture? = null,
     @SerialName("num_episodes") val numEpisodes: Int? = null,
-    @SerialName("start_date") val startDate: String? = null
+    @SerialName("start_date") val startDate: String? = null,
+    @SerialName("media_type") val mediaType: String? = null
 )
 
 @Serializable

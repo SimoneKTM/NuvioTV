@@ -15,7 +15,8 @@ import kotlinx.coroutines.flow.stateIn
 
 @Singleton
 class MalTrackingProvider @Inject constructor(
-    authRepository: MalAuthRepository
+    authRepository: MalAuthRepository,
+    override val scrobbler: MalTrackingScrobbler
 ) : TrackingProvider {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -25,7 +26,12 @@ class MalTrackingProvider @Inject constructor(
         capabilities = setOf(
             TrackingCapability.AUTHENTICATION,
             TrackingCapability.LIBRARY_READ,
-            TrackingCapability.LIBRARY_WRITE
+            TrackingCapability.LIBRARY_WRITE,
+            TrackingCapability.WATCHED_READ,
+            TrackingCapability.WATCHED_WRITE,
+            TrackingCapability.PROGRESS_READ,
+            TrackingCapability.PROGRESS_WRITE,
+            TrackingCapability.SCROBBLE
         )
     )
     override val isAuthenticated = authRepository.state
