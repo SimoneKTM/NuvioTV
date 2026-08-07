@@ -6,8 +6,14 @@ import androidx.compose.runtime.Immutable
 data class LiveTvPlaylist(
     val id: String,
     val sourceUrl: String,
-    val name: String
-)
+    val name: String,
+    val xtreamServerUrl: String? = null,
+    val xtreamUsername: String? = null,
+    val xtreamPassword: String? = null
+) {
+    val isXtream: Boolean
+        get() = !xtreamServerUrl.isNullOrBlank()
+}
 
 @Immutable
 data class LiveTvChannel(

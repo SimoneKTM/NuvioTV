@@ -38,6 +38,9 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -59,7 +62,6 @@ import com.nuvio.tv.domain.model.LiveTvPlaylist
 import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.components.NuvioDialog
-import com.nuvio.tv.ui.screens.settings.SettingsActionRow
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.dpadRepeatThrottle
 
@@ -162,8 +164,13 @@ fun LiveTvScreen(
         LiveTvAddPlaylistDialog(
             isBusy = uiState.isAdding,
             errorMessage = uiState.addError,
-            onAdd = { url ->
+            onAddM3u = { url ->
                 viewModel.addPlaylist(url) {
+                    showAddDialog = false
+                }
+            },
+            onAddXtream = { server, username, password ->
+                viewModel.addXtreamPlaylist(server, username, password) {
                     showAddDialog = false
                 }
             },
@@ -380,22 +387,31 @@ private fun LiveTvChannelRow(
 private fun LiveTvAddPlaylistDialog(
     isBusy: Boolean,
     errorMessage: String?,
-    onAdd: (String) -> Unit,
+    onAddM3u: (String) -> Unit,
+    onAddXtream: (String, String, String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val inputFocusRequester = remember { FocusRequester() }
+    var isXtream by remember { mutableStateOf(false) }
     var url by remember { mutableStateOf("") }
-    var isInputFocused by remember { mutableStateOf(false) }
+    var serverUrl by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
     val submit = {
         keyboardController?.hide()
-        if (!isBusy) onAdd(url)
+        if (!isBusy) {
+            if (isXtream) {
+                onAddXtream(serverUrl, username, password)
+            } else {
+                onAddM3u(url)
+            }
+        }
     }
 
     NuvioDialog(
         onDismiss = onDismiss,
         title = stringResource(R.string.live_tv_add_playlist),
-        subtitle = stringResource(R.string.live_tv_add_playlist_subtitle),
+        subtitle = stringResource(R.string.live_tv_add_subtitle),
         width = 560.dp,
         suppressFirstKeyUp = false
     ) {
@@ -403,55 +419,49 @@ private fun LiveTvAddPlaylistDialog(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
         ) {
-            Card(
-                onClick = { inputFocusRequester.requestFocus() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { isInputFocused = it.isFocused || it.hasFocus },
-                colors = CardDefaults.colors(
-                    containerColor = NuvioTheme.colors.BackgroundElevated,
-                    focusedContainerColor = NuvioTheme.colors.BackgroundElevated
-                ),
-                border = CardDefaults.border(
-                    border = Border(
-                        border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border),
-                        shape = RoundedCornerShape(10.dp)
-                    ),
-                    focusedBorder = Border(
-                        border = BorderStroke(NuvioTheme.spacing.xxs, NuvioTheme.colors.FocusRing),
-                        shape = RoundedCornerShape(10.dp)
-                    )
-                ),
-                shape = CardDefaults.shape(RoundedCornerShape(10.dp)),
-                scale = CardDefaults.scale(focusedScale = 1f)
-            ) {
-                Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = NuvioTheme.spacing.md)) {
-                    BasicTextField(
-                        value = url,
-                        onValueChange = { url = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(inputFocusRequester),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { submit() }),
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = NuvioTheme.colors.TextPrimary),
-                        cursorBrush = SolidColor(
-                            if (isInputFocused) NuvioTheme.colors.Primary
-                            else Color.Transparent
-                        ),
-                        decorationBox = { innerTextField ->
-                            if (url.isBlank()) {
-                                Text(
-                                    text = stringResource(R.string.live_tv_add_playlist_hint),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = NuvioTheme.colors.TextTertiary
-                                )
-                            }
-                            innerTextField()
-                        }
-                    )
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)) {
+                LiveTvSourceToggle(
+                    label = stringResource(R.string.live_tv_source_m3u),
+                    selected = !isXtream,
+                    onClick = { isXtream = false }
+                )
+                LiveTvSourceToggle(
+                    label = stringResource(R.string.live_tv_source_xtream),
+                    selected = isXtream,
+                    onClick = { isXtream = true }
+                )
+            }
+            if (isXtream) {
+                LiveTvInputField(
+                    value = serverUrl,
+                    onValueChange = { serverUrl = it },
+                    label = stringResource(R.string.live_tv_xtream_server_label),
+                    hint = stringResource(R.string.live_tv_xtream_server_hint),
+                    onSubmit = submit
+                )
+                LiveTvInputField(
+                    value = username,
+                    onValueChange = { username = it },
+                    label = stringResource(R.string.live_tv_xtream_username_label),
+                    hint = stringResource(R.string.live_tv_xtream_username_hint),
+                    onSubmit = submit
+                )
+                LiveTvInputField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = stringResource(R.string.live_tv_xtream_password_label),
+                    hint = stringResource(R.string.live_tv_xtream_password_hint),
+                    isPassword = true,
+                    onSubmit = submit
+                )
+            } else {
+                LiveTvInputField(
+                    value = url,
+                    onValueChange = { url = it },
+                    label = stringResource(R.string.live_tv_m3u_label),
+                    hint = stringResource(R.string.live_tv_add_playlist_hint),
+                    onSubmit = submit
+                )
             }
             if (!errorMessage.isNullOrBlank()) {
                 Text(
@@ -466,11 +476,111 @@ private fun LiveTvAddPlaylistDialog(
             ) {
                 Button(
                     onClick = { submit() },
-                    enabled = !isBusy && url.isNotBlank(),
+                    enabled = !isBusy && if (isXtream) {
+                        serverUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank()
+                    } else {
+                        url.isNotBlank()
+                    },
                     colors = ButtonDefaults.colors(containerColor = NuvioTheme.colors.Primary)
                 ) {
                     Text(stringResource(R.string.live_tv_add_btn))
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LiveTvSourceToggle(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.colors(
+            containerColor = if (selected) NuvioTheme.colors.Primary else NuvioTheme.colors.BackgroundElevated,
+            contentColor = if (selected) NuvioTheme.colors.OnPrimary else NuvioTheme.colors.TextPrimary
+        )
+    ) {
+        Text(label)
+    }
+}
+
+@Composable
+private fun LiveTvInputField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    hint: String,
+    isPassword: Boolean = false,
+    onSubmit: () -> Unit
+) {
+    val inputFocusRequester = remember { FocusRequester() }
+    var isInputFocused by remember { mutableStateOf(false) }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = NuvioTheme.colors.TextSecondary
+        )
+        Card(
+            onClick = { inputFocusRequester.requestFocus() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { isInputFocused = it.isFocused || it.hasFocus },
+            colors = CardDefaults.colors(
+                containerColor = NuvioTheme.colors.BackgroundElevated,
+                focusedContainerColor = NuvioTheme.colors.BackgroundElevated
+            ),
+            border = CardDefaults.border(
+                border = Border(
+                    border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border),
+                    shape = RoundedCornerShape(10.dp)
+                ),
+                focusedBorder = Border(
+                    border = BorderStroke(NuvioTheme.spacing.xxs, NuvioTheme.colors.FocusRing),
+                    shape = RoundedCornerShape(10.dp)
+                )
+            ),
+            shape = CardDefaults.shape(RoundedCornerShape(10.dp)),
+            scale = CardDefaults.scale(focusedScale = 1f)
+        ) {
+            Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = NuvioTheme.spacing.md)) {
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(inputFocusRequester),
+                    singleLine = true,
+                    visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = if (isPassword) KeyboardType.Password else KeyboardType.Text,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = {
+                        keyboardController?.hide()
+                        onSubmit()
+                    }),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = NuvioTheme.colors.TextPrimary),
+                    cursorBrush = SolidColor(
+                        if (isInputFocused) NuvioTheme.colors.Primary
+                        else Color.Transparent
+                    ),
+                    decorationBox = { innerTextField ->
+                        if (value.isBlank()) {
+                            Text(
+                                text = hint,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = NuvioTheme.colors.TextTertiary
+                            )
+                        }
+                        innerTextField()
+                    }
+                )
             }
         }
     }

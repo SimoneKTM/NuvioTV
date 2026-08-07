@@ -95,6 +95,37 @@ class LiveTvViewModel @Inject constructor(
         }
     }
 
+    fun addXtreamPlaylist(serverUrl: String, username: String, password: String, onAdded: () -> Unit = {}) {
+        val server = serverUrl.trim()
+        if (server.isBlank()) return
+        viewModelScope.launch {
+            isAdding.value = true
+            addError.value = null
+            try {
+                val playlists = dataStore.playlists.first().toMutableList()
+                val existing = playlists.firstOrNull { it.xtreamServerUrl == server }
+                val playlist = existing ?: LiveTvPlaylist(
+                    id = server,
+                    sourceUrl = LiveTvRepository.xtreamPlaylistUrl(server, username, password),
+                    name = server.substringAfter("://").substringBefore('/'),
+                    xtreamServerUrl = server,
+                    xtreamUsername = username.trim(),
+                    xtreamPassword = password
+                )
+                if (existing == null) {
+                    playlists += playlist
+                    dataStore.setPlaylists(playlists)
+                }
+                refreshPlaylist(playlist)
+                if (existing == null) onAdded()
+            } catch (error: Throwable) {
+                addError.value = error.message ?: context.getString(R.string.live_tv_error_generic)
+            } finally {
+                isAdding.value = false
+            }
+        }
+    }
+
     fun refreshAllPlaylists() {
         viewModelScope.launch {
             val saved = dataStore.playlists.first()

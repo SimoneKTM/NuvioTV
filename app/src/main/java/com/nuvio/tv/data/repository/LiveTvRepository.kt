@@ -19,8 +19,9 @@ class LiveTvRepository @Inject constructor(
     suspend fun fetchPlaylist(playlist: LiveTvPlaylist): Result<List<LiveTvChannel>> =
         withContext(Dispatchers.IO) {
             runCatching {
+                val playlistUrl = fetchUrl(playlist)
                 val request = Request.Builder()
-                    .url(playlist.sourceUrl)
+                    .url(playlistUrl)
                     .header("User-Agent", "NuvioTV/1.0 (Live TV)")
                     .build()
                 okHttpClient.newCall(request).execute().use { response ->
@@ -28,13 +29,24 @@ class LiveTvRepository @Inject constructor(
                         error("HTTP ${response.code} per ${playlist.name}")
                     }
                     val body = response.body?.string() ?: error("Playlist vuota")
-                    parseM3u(body, playlist)
+                    parseM3u(body, playlist, playlistUrl)
                 }
             }
         }
 
-    fun parseM3u(content: String, playlist: LiveTvPlaylist): List<LiveTvChannel> {
-        val baseUrl = playlist.sourceUrl.toHttpUrlOrNull()
+    fun fetchUrl(playlist: LiveTvPlaylist): String =
+        if (playlist.isXtream) {
+            xtreamPlaylistUrl(
+                playlist.xtreamServerUrl.orEmpty(),
+                playlist.xtreamUsername.orEmpty(),
+                playlist.xtreamPassword.orEmpty()
+            )
+        } else {
+            playlist.sourceUrl
+        }
+
+    fun parseM3u(content: String, playlist: LiveTvPlaylist, playlistUrl: String = playlist.sourceUrl): List<LiveTvChannel> {
+        val baseUrl = playlistUrl.toHttpUrlOrNull()
         val lines = content.lines()
         val channels = mutableListOf<LiveTvChannel>()
         var pendingName: String? = null
@@ -102,6 +114,13 @@ class LiveTvRepository @Inject constructor(
     }.getOrDefault(value)
 
     companion object {
+        fun xtreamPlaylistUrl(serverUrl: String, username: String, password: String): String {
+            val base = serverUrl.trimEnd('/')
+            val encodedUser = java.net.URLEncoder.encode(username.trim(), StandardCharsets.UTF_8.name())
+            val encodedPassword = java.net.URLEncoder.encode(password, StandardCharsets.UTF_8.name())
+            return "$base/get.php?username=$encodedUser&password=$encodedPassword&type=m3u_plus"
+        }
+
         fun displayNameForUrl(url: String): String {
             val decoded = URLDecoder.decode(url, StandardCharsets.UTF_8.name())
             val host = decoded.toHttpUrlOrNull()?.host ?: decoded.substringAfter("://").substringBefore('/')
