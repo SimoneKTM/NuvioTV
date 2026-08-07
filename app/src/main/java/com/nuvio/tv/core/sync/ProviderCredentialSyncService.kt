@@ -5,9 +5,12 @@ import android.util.Log
 import com.nuvio.tv.core.auth.AuthManager
 import com.nuvio.tv.core.debrid.DebridProviders
 import com.nuvio.tv.core.profile.ProfileManager
+import com.nuvio.tv.data.anilist.AniListAuthStorage
+import com.nuvio.tv.data.kitsu.KitsuAuthStorage
 import com.nuvio.tv.data.local.AnimeSkipSettingsDataStore
 import com.nuvio.tv.data.local.DebridSettingsDataStore
 import com.nuvio.tv.data.local.MDBListSettingsDataStore
+import com.nuvio.tv.data.mal.MalAuthStorage
 import com.nuvio.tv.data.remote.supabase.SupabaseProviderCredential
 import com.nuvio.tv.domain.model.AuthState
 import io.github.jan.supabase.postgrest.Postgrest
@@ -31,6 +34,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -41,6 +46,9 @@ private const val PROVIDER_CREDENTIAL_FOREGROUND_DELAY_MS = 2500L
 private const val PROVIDER_CREDENTIAL_FOREGROUND_MIN_INTERVAL_MS = 60_000L
 private const val API_KEY_FIELD = "api_key"
 private const val CLIENT_ID_FIELD = "client_id"
+private const val TRACKER_TOKEN_FIELD = "credential_json"
+private const val TRACKER_ACCESS_TOKEN_FIELD = "access_token"
+private const val TRACKER_REFRESH_TOKEN_FIELD = "refresh_token"
 
 private data class ProviderCredentialScope(
     val userId: String,
@@ -55,6 +63,9 @@ class ProviderCredentialSyncService @Inject constructor(
     private val debridSettingsDataStore: DebridSettingsDataStore,
     private val mdbListSettingsDataStore: MDBListSettingsDataStore,
     private val animeSkipSettingsDataStore: AnimeSkipSettingsDataStore,
+    private val malAuthStorage: MalAuthStorage,
+    private val aniListAuthStorage: AniListAuthStorage,
+    private val kitsuAuthStorage: KitsuAuthStorage,
     private val syncClientIdentity: SyncClientIdentity
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -218,7 +229,40 @@ class ProviderCredentialSyncService @Inject constructor(
                         value = animeSkipClientId
                     )
                 )
-            }
+            } + trackerCredentials()
+        )
+    }
+
+    private fun trackerCredentials(): List<ProviderCredentialValue> = buildList {
+        add(
+            ProviderCredentialValue(
+                provider = ProviderCredentialIds.MAL,
+                field = TRACKER_TOKEN_FIELD,
+                jsonValue = buildJsonObject {
+                    put("access_token", malAuthStorage.accessToken().orEmpty())
+                    malAuthStorage.refreshToken()?.takeIf(String::isNotBlank)?.let {
+                        put("refresh_token", it)
+                    }
+                }
+            )
+        )
+        add(
+            ProviderCredentialValue(
+                provider = ProviderCredentialIds.ANILIST,
+                field = TRACKER_TOKEN_FIELD,
+                jsonValue = buildJsonObject {
+                    put("access_token", aniListAuthStorage.accessToken().orEmpty())
+                }
+            )
+        )
+        add(
+            ProviderCredentialValue(
+                provider = ProviderCredentialIds.KITSU,
+                field = TRACKER_TOKEN_FIELD,
+                jsonValue = buildJsonObject {
+                    put("access_token", kitsuAuthStorage.accessToken().orEmpty())
+                }
+            )
         )
     }
 
@@ -235,6 +279,44 @@ class ProviderCredentialSyncService @Inject constructor(
                 }
                 credential.provider == ProviderCredentialIds.ANIMESKIP -> {
                     animeSkipSettingsDataStore.setClientId(credential.value)
+                }
+                credential.provider == ProviderCredentialIds.MAL -> {
+                    val token = credential.jsonValue?.get(TRACKER_ACCESS_TOKEN_FIELD)
+                        ?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+                    if (token.isBlank()) {
+                        malAuthStorage.clearAuth(scope = malAuthStorage.currentScope())
+                    } else {
+                        malAuthStorage.completeAuthorization(
+                            token = token,
+                            refreshToken = credential.jsonValue?.get(TRACKER_REFRESH_TOKEN_FIELD)
+                                ?.jsonPrimitive?.contentOrNull,
+                            scope = malAuthStorage.currentScope()
+                        )
+                    }
+                }
+                credential.provider == ProviderCredentialIds.ANILIST -> {
+                    val token = credential.jsonValue?.get(TRACKER_ACCESS_TOKEN_FIELD)
+                        ?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+                    if (token.isBlank()) {
+                        aniListAuthStorage.clearAuth(scope = aniListAuthStorage.currentScope())
+                    } else {
+                        aniListAuthStorage.completeTokenAuthorization(
+                            token = token,
+                            scope = aniListAuthStorage.currentScope()
+                        )
+                    }
+                }
+                credential.provider == ProviderCredentialIds.KITSU -> {
+                    val token = credential.jsonValue?.get(TRACKER_ACCESS_TOKEN_FIELD)
+                        ?.jsonPrimitive?.contentOrNull?.trim().orEmpty()
+                    if (token.isBlank()) {
+                        kitsuAuthStorage.clearAuth(scope = kitsuAuthStorage.currentScope())
+                    } else {
+                        kitsuAuthStorage.completeTokenAuthorization(
+                            token = token,
+                            scope = kitsuAuthStorage.currentScope()
+                        )
+                    }
                 }
             }
         }
@@ -258,10 +340,18 @@ class ProviderCredentialSyncService @Inject constructor(
             profileManager.activeProfileId
                 .flatMapLatest { profileId ->
                     combine(
-                        debridSettingsDataStore.settings,
-                        mdbListSettingsDataStore.settings,
-                        animeSkipSettingsDataStore.clientId
-                    ) { debrid, mdbList, animeSkipClientId ->
+                        combine(
+                            debridSettingsDataStore.settings,
+                            mdbListSettingsDataStore.settings,
+                            animeSkipSettingsDataStore.clientId
+                        ) { debrid, mdbList, animeSkipClientId ->
+                            Triple(debrid, mdbList, animeSkipClientId)
+                        },
+                        malAuthStorage.state,
+                        aniListAuthStorage.state,
+                        kitsuAuthStorage.state
+                    ) { settings, _, _, _ ->
+                        val (debrid, mdbList, animeSkipClientId) = settings
                         ProviderCredentialSnapshot(
                             profileId = profileId,
                             values = buildList {
@@ -288,7 +378,7 @@ class ProviderCredentialSyncService @Inject constructor(
                                         value = animeSkipClientId
                                     )
                                 )
-                            }
+                            } + trackerCredentials()
                         )
                     }
                 }
