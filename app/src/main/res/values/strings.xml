@@ -427,6 +427,11 @@
     <string name="tracking_status_connecting">Connecting</string>
     <string name="tracking_finish_connection">Finish connection approval</string>
     <string name="tracking_connecting_provider">Starting %1$s connection…</string>
+    <string name="tracker_qr_preparing">Preparing QR sign-in…</string>
+    <string name="tracker_qr_sign_in">Sign in with QR</string>
+    <string name="tracker_qr_scan_instruction">Scan the QR code with your phone, sign in, then approve on the device.</string>
+    <string name="tracker_qr_expires">QR expires in %1$s</string>
+    <string name="cd_tracker_qr">QR login code</string>
     <string name="tracking_watch_progress_dialog_subtitle">Choose the service Nuvio reads for resume and Continue Watching. Scrobbling remains active for every connected service.</string>
     <string name="tracking_library_source_dialog_subtitle">Choose the service Nuvio reads for your Library. Playback scrobbles to every connected service.</string>
     <string name="tracking_trakt_progress_required">Available when Trakt is the Watch Progress source</string>

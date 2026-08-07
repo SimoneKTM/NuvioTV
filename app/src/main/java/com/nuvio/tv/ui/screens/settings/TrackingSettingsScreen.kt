@@ -287,7 +287,11 @@ fun TrackingSettingsScreen(
                     dismissOnConnected = null
                     disconnectProvider = TrackingProviderId.ANILIST
                 },
+                onStartQrLogin = anilistViewModel::startQrLogin,
+                onRetryQrLogin = anilistViewModel::retryQrLogin,
+                onCancelQrLogin = anilistViewModel::cancelQrLogin,
                 onDismiss = {
+                    anilistViewModel.cancelQrLogin()
                     activeProvider = null
                     dismissOnConnected = null
                 }
@@ -303,7 +307,11 @@ fun TrackingSettingsScreen(
                     dismissOnConnected = null
                     disconnectProvider = TrackingProviderId.KITSU
                 },
+                onStartQrLogin = kitsuViewModel::startQrLogin,
+                onRetryQrLogin = kitsuViewModel::retryQrLogin,
+                onCancelQrLogin = kitsuViewModel::cancelQrLogin,
                 onDismiss = {
+                    kitsuViewModel.cancelQrLogin()
                     activeProvider = null
                     dismissOnConnected = null
                 }
@@ -319,7 +327,11 @@ fun TrackingSettingsScreen(
                     dismissOnConnected = null
                     disconnectProvider = TrackingProviderId.MAL
                 },
+                onStartQrLogin = malViewModel::startQrLogin,
+                onRetryQrLogin = malViewModel::retryQrLogin,
+                onCancelQrLogin = malViewModel::cancelQrLogin,
                 onDismiss = {
+                    malViewModel.cancelQrLogin()
                     activeProvider = null
                     dismissOnConnected = null
                 }

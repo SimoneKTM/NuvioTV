@@ -45,6 +45,9 @@ internal fun MalAccountDialog(
     onConnect: (String) -> Unit,
     onSync: () -> Unit,
     onDisconnect: () -> Unit,
+    onStartQrLogin: () -> Unit,
+    onRetryQrLogin: () -> Unit,
+    onCancelQrLogin: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -75,6 +78,9 @@ internal fun MalAccountDialog(
                     }
                 },
                 onConnect = onConnect,
+                onStartQrLogin = onStartQrLogin,
+                onRetryQrLogin = onRetryQrLogin,
+                onCancelQrLogin = onCancelQrLogin,
                 onDismiss = onDismiss
             )
         }
@@ -138,6 +144,9 @@ private fun MalConnectContent(
     state: MalSettingsUiState,
     onOpenBrowser: () -> Unit,
     onConnect: (String) -> Unit,
+    onStartQrLogin: () -> Unit,
+    onRetryQrLogin: () -> Unit,
+    onCancelQrLogin: () -> Unit,
     onDismiss: () -> Unit
 ) {
     var token by remember { mutableStateOf("") }
@@ -150,6 +159,14 @@ private fun MalConnectContent(
         style = MaterialTheme.typography.bodyMedium,
         color = NuvioTheme.colors.TextSecondary
     )
+    if (state.qrLogin.isConfigured) {
+        TrackerQrLoginSection(
+            qrLogin = state.qrLogin,
+            onStart = onStartQrLogin,
+            onRetry = onRetryQrLogin,
+            onCancel = onCancelQrLogin
+        )
+    }
     OutlinedTextField(
         value = token,
         onValueChange = { token = it },

@@ -225,6 +225,7 @@ android {
             buildConfigField("String", "UNIQUE_CONTRIBUTIONS_BASE_URL", "\"${devProperties.getProperty("UNIQUE_CONTRIBUTIONS_BASE_URL", localProperties.getProperty("UNIQUE_CONTRIBUTIONS_BASE_URL", ""))}\"")
             buildConfigField("String", "PLAYBACK_REPORTS_BASE_URL", buildConfigString(resolveProperty(devProperties, localProperties, "PLAYBACK_REPORTS_BASE_URL")))
             buildConfigField("String", "PREMIUMIZE_CLIENT_ID", "\"${devProperties.getProperty("PREMIUMIZE_CLIENT_ID", localProperties.getProperty("PREMIUMIZE_CLIENT_ID", ""))}\"")
+            buildConfigField("String", "TRACKER_LOGIN_RELAY_BASE_URL", buildConfigString(resolveProperty(devProperties, localProperties, "TRACKER_LOGIN_RELAY_BASE_URL")))
             buildConfigField("String", "SPONSOR_NAMES", buildConfigString(sponsorNames))
         }
         release {
@@ -259,6 +260,7 @@ android {
             buildConfigField("String", "UNIQUE_CONTRIBUTIONS_BASE_URL", "\"${localProperties.getProperty("UNIQUE_CONTRIBUTIONS_BASE_URL", "")}\"")
             buildConfigField("String", "PLAYBACK_REPORTS_BASE_URL", buildConfigString(localProperties.getProperty("PLAYBACK_REPORTS_BASE_URL", "")))
             buildConfigField("String", "PREMIUMIZE_CLIENT_ID", "\"${localProperties.getProperty("PREMIUMIZE_CLIENT_ID", "")}\"")
+            buildConfigField("String", "TRACKER_LOGIN_RELAY_BASE_URL", buildConfigString(localProperties.getProperty("TRACKER_LOGIN_RELAY_BASE_URL", "")))
             buildConfigField("String", "SPONSOR_NAMES", buildConfigString(sponsorNames))
         }
         create("benchmark") {

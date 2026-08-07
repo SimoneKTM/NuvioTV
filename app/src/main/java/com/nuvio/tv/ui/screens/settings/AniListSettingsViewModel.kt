@@ -10,6 +10,7 @@ import com.nuvio.tv.data.anilist.AniListAuthRepository
 import com.nuvio.tv.data.anilist.AniListConnectResult
 import com.nuvio.tv.data.anilist.AniListConnectionMode
 import com.nuvio.tv.data.anilist.AniListSyncRepository
+import com.nuvio.tv.data.trackerqr.TrackerQrApi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -29,23 +30,33 @@ data class AniListSettingsUiState(
     val username: String? = null,
     val authorizeUrl: String? = null,
     val statusMessage: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val qrLogin: TrackerQrLoginState = TrackerQrLoginState()
 )
 
 @HiltViewModel
 class AniListSettingsViewModel @Inject constructor(
     private val authRepository: AniListAuthRepository,
     private val syncRepository: AniListSyncRepository,
+    trackerQrApi: TrackerQrApi,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
         AniListSettingsUiState(
             credentialsConfigured = authRepository.hasRequiredCredentials(),
-            authorizeUrl = authRepository.authorizeUrl()
+            authorizeUrl = authRepository.authorizeUrl(),
+            qrLogin = TrackerQrLoginState(isConfigured = trackerQrApi.isConfigured)
         )
     )
     val uiState: StateFlow<AniListSettingsUiState> = _uiState.asStateFlow()
     private var connectJob: Job? = null
+
+    private val qrLoginController = TrackerQrLoginController(
+        api = trackerQrApi,
+        scope = viewModelScope,
+        providerId = PROVIDER_ID,
+        onApproved = { payload -> connect(payload.orEmpty()) }
+    )
 
     init {
         viewModelScope.launch {
@@ -60,6 +71,24 @@ class AniListSettingsViewModel @Inject constructor(
                 }
             }
         }
+        viewModelScope.launch {
+            qrLoginController.state.collectLatest { qrState ->
+                _uiState.update { it.copy(qrLogin = qrState) }
+            }
+        }
+    }
+
+    fun startQrLogin() {
+        if (_uiState.value.isLoading) return
+        qrLoginController.start()
+    }
+
+    fun retryQrLogin() {
+        qrLoginController.retryPolling()
+    }
+
+    fun cancelQrLogin() {
+        qrLoginController.cancel()
     }
 
     fun connect(token: String) {
@@ -155,4 +184,8 @@ class AniListSettingsViewModel @Inject constructor(
         (this as? com.nuvio.tv.data.anilist.AniListAuthException)?.message
             ?: message?.takeIf(String::isNotBlank)
             ?: context.getString(R.string.anilist_error_network)
+
+    private companion object {
+        const val PROVIDER_ID = "anilist"
+    }
 }

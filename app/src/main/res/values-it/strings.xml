@@ -70,6 +70,11 @@
 
     <!-- ErrorState -->
 <string name="action_retry">Riprova</string>
+<string name="tracker_qr_preparing">Preparazione accesso con QR…</string>
+<string name="tracker_qr_sign_in">Accedi con QR</string>
+<string name="tracker_qr_scan_instruction">Scansiona il codice QR con il telefono, accedi e poi approva dal dispositivo.</string>
+<string name="tracker_qr_expires">Il QR scade tra %1$s</string>
+<string name="cd_tracker_qr">Codice QR di accesso</string>
 <string name="error_state_generic_issue">Qualcosa è andato storto.</string>
 <string name="error_state_possible_fix">Possibile soluzione: %1$s</string>
 <string name="error_state_fix_retry_soon">riprova tra un attimo.</string>
