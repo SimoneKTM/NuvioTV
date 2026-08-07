@@ -393,7 +393,11 @@ function base64Url(bytes: Uint8Array): string {
 // ============================================================
 function router(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  const path = url.pathname;
+  // Su Supabase / Deno Deploy il pathname arriva con il prefisso del
+  // nome funzione (es. /tracker-login/start); se presente lo togliamo
+  // così il router vede i percorsi "relativi" (start, poll, ...).
+  const rawPath = url.pathname;
+  const path = rawPath.startsWith("/tracker-login/") ? rawPath.slice("/tracker-login".length) : rawPath;
   if (req.method === "OPTIONS") {
     return Promise.resolve(
       new Response(null, {

@@ -60,13 +60,57 @@ internal data class MalAnimeNode(
 )
 
 @Serializable
-internal data class MalPicture(
+data class MalPicture(
     val medium: String? = null,
     val large: String? = null
 )
 
 @Serializable
-internal data class MalPaging(
+data class MalSearchResponse(
+    val data: List<MalSearchNode> = emptyList(),
+    val paging: MalPaging? = null
+)
+
+@Serializable
+data class MalSearchNode(
+    val node: MalSearchAnime? = null
+)
+
+@Serializable
+data class MalSearchAnime(
+    val id: Long? = null,
+    val title: String? = null,
+    @SerialName("main_picture") val mainPicture: MalPicture? = null,
+    val synopsis: String? = null,
+    val mean: Double? = null,
+    val rank: Int? = null,
+    val popularity: Int? = null,
+    @SerialName("num_episodes") val numEpisodes: Int? = null,
+    val status: String? = null,
+    val genres: List<MalGenre>? = null,
+    @SerialName("media_type") val mediaType: String? = null,
+    @SerialName("start_date") val startDate: String? = null
+)
+
+@Serializable
+data class MalRankingResponse(
+    val data: List<MalRankingNode> = emptyList(),
+    val paging: MalPaging? = null
+)
+
+@Serializable
+data class MalRankingNode(
+    val node: MalSearchAnime? = null
+)
+
+@Serializable
+data class MalGenre(
+    val id: Int? = null,
+    val name: String? = null
+)
+
+@Serializable
+data class MalPaging(
     val next: String? = null,
     val previous: String? = null
 )

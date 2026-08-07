@@ -101,6 +101,10 @@ class AniListApi(
                 Viewer {
                     id
                     name
+                    avatar {
+                        large
+                        medium
+                    }
                 }
             }
         """.trimIndent()

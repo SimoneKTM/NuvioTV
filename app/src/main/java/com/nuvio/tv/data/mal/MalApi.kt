@@ -114,6 +114,90 @@ class MalApi(
 
     fun hasRequiredCredentials(): Boolean = configuration.clientId.isNotBlank()
 
+    private fun publicHeaders(): Map<String, String> = mapOf(
+        "X-MAL-CLIENT-ID" to configuration.clientId
+    )
+
+    /** Searches anime by name using the public X-MAL-CLIENT-ID endpoint (no token needed). */
+    suspend fun searchAnime(
+        query: String,
+        limit: Int = 10,
+        offset: Int = 0
+    ): MalSearchResponse {
+        val endpoint = "anime".toHttpUrl().newBuilder()
+            .addQueryParameter("q", query)
+            .addQueryParameter("limit", limit.toString())
+            .addQueryParameter("offset", offset.toString())
+            .addQueryParameter("fields", PUBLIC_FIELDS)
+            .build()
+            .toString()
+        val response = executePublic(endpoint = endpoint)
+        return runCatching { json.decodeFromString<MalSearchResponse>(response) }
+            .getOrElse { MalSearchResponse() }
+    }
+
+    /** Fetches details for a single anime using the public endpoint (no token needed). */
+    suspend fun getAnimeDetails(animeId: Long): MalSearchAnime? {
+        val response = executePublic(endpoint = "anime/$animeId?fields=$DETAILS_FIELDS")
+        return runCatching { json.decodeFromString<MalSearchAnime>(response) }.getOrNull()
+    }
+
+    /** Fetches the anime ranking using the public endpoint (no token needed). */
+    suspend fun getRanking(
+        rankingType: String = "all",
+        limit: Int = 10,
+        offset: Int = 0
+    ): MalRankingResponse {
+        val url = buildString {
+            append("anime/ranking?ranking_type=").append(rankingType)
+            append("&limit=").append(limit)
+            append("&offset=").append(offset)
+            append("&fields=").append(PUBLIC_FIELDS)
+        }
+        val response = executePublic(endpoint = url)
+        return runCatching { json.decodeFromString<MalRankingResponse>(response) }
+            .getOrElse { MalRankingResponse() }
+    }
+
+    private suspend fun executePublic(endpoint: String): String {
+        var attempt = 0
+        while (true) {
+            attempt++
+            val response = try {
+                lastRequestAtEpochMs = System.currentTimeMillis()
+                engine.execute(
+                    MalHttpRequest(
+                        method = "GET",
+                        url = "${configuration.baseUrl}/$endpoint",
+                        headers = publicHeaders() + mapOf("Accept" to "application/json"),
+                        body = ""
+                    )
+                )
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                if (attempt >= MAX_ATTEMPTS) {
+                    throw MalApiException(null, "MyAnimeList request failed", error)
+                }
+                delay(retryDelayMs(attempt, isRateLimit = false))
+                continue
+            }
+            when (response.status) {
+                in 200..299 -> return response.body
+                in 408..429 -> {
+                    if (attempt >= MAX_ATTEMPTS) {
+                        throw MalApiException(response.status, "MyAnimeList request failed with HTTP ${response.status}")
+                    }
+                    delay(retryDelayMs(attempt, isRateLimit = response.status == 429))
+                }
+                else -> throw MalApiException(
+                    response.status,
+                    malErrorMessage(response.body) ?: "MyAnimeList request failed with HTTP ${response.status}"
+                )
+            }
+        }
+    }
+
     fun authorizeUrl(codeChallenge: String, state: String): String? =
         if (hasRequiredCredentials()) buildMalAuthorizeUrl(configuration, codeChallenge, state) else null
 
@@ -388,6 +472,8 @@ class MalApi(
     private companion object {
         const val LIBRARY_PAGE_LIMIT = 1_000
         const val LIBRARY_FIELDS = "id,title,main_picture,num_episodes,status,media_type,start_date,list_status"
+        const val PUBLIC_FIELDS = "id,title,main_picture,synopsis,mean,rank,popularity,num_episodes,status,media_type,genres,start_date"
+        const val DETAILS_FIELDS = "id,title,main_picture,synopsis,mean,rank,popularity,num_episodes,status,media_type,genres,start_date,average_episode_duration,studios"
         const val MIN_REQUEST_INTERVAL_MS = 800L
         const val RATE_LIMIT_BASE_DELAY_MS = 5_000L
         const val MAX_RETRY_DELAY_MS = 60_000L

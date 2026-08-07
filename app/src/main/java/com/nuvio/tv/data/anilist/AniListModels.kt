@@ -58,7 +58,14 @@ internal data class AniListUserData(
 @Serializable
 data class AniListViewer(
     val id: Long,
-    val name: String? = null
+    val name: String? = null,
+    val avatar: AniListUserAvatar? = null
+)
+
+@Serializable
+data class AniListUserAvatar(
+    val large: String? = null,
+    val medium: String? = null
 )
 
 @Serializable
