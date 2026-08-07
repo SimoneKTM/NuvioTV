@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.FilterDrama
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
@@ -231,6 +232,7 @@ fun SettingsScreen(
     showBuiltInHeader: Boolean = true,
     onNavigateToTracking: () -> Unit = {},
     onNavigateToAddons: () -> Unit = {},
+    onNavigateToAnimeSettings: () -> Unit = {},
     onNavigateToPlugins: () -> Unit = {},
     onNavigateToAuthQrSignIn: () -> Unit = {},
     onNavigateToManageProfiles: () -> Unit = {},
@@ -535,6 +537,7 @@ fun SettingsScreen(
                                 integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                                 onNavigateToManageProfiles = onNavigateToManageProfiles,
                                 onNavigateToAddons = onNavigateToAddons,
+                                onNavigateToAnimeSettings = onNavigateToAnimeSettings,
                                 onNavigateToPlugins = onNavigateToPlugins,
                                 onNavigateToAuthQrSignIn = onNavigateToAuthQrSignIn,
                                 onNavigateToSupportersContributors = onNavigateToSupportersContributors,
@@ -686,6 +689,7 @@ fun SettingsScreen(
                         integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                         onNavigateToManageProfiles = onNavigateToManageProfiles,
                         onNavigateToAddons = onNavigateToAddons,
+                        onNavigateToAnimeSettings = onNavigateToAnimeSettings,
                         onNavigateToPlugins = onNavigateToPlugins,
                         onNavigateToAuthQrSignIn = onNavigateToAuthQrSignIn,
                         onNavigateToSupportersContributors = onNavigateToSupportersContributors,
@@ -714,6 +718,7 @@ private fun SettingsDetailPane(
     integrationAnimeSkipFocusRequester: FocusRequester,
     onNavigateToManageProfiles: () -> Unit,
     onNavigateToAddons: () -> Unit,
+    onNavigateToAnimeSettings: () -> Unit,
     onNavigateToPlugins: () -> Unit,
     onNavigateToAuthQrSignIn: () -> Unit,
     onNavigateToSupportersContributors: () -> Unit,
@@ -813,6 +818,7 @@ private fun SettingsDetailPane(
         )
         SettingsCategory.CONTENT_DISCOVERY -> ContentDiscoverySettingsContent(
             onNavigateToAddons = onNavigateToAddons,
+            onNavigateToAnimeSettings = onNavigateToAnimeSettings,
             onNavigateToPlugins = onNavigateToPlugins,
             showPlugins = AppFeaturePolicy.pluginsEnabled && !isEssentialMode,
             initialFocusRequester = if (allowDetailAutofocus) {
@@ -837,6 +843,7 @@ private fun SettingsDetailPane(
 @Composable
 private fun ContentDiscoverySettingsContent(
     onNavigateToAddons: () -> Unit,
+    onNavigateToAnimeSettings: () -> Unit,
     onNavigateToPlugins: () -> Unit,
     showPlugins: Boolean,
     initialFocusRequester: FocusRequester?
@@ -860,6 +867,12 @@ private fun ContentDiscoverySettingsContent(
                 } else {
                     Modifier
                 }
+            )
+            SettingsActionRow(
+                title = stringResource(R.string.nav_anime),
+                subtitle = stringResource(R.string.anime_settings_subtitle),
+                onClick = onNavigateToAnimeSettings,
+                leadingIcon = Icons.Default.FilterDrama
             )
             if (showPlugins) {
                 SettingsActionRow(

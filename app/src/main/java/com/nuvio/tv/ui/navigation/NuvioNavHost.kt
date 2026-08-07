@@ -1063,6 +1063,7 @@ fun NuvioNavHost(
                 showBuiltInHeader = !hideBuiltInHeaders,
                 onNavigateToTracking = { navController.navigate(Screen.Tracking.route) },
                 onNavigateToAddons = { navController.navigate(Screen.AddonManager.route) },
+                onNavigateToAnimeSettings = { navController.navigate(Screen.AnimeSettings.route) },
                 onNavigateToPlugins = { navController.navigate(Screen.Plugins.route) },
                 onNavigateToAuthQrSignIn = { navController.navigate(Screen.AuthQrSignIn.route) },
                 onNavigateToManageProfiles = { navController.navigate(Screen.ManageProfiles.route) },
@@ -1072,6 +1073,39 @@ fun NuvioNavHost(
                 onNavigateToLicensesAttributions = {
                     navController.navigate(Screen.LicensesAttributions.route)
                 }
+            )
+        }
+
+        composable(Screen.Anime.route) {
+            val animeViewModel: com.nuvio.tv.ui.screens.anime.AnimeHomeViewModel =
+                androidx.hilt.navigation.compose.hiltViewModel()
+            com.nuvio.tv.ui.screens.anime.AnimeHomeScreen(
+                viewModel = animeViewModel,
+                onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
+                    val heroBackdrop = HeroBackdropState.consumeAndClear()
+                    navController.navigate(
+                        Screen.Detail.createRoute(
+                            itemId = itemId,
+                            itemType = itemType,
+                            addonBaseUrl = addonBaseUrl,
+                            heroBackdropUrl = heroBackdrop
+                        )
+                    )
+                },
+                onNavigateToSeeAll = { catalogId, addonId, type ->
+                    navController.navigate(
+                        Screen.CatalogSeeAll.createRoute(catalogId, addonId, type, fromAnime = true)
+                    )
+                },
+                onOpenSettings = { navController.navigate(Screen.AnimeSettings.route) }
+            )
+        }
+
+        composable(Screen.AnimeSettings.route) {
+            com.nuvio.tv.ui.screens.anime.AnimeSettingsScreen(
+                onBackPress = { navController.popBackStack() },
+                onNavigateToPlugins = { navController.navigate(Screen.Plugins.route) },
+                onNavigateToTracking = { navController.navigate(Screen.Tracking.route) }
             )
         }
 
@@ -1235,6 +1269,10 @@ fun NuvioNavHost(
                 navArgument("fromSearch") {
                     type = NavType.BoolType
                     defaultValue = false
+                },
+                navArgument("fromAnime") {
+                    type = NavType.BoolType
+                    defaultValue = false
                 }
             )
         ) { backStackEntry ->
@@ -1242,6 +1280,7 @@ fun NuvioNavHost(
             val addonId = backStackEntry.arguments?.getString("addonId") ?: ""
             val type = backStackEntry.arguments?.getString("type") ?: ""
             val fromSearch = backStackEntry.arguments?.getBoolean("fromSearch") ?: false
+            val fromAnime = backStackEntry.arguments?.getBoolean("fromAnime") ?: false
 
             // When coming from search, get the SearchViewModel from the Search back stack entry
             // so we share the same data (existing results + pagination)
@@ -1253,6 +1292,15 @@ fun NuvioNavHost(
             val searchViewModel: com.nuvio.tv.ui.screens.search.SearchViewModel? =
                 if (searchBackStackEntry != null) {
                     androidx.hilt.navigation.compose.hiltViewModel<com.nuvio.tv.ui.screens.search.SearchViewModel>(searchBackStackEntry)
+                } else null
+            val animeBackStackEntry = androidx.compose.runtime.remember(fromAnime) {
+                if (fromAnime) {
+                    try { navController.getBackStackEntry(Screen.Anime.route) } catch (_: Exception) { null }
+                } else null
+            }
+            val animeViewModel: com.nuvio.tv.ui.screens.anime.AnimeHomeViewModel? =
+                if (animeBackStackEntry != null) {
+                    androidx.hilt.navigation.compose.hiltViewModel<com.nuvio.tv.ui.screens.anime.AnimeHomeViewModel>(animeBackStackEntry)
                 } else null
             val homeBackStackEntry = androidx.compose.runtime.remember {
                 try { navController.getBackStackEntry(Screen.Home.route) } catch (_: Exception) { null }
@@ -1269,6 +1317,7 @@ fun NuvioNavHost(
                 addonId = addonId,
                 type = type,
                 searchViewModel = searchViewModel,
+                animeViewModel = animeViewModel,
                 viewModel = homeViewModel,
                 onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
                     navController.navigate(Screen.Detail.createRoute(itemId, itemType, addonBaseUrl))

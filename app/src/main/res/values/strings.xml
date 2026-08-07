@@ -2124,6 +2124,7 @@
 
     <!-- SidebarNavigation / MainActivity -->
     <string name="nav_home">Home</string>
+    <string name="nav_anime">Anime</string>
     <string name="nav_discover">Discover</string>
     <string name="nav_search">Search</string>
     <string name="nav_library">Library</string>
@@ -2134,6 +2135,21 @@
     <string name="action_select">Select</string>
     <string name="settings_rounded_ui">Rounded UI</string>
     <string name="cd_expand_sidebar">Expand sidebar</string>
+
+    <!-- Anime tab -->
+    <string name="anime_settings_title">Anime</string>
+    <string name="anime_settings_subtitle">Anime addons, plugins and tracking</string>
+    <string name="anime_home_empty_title">No anime addons configured</string>
+    <string name="anime_home_empty_subtitle">Add an anime addon to fill this tab with content.</string>
+    <string name="anime_home_empty_action">Open anime settings</string>
+    <string name="anime_home_no_catalogs_title">No anime catalogs available</string>
+    <string name="anime_home_no_catalogs_subtitle">The installed anime addons don\'t expose any home catalogs.</string>
+    <string name="anime_home_addons_count">%1$d addon(s) active</string>
+    <string name="anime_add_addon">Add anime addon</string>
+    <string name="anime_addons_section">Installed anime addons</string>
+    <string name="anime_addons_empty">No anime addons installed yet.</string>
+    <string name="anime_settings_plugins_subtitle">Stream scrapers used to resolve anime sources</string>
+    <string name="anime_settings_tracking_subtitle">Connect AniList, MAL or Kitsu to track anime progress</string>
 
     <string name="update_checking">Checking for updates…</string>
     <string name="update_download_complete">Download complete. Ready to install.</string>

@@ -61,6 +61,7 @@ import com.nuvio.tv.ui.screens.home.HomeViewModel
 import com.nuvio.tv.ui.screens.search.SearchEvent
 import com.nuvio.tv.ui.screens.search.SearchViewModel
 import com.nuvio.tv.domain.model.MetaPreview
+import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.legacyKey
 import com.nuvio.tv.domain.model.stableItemKey
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -75,6 +76,7 @@ fun CatalogSeeAllScreen(
     addonId: String,
     type: String,
     searchViewModel: SearchViewModel? = null,
+    animeViewModel: com.nuvio.tv.ui.screens.anime.AnimeHomeViewModel? = null,
     viewModel: HomeViewModel = hiltViewModel(),
     posterOptionsViewModel: com.nuvio.tv.ui.components.posteroptions.PosterOptionsViewModel = hiltViewModel(),
     onNavigateToDetail: (String, String, String) -> Unit,
@@ -83,6 +85,10 @@ fun CatalogSeeAllScreen(
     val posterOptionsController = searchViewModel?.posterOptions ?: posterOptionsViewModel.controller
     val uiState by viewModel.uiState.collectAsState()
     val fullCatalogRows by viewModel.fullCatalogRows.collectAsState()
+    val animeFullRowsState: androidx.compose.runtime.State<List<CatalogRow>> =
+        animeViewModel?.fullCatalogRows?.let { it.collectAsState() }
+            ?: remember { mutableStateOf(emptyList()) }
+    val animeFullRows by animeFullRowsState
     val computedHeightDp = (uiState.posterCardWidthDp * 1.5f).roundToInt()
     val posterCardStyle = PosterCardStyle(
         width = uiState.posterCardWidthDp.dp,
@@ -95,9 +101,11 @@ fun CatalogSeeAllScreen(
     BackHandler { onBackPress() }
 
     val isSearchMode = searchViewModel != null
+    val isAnimeMode = animeViewModel != null
     val catalogKey = "${addonId}_${type}_${catalogId}"
 
     // In search mode, get the catalog row from SearchViewModel's existing results.
+    // In anime mode, get it from the Anime tab's AnimeHomeViewModel.
     // Otherwise fall back to HomeViewModel's fullCatalogRows (home screen catalogs).
     val searchUiState = searchViewModel?.uiState?.collectAsState()
     val searchWatchedMovieIds = searchViewModel?.watchedMovieIds?.collectAsState()
@@ -105,13 +113,24 @@ fun CatalogSeeAllScreen(
     val searchCatalogRow = searchUiState?.value?.catalogRows?.find {
         it.legacyKey() == catalogKey
     }
+    val animeCatalogRow = animeFullRows.find {
+        it.legacyKey() == catalogKey
+    }
     val homeCatalogRow = fullCatalogRows.find {
         it.legacyKey() == catalogKey
     }
-    val catalogRow = if (isSearchMode) searchCatalogRow else homeCatalogRow
+    val catalogRow = when {
+        isAnimeMode -> animeCatalogRow
+        isSearchMode -> searchCatalogRow
+        else -> homeCatalogRow
+    }
 
-    LaunchedEffect(catalogKey, isSearchMode, catalogRow != null) {
-        if (!isSearchMode && catalogRow == null) {
+    LaunchedEffect(catalogKey, isSearchMode, isAnimeMode, catalogRow != null) {
+        if (isAnimeMode) {
+            if (catalogRow == null) {
+                animeViewModel?.ensureCatalogLoaded(catalogId, addonId, type)
+            }
+        } else if (!isSearchMode && catalogRow == null) {
             viewModel.requestLazyCatalogLoad(catalogKey)
         }
     }
@@ -144,7 +163,15 @@ fun CatalogSeeAllScreen(
                 if (total > 0 && lastVisible >= total - 10) {
                     val row = catalogRow
                     if (row != null && row.hasMore && !row.isLoading) {
-                        if (isSearchMode) {
+                        if (isAnimeMode) {
+                            animeViewModel?.onEvent(
+                                com.nuvio.tv.ui.screens.anime.AnimeHomeEvent.OnLoadMoreCatalog(
+                                    row.catalogId,
+                                    row.addonId,
+                                    row.apiType
+                                )
+                            )
+                        } else if (isSearchMode) {
                             searchViewModel.onEvent(
                                 SearchEvent.LoadMoreCatalog(row.catalogId, row.addonId, row.apiType)
                             )
@@ -243,6 +270,8 @@ fun CatalogSeeAllScreen(
                             val isSeries = item.apiType.equals("series", ignoreCase = true) || item.apiType.equals("tv", ignoreCase = true)
                             if (isSeries) item.id in (searchWatchedSeriesIds?.value ?: emptySet())
                             else item.id in (searchWatchedMovieIds?.value ?: emptySet())
+                        } else if (isAnimeMode) {
+                            false
                         } else {
                             uiState.movieWatchedStatus[
                                 com.nuvio.tv.ui.screens.home.homeItemStatusKey(item.id, item.apiType)
