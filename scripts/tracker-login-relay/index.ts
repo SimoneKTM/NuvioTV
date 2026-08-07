@@ -9,13 +9,21 @@
 // che approva da solo dopo 2 secondi: permette di testare il QR
 // end-to-end senza prima dover registrare un'app sui provider.
 //
-// Gira identica in locale (deno run --allow-net index.ts) e come
-// edge function Supabase (usa Deno.serve, l'entry standard).
+// Gira identica in locale (deno run --allow-env --allow-net index.ts)
+// e come edge function Supabase (usa Deno.serve, l'entry standard).
+//
+// IMPORTANTE: su Supabase le sessioni NON possono stare solo in
+// memoria (le istanze sono multiple e vengono ricreate): vengono
+// persistite sulla tabella `relay_sessions` del database collegato.
+// In locale (senza SUPABASE_URL) si usa una Map in memoria.
 // ============================================================
 
+// @ts-ignore - import con runtime
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.45.4";
+
 interface RelaySession {
-  provider: string;
   userCode: string;
+  provider: string;
   status: "pending" | "approved" | "expired";
   payload: string | null;
   expiresAt: number;
@@ -41,9 +49,113 @@ const PROVIDERS: Record<string, string> = {
   mock: "mock", // il mock non richiede credenziali
 };
 
-// Sessioni in memoria. Per più istanze in produzione servirebbe un DB
-// (vedi docs nel README del progetto), per test e uso singolo va bene.
-const sessions = new Map<string, RelaySession>();
+// -------- Session store: Postgres su Supabase, Map in locale --------
+interface SessionStore {
+  create(session: RelaySession): Promise<void>;
+  get(userCode: string): Promise<RelaySession | null>;
+  update(
+    userCode: string,
+    fields: Partial<Pick<RelaySession, "status" | "payload" | "pollIntervalSeconds">>,
+  ): Promise<void>;
+}
+
+class MemoryStore implements SessionStore {
+  private readonly map = new Map<string, RelaySession>();
+
+  async create(session: RelaySession): Promise<void> {
+    this.map.set(session.userCode, session);
+  }
+
+  async get(userCode: string): Promise<RelaySession | null> {
+    return this.map.get(userCode) ?? null;
+  }
+
+  async update(
+    userCode: string,
+    fields: Partial<Pick<RelaySession, "status" | "payload" | "pollIntervalSeconds">>,
+  ): Promise<void> {
+    const existing = this.map.get(userCode);
+    if (existing) {
+      this.map.set(userCode, { ...existing, ...fields });
+    }
+  }
+}
+
+class SupabaseStore implements SessionStore {
+  private readonly client: SupabaseClient;
+
+  constructor(client: SupabaseClient) {
+    this.client = client;
+  }
+
+  private rowToSession(row: Record<string, unknown>): RelaySession | null {
+    if (typeof row.user_code !== "string") return null;
+    return {
+      userCode: row.user_code,
+      provider: String(row.provider ?? ""),
+      status: (row.status as RelaySession["status"]) ?? "pending",
+      payload: typeof row.payload === "string" ? row.payload : null,
+      expiresAt: Number(row.expires_at ?? 0),
+      pollIntervalSeconds: Number(row.poll_interval_seconds ?? DEFAULT_POLL_INTERVAL_SEC),
+      state:
+        row.state && typeof row.state === "object" && !Array.isArray(row.state)
+          ? (row.state as Record<string, unknown>)
+          : {},
+    };
+  }
+
+  async create(session: RelaySession): Promise<void> {
+    const { error } = await this.client.from("relay_sessions").insert({
+      user_code: session.userCode,
+      provider: session.provider,
+      status: session.status,
+      payload: session.payload,
+      state: session.state,
+      expires_at: session.expiresAt,
+      poll_interval_seconds: session.pollIntervalSeconds,
+    });
+    if (error) throw new Error(`db insert failed: ${error.message}`);
+  }
+
+  async get(userCode: string): Promise<RelaySession | null> {
+    const { data, error } = await this.client
+      .from("relay_sessions")
+      .select("*")
+      .eq("user_code", userCode)
+      .maybeSingle();
+    if (error) throw new Error(`db select failed: ${error.message}`);
+    if (!data) return null;
+    return this.rowToSession(data as Record<string, unknown>);
+  }
+
+  async update(
+    userCode: string,
+    fields: Partial<Pick<RelaySession, "status" | "payload" | "pollIntervalSeconds">>,
+  ): Promise<void> {
+    const patch: Record<string, unknown> = {};
+    if (fields.status !== undefined) patch.status = fields.status;
+    if (fields.payload !== undefined) patch.payload = fields.payload;
+    if (fields.pollIntervalSeconds !== undefined) {
+      patch.poll_interval_seconds = fields.pollIntervalSeconds;
+    }
+    const { error } = await this.client
+      .from("relay_sessions")
+      .update(patch)
+      .eq("user_code", userCode);
+    if (error) throw new Error(`db update failed: ${error.message}`);
+  }
+}
+
+function createStore(): SessionStore {
+  const url = env("SUPABASE_URL");
+  const serviceRoleKey = env("SUPABASE_SERVICE_ROLE_KEY");
+  if (url && serviceRoleKey) {
+    return new SupabaseStore(createClient(url, serviceRoleKey));
+  }
+  return new MemoryStore();
+}
+
+const store = createStore();
 
 // -------- Endpoint costanti dei provider --------
 const KITSU_AUTHORIZE_URL = "https://kitsu.app/api/oauth/authorize";
@@ -61,32 +173,39 @@ async function handleStart(req: Request): Promise<Response> {
   if (!provider) return json({ error: "missing provider" }, 400);
   if (!(provider in PROVIDERS)) return json({ error: "unsupported provider" }, 400);
 
-  const userCode = generateUserCode();
-  const now = Date.now();
-  const session: RelaySession = {
-    provider,
-    userCode,
-    status: "pending",
-    payload: null,
-    expiresAt: now + SESSION_TTL_MS,
-    pollIntervalSeconds: DEFAULT_POLL_INTERVAL_SEC,
-    state: {},
-  };
-
-  const url =
-    provider === "mock"
-      ? mockUrl(userCode)
-      : await buildAuthorizeUrl(provider, PROVIDERS[provider]!, session);
-  if (!url) return json({ error: "provider not configured on relay" }, 500);
-
-  sessions.set(userCode, session);
-
-  return json({
-    user_code: userCode,
-    url,
-    expires_at: session.expiresAt,
-    poll_interval_seconds: session.pollIntervalSeconds,
-  });
+  let session: RelaySession;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const userCode = generateUserCode();
+    session = {
+      provider,
+      userCode,
+      status: "pending",
+      payload: null,
+      expiresAt: Date.now() + SESSION_TTL_MS,
+      pollIntervalSeconds: DEFAULT_POLL_INTERVAL_SEC,
+      state: {},
+    };
+    const url =
+      provider === "mock"
+        ? mockUrl(userCode)
+        : await buildAuthorizeUrl(provider, PROVIDERS[provider]!, session);
+    if (!url) return json({ error: "provider not configured on relay" }, 500);
+    try {
+      await store.create(session);
+      return json({
+        user_code: userCode,
+        url,
+        expires_at: session.expiresAt,
+        poll_interval_seconds: session.pollIntervalSeconds,
+      });
+    } catch {
+      // collisione di user_code (o DB momentaneamente giù): riprova con un altro codice
+      if (attempt === 4) {
+        return json({ error: "could not persist session" }, 500);
+      }
+    }
+  }
+  return json({ error: "could not persist session" }, 500);
 }
 
 // ============================================================
@@ -96,7 +215,13 @@ async function handlePoll(req: Request): Promise<Response> {
   const body = await parseJson<{ user_code?: string }>(req);
   const userCode = body?.user_code?.trim();
   if (!userCode) return json({ error: "missing user_code" }, 400);
-  const session = sessions.get(userCode);
+  let session: RelaySession | null = null;
+  try {
+    session = await store.get(userCode);
+  } catch (error) {
+    console.error("poll store error", error);
+    return json({ error: "storage unavailable" }, 500);
+  }
   if (!session || Date.now() > session.expiresAt) {
     return json({ status: "expired" });
   }
@@ -115,12 +240,20 @@ async function handleApprove(req: Request): Promise<Response> {
   const body = await parseJson<{ user_code?: string; payload?: string }>(req);
   const userCode = body?.user_code?.trim();
   if (!userCode) return json({ error: "missing user_code" }, 400);
-  const session = sessions.get(userCode);
+  let session: RelaySession | null = null;
+  try {
+    session = await store.get(userCode);
+  } catch (error) {
+    console.error("approve store error", error);
+    return json({ error: "storage unavailable" }, 500);
+  }
   if (!session) return json({ error: "session not found" }, 404);
   if (Date.now() > session.expiresAt) return json({ error: "session expired" }, 410);
-  session.status = "approved";
-  session.payload = body?.payload ?? "mock-access-token";
-  session.pollIntervalSeconds = 1;
+  await store.update(userCode, {
+    status: "approved",
+    payload: body?.payload ?? "mock-access-token",
+    pollIntervalSeconds: 1,
+  });
   return json({ ok: true });
 }
 
@@ -181,14 +314,19 @@ async function handleCallback(_req: Request, provider: string): Promise<Response
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const accessToken = url.searchParams.get("access_token");
-  const session = state ? sessions.get(state) : undefined;
+  let session: RelaySession | null = null;
+  try {
+    session = state ? await store.get(state) : null;
+  } catch (error) {
+    console.error("callback store error", error);
+  }
 
   if (session) {
     // AniList (implicit): il token arriva come #access_token (fragment),
     // che il server NON vede. Rispondiamo con una pagina HTML che
     // estrae il fragment via JS e lo invia a /approve.
     if (provider === "anilist") {
-      const safeCode = state.replace(/[^a-zA-Z0-9]/g, "");
+      const safeCode = state!.replace(/[^a-zA-Z0-9]/g, "");
       return html(fragmentCapturePage(safeCode));
     }
     // MAL / Kitsu (auth-code): il codice arriva come query param.
@@ -196,6 +334,11 @@ async function handleCallback(_req: Request, provider: string): Promise<Response
     if (code) {
       const payload = await exchangeCode(provider, session, code);
       if (payload) {
+        await store.update(session.userCode, {
+          status: "approved",
+          payload,
+          pollIntervalSeconds: 1,
+        });
         session.status = "approved";
         session.payload = payload;
       }
