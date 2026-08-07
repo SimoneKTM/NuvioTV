@@ -52,6 +52,9 @@ scripts/*
 !scripts/tests/*.py
 !scripts/tracker-login-relay/
 !scripts/tracker-login-relay/*.ts
+!scripts/tracker-login-relay/.env.example
+!scripts/tracker-login-relay/run-relay.bat
+scripts/tracker-login-relay/.env
 /supabase
 tv-samples
 HOME_UI_OPTIMIZATION_NOTES.local.md
