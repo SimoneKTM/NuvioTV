@@ -21,7 +21,7 @@ __pycache__/
 local.properties
 libass-android
 Stremio addons refer
-nuviotv.jks
+nuviotv*.jks
 CLAUDE.md
 build_and_install.sh
 android-tv-samples
