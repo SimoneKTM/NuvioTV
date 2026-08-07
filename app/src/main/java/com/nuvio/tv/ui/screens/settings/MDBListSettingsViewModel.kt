@@ -18,7 +18,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class MDBListSettingsViewModel @Inject constructor(
+open class MDBListSettingsViewModel @Inject constructor(
     private val dataStore: MDBListSettingsDataStore,
     private val mdbListApi: MDBListApi
 ) : ViewModel() {

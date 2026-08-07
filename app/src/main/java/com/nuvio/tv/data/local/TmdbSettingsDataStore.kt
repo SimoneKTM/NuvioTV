@@ -20,8 +20,18 @@ class TmdbSettingsDataStore @Inject constructor(
         private const val FEATURE = "tmdb_settings"
     }
 
+    private var featureName: String = FEATURE
+
+    internal constructor(
+        factory: ProfileDataStoreFactory,
+        profileManager: ProfileManager,
+        featureName: String
+    ) : this(factory, profileManager) {
+        this.featureName = featureName
+    }
+
     private fun store(profileId: Int = profileManager.activeProfileId.value) =
-        factory.get(profileId, FEATURE)
+        factory.get(profileId, featureName)
 
     private val enabledKey = booleanPreferencesKey("tmdb_enabled")
     private val modernHomeEnabledKey = booleanPreferencesKey("tmdb_modern_home_enabled")
@@ -40,7 +50,7 @@ class TmdbSettingsDataStore @Inject constructor(
     private val useCollectionsKey = booleanPreferencesKey("tmdb_use_collections")
 
     val settings: Flow<TmdbSettings> = profileManager.activeProfileId.flatMapLatest { pid ->
-        factory.get(pid, FEATURE).data.map { prefs ->
+        factory.get(pid, featureName).data.map { prefs ->
             TmdbSettings(
                 enabled = prefs[enabledKey] ?: false,
                 modernHomeEnabled = prefs[modernHomeEnabledKey] ?: false,

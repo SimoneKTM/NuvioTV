@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class TmdbSettingsViewModel @Inject constructor(
+open class TmdbSettingsViewModel @Inject constructor(
     private val dataStore: TmdbSettingsDataStore,
     private val trailerService: TrailerService,
     private val metaRepository: MetaRepository,

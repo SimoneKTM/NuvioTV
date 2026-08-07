@@ -27,6 +27,7 @@ import com.nuvio.tv.domain.model.TmdbCollectionSourceType
 import com.nuvio.tv.domain.model.TraktCollectionSource
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.domain.repository.AnimeAddonRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -120,6 +121,7 @@ class CollectionEditorViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val collectionsDataStore: CollectionsDataStore,
     private val addonRepository: AddonRepository,
+    private val animeAddonRepository: AnimeAddonRepository,
     private val tmdbCollectionSourceResolver: TmdbCollectionSourceResolver,
     private val traktPublicListSourceResolver: TraktPublicListSourceResolver,
     private val collectionSyncService: CollectionSyncService
@@ -138,7 +140,9 @@ class CollectionEditorViewModel @Inject constructor(
 
     private fun loadData() {
         viewModelScope.launch {
-            val addons = addonRepository.getInstalledAddons().first().enabledAddons()
+            val addons = (addonRepository.getInstalledAddons().first().enabledAddons() +
+                animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons())
+                .distinctBy { it.id }
             val availableCatalogs = addons.flatMap { addon ->
                 addon.catalogs
                     .filter { catalog ->

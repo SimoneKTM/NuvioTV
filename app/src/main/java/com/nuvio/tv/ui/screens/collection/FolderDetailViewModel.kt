@@ -30,6 +30,7 @@ import com.nuvio.tv.domain.model.nextCatalogSkip
 import com.nuvio.tv.domain.model.skipStep
 import com.nuvio.tv.domain.model.supportsExtra
 import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.domain.repository.AnimeAddonRepository
 import com.nuvio.tv.domain.repository.WatchProgressRepository
 import com.nuvio.tv.ui.screens.home.GridItem
 import com.nuvio.tv.ui.screens.home.HomeRow
@@ -107,6 +108,7 @@ class FolderDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val collectionsDataStore: CollectionsDataStore,
     private val addonRepository: AddonRepository,
+    private val animeAddonRepository: AnimeAddonRepository,
     private val catalogRepository: CatalogRepository,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val watchProgressRepository: WatchProgressRepository,
@@ -125,6 +127,11 @@ class FolderDetailViewModel @Inject constructor(
 
     private val collectionId: String = savedStateHandle["collectionId"] ?: ""
     private val folderId: String = savedStateHandle["folderId"] ?: ""
+
+    private suspend fun installedAddons(): List<com.nuvio.tv.domain.model.Addon> =
+        (addonRepository.getInstalledAddons().first().enabledAddons() +
+            animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons())
+            .distinctBy { it.id }
 
     private val _uiState = MutableStateFlow(FolderDetailUiState())
     val uiState: StateFlow<FolderDetailUiState> = _uiState.asStateFlow()
@@ -227,7 +234,7 @@ class FolderDetailViewModel @Inject constructor(
                 return@launch
             }
 
-            val addons = addonRepository.getInstalledAddons().first().enabledAddons()
+            val addons = installedAddons()
             val homeLayout = layoutPreferenceDataStore.selectedLayout.first()
             val posterLabelsEnabled = layoutPreferenceDataStore.posterLabelsEnabled.first()
             val catalogAddonNameEnabled = layoutPreferenceDataStore.catalogAddonNameEnabled.first()
@@ -618,7 +625,7 @@ class FolderDetailViewModel @Inject constructor(
 
     private fun loadAddonCatalogForTab(tabIndex: Int, source: AddonCatalogCollectionSource) {
         viewModelScope.launch {
-            val addons = addonRepository.getInstalledAddons().first().enabledAddons()
+            val addons = installedAddons()
             val addon = addons.find { it.id == source.addonId }
 
             if (addon == null) {

@@ -20,8 +20,18 @@ class MDBListSettingsDataStore @Inject constructor(
         private const val FEATURE = "mdblist_settings"
     }
 
+    private var featureName: String = FEATURE
+
+    internal constructor(
+        factory: ProfileDataStoreFactory,
+        profileManager: ProfileManager,
+        featureName: String
+    ) : this(factory, profileManager) {
+        this.featureName = featureName
+    }
+
     private fun store(profileId: Int = profileManager.activeProfileId.value) =
-        factory.get(profileId, FEATURE)
+        factory.get(profileId, featureName)
 
     private val enabledKey = booleanPreferencesKey("mdblist_enabled")
     private val apiKeyKey = stringPreferencesKey("mdblist_api_key")
@@ -35,7 +45,7 @@ class MDBListSettingsDataStore @Inject constructor(
     private val showMalKey = booleanPreferencesKey("mdblist_show_mal")
 
     val settings: Flow<MDBListSettings> = profileManager.activeProfileId.flatMapLatest { pid ->
-        factory.get(pid, FEATURE).data.map { prefs ->
+        factory.get(pid, featureName).data.map { prefs ->
             MDBListSettings(
                 enabled = prefs[enabledKey] ?: false,
                 apiKey = prefs[apiKeyKey] ?: "",

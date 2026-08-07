@@ -643,7 +643,11 @@ class MetaDetailsViewModel @Inject constructor(
 
             if (preferExternal) {
                 // 1) Try meta addons first
-                metaRepository.getMetaFromAllAddons(type = itemType, id = metaLookupId).collect { result ->
+                metaRepository.getMetaFromAllAddons(
+                    type = itemType,
+                    id = metaLookupId,
+                    sourceAddonBaseUrl = preferredAddonBaseUrl
+                ).collect { result ->
                     when (result) {
                         is NetworkResult.Success -> {
                             applyMetaWithEnrichment(result.data)
@@ -687,7 +691,11 @@ class MetaDetailsViewModel @Inject constructor(
                 if (preferredMeta != null) {
                     applyMetaWithEnrichment(preferredMeta)
                 } else {
-                    metaRepository.getMetaFromAllAddons(type = itemType, id = metaLookupId).collect { result ->
+                    metaRepository.getMetaFromAllAddons(
+                        type = itemType,
+                        id = metaLookupId,
+                        sourceAddonBaseUrl = preferredAddonBaseUrl
+                    ).collect { result ->
                         when (result) {
                             is NetworkResult.Success -> applyMetaWithEnrichment(result.data)
                             is NetworkResult.Error -> {
