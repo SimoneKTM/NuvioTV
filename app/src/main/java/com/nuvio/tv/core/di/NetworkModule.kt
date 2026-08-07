@@ -35,6 +35,12 @@ import com.nuvio.tv.data.anilist.AniListAuthError
 import com.nuvio.tv.data.anilist.AniListAuthStorage
 import com.nuvio.tv.data.anilist.OkHttpAniListEngine
 import com.nuvio.tv.data.anilist.defaultAniListApiConfiguration
+import com.nuvio.tv.data.kitsu.KitsuApi
+import com.nuvio.tv.data.kitsu.KitsuApiConfiguration
+import com.nuvio.tv.data.kitsu.KitsuAuthError
+import com.nuvio.tv.data.kitsu.KitsuAuthStorage
+import com.nuvio.tv.data.kitsu.OkHttpKitsuEngine
+import com.nuvio.tv.data.kitsu.defaultKitsuApiConfiguration
 import com.nuvio.tv.LocaleCache
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -204,6 +210,40 @@ object NetworkModule {
             storage.authorization()?.let { authorization ->
                 storage.clearAuth(
                     error = AniListAuthError.AUTHORIZATION_REVOKED,
+                    scope = authorization.scope,
+                    expectedAccessToken = authorization.accessToken
+                )
+            }
+        }
+    )
+
+    @Provides
+    @Singleton
+    @Named("kitsu")
+    fun provideKitsuOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
+        .dns(IPv4FirstDns())
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .build()
+
+    @Provides
+    @Singleton
+    fun provideKitsuApiConfiguration(): KitsuApiConfiguration = defaultKitsuApiConfiguration()
+
+    @Provides
+    @Singleton
+    fun provideKitsuApi(
+        @Named("kitsu") okHttpClient: OkHttpClient,
+        configuration: KitsuApiConfiguration,
+        storage: KitsuAuthStorage
+    ): KitsuApi = KitsuApi(
+        configuration = configuration,
+        engine = OkHttpKitsuEngine(okHttpClient),
+        accessToken = storage::accessToken,
+        onUnauthorized = {
+            storage.authorization()?.let { authorization ->
+                storage.clearAuth(
+                    error = KitsuAuthError.AUTHORIZATION_REVOKED,
                     scope = authorization.scope,
                     expectedAccessToken = authorization.accessToken
                 )

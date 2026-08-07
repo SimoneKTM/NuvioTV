@@ -31,6 +31,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import com.nuvio.tv.R
 import com.nuvio.tv.core.tracking.TrackingProviderId
 import com.nuvio.tv.data.anilist.AniListConnectionMode
+import com.nuvio.tv.data.kitsu.KitsuConnectionMode
 import com.nuvio.tv.data.local.MoreLikeThisSourcePreference
 import com.nuvio.tv.data.local.TraktSettingsDataStore
 import com.nuvio.tv.data.local.WatchProgressSource
@@ -47,15 +48,18 @@ fun TrackingSettingsScreen(
     simklViewModel: SimklSettingsViewModel = hiltViewModel(),
     trackingViewModel: TrackingSettingsViewModel = hiltViewModel(),
     anilistViewModel: AniListSettingsViewModel = hiltViewModel(),
+    kitsuViewModel: KitsuSettingsViewModel = hiltViewModel(),
     onBackPress: () -> Unit
 ) {
     val traktState by traktViewModel.uiState.collectAsStateWithLifecycle()
     val simklState by simklViewModel.uiState.collectAsStateWithLifecycle()
     val trackingState by trackingViewModel.uiState.collectAsStateWithLifecycle()
     val anilistState by anilistViewModel.uiState.collectAsStateWithLifecycle()
+    val kitsuState by kitsuViewModel.uiState.collectAsStateWithLifecycle()
     val traktFocusRequester = remember { FocusRequester() }
     val simklFocusRequester = remember { FocusRequester() }
     val anilistFocusRequester = remember { FocusRequester() }
+    val kitsuFocusRequester = remember { FocusRequester() }
     val libraryFocusRequester = remember { FocusRequester() }
     val watchProgressFocusRequester = remember { FocusRequester() }
     val continueWatchingFocusRequester = remember { FocusRequester() }
@@ -93,13 +97,14 @@ fun TrackingSettingsScreen(
         dismissOnConnected,
         traktState.mode,
         simklState.mode,
-        anilistState.mode
+        anilistState.mode,
+        kitsuState.mode
     ) {
         val connected = when (dismissOnConnected) {
             TrackingProviderId.TRAKT -> traktState.mode == TraktConnectionMode.CONNECTED
             TrackingProviderId.SIMKL -> simklState.mode == SimklConnectionMode.CONNECTED
             TrackingProviderId.ANILIST -> anilistState.mode == AniListConnectionMode.CONNECTED
-            TrackingProviderId.KITSU,
+            TrackingProviderId.KITSU -> kitsuState.mode == KitsuConnectionMode.CONNECTED
             TrackingProviderId.MAL -> false
             null -> false
         }
@@ -118,6 +123,7 @@ fun TrackingSettingsScreen(
                 TrackingFocusTarget.TRAKT -> traktFocusRequester.requestFocus()
                 TrackingFocusTarget.SIMKL -> simklFocusRequester.requestFocus()
                 TrackingFocusTarget.ANILIST -> anilistFocusRequester.requestFocus()
+                TrackingFocusTarget.KITSU -> kitsuFocusRequester.requestFocus()
                 TrackingFocusTarget.LIBRARY -> libraryFocusRequester.requestFocus()
                 TrackingFocusTarget.WATCH_PROGRESS -> watchProgressFocusRequester.requestFocus()
                 TrackingFocusTarget.CONTINUE_WATCHING -> continueWatchingFocusRequester.requestFocus()
@@ -132,7 +138,7 @@ fun TrackingSettingsScreen(
             TrackingProviderId.TRAKT -> TrackingFocusTarget.TRAKT
             TrackingProviderId.SIMKL -> TrackingFocusTarget.SIMKL
             TrackingProviderId.ANILIST -> TrackingFocusTarget.ANILIST
-            TrackingProviderId.KITSU,
+            TrackingProviderId.KITSU -> TrackingFocusTarget.KITSU
             TrackingProviderId.MAL -> null
         }
         activeProvider = provider
@@ -165,9 +171,15 @@ fun TrackingSettingsScreen(
                     dismissOnConnected = provider
                 }
             }
-            TrackingProviderId.KITSU,
+            TrackingProviderId.KITSU -> {
+                if (kitsuState.mode == KitsuConnectionMode.CONNECTED) {
+                    dismissOnConnected = null
+                } else {
+                    dismissOnConnected = provider
+                }
+            }
             TrackingProviderId.MAL -> {
-                // Future trackers.
+                // Future tracker.
             }
         }
     }
@@ -176,10 +188,12 @@ fun TrackingSettingsScreen(
         traktState = traktState,
         simklState = simklState,
         anilistState = anilistState,
+        kitsuState = kitsuState,
         trackingState = trackingState,
         traktFocusRequester = traktFocusRequester,
         simklFocusRequester = simklFocusRequester,
         anilistFocusRequester = anilistFocusRequester,
+        kitsuFocusRequester = kitsuFocusRequester,
         libraryFocusRequester = libraryFocusRequester,
         watchProgressFocusRequester = watchProgressFocusRequester,
         continueWatchingFocusRequester = continueWatchingFocusRequester,
@@ -187,6 +201,7 @@ fun TrackingSettingsScreen(
         onTraktClick = { openProvider(TrackingProviderId.TRAKT) },
         onSimklClick = { openProvider(TrackingProviderId.SIMKL) },
         onAniListClick = { openProvider(TrackingProviderId.ANILIST) },
+        onKitsuClick = { openProvider(TrackingProviderId.KITSU) },
         onLibrarySourceClick = {
             restoreFocusTarget = TrackingFocusTarget.LIBRARY
             showLibrarySourceDialog = true
@@ -265,9 +280,24 @@ fun TrackingSettingsScreen(
                 }
             )
         }
-        TrackingProviderId.KITSU,
+        TrackingProviderId.KITSU -> {
+            KitsuAccountDialog(
+                state = kitsuState,
+                onConnect = kitsuViewModel::connect,
+                onSync = kitsuViewModel::onSyncNow,
+                onDisconnect = {
+                    activeProvider = null
+                    dismissOnConnected = null
+                    disconnectProvider = TrackingProviderId.KITSU
+                },
+                onDismiss = {
+                    activeProvider = null
+                    dismissOnConnected = null
+                }
+            )
+        }
         TrackingProviderId.MAL -> {
-            // Future trackers.
+            // Future tracker.
         }
         null -> Unit
     }
@@ -284,14 +314,16 @@ fun TrackingSettingsScreen(
                 when (provider) {
                     TrackingProviderId.TRAKT -> R.string.trakt_disconnect_title
                     TrackingProviderId.SIMKL -> R.string.simkl_disconnect_title
-                    else -> R.string.anilist_disconnect_title
+                    TrackingProviderId.ANILIST -> R.string.anilist_disconnect_title
+                    else -> R.string.kitsu_disconnect_title
                 }
             ),
             subtitle = stringResource(
                 when (provider) {
                     TrackingProviderId.TRAKT -> R.string.trakt_disconnect_subtitle
                     TrackingProviderId.SIMKL -> R.string.simkl_disconnect_subtitle
-                    else -> R.string.anilist_disconnect_subtitle
+                    TrackingProviderId.ANILIST -> R.string.anilist_disconnect_subtitle
+                    else -> R.string.kitsu_disconnect_subtitle
                 }
             ),
             width = 520.dp,
@@ -312,7 +344,8 @@ fun TrackingSettingsScreen(
                         when {
                             isTrakt -> traktViewModel.onDisconnectClick()
                             isSimkl -> simklViewModel.onDisconnect()
-                            else -> anilistViewModel.onDisconnect()
+                            provider == TrackingProviderId.ANILIST -> anilistViewModel.onDisconnect()
+                            else -> kitsuViewModel.onDisconnect()
                         }
                     },
                     primary = true
@@ -446,10 +479,12 @@ internal fun TrackingSettingsOverview(
     traktState: TraktUiState,
     simklState: SimklSettingsUiState,
     anilistState: AniListSettingsUiState,
+    kitsuState: KitsuSettingsUiState,
     trackingState: TrackingSettingsUiState,
     traktFocusRequester: FocusRequester,
     simklFocusRequester: FocusRequester,
     anilistFocusRequester: FocusRequester,
+    kitsuFocusRequester: FocusRequester,
     libraryFocusRequester: FocusRequester,
     watchProgressFocusRequester: FocusRequester,
     continueWatchingFocusRequester: FocusRequester,
@@ -457,6 +492,7 @@ internal fun TrackingSettingsOverview(
     onTraktClick: () -> Unit,
     onSimklClick: () -> Unit,
     onAniListClick: () -> Unit,
+    onKitsuClick: () -> Unit,
     onLibrarySourceClick: () -> Unit,
     onWatchProgressClick: () -> Unit,
     onContinueWatchingWindowClick: () -> Unit,
@@ -468,6 +504,7 @@ internal fun TrackingSettingsOverview(
     val traktPresentation = traktConnectionPresentation(traktState)
     val simklPresentation = simklConnectionPresentation(simklState)
     val anilistPresentation = anilistConnectionPresentation(anilistState)
+    val kitsuPresentation = kitsuConnectionPresentation(kitsuState)
     val traktConnected = traktState.mode == TraktConnectionMode.CONNECTED
     val traktProgressActive = trackingState.watchProgressSource == WatchProgressSource.TRAKT
 
@@ -533,6 +570,18 @@ internal fun TrackingSettingsOverview(
                                 modifier = Modifier
                                     .focusRequester(anilistFocusRequester)
                                     .testTag(TrackingSettingsTestTags.ANILIST_PROVIDER)
+                            )
+                            SettingsActionRow(
+                                title = stringResource(R.string.kitsu_name),
+                                subtitle = kitsuPresentation.subtitle,
+                                value = kitsuPresentation.value,
+                                valueColor = kitsuPresentation.color,
+                                leadingRawIconRes = R.raw.kitsu_icon,
+                                leadingArtworkSize = 40.dp,
+                                onClick = onKitsuClick,
+                                modifier = Modifier
+                                    .focusRequester(kitsuFocusRequester)
+                                    .testTag(TrackingSettingsTestTags.KITSU_PROVIDER)
                             )
                         }
                     }
@@ -718,6 +767,30 @@ private fun anilistConnectionPresentation(state: AniListSettingsUiState): Tracki
 }
 
 @Composable
+private fun kitsuConnectionPresentation(state: KitsuSettingsUiState): TrackingConnectionPresentation {
+    return when {
+        state.isLoading && state.mode != KitsuConnectionMode.CONNECTED -> TrackingConnectionPresentation(
+            subtitle = stringResource(R.string.tracking_connecting_provider, stringResource(R.string.kitsu_name)),
+            value = stringResource(R.string.tracking_status_connecting),
+            color = NuvioTheme.colors.Info
+        )
+        state.mode == KitsuConnectionMode.CONNECTED -> TrackingConnectionPresentation(
+            subtitle = stringResource(
+                R.string.kitsu_connected_as,
+                state.username ?: stringResource(R.string.kitsu_user_fallback)
+            ),
+            value = stringResource(R.string.tracking_status_connected),
+            color = NuvioTheme.colors.Success
+        )
+        else -> TrackingConnectionPresentation(
+            subtitle = stringResource(R.string.kitsu_description),
+            value = stringResource(R.string.tracking_status_disconnected),
+            color = NuvioTheme.colors.TextSecondary
+        )
+    }
+}
+
+@Composable
 private fun watchProgressSourceLabel(source: WatchProgressSource): String = when (source) {
     WatchProgressSource.TRAKT -> stringResource(R.string.trakt_name)
     WatchProgressSource.SIMKL -> stringResource(R.string.simkl_name)
@@ -763,6 +836,7 @@ private enum class TrackingFocusTarget {
     TRAKT,
     SIMKL,
     ANILIST,
+    KITSU,
     LIBRARY,
     WATCH_PROGRESS,
     CONTINUE_WATCHING,
@@ -774,6 +848,7 @@ internal object TrackingSettingsTestTags {
     const val TRAKT_PROVIDER = "tracking_provider_trakt"
     const val SIMKL_PROVIDER = "tracking_provider_simkl"
     const val ANILIST_PROVIDER = "tracking_provider_anilist"
+    const val KITSU_PROVIDER = "tracking_provider_kitsu"
     const val LIBRARY_SOURCE = "tracking_source_library"
     const val WATCH_PROGRESS_SOURCE = "tracking_source_watch_progress"
     const val CONTINUE_WATCHING = "tracking_trakt_continue_watching"
