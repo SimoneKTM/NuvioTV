@@ -13,6 +13,7 @@ import com.nuvio.tv.data.local.TraktSettingsDataStore
 import com.nuvio.tv.data.local.WatchProgressSource
 import com.nuvio.tv.data.anilist.AniListAuthRepository
 import com.nuvio.tv.data.kitsu.KitsuAuthRepository
+import com.nuvio.tv.data.mal.MalAuthRepository
 import com.nuvio.tv.data.simkl.SimklAnimeIdPreference
 import com.nuvio.tv.data.simkl.SimklAuthRepository
 import com.nuvio.tv.data.simkl.SimklSyncRepository
@@ -48,7 +49,8 @@ class TrackingSettingsViewModel @Inject constructor(
     traktAuthDataStore: TraktAuthDataStore,
     simklAuthRepository: SimklAuthRepository,
     anilistAuthRepository: AniListAuthRepository,
-    kitsuAuthRepository: KitsuAuthRepository
+    kitsuAuthRepository: KitsuAuthRepository,
+    malAuthRepository: MalAuthRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(TrackingSettingsUiState())
     val uiState: StateFlow<TrackingSettingsUiState> = _uiState.asStateFlow()
@@ -63,13 +65,15 @@ class TrackingSettingsViewModel @Inject constructor(
                 traktAuthDataStore.state,
                 simklAuthRepository.state,
                 anilistAuthRepository.state,
-                kitsuAuthRepository.state
-            ) { traktState, simklState, anilistState, kitsuState ->
+                kitsuAuthRepository.state,
+                malAuthRepository.state
+            ) { traktState, simklState, anilistState, kitsuState, malState ->
                 buildSet {
                     if (traktState.isAuthenticated) add(TrackingProviderId.TRAKT)
                     if (simklState.isAuthenticated) add(TrackingProviderId.SIMKL)
                     if (anilistState.isAuthenticated) add(TrackingProviderId.ANILIST)
                     if (kitsuState.isAuthenticated) add(TrackingProviderId.KITSU)
+                    if (malState.isAuthenticated) add(TrackingProviderId.MAL)
                 }
             }
             combine(

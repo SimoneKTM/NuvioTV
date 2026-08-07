@@ -41,6 +41,12 @@ import com.nuvio.tv.data.kitsu.KitsuAuthError
 import com.nuvio.tv.data.kitsu.KitsuAuthStorage
 import com.nuvio.tv.data.kitsu.OkHttpKitsuEngine
 import com.nuvio.tv.data.kitsu.defaultKitsuApiConfiguration
+import com.nuvio.tv.data.mal.MalApi
+import com.nuvio.tv.data.mal.MalApiConfiguration
+import com.nuvio.tv.data.mal.MalAuthError
+import com.nuvio.tv.data.mal.MalAuthStorage
+import com.nuvio.tv.data.mal.OkHttpMalEngine
+import com.nuvio.tv.data.mal.defaultMalApiConfiguration
 import com.nuvio.tv.LocaleCache
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -244,6 +250,40 @@ object NetworkModule {
             storage.authorization()?.let { authorization ->
                 storage.clearAuth(
                     error = KitsuAuthError.AUTHORIZATION_REVOKED,
+                    scope = authorization.scope,
+                    expectedAccessToken = authorization.accessToken
+                )
+            }
+        }
+    )
+
+    @Provides
+    @Singleton
+    @Named("mal")
+    fun provideMalOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
+        .dns(IPv4FirstDns())
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .build()
+
+    @Provides
+    @Singleton
+    fun provideMalApiConfiguration(): MalApiConfiguration = defaultMalApiConfiguration()
+
+    @Provides
+    @Singleton
+    fun provideMalApi(
+        @Named("mal") okHttpClient: OkHttpClient,
+        configuration: MalApiConfiguration,
+        storage: MalAuthStorage
+    ): MalApi = MalApi(
+        configuration = configuration,
+        engine = OkHttpMalEngine(okHttpClient),
+        accessToken = storage::accessToken,
+        onUnauthorized = {
+            storage.authorization()?.let { authorization ->
+                storage.clearAuth(
+                    error = MalAuthError.AUTHORIZATION_REVOKED,
                     scope = authorization.scope,
                     expectedAccessToken = authorization.accessToken
                 )

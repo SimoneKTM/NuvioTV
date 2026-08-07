@@ -14,6 +14,12 @@ import com.nuvio.tv.data.kitsu.AndroidKitsuAuthStorage
 import com.nuvio.tv.data.kitsu.AndroidKitsuSyncStorage
 import com.nuvio.tv.data.kitsu.KitsuAuthStorage
 import com.nuvio.tv.data.kitsu.KitsuSyncStorage
+import com.nuvio.tv.data.mal.AndroidMalAuthStorage
+import com.nuvio.tv.data.mal.AndroidMalSyncStorage
+import com.nuvio.tv.data.mal.MalAuthStorage
+import com.nuvio.tv.data.mal.MalSyncStorage
+import com.nuvio.tv.data.mal.MalLibraryProvider
+import com.nuvio.tv.data.mal.MalTrackingProvider
 import com.nuvio.tv.core.tracking.TrackingLibraryProvider
 import com.nuvio.tv.core.tracking.TrackingProvider
 import com.nuvio.tv.data.repository.TraktTrackingLibraryProvider
@@ -88,6 +94,20 @@ abstract class TrackingModule {
     abstract fun bindKitsuSyncStorage(storage: AndroidKitsuSyncStorage): KitsuSyncStorage
 
     @Binds
+    @Singleton
+    abstract fun bindMalAuthStorage(storage: AndroidMalAuthStorage): MalAuthStorage
+
+    @Binds
+    @IntoSet
+    abstract fun bindMalProfileScopedCredentialStore(
+        storage: AndroidMalAuthStorage
+    ): ProfileScopedCredentialStore
+
+    @Binds
+    @Singleton
+    abstract fun bindMalSyncStorage(storage: AndroidMalSyncStorage): MalSyncStorage
+
+    @Binds
     @IntoSet
     abstract fun bindTraktTrackingLibraryProvider(
         provider: TraktTrackingLibraryProvider
@@ -109,6 +129,12 @@ abstract class TrackingModule {
     @IntoSet
     abstract fun bindKitsuTrackingLibraryProvider(
         provider: KitsuLibraryProvider
+    ): TrackingLibraryProvider
+
+    @Binds
+    @IntoSet
+    abstract fun bindMalTrackingLibraryProvider(
+        provider: MalLibraryProvider
     ): TrackingLibraryProvider
 
     @Binds
@@ -157,5 +183,11 @@ abstract class TrackingModule {
     @IntoSet
     abstract fun bindKitsuTrackingProvider(
         provider: KitsuTrackingProvider
+    ): TrackingProvider
+
+    @Binds
+    @IntoSet
+    abstract fun bindMalTrackingProvider(
+        provider: MalTrackingProvider
     ): TrackingProvider
 }
