@@ -187,6 +187,18 @@ jobs:
           set_property NUVIO_RELEASE_KEY_PASSWORD "${RELEASE_KEY_PASSWORD}"
           set_property NUVIO_RELEASE_STORE_PASSWORD "${RELEASE_STORE_PASSWORD}"
 
+          printf 'TRAKT_CLIENT_ID=%s\n' "${{ secrets.TRAKT_CLIENT_ID }}" >> local.properties
+          printf 'TRAKT_CLIENT_SECRET=%s\n' "${{ secrets.TRAKT_CLIENT_SECRET }}" >> local.properties
+          printf 'TRAKT_REDIRECT_URI=%s\n' "${{ secrets.TRAKT_REDIRECT_URI }}" >> local.properties
+          printf 'ANILIST_CLIENT_ID=%s\n' "${{ secrets.ANILIST_CLIENT_ID }}" >> local.properties
+          printf 'MAL_CLIENT_ID=%s\n' "${{ secrets.MAL_CLIENT_ID }}" >> local.properties
+          printf 'KITSU_CLIENT_ID=%s\n' "${{ secrets.KITSU_CLIENT_ID }}" >> local.properties
+          printf 'KITSU_CLIENT_SECRET=%s\n' "${{ secrets.KITSU_CLIENT_SECRET }}" >> local.properties
+          printf 'NUVIO_SUPABASE_URL=%s\n' "${{ secrets.NUVIO_SUPABASE_URL }}" >> local.properties
+          printf 'NUVIO_SUPABASE_ANON_KEY=%s\n' "${{ secrets.NUVIO_SUPABASE_ANON_KEY }}" >> local.properties
+          printf 'NUVIO_SUPABASE_FALLBACK_URL=%s\n' "${{ secrets.NUVIO_SUPABASE_FALLBACK_URL }}" >> local.properties
+          printf 'TRACKER_LOGIN_RELAY_BASE_URL=%s\n' "${{ secrets.TRACKER_LOGIN_RELAY_BASE_URL }}" >> local.properties
+
           required_properties=(
             NUVIO_RELEASE_STORE_PASSWORD
             NUVIO_RELEASE_KEY_ALIAS
