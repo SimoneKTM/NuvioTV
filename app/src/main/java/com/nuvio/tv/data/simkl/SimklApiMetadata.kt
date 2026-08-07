@@ -4,7 +4,7 @@ import com.nuvio.tv.BuildConfig
 import okhttp3.HttpUrl.Companion.toHttpUrl
 
 data class SimklApiConfiguration(
-    val clientId: String,
+    var clientId: String,
     val appName: String,
     val appVersion: String,
     val baseUrl: String = "https://api.simkl.com"

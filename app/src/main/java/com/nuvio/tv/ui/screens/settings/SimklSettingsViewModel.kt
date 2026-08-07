@@ -8,6 +8,7 @@ import com.nuvio.tv.core.tracking.TrackingRefreshIntent
 import com.nuvio.tv.data.simkl.SimklAuthError
 import com.nuvio.tv.data.simkl.SimklAuthException
 import com.nuvio.tv.data.simkl.SimklAuthRepository
+import com.nuvio.tv.data.simkl.SimklClientIdStore
 import com.nuvio.tv.data.simkl.SimklConnectionMode
 import com.nuvio.tv.data.simkl.SimklPinPollResult
 import com.nuvio.tv.data.simkl.SimklSyncRepository
@@ -28,6 +29,7 @@ import kotlinx.coroutines.launch
 data class SimklSettingsUiState(
     val mode: SimklConnectionMode = SimklConnectionMode.DISCONNECTED,
     val credentialsConfigured: Boolean = true,
+    val clientId: String = "",
     val isLoading: Boolean = false,
     val isPolling: Boolean = false,
     val username: String? = null,
@@ -43,10 +45,14 @@ data class SimklSettingsUiState(
 class SimklSettingsViewModel @Inject constructor(
     private val authRepository: SimklAuthRepository,
     private val syncRepository: SimklSyncRepository,
+    private val clientIdStore: SimklClientIdStore,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
-        SimklSettingsUiState(credentialsConfigured = authRepository.hasRequiredCredentials())
+        SimklSettingsUiState(
+            credentialsConfigured = authRepository.hasRequiredCredentials(),
+            clientId = clientIdStore.effectiveClientId()
+        )
     )
     val uiState: StateFlow<SimklSettingsUiState> = _uiState.asStateFlow()
     private var connectJob: Job? = null
@@ -54,6 +60,16 @@ class SimklSettingsViewModel @Inject constructor(
     private var pollJob: Job? = null
 
     init {
+        viewModelScope.launch {
+            clientIdStore.customClientId.collectLatest { _ ->
+                _uiState.update { current ->
+                    current.copy(
+                        clientId = clientIdStore.effectiveClientId(),
+                        credentialsConfigured = authRepository.hasRequiredCredentials()
+                    )
+                }
+            }
+        }
         viewModelScope.launch {
             authRepository.state.collectLatest { state ->
                 _uiState.update { current ->
@@ -181,6 +197,25 @@ class SimklSettingsViewModel @Inject constructor(
                     isLoading = false,
                     statusMessage = if (error == null) context.getString(R.string.simkl_status_synced) else null,
                     errorMessage = error
+                )
+            }
+        }
+    }
+
+    fun onClientIdChange(clientId: String) {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    errorMessage = null,
+                    statusMessage = context.getString(R.string.simkl_status_saving_client_id)
+                )
+            }
+            clientIdStore.saveClientId(clientId)
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    statusMessage = context.getString(R.string.simkl_status_client_id_saved)
                 )
             }
         }

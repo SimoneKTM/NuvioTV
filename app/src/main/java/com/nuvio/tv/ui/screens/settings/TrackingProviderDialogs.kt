@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +23,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.runtime.Composable
@@ -38,20 +42,27 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Border
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
+import androidx.tv.material3.Card
+import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
@@ -148,6 +159,7 @@ internal fun SimklAccountDialog(
     onRetryPolling: () -> Unit,
     onSync: () -> Unit,
     onDisconnect: () -> Unit,
+    onSaveClientId: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
@@ -257,10 +269,108 @@ internal fun SimklAccountDialog(
                 statusMessage = state.statusMessage,
                 errorMessage = state.errorMessage,
                 missingCredentialsMessage = stringResource(R.string.simkl_missing_credentials),
+                clientId = state.clientId,
+                onSaveClientId = onSaveClientId,
                 onStartConnection = onStartConnection,
                 onRetryPolling = onRetryPolling,
                 onDismiss = onDismiss
             )
+        }
+    }
+}
+
+@Composable
+private fun SimklClientIdEditor(
+    value: String,
+    onSave: (String) -> Unit
+) {
+    val inputFocusRequester = remember { FocusRequester() }
+    var input by remember(value) { mutableStateOf(value) }
+    var isInputFocused by remember { mutableStateOf(false) }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+    ) {
+        Text(
+            text = stringResource(R.string.simkl_client_id_title),
+            style = MaterialTheme.typography.titleSmall,
+            color = NuvioTheme.colors.TextPrimary
+        )
+        Text(
+            text = stringResource(R.string.simkl_client_id_subtitle),
+            style = MaterialTheme.typography.bodySmall,
+            color = NuvioTheme.colors.TextTertiary
+        )
+        Card(
+            onClick = { inputFocusRequester.requestFocus() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { isInputFocused = it.isFocused || it.hasFocus },
+            colors = CardDefaults.colors(
+                containerColor = NuvioTheme.colors.BackgroundElevated,
+                focusedContainerColor = NuvioTheme.colors.BackgroundElevated
+            ),
+            border = CardDefaults.border(
+                border = Border(
+                    border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border),
+                    shape = RoundedCornerShape(10.dp)
+                ),
+                focusedBorder = Border(
+                    border = BorderStroke(NuvioTheme.spacing.xxs, NuvioTheme.colors.FocusRing),
+                    shape = RoundedCornerShape(10.dp)
+                )
+            ),
+            shape = CardDefaults.shape(RoundedCornerShape(10.dp)),
+            scale = CardDefaults.scale(focusedScale = 1f)
+        ) {
+            Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = NuvioTheme.spacing.md)) {
+                BasicTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(inputFocusRequester),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            keyboardController?.hide()
+                            onSave(input)
+                        }
+                    ),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = NuvioTheme.colors.TextPrimary),
+                    cursorBrush = SolidColor(
+                        if (isInputFocused) NuvioTheme.colors.Primary
+                        else Color.Transparent
+                    ),
+                    decorationBox = { innerTextField ->
+                        if (input.isBlank()) {
+                            Text(
+                                text = stringResource(R.string.simkl_client_id_subtitle),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = NuvioTheme.colors.TextTertiary
+                            )
+                        }
+                        innerTextField()
+                    }
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Button(
+                onClick = {
+                    keyboardController?.hide()
+                    onSave(input)
+                },
+                colors = ButtonDefaults.colors(containerColor = NuvioTheme.colors.Primary)
+            ) {
+                Text(stringResource(R.string.simkl_client_id_save))
+            }
         }
     }
 }
@@ -282,11 +392,19 @@ private fun TrackingDeviceAuthContent(
     statusMessage: String?,
     errorMessage: String?,
     missingCredentialsMessage: String,
+    clientId: String? = null,
+    onSaveClientId: ((String) -> Unit)? = null,
     onStartConnection: () -> Unit,
     onRetryPolling: () -> Unit,
     onDismiss: () -> Unit
 ) {
     TrackingProviderWordmark(logo, logoContentDescription)
+    if (clientId != null && onSaveClientId != null && userCode.isNullOrBlank() && !isLoading) {
+        SimklClientIdEditor(
+            value = clientId,
+            onSave = onSaveClientId
+        )
+    }
     when {
         isLoading -> {
             Row(

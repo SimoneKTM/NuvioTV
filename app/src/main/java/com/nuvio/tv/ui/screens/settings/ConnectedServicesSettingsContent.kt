@@ -236,6 +236,7 @@ fun ConnectedServicesSettingsContent(
                 onStartConnection = simklViewModel::onConnect,
                 onRetryPolling = simklViewModel::onRetryPolling,
                 onSync = simklViewModel::onSyncNow,
+                onSaveClientId = simklViewModel::onClientIdChange,
                 onDisconnect = {
                     activeProvider = null
                     dismissOnConnected = null
