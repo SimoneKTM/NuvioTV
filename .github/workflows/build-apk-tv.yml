@@ -36,6 +36,14 @@ jobs:
         run: |
           touch local.properties
           touch local.dev.properties
+          printf 'ANILIST_CLIENT_ID=%s\n' "${{ secrets.ANILIST_CLIENT_ID }}" >> local.properties
+          printf 'MAL_CLIENT_ID=%s\n' "${{ secrets.MAL_CLIENT_ID }}" >> local.properties
+          printf 'KITSU_CLIENT_ID=%s\n' "${{ secrets.KITSU_CLIENT_ID }}" >> local.properties
+          printf 'KITSU_CLIENT_SECRET=%s\n' "${{ secrets.KITSU_CLIENT_SECRET }}" >> local.properties
+          printf 'TRAKT_CLIENT_ID=%s\n' "${{ secrets.TRAKT_CLIENT_ID }}" >> local.properties
+          printf 'TRAKT_CLIENT_SECRET=%s\n' "${{ secrets.TRAKT_CLIENT_SECRET }}" >> local.properties
+          printf 'TRAKT_REDIRECT_URI=%s\n' "${{ secrets.TRAKT_REDIRECT_URI }}" >> local.properties
+          printf 'TRACKER_LOGIN_RELAY_BASE_URL=%s\n' "${{ secrets.TRACKER_LOGIN_RELAY_BASE_URL }}" >> local.properties
 
       - name: Build fullRelease APK (debug-signed)
         env:
