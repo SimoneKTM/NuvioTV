@@ -2840,4 +2840,73 @@
   <string name="mal_status_on_hold">In pausa</string>
   <string name="mal_status_dropped">Abbandonati</string>
   <string name="cd_mal_logo">Logo MyAnimeList</string>
+
+    <!-- SimklScreen -->
+  <string name="cd_simkl_logo">Logo Simkl</string>
+  <string name="cd_simkl_qr">QR di attivazione Simkl</string>
+  <string name="simkl_account_title">Account Simkl</string>
+  <string name="simkl_awaiting_instruction">Apri la pagina di verifica Simkl e inserisci questo codice.</string>
+  <string name="simkl_code_expires">Il codice scade tra %1$s</string>
+  <string name="simkl_connect">Collega Simkl</string>
+  <string name="simkl_connected_as">Connesso come %1$s</string>
+  <string name="simkl_description">Collega Simkl per sincronizzare liste, cronologia di visione, avanzamento della riproduzione e scrobble.</string>
+  <string name="simkl_disconnect">Disconnetti Simkl</string>
+  <string name="simkl_disconnect_subtitle">Questa operazione rimuove l\'account Simkl e i dati Simkl memorizzati da questo profilo.</string>
+  <string name="simkl_disconnect_title">Disconnettere Simkl?</string>
+  <string name="simkl_error_authorization_revoked">L\'autorizzazione Simkl è stata revocata. Collega di nuovo.</string>
+  <string name="simkl_error_code_expired">Il codice Simkl è scaduto. Ricomincia.</string>
+  <string name="simkl_error_network">Impossibile raggiungere Simkl. Riprova.</string>
+  <string name="simkl_library_source_selected">Simkl selezionato per la Libreria</string>
+  <string name="simkl_missing_credentials">Manca SIMKL_CLIENT_ID</string>
+  <string name="simkl_name">Simkl</string>
+  <string name="simkl_status_connected">Connesso a Simkl</string>
+  <string name="simkl_status_disconnected">Disconnesso da Simkl</string>
+  <string name="simkl_status_enter_code">Inserisci il codice su Simkl per completare la connessione</string>
+  <string name="simkl_status_synced">Sincronizzazione Simkl completata</string>
+  <string name="simkl_status_syncing">Sincronizzazione di Simkl…</string>
+  <string name="simkl_status_waiting">In attesa dell\'approvazione di Simkl…</string>
+  <string name="simkl_sync_info_action">Come funziona la sincronizzazione</string>
+  <string name="simkl_sync_info_activity">Ogni aggiornamento verifica prima se Simkl segnala modifiche e scarica solo gli aggiornamenti. Questo segue le regole API di Simkl, riduce l\'uso di dati non necessario e aiuta a mantenere il servizio stabile.</string>
+  <string name="simkl_sync_info_description">Nuvio controlla automaticamente Simkl al massimo una volta ogni %1$d minuti. Le modifiche effettuate tramite un\'altra app o il sito web di Simkl potrebbero richiedere questo tempo per comparire.</string>
+  <string name="simkl_sync_info_docs">Leggi la guida alla sincronizzazione Simkl</string>
+  <string name="simkl_sync_info_library_statuses">Le serie inserite nelle liste In pausa o Abbandonati di Simkl sono nascoste da "Continua a guardare". Rimangono nascoste finché restano in una delle due liste.</string>
+  <string name="simkl_sync_info_manual">Le modifiche fatte in Nuvio vengono inviate a Simkl immediatamente. Usa "Sincronizza ora" quando vuoi che Nuvio controlli prima le modifiche remote.</string>
+  <string name="simkl_sync_info_title">Come funziona la sincronizzazione Simkl</string>
+  <string name="simkl_sync_now">Sincronizza ora</string>
+  <string name="simkl_user_fallback">Utente Simkl</string>
+  <string name="simkl_visit">Visita Simkl</string>
+  <string name="simkl_watch_progress_selected">Simkl selezionato per "Continua a guardare"</string>
+
+    <!-- Tracking -->
+  <string name="settings_library_title">Libreria</string>
+  <string name="settings_library_subtitle">Sorgente libreria e avanzamento visione</string>
+  <string name="settings_library_description">Scegli da dove Nuvio legge la tua libreria e l\'avanzamento della visione.</string>
+  <string name="settings_connected_services_title">Servizi collegati</string>
+  <string name="settings_connected_services_subtitle">Collega e gestisci i servizi di streaming e monitoraggio</string>
+  <string name="settings_anime_subtitle">Addon anime, plugin, layout e TV live</string>
+  <string name="settings_anime_layout_title">Layout Anime</string>
+  <string name="settings_anime_layout_subtitle">Struttura home e stili poster per la scheda Anime</string>
+  <string name="settings_live_tv_title">TV live</string>
+  <string name="settings_live_tv_subtitle">Playlist M3U e codici Xtream</string>
+  <string name="settings_vpn_title">VPN</string>
+  <string name="settings_vpn_subtitle">Connessioni WireGuard</string>
+  <string name="settings_tracking_description">Collega i provider di monitoraggio e scegli quale alimenta la tua Libreria e il "Continua a guardare".</string>
+  <string name="settings_tracking_subtitle">Gestisci le connessioni Trakt e Simkl</string>
+  <string name="settings_tracking_title">Monitoraggio</string>
+  <string name="anime_settings_tracking_subtitle">Collega AniList, MAL o Kitsu per monitorare l\'avanzamento degli anime</string>
+  <string name="tracking_simkl_anime_id_imdb">Preferisci IMDB</string>
+  <string name="tracking_simkl_anime_id_kitsu">Preferisci Kitsu</string>
+  <string name="tracking_simkl_anime_id_mal">Preferisci MyAnimeList</string>
+  <string name="tracking_simkl_anime_id_subtitle">Controlla come vengono identificate le serie anime. Scegliendo MAL o Kitsu ogni stagione ha la propria voce invece di essere raggruppata sotto un unico ID IMDB.</string>
+  <string name="tracking_simkl_anime_id_title">Preferenza ID anime</string>
+  <string name="tracking_simkl_features_subtitle">Impostazioni specifiche di Simkl</string>
+  <string name="tracking_simkl_features_title">Funzioni Simkl</string>
+
+    <!-- Library empty states -->
+  <string name="library_empty_simkl_not_auth_subtitle">Collega il tuo account Simkl nelle Impostazioni per vedere la tua libreria Simkl</string>
+  <string name="library_empty_simkl_not_auth_title">Simkl non connesso</string>
+  <string name="library_empty_simkl_subtitle">Usa + nei dettagli per aggiungere elementi a uno stato Simkl</string>
+  <string name="library_empty_simkl_title">Nessun %1$s in questo stato</string>
+  <string name="licenses_attributions_simkl_body">Nuvio si collega a Simkl per l\'autenticazione dell\'account, le watchlist, la cronologia di visione, l\'avanzamento della riproduzione e lo scrobbling. I dati di monitoraggio di film, serie TV e anime sono forniti da Simkl. Nuvio non è affiliata né approvata da Simkl.</string>
+  <string name="licenses_attributions_simkl_title">Simkl</string>
 </resources>

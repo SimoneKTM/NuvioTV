@@ -181,7 +181,8 @@ data class Video(
     val episode: Int?,
     val overview: String?,
     val runtime: Int? = null, // episode runtime in minutes
-    val available: Boolean? = null
+    val available: Boolean? = null,
+    val seasonPoster: String? = null
 )
 
 @Immutable

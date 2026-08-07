@@ -10,6 +10,8 @@ import kotlinx.serialization.json.put
 internal object ProviderCredentialIds {
     const val MDBLIST = "mdblist"
     const val ANIMESKIP = "animeskip"
+    const val TVDB = "tvdb"
+    const val ANIMETVDB = "anime_tvdb"
     const val MAL = "mal"
     const val ANILIST = "anilist"
     const val KITSU = "kitsu"

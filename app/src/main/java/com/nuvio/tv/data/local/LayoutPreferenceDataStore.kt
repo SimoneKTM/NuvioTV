@@ -46,8 +46,18 @@ class LayoutPreferenceDataStore @Inject constructor(
         private const val MIN_FOCUSED_POSTER_BACKDROP_EXPAND_DELAY_SECONDS = 0
     }
 
+    private var featureName: String = FEATURE
+
+    internal constructor(
+        factory: ProfileDataStoreFactory,
+        profileManager: ProfileManager,
+        featureName: String
+    ) : this(factory, profileManager) {
+        this.featureName = featureName
+    }
+
     private fun store(profileId: Int = profileManager.activeProfileId.value) =
-        factory.get(profileId, FEATURE)
+        factory.get(profileId, featureName)
 
     private val gson = Gson()
 
@@ -106,7 +116,7 @@ class LayoutPreferenceDataStore @Inject constructor(
 
     private fun <T> profileFlow(extract: (prefs: androidx.datastore.preferences.core.Preferences) -> T): Flow<T> =
         profileManager.activeProfileId.flatMapLatest { pid ->
-            factory.get(pid, FEATURE).data.map { prefs -> extract(prefs) }
+            factory.get(pid, featureName).data.map { prefs -> extract(prefs) }
         }
 
     private fun positiveOrDefault(value: Int?, defaultValue: Int): Int =
@@ -155,7 +165,7 @@ class LayoutPreferenceDataStore @Inject constructor(
         val profile = profileManager.profiles.value.find { it.id == pid }
         val usePrimary = profile != null && !profile.isPrimary && profile.usesPrimaryAddons
         val effectivePid = if (usePrimary) 1 else pid
-        factory.get(effectivePid, FEATURE).data.map { prefs ->
+        factory.get(effectivePid, featureName).data.map { prefs ->
             parseCatalogKeys(prefs[homeCatalogOrderKeysKey])
         }
     }
@@ -164,7 +174,7 @@ class LayoutPreferenceDataStore @Inject constructor(
         val profile = profileManager.profiles.value.find { it.id == pid }
         val usePrimary = profile != null && !profile.isPrimary && profile.usesPrimaryAddons
         val effectivePid = if (usePrimary) 1 else pid
-        factory.get(effectivePid, FEATURE).data.map { prefs ->
+        factory.get(effectivePid, featureName).data.map { prefs ->
             parseCatalogKeys(prefs[disabledHomeCatalogKeysKey])
         }
     }
@@ -173,7 +183,7 @@ class LayoutPreferenceDataStore @Inject constructor(
         val profile = profileManager.profiles.value.find { it.id == pid }
         val usePrimary = profile != null && !profile.isPrimary && profile.usesPrimaryAddons
         val effectivePid = if (usePrimary) 1 else pid
-        factory.get(effectivePid, FEATURE).data.map { prefs ->
+        factory.get(effectivePid, featureName).data.map { prefs ->
             parseCustomTitles(prefs[customCatalogTitlesKey])
         }
     }

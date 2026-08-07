@@ -8,11 +8,15 @@ import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.data.anilist.AniListAuthStorage
 import com.nuvio.tv.data.kitsu.KitsuAuthStorage
 import com.nuvio.tv.data.local.AnimeSkipSettingsDataStore
+import com.nuvio.tv.data.local.AnimeTvdbSettingsDataStore
 import com.nuvio.tv.data.local.DebridSettingsDataStore
 import com.nuvio.tv.data.local.MDBListSettingsDataStore
+import com.nuvio.tv.data.local.TvdbSettingsDataStore
 import com.nuvio.tv.data.mal.MalAuthStorage
 import com.nuvio.tv.data.remote.supabase.SupabaseProviderCredential
 import com.nuvio.tv.domain.model.AuthState
+import com.nuvio.tv.domain.model.DebridSettings
+import com.nuvio.tv.domain.model.MDBListSettings
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -55,6 +59,14 @@ private data class ProviderCredentialScope(
     val profileId: Int
 )
 
+private data class TrackerCredentialsAndTvdb(
+    val debrid: DebridSettings,
+    val mdbList: MDBListSettings,
+    val animeSkipClientId: String,
+    val tvdb: ProviderCredentialValue,
+    val animeTvdb: ProviderCredentialValue
+)
+
 @Singleton
 class ProviderCredentialSyncService @Inject constructor(
     private val postgrest: Postgrest,
@@ -63,6 +75,8 @@ class ProviderCredentialSyncService @Inject constructor(
     private val debridSettingsDataStore: DebridSettingsDataStore,
     private val mdbListSettingsDataStore: MDBListSettingsDataStore,
     private val animeSkipSettingsDataStore: AnimeSkipSettingsDataStore,
+    private val tvdbSettingsDataStore: TvdbSettingsDataStore,
+    private val animeTvdbSettingsDataStore: AnimeTvdbSettingsDataStore,
     private val malAuthStorage: MalAuthStorage,
     private val aniListAuthStorage: AniListAuthStorage,
     private val kitsuAuthStorage: KitsuAuthStorage,
@@ -202,6 +216,8 @@ class ProviderCredentialSyncService @Inject constructor(
         val debrid = debridSettingsDataStore.settings.first()
         val mdbList = mdbListSettingsDataStore.settings.first()
         val animeSkipClientId = animeSkipSettingsDataStore.clientId.first()
+        val tvdb = tvdbSettingsDataStore.settings.first()
+        val animeTvdb = animeTvdbSettingsDataStore.settings.first()
         check(profileManager.activeProfileId.value == profileId)
         return ProviderCredentialSnapshot(
             profileId = profileId,
@@ -227,6 +243,20 @@ class ProviderCredentialSyncService @Inject constructor(
                         provider = ProviderCredentialIds.ANIMESKIP,
                         field = CLIENT_ID_FIELD,
                         value = animeSkipClientId
+                    )
+                )
+                add(
+                    ProviderCredentialValue(
+                        provider = ProviderCredentialIds.TVDB,
+                        field = API_KEY_FIELD,
+                        value = tvdb.apiKey
+                    )
+                )
+                add(
+                    ProviderCredentialValue(
+                        provider = ProviderCredentialIds.ANIMETVDB,
+                        field = API_KEY_FIELD,
+                        value = animeTvdb.apiKey
                     )
                 )
             } + trackerCredentials()
@@ -279,6 +309,12 @@ class ProviderCredentialSyncService @Inject constructor(
                 }
                 credential.provider == ProviderCredentialIds.ANIMESKIP -> {
                     animeSkipSettingsDataStore.setClientId(credential.value)
+                }
+                credential.provider == ProviderCredentialIds.TVDB -> {
+                    tvdbSettingsDataStore.setApiKey(credential.value)
+                }
+                credential.provider == ProviderCredentialIds.ANIMETVDB -> {
+                    animeTvdbSettingsDataStore.setApiKey(credential.value)
                 }
                 credential.provider == ProviderCredentialIds.MAL -> {
                     val token = credential.jsonValue?.get(TRACKER_ACCESS_TOKEN_FIELD)
@@ -343,15 +379,32 @@ class ProviderCredentialSyncService @Inject constructor(
                         combine(
                             debridSettingsDataStore.settings,
                             mdbListSettingsDataStore.settings,
-                            animeSkipSettingsDataStore.clientId
-                        ) { debrid, mdbList, animeSkipClientId ->
-                            Triple(debrid, mdbList, animeSkipClientId)
+                            animeSkipSettingsDataStore.clientId,
+                            tvdbSettingsDataStore.settings,
+                            animeTvdbSettingsDataStore.settings
+                        ) { debrid, mdbList, animeSkipClientId, tvdb, animeTvdb ->
+                            val tvdbSettings = ProviderCredentialValue(
+                                provider = ProviderCredentialIds.TVDB,
+                                field = API_KEY_FIELD,
+                                value = tvdb.apiKey
+                            )
+                            val animeTvdbSettings = ProviderCredentialValue(
+                                provider = ProviderCredentialIds.ANIMETVDB,
+                                field = API_KEY_FIELD,
+                                value = animeTvdb.apiKey
+                            )
+                            TrackerCredentialsAndTvdb(
+                                debrid = debrid,
+                                mdbList = mdbList,
+                                animeSkipClientId = animeSkipClientId,
+                                tvdb = tvdbSettings,
+                                animeTvdb = animeTvdbSettings
+                            )
                         },
                         malAuthStorage.state,
                         aniListAuthStorage.state,
                         kitsuAuthStorage.state
                     ) { settings, _, _, _ ->
-                        val (debrid, mdbList, animeSkipClientId) = settings
                         ProviderCredentialSnapshot(
                             profileId = profileId,
                             values = buildList {
@@ -360,7 +413,7 @@ class ProviderCredentialSyncService @Inject constructor(
                                         ProviderCredentialValue(
                                             provider = ProviderCredentialIds.debrid(provider.id),
                                             field = API_KEY_FIELD,
-                                            value = debrid.apiKeyFor(provider.id)
+                                            value = settings.debrid.apiKeyFor(provider.id)
                                         )
                                     )
                                 }
@@ -368,16 +421,18 @@ class ProviderCredentialSyncService @Inject constructor(
                                     ProviderCredentialValue(
                                         provider = ProviderCredentialIds.MDBLIST,
                                         field = API_KEY_FIELD,
-                                        value = mdbList.apiKey
+                                        value = settings.mdbList.apiKey
                                     )
                                 )
                                 add(
                                     ProviderCredentialValue(
                                         provider = ProviderCredentialIds.ANIMESKIP,
                                         field = CLIENT_ID_FIELD,
-                                        value = animeSkipClientId
+                                        value = settings.animeSkipClientId
                                     )
                                 )
+                                add(settings.tvdb)
+                                add(settings.animeTvdb)
                             } + trackerCredentials()
                         )
                     }

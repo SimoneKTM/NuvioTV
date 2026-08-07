@@ -13,11 +13,14 @@ import com.nuvio.tv.data.local.PlayerSettingsDataStore
 import com.nuvio.tv.data.local.TraktAuthDataStore
 import com.nuvio.tv.data.local.TraktSettingsDataStore
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
+import com.nuvio.tv.data.local.AnimeTvdbSettingsDataStore
+import com.nuvio.tv.data.local.TvdbSettingsDataStore
 import com.nuvio.tv.data.repository.ImdbEpisodeRatingsRepository
 import com.nuvio.tv.data.repository.MDBListRepository
 import com.nuvio.tv.data.repository.TraktCommentsService
 import com.nuvio.tv.data.repository.TraktRelatedService
 import com.nuvio.tv.data.repository.parseContentIds
+import com.nuvio.tv.data.tvdb.TvdbMetadataService
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.LibraryEntryInput
 import com.nuvio.tv.domain.model.LibrarySourceMode
@@ -58,6 +61,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -76,6 +80,9 @@ class MetaDetailsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val metaRepository: MetaRepository,
     private val tmdbSettingsDataStore: TmdbSettingsDataStore,
+    private val tvdbSettingsDataStore: TvdbSettingsDataStore,
+    private val animeTvdbSettingsDataStore: AnimeTvdbSettingsDataStore,
+    private val tvdbMetadataService: TvdbMetadataService,
     private val tmdbService: TmdbService,
     private val tmdbMetadataService: TmdbMetadataService,
     private val imdbEpisodeRatingsRepository: ImdbEpisodeRatingsRepository,
@@ -602,6 +609,7 @@ class MetaDetailsViewModel @Inject constructor(
                     mdbListRatings = null,
                     showMdbListImdb = false,
                     tmdbRating = null,
+                    tvdbRating = null,
                     moreLikeThis = emptyList(),
                     moreLikeThisSource = null,
                     collection = emptyList(),
@@ -1433,7 +1441,42 @@ class MetaDetailsViewModel @Inject constructor(
             loadCollectionAsync(enrichment.collectionId, enrichment.collectionName, settings)
         }
 
+        if (isSeries) {
+            val tvdbSettings = resolveTvdbEnrichmentSettings()
+            if (tvdbSettings.enabled && tvdbSettings.hasApiKey) {
+                val tvdbResult = withContext(Dispatchers.IO) {
+                    tvdbMetadataService.enrichSeries(
+                        meta = updated,
+                        fallbackItemId = itemId,
+                        settings = tvdbSettings
+                    )
+                }
+                updated = tvdbResult.meta
+                if (tvdbResult.rating != null) {
+                    _uiState.update { it.copy(tvdbRating = tvdbResult.rating) }
+                }
+                if (tvdbResult.trailers.isNotEmpty()) {
+                    val mergedTrailers = mergeTrailers(
+                        existing = updated.trailers,
+                        incoming = tvdbResult.trailers
+                    )
+                    if (mergedTrailers.isNotEmpty()) {
+                        updated = updated.copy(
+                            trailers = mergedTrailers,
+                            trailerYtIds = mergedTrailers.mapNotNull { it.ytId }.distinct()
+                        )
+                    }
+                }
+            }
+        }
+
         return updated
+    }
+
+    private suspend fun resolveTvdbEnrichmentSettings(): com.nuvio.tv.domain.model.TvdbSettings {
+        val animeSettings = animeTvdbSettingsDataStore.settings.first()
+        if (animeSettings.enabled && animeSettings.hasApiKey) return animeSettings
+        return tvdbSettingsDataStore.settings.first()
     }
 
     private fun resolveTmdbContentType(meta: Meta): ContentType {

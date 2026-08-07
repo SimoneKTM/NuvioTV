@@ -2,14 +2,12 @@
 
 package com.nuvio.tv.ui.screens.settings
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
@@ -32,26 +30,25 @@ import com.nuvio.tv.R
 import com.nuvio.tv.core.tracking.TrackingProviderId
 import com.nuvio.tv.data.anilist.AniListConnectionMode
 import com.nuvio.tv.data.kitsu.KitsuConnectionMode
-import com.nuvio.tv.data.mal.MalConnectionMode
 import com.nuvio.tv.data.local.MoreLikeThisSourcePreference
 import com.nuvio.tv.data.local.TraktSettingsDataStore
-import com.nuvio.tv.data.local.WatchProgressSource
+import com.nuvio.tv.data.mal.MalConnectionMode
 import com.nuvio.tv.data.simkl.SimklAnimeIdPreference
 import com.nuvio.tv.data.simkl.SimklConnectionMode
-import com.nuvio.tv.domain.model.LibrarySourceMode
 import com.nuvio.tv.ui.components.NuvioDialog
 import com.nuvio.tv.ui.theme.NuvioTheme
 import kotlinx.coroutines.delay
 
 @Composable
-fun TrackingSettingsScreen(
+fun ConnectedServicesSettingsContent(
     traktViewModel: TraktViewModel = hiltViewModel(),
     simklViewModel: SimklSettingsViewModel = hiltViewModel(),
     trackingViewModel: TrackingSettingsViewModel = hiltViewModel(),
     anilistViewModel: AniListSettingsViewModel = hiltViewModel(),
     kitsuViewModel: KitsuSettingsViewModel = hiltViewModel(),
     malViewModel: MalSettingsViewModel = hiltViewModel(),
-    onBackPress: () -> Unit
+    initialFocusRequester: FocusRequester?,
+    autoFocusEnabled: Boolean
 ) {
     val traktState by traktViewModel.uiState.collectAsStateWithLifecycle()
     val simklState by simklViewModel.uiState.collectAsStateWithLifecycle()
@@ -64,8 +61,6 @@ fun TrackingSettingsScreen(
     val anilistFocusRequester = remember { FocusRequester() }
     val kitsuFocusRequester = remember { FocusRequester() }
     val malFocusRequester = remember { FocusRequester() }
-    val libraryFocusRequester = remember { FocusRequester() }
-    val watchProgressFocusRequester = remember { FocusRequester() }
     val continueWatchingFocusRequester = remember { FocusRequester() }
     val moreLikeThisFocusRequester = remember { FocusRequester() }
 
@@ -73,28 +68,15 @@ fun TrackingSettingsScreen(
     var dismissOnConnected by remember { mutableStateOf<TrackingProviderId?>(null) }
     var disconnectProvider by remember { mutableStateOf<TrackingProviderId?>(null) }
     var restoreFocusTarget by remember { mutableStateOf<TrackingFocusTarget?>(null) }
-    var showLibrarySourceDialog by remember { mutableStateOf(false) }
-    var showWatchProgressDialog by remember { mutableStateOf(false) }
     var showDaysCapDialog by remember { mutableStateOf(false) }
     var showMoreLikeThisSourceDialog by remember { mutableStateOf(false) }
     var showAnimeIdDialog by remember { mutableStateOf(false) }
 
     val hasOverlay = activeProvider != null ||
         disconnectProvider != null ||
-        showLibrarySourceDialog ||
-        showWatchProgressDialog ||
         showDaysCapDialog ||
         showMoreLikeThisSourceDialog ||
         showAnimeIdDialog
-
-    BackHandler(enabled = !hasOverlay) {
-        onBackPress()
-    }
-
-    LaunchedEffect(Unit) {
-        delay(160L)
-        runCatching { traktFocusRequester.requestFocus() }
-    }
 
     LaunchedEffect(
         activeProvider,
@@ -130,10 +112,9 @@ fun TrackingSettingsScreen(
                 TrackingFocusTarget.ANILIST -> anilistFocusRequester.requestFocus()
                 TrackingFocusTarget.KITSU -> kitsuFocusRequester.requestFocus()
                 TrackingFocusTarget.MAL -> malFocusRequester.requestFocus()
-                TrackingFocusTarget.LIBRARY -> libraryFocusRequester.requestFocus()
-                TrackingFocusTarget.WATCH_PROGRESS -> watchProgressFocusRequester.requestFocus()
                 TrackingFocusTarget.CONTINUE_WATCHING -> continueWatchingFocusRequester.requestFocus()
                 TrackingFocusTarget.MORE_LIKE_THIS -> moreLikeThisFocusRequester.requestFocus()
+                else -> Unit
             }
         }
         restoreFocusTarget = null
@@ -194,35 +175,27 @@ fun TrackingSettingsScreen(
         }
     }
 
-    TrackingSettingsOverview(
+    ConnectedServicesOverview(
         traktState = traktState,
         simklState = simklState,
         anilistState = anilistState,
         kitsuState = kitsuState,
         malState = malState,
         trackingState = trackingState,
+        initialFocusRequester = initialFocusRequester,
         traktFocusRequester = traktFocusRequester,
         simklFocusRequester = simklFocusRequester,
         anilistFocusRequester = anilistFocusRequester,
         kitsuFocusRequester = kitsuFocusRequester,
         malFocusRequester = malFocusRequester,
-        libraryFocusRequester = libraryFocusRequester,
-        watchProgressFocusRequester = watchProgressFocusRequester,
         continueWatchingFocusRequester = continueWatchingFocusRequester,
         moreLikeThisFocusRequester = moreLikeThisFocusRequester,
+        autoFocusEnabled = autoFocusEnabled,
         onTraktClick = { openProvider(TrackingProviderId.TRAKT) },
         onSimklClick = { openProvider(TrackingProviderId.SIMKL) },
         onAniListClick = { openProvider(TrackingProviderId.ANILIST) },
         onKitsuClick = { openProvider(TrackingProviderId.KITSU) },
         onMalClick = { openProvider(TrackingProviderId.MAL) },
-        onLibrarySourceClick = {
-            restoreFocusTarget = TrackingFocusTarget.LIBRARY
-            showLibrarySourceDialog = true
-        },
-        onWatchProgressClick = {
-            restoreFocusTarget = TrackingFocusTarget.WATCH_PROGRESS
-            showWatchProgressDialog = true
-        },
         onContinueWatchingWindowClick = {
             restoreFocusTarget = TrackingFocusTarget.CONTINUE_WATCHING
             showDaysCapDialog = true
@@ -280,7 +253,6 @@ fun TrackingSettingsScreen(
         TrackingProviderId.ANILIST -> {
             AniListAccountDialog(
                 state = anilistState,
-                onConnect = anilistViewModel::connect,
                 onSync = anilistViewModel::onSyncNow,
                 onDisconnect = {
                     activeProvider = null
@@ -300,7 +272,6 @@ fun TrackingSettingsScreen(
         TrackingProviderId.KITSU -> {
             KitsuAccountDialog(
                 state = kitsuState,
-                onConnect = kitsuViewModel::connect,
                 onSync = kitsuViewModel::onSyncNow,
                 onDisconnect = {
                     activeProvider = null
@@ -320,7 +291,6 @@ fun TrackingSettingsScreen(
         TrackingProviderId.MAL -> {
             MalAccountDialog(
                 state = malState,
-                onConnect = malViewModel::connect,
                 onSync = malViewModel::onSyncNow,
                 onDisconnect = {
                     activeProvider = null
@@ -401,42 +371,6 @@ fun TrackingSettingsScreen(
                 )
             }
         }
-    }
-
-    if (showLibrarySourceDialog) {
-        SettingsSingleChoiceDialog(
-            title = stringResource(R.string.trakt_library_source_dialog_title),
-            subtitle = stringResource(R.string.tracking_library_source_dialog_subtitle),
-            options = trackingState.availableLibrarySourceModes.map { mode ->
-                SettingsPickerOption(mode, librarySourceLabel(mode))
-            },
-            selectedValue = trackingState.librarySourceMode,
-            onOptionSelected = { mode ->
-                trackingViewModel.selectLibrarySourceMode(mode)
-                showLibrarySourceDialog = false
-            },
-            onDismiss = { showLibrarySourceDialog = false },
-            width = 620.dp,
-            maxHeight = 340.dp
-        )
-    }
-
-    if (showWatchProgressDialog) {
-        SettingsSingleChoiceDialog(
-            title = stringResource(R.string.trakt_watch_progress_dialog_title),
-            subtitle = stringResource(R.string.tracking_watch_progress_dialog_subtitle),
-            options = trackingState.availableWatchProgressSources.map { source ->
-                SettingsPickerOption(source, watchProgressSourceLabel(source))
-            },
-            selectedValue = trackingState.watchProgressSource,
-            onOptionSelected = { source ->
-                trackingViewModel.selectWatchProgressSource(source)
-                showWatchProgressDialog = false
-            },
-            onDismiss = { showWatchProgressDialog = false },
-            width = 660.dp,
-            maxHeight = 360.dp
-        )
     }
 
     if (showDaysCapDialog) {
@@ -524,29 +458,27 @@ fun TrackingSettingsScreen(
 }
 
 @Composable
-internal fun TrackingSettingsOverview(
+private fun ConnectedServicesOverview(
     traktState: TraktUiState,
     simklState: SimklSettingsUiState,
     anilistState: AniListSettingsUiState,
     kitsuState: KitsuSettingsUiState,
     malState: MalSettingsUiState,
     trackingState: TrackingSettingsUiState,
+    initialFocusRequester: FocusRequester?,
     traktFocusRequester: FocusRequester,
     simklFocusRequester: FocusRequester,
     anilistFocusRequester: FocusRequester,
     kitsuFocusRequester: FocusRequester,
     malFocusRequester: FocusRequester,
-    libraryFocusRequester: FocusRequester,
-    watchProgressFocusRequester: FocusRequester,
     continueWatchingFocusRequester: FocusRequester,
     moreLikeThisFocusRequester: FocusRequester,
+    autoFocusEnabled: Boolean,
     onTraktClick: () -> Unit,
     onSimklClick: () -> Unit,
     onAniListClick: () -> Unit,
     onKitsuClick: () -> Unit,
     onMalClick: () -> Unit,
-    onLibrarySourceClick: () -> Unit,
-    onWatchProgressClick: () -> Unit,
     onContinueWatchingWindowClick: () -> Unit,
     onCommentsChanged: (Boolean) -> Unit,
     onMoreLikeThisClick: () -> Unit,
@@ -559,186 +491,161 @@ internal fun TrackingSettingsOverview(
     val kitsuPresentation = kitsuConnectionPresentation(kitsuState)
     val malPresentation = malConnectionPresentation(malState)
     val traktConnected = traktState.mode == TraktConnectionMode.CONNECTED
-    val traktProgressActive = trackingState.watchProgressSource == WatchProgressSource.TRAKT
+    val traktProgressActive = trackingState.watchProgressSource == com.nuvio.tv.data.local.WatchProgressSource.TRAKT
 
-    SettingsStandaloneScaffold(
-        title = stringResource(R.string.settings_tracking_title),
-        subtitle = stringResource(R.string.settings_tracking_description),
-        classicContainer = false
+    LaunchedEffect(autoFocusEnabled) {
+        if (autoFocusEnabled) {
+            runCatching {
+                (initialFocusRequester ?: traktFocusRequester).requestFocus()
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            SettingsDetailHeader(
-                title = stringResource(R.string.settings_tracking_title),
-                subtitle = stringResource(R.string.settings_tracking_description)
-            )
-            Box(modifier = Modifier.weight(1f)) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .testTag(TrackingSettingsTestTags.OVERVIEW_LIST),
-                    contentPadding = PaddingValues(bottom = NuvioTheme.spacing.md),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    item(key = "tracking_accounts") {
+        SettingsDetailHeader(
+            title = stringResource(R.string.settings_connected_services_title),
+            subtitle = stringResource(R.string.settings_connected_services_subtitle)
+        )
+        Box(modifier = Modifier.weight(1f)) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag(TrackingSettingsTestTags.OVERVIEW_LIST),
+                contentPadding = PaddingValues(bottom = NuvioTheme.spacing.md),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                item(key = "connected_accounts") {
+                    SettingsGroupCard(
+                        title = stringResource(R.string.tracking_accounts_title),
+                        subtitle = stringResource(R.string.tracking_accounts_subtitle)
+                    ) {
+                        SettingsActionRow(
+                            title = stringResource(R.string.trakt_name),
+                            subtitle = traktPresentation.subtitle,
+                            value = traktPresentation.value,
+                            valueColor = traktPresentation.color,
+                            leadingRawIconRes = R.raw.trakt_tv_favicon,
+                            leadingArtworkSize = 40.dp,
+                            onClick = onTraktClick,
+                            modifier = Modifier
+                                .focusRequester(traktFocusRequester)
+                                .testTag(TrackingSettingsTestTags.TRAKT_PROVIDER)
+                        )
+                        SettingsActionRow(
+                            title = stringResource(R.string.simkl_name),
+                            subtitle = simklPresentation.subtitle,
+                            value = simklPresentation.value,
+                            valueColor = simklPresentation.color,
+                            leadingRawIconRes = R.raw.simkl_tv_glyph,
+                            leadingArtworkSize = 40.dp,
+                            onClick = onSimklClick,
+                            modifier = Modifier
+                                .focusRequester(simklFocusRequester)
+                                .testTag(TrackingSettingsTestTags.SIMKL_PROVIDER)
+                        )
+                        SettingsActionRow(
+                            title = stringResource(R.string.anilist_name),
+                            subtitle = anilistPresentation.subtitle,
+                            value = anilistPresentation.value,
+                            valueColor = anilistPresentation.color,
+                            leadingRawIconRes = R.raw.anilist_icon,
+                            leadingArtworkSize = 40.dp,
+                            onClick = onAniListClick,
+                            modifier = Modifier
+                                .focusRequester(anilistFocusRequester)
+                                .testTag(TrackingSettingsTestTags.ANILIST_PROVIDER)
+                        )
+                        SettingsActionRow(
+                            title = stringResource(R.string.kitsu_name),
+                            subtitle = kitsuPresentation.subtitle,
+                            value = kitsuPresentation.value,
+                            valueColor = kitsuPresentation.color,
+                            leadingRawIconRes = R.raw.kitsu_icon,
+                            leadingArtworkSize = 40.dp,
+                            onClick = onKitsuClick,
+                            modifier = Modifier
+                                .focusRequester(kitsuFocusRequester)
+                                .testTag(TrackingSettingsTestTags.KITSU_PROVIDER)
+                        )
+                        SettingsActionRow(
+                            title = stringResource(R.string.mal_name),
+                            subtitle = malPresentation.subtitle,
+                            value = malPresentation.value,
+                            valueColor = malPresentation.color,
+                            leadingRawIconRes = R.raw.mal_icon,
+                            leadingArtworkSize = 40.dp,
+                            onClick = onMalClick,
+                            modifier = Modifier
+                                .focusRequester(malFocusRequester)
+                                .testTag(TrackingSettingsTestTags.MAL_PROVIDER)
+                        )
+                    }
+                }
+                if (traktConnected) {
+                    item(key = "connected_trakt_features") {
                         SettingsGroupCard(
-                            title = stringResource(R.string.tracking_accounts_title),
-                            subtitle = stringResource(R.string.tracking_accounts_subtitle)
+                            title = stringResource(R.string.tracking_trakt_features_title),
+                            subtitle = stringResource(R.string.tracking_trakt_features_subtitle)
                         ) {
                             SettingsActionRow(
-                                title = stringResource(R.string.trakt_name),
-                                subtitle = traktPresentation.subtitle,
-                                value = traktPresentation.value,
-                                valueColor = traktPresentation.color,
-                                leadingRawIconRes = R.raw.trakt_tv_favicon,
-                                leadingArtworkSize = 40.dp,
-                                onClick = onTraktClick,
+                                title = stringResource(R.string.trakt_continue_watching_window),
+                                subtitle = if (!traktProgressActive) {
+                                    stringResource(R.string.tracking_trakt_progress_required)
+                                } else {
+                                    stringResource(R.string.trakt_continue_watching_subtitle)
+                                },
+                                value = continueWatchingWindowLabel(traktState.continueWatchingDaysCap),
+                                enabled = traktProgressActive,
+                                onClick = onContinueWatchingWindowClick,
                                 modifier = Modifier
-                                    .focusRequester(traktFocusRequester)
-                                    .testTag(TrackingSettingsTestTags.TRAKT_PROVIDER)
+                                    .focusRequester(continueWatchingFocusRequester)
+                                    .testTag(TrackingSettingsTestTags.CONTINUE_WATCHING)
+                            )
+                            SettingsToggleRow(
+                                title = stringResource(R.string.trakt_comments_title),
+                                subtitle = stringResource(R.string.trakt_comments_subtitle),
+                                checked = traktState.showMetaComments,
+                                enabled = true,
+                                onToggle = {
+                                    onCommentsChanged(!traktState.showMetaComments)
+                                },
+                                modifier = Modifier.testTag(TrackingSettingsTestTags.COMMENTS)
                             )
                             SettingsActionRow(
-                                title = stringResource(R.string.simkl_name),
-                                subtitle = simklPresentation.subtitle,
-                                value = simklPresentation.value,
-                                valueColor = simklPresentation.color,
-                                leadingRawIconRes = R.raw.simkl_tv_glyph,
-                                leadingArtworkSize = 40.dp,
-                                onClick = onSimklClick,
+                                title = stringResource(R.string.trakt_more_like_this_source_title),
+                                subtitle = stringResource(R.string.trakt_more_like_this_source_subtitle),
+                                value = moreLikeThisSourceLabel(traktState.moreLikeThisSource),
+                                enabled = true,
+                                onClick = onMoreLikeThisClick,
                                 modifier = Modifier
-                                    .focusRequester(simklFocusRequester)
-                                    .testTag(TrackingSettingsTestTags.SIMKL_PROVIDER)
+                                    .focusRequester(moreLikeThisFocusRequester)
+                                    .testTag(TrackingSettingsTestTags.MORE_LIKE_THIS)
                             )
-                            SettingsActionRow(
-                                title = stringResource(R.string.anilist_name),
-                                subtitle = anilistPresentation.subtitle,
-                                value = anilistPresentation.value,
-                                valueColor = anilistPresentation.color,
-                                leadingRawIconRes = R.raw.anilist_icon,
-                                leadingArtworkSize = 40.dp,
-                                onClick = onAniListClick,
-                                modifier = Modifier
-                                    .focusRequester(anilistFocusRequester)
-                                    .testTag(TrackingSettingsTestTags.ANILIST_PROVIDER)
-                            )
-                            SettingsActionRow(
-                                title = stringResource(R.string.kitsu_name),
-                                subtitle = kitsuPresentation.subtitle,
-                                value = kitsuPresentation.value,
-                                valueColor = kitsuPresentation.color,
-                                leadingRawIconRes = R.raw.kitsu_icon,
-                                leadingArtworkSize = 40.dp,
-                                onClick = onKitsuClick,
-                                modifier = Modifier
-                                    .focusRequester(kitsuFocusRequester)
-                                    .testTag(TrackingSettingsTestTags.KITSU_PROVIDER)
-                            )
-                            SettingsActionRow(
-                                title = stringResource(R.string.mal_name),
-                                subtitle = malPresentation.subtitle,
-                                value = malPresentation.value,
-                                valueColor = malPresentation.color,
-                                leadingRawIconRes = R.raw.mal_icon,
-                                leadingArtworkSize = 40.dp,
-                                onClick = onMalClick,
-                                modifier = Modifier
-                                    .focusRequester(malFocusRequester)
-                                    .testTag(TrackingSettingsTestTags.MAL_PROVIDER)
-                            )
-                        }
-                    }
-                    item(key = "tracking_sources") {
-                        SettingsGroupCard(
-                            title = stringResource(R.string.tracking_sources_title),
-                            subtitle = stringResource(R.string.tracking_sources_subtitle)
-                        ) {
-                            SettingsActionRow(
-                                title = stringResource(R.string.trakt_library_source_title),
-                                subtitle = stringResource(R.string.trakt_library_source_subtitle),
-                                value = librarySourceLabel(trackingState.librarySourceMode),
-                                enabled = trackingState.isReady,
-                                onClick = onLibrarySourceClick,
-                                modifier = Modifier
-                                    .focusRequester(libraryFocusRequester)
-                                    .testTag(TrackingSettingsTestTags.LIBRARY_SOURCE)
-                            )
-                            SettingsActionRow(
-                                title = stringResource(R.string.trakt_watch_progress_title),
-                                subtitle = stringResource(R.string.trakt_watch_progress_subtitle),
-                                value = watchProgressSourceLabel(trackingState.watchProgressSource),
-                                enabled = trackingState.isReady,
-                                onClick = onWatchProgressClick,
-                                modifier = Modifier
-                                    .focusRequester(watchProgressFocusRequester)
-                                    .testTag(TrackingSettingsTestTags.WATCH_PROGRESS_SOURCE)
-                            )
-                        }
-                    }
-                    if (traktConnected) {
-                        item(key = "tracking_trakt_features") {
-                            SettingsGroupCard(
-                                title = stringResource(R.string.tracking_trakt_features_title),
-                                subtitle = stringResource(R.string.tracking_trakt_features_subtitle)
-                            ) {
-                                SettingsActionRow(
-                                    title = stringResource(R.string.trakt_continue_watching_window),
-                                    subtitle = if (!traktProgressActive) {
-                                        stringResource(R.string.tracking_trakt_progress_required)
-                                    } else {
-                                        stringResource(R.string.trakt_continue_watching_subtitle)
-                                    },
-                                    value = continueWatchingWindowLabel(traktState.continueWatchingDaysCap),
-                                    enabled = traktProgressActive,
-                                    onClick = onContinueWatchingWindowClick,
-                                    modifier = Modifier
-                                        .focusRequester(continueWatchingFocusRequester)
-                                        .testTag(TrackingSettingsTestTags.CONTINUE_WATCHING)
-                                )
-                                SettingsToggleRow(
-                                    title = stringResource(R.string.trakt_comments_title),
-                                    subtitle = stringResource(R.string.trakt_comments_subtitle),
-                                    checked = traktState.showMetaComments,
-                                    enabled = true,
-                                    onToggle = {
-                                        onCommentsChanged(!traktState.showMetaComments)
-                                    },
-                                    modifier = Modifier.testTag(TrackingSettingsTestTags.COMMENTS)
-                                )
-                                SettingsActionRow(
-                                    title = stringResource(R.string.trakt_more_like_this_source_title),
-                                    subtitle = stringResource(R.string.trakt_more_like_this_source_subtitle),
-                                    value = moreLikeThisSourceLabel(traktState.moreLikeThisSource),
-                                    enabled = true,
-                                    onClick = onMoreLikeThisClick,
-                                    modifier = Modifier
-                                        .focusRequester(moreLikeThisFocusRequester)
-                                        .testTag(TrackingSettingsTestTags.MORE_LIKE_THIS)
-                                )
-                            }
-                        }
-                    }
-                    if (simklState.mode == SimklConnectionMode.CONNECTED) {
-                        item(key = "tracking_simkl_features") {
-                            SettingsGroupCard(
-                                title = stringResource(R.string.tracking_simkl_features_title),
-                                subtitle = stringResource(R.string.tracking_simkl_features_subtitle)
-                            ) {
-                                SettingsActionRow(
-                                    title = stringResource(R.string.tracking_simkl_anime_id_title),
-                                    subtitle = stringResource(R.string.tracking_simkl_anime_id_subtitle),
-                                    value = animeIdPreferenceLabel(trackingState.simklAnimeIdPreference),
-                                    onClick = onAnimeIdClick,
-                                    modifier = Modifier.testTag("tracking_simkl_anime_id")
-                                )
-                            }
                         }
                     }
                 }
-                SettingsVerticalScrollIndicators(state = listState)
+                if (simklState.mode == SimklConnectionMode.CONNECTED) {
+                    item(key = "connected_simkl_features") {
+                        SettingsGroupCard(
+                            title = stringResource(R.string.tracking_simkl_features_title),
+                            subtitle = stringResource(R.string.tracking_simkl_features_subtitle)
+                        ) {
+                            SettingsActionRow(
+                                title = stringResource(R.string.tracking_simkl_anime_id_title),
+                                subtitle = stringResource(R.string.tracking_simkl_anime_id_subtitle),
+                                value = animeIdPreferenceLabel(trackingState.simklAnimeIdPreference),
+                                onClick = onAnimeIdClick,
+                                modifier = Modifier.testTag("tracking_simkl_anime_id")
+                            )
+                        }
+                    }
+                }
             }
+            SettingsVerticalScrollIndicators(state = listState)
         }
     }
 }
@@ -880,26 +787,6 @@ private fun malConnectionPresentation(state: MalSettingsUiState): TrackingConnec
 }
 
 @Composable
-private fun watchProgressSourceLabel(source: WatchProgressSource): String = when (source) {
-    WatchProgressSource.TRAKT -> stringResource(R.string.trakt_name)
-    WatchProgressSource.SIMKL -> stringResource(R.string.simkl_name)
-    WatchProgressSource.ANILIST -> stringResource(R.string.anilist_name)
-    WatchProgressSource.KITSU -> stringResource(R.string.kitsu_name)
-    WatchProgressSource.MAL -> stringResource(R.string.mal_name)
-    WatchProgressSource.NUVIO_SYNC -> stringResource(R.string.trakt_watch_progress_source_nuvio)
-}
-
-@Composable
-private fun librarySourceLabel(mode: LibrarySourceMode): String = when (mode) {
-    LibrarySourceMode.TRAKT -> stringResource(R.string.trakt_name)
-    LibrarySourceMode.SIMKL -> stringResource(R.string.simkl_name)
-    LibrarySourceMode.ANILIST -> stringResource(R.string.anilist_name)
-    LibrarySourceMode.KITSU -> stringResource(R.string.kitsu_name)
-    LibrarySourceMode.MAL -> stringResource(R.string.mal_name)
-    LibrarySourceMode.LOCAL -> stringResource(R.string.trakt_library_source_nuvio)
-}
-
-@Composable
 private fun moreLikeThisSourceLabel(source: MoreLikeThisSourcePreference): String = when (source) {
     MoreLikeThisSourcePreference.TRAKT -> stringResource(R.string.trakt_name)
     MoreLikeThisSourcePreference.TMDB -> stringResource(R.string.trakt_more_like_this_source_tmdb)
@@ -927,8 +814,6 @@ private enum class TrackingFocusTarget {
     ANILIST,
     KITSU,
     MAL,
-    LIBRARY,
-    WATCH_PROGRESS,
     CONTINUE_WATCHING,
     MORE_LIKE_THIS
 }

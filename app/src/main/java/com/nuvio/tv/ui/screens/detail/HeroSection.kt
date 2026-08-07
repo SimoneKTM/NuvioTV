@@ -104,6 +104,7 @@ fun HeroContentSection(
     mdbListRatings: MDBListRatings? = null,
     hideMetaInfoImdb: Boolean = false,
     tmdbRating: Float? = null,
+    tvdbRating: Float? = null,
     showFullReleaseDate: Boolean = true,
     isTrailerPlaying: Boolean = false,
     playButtonFocusRequester: FocusRequester? = null,
@@ -405,7 +406,8 @@ fun HeroContentSection(
                         meta = meta,
                         hideImdbRating = hideMetaInfoImdb,
                         showFullReleaseDate = showFullReleaseDate,
-                        tmdbRating = tmdbRating
+                        tmdbRating = tmdbRating,
+                        tvdbRating = tvdbRating
                     )
                 }
             }
@@ -656,7 +658,8 @@ private fun MetaInfoRow(
     meta: Meta,
     hideImdbRating: Boolean,
     showFullReleaseDate: Boolean = true,
-    tmdbRating: Float? = null
+    tmdbRating: Float? = null,
+    tvdbRating: Float? = null
 ) {
     val context = LocalContext.current
     val genresText = remember(meta.genres) { meta.genres.joinToString(" • ") }
@@ -674,6 +677,7 @@ private fun MetaInfoRow(
     val imdbRating = if (hideImdbRating) null else meta.imdbRating
     val shouldShowImdbRating = imdbRating != null
     val shouldShowTmdbRating = tmdbRating != null
+    val shouldShowTvdbRating = tvdbRating != null
     val tmdbModel = remember(context) {
         ImageRequest.Builder(context)
             .data(com.nuvio.tv.R.raw.mdblist_tmdb)
@@ -728,7 +732,7 @@ private fun MetaInfoRow(
                     style = MaterialTheme.typography.labelLarge,
                     color = NuvioTheme.extendedColors.textSecondary
                 )
-                if (yearText != null || shouldShowImdbRating || shouldShowTmdbRating) {
+                if (yearText != null || shouldShowImdbRating || shouldShowTmdbRating || shouldShowTvdbRating) {
                     MetaInfoDivider()
                 }
             }
@@ -739,7 +743,7 @@ private fun MetaInfoRow(
                     style = MaterialTheme.typography.labelLarge,
                     color = NuvioTheme.extendedColors.textSecondary
                 )
-                if (shouldShowImdbRating || shouldShowTmdbRating) {
+                if (shouldShowImdbRating || shouldShowTmdbRating || shouldShowTvdbRating) {
                     MetaInfoDivider()
                 }
             }
@@ -775,6 +779,29 @@ private fun MetaInfoRow(
                         contentScale = ContentScale.Fit
                     )
                     val ratingText = remember(rating) { (rating * 10).toInt().toString() }
+                    Text(
+                        text = ratingText,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = NuvioTheme.extendedColors.textSecondary
+                    )
+                }
+            }
+
+            tvdbRating?.let { rating ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
+                ) {
+                    Text(
+                        text = stringResource(R.string.hero_tvdb_rating_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = NuvioTheme.extendedColors.textSecondary,
+                        modifier = Modifier.background(
+                            color = NuvioTheme.colors.BackgroundElevated,
+                            shape = RoundedCornerShape(4.dp)
+                        ).padding(horizontal = 5.dp, vertical = 1.dp)
+                    )
+                    val ratingText = remember(rating) { String.format("%.1f", rating) }
                     Text(
                         text = ratingText,
                         style = MaterialTheme.typography.labelLarge,

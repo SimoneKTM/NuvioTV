@@ -2,33 +2,17 @@
 
 package com.nuvio.tv.ui.screens.settings
 
-import android.content.Intent
-import android.net.Uri
-import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
@@ -42,7 +26,6 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 @Composable
 internal fun MalAccountDialog(
     state: MalSettingsUiState,
-    onConnect: (String) -> Unit,
     onSync: () -> Unit,
     onDisconnect: () -> Unit,
     onStartQrLogin: () -> Unit,
@@ -50,7 +33,6 @@ internal fun MalAccountDialog(
     onCancelQrLogin: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
     NuvioDialog(
         onDismiss = onDismiss,
         title = "",
@@ -67,17 +49,6 @@ internal fun MalAccountDialog(
         } else {
             MalConnectContent(
                 state = state,
-                onOpenBrowser = {
-                    val url = state.authorizeUrl
-                    if (!url.isNullOrBlank()) {
-                        runCatching {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                            )
-                        }
-                    }
-                },
-                onConnect = onConnect,
                 onStartQrLogin = onStartQrLogin,
                 onRetryQrLogin = onRetryQrLogin,
                 onCancelQrLogin = onCancelQrLogin,
@@ -142,70 +113,22 @@ private fun MalConnectedContent(
 @Composable
 private fun MalConnectContent(
     state: MalSettingsUiState,
-    onOpenBrowser: () -> Unit,
-    onConnect: (String) -> Unit,
     onStartQrLogin: () -> Unit,
     onRetryQrLogin: () -> Unit,
     onCancelQrLogin: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    var token by remember { mutableStateOf("") }
-    var editing by remember { mutableStateOf(false) }
-    val keyboardController = LocalSoftwareKeyboardController.current
-
     MalWordmarkHeader()
     Text(
         text = stringResource(R.string.mal_connect_instruction),
         style = MaterialTheme.typography.bodyMedium,
         color = NuvioTheme.colors.TextSecondary
     )
-    if (state.qrLogin.isConfigured) {
-        TrackerQrLoginSection(
-            qrLogin = state.qrLogin,
-            onStart = onStartQrLogin,
-            onRetry = onRetryQrLogin,
-            onCancel = onCancelQrLogin
-        )
-    }
-    OutlinedTextField(
-        value = token,
-        onValueChange = { token = it },
-        modifier = Modifier
-            .fillMaxWidth()
-            .onFocusChanged { if (!it.isFocused) editing = false }
-            .onPreviewKeyEvent { event ->
-                val native = event.nativeKeyEvent
-                if (
-                    native.action == AndroidKeyEvent.ACTION_DOWN &&
-                    isMalTokenSelectKey(native.keyCode)
-                ) {
-                    editing = true
-                    keyboardController?.show()
-                }
-                false
-            },
-        readOnly = !editing,
-        singleLine = true,
-        maxLines = 1,
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-        keyboardActions = KeyboardActions(
-            onDone = {
-                editing = false
-                keyboardController?.hide()
-            }
-        ),
-        label = { Text(stringResource(R.string.mal_token_label)) },
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = NuvioTheme.colors.TextPrimary,
-            unfocusedTextColor = NuvioTheme.colors.TextPrimary,
-            focusedContainerColor = NuvioTheme.colors.BackgroundCard,
-            unfocusedContainerColor = NuvioTheme.colors.BackgroundCard,
-            focusedBorderColor = NuvioTheme.colors.FocusRing,
-            unfocusedBorderColor = NuvioTheme.colors.Border,
-            focusedLabelColor = NuvioTheme.colors.TextSecondary,
-            unfocusedLabelColor = NuvioTheme.colors.TextTertiary,
-            cursorColor = NuvioTheme.colors.FocusRing
-        )
+    TrackerQrLoginSection(
+        qrLogin = state.qrLogin,
+        onStart = onStartQrLogin,
+        onRetry = onRetryQrLogin,
+        onCancel = onCancelQrLogin
     )
     if (!state.errorMessage.isNullOrBlank()) {
         Text(
@@ -220,23 +143,6 @@ private fun MalConnectContent(
         SettingsDialogActionButton(
             text = stringResource(R.string.action_cancel),
             onClick = onDismiss
-        )
-        SettingsDialogActionButton(
-            text = stringResource(R.string.mal_open_authorize),
-            onClick = onOpenBrowser,
-            enabled = state.credentialsConfigured &&
-                !state.authorizeUrl.isNullOrBlank() &&
-                !state.isLoading
-        )
-        SettingsDialogActionButton(
-            text = stringResource(R.string.mal_connect),
-            onClick = {
-                editing = false
-                keyboardController?.hide()
-                onConnect(token)
-            },
-            primary = true,
-            enabled = token.isNotBlank() && !state.isLoading
         )
     }
 }
@@ -267,8 +173,3 @@ private fun MalWordmarkHeader() {
         }
     }
 }
-
-private fun isMalTokenSelectKey(keyCode: Int): Boolean =
-    keyCode == AndroidKeyEvent.KEYCODE_DPAD_CENTER ||
-        keyCode == AndroidKeyEvent.KEYCODE_ENTER ||
-        keyCode == AndroidKeyEvent.KEYCODE_NUMPAD_ENTER

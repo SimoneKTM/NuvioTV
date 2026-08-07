@@ -186,6 +186,7 @@
     <string name="hero_press_back_trailer">Press back to exit trailer</string>
     <string name="hero_synopsis_read_more">Read more</string>
     <string name="hero_synopsis_dismiss_hint">Press back to close</string>
+    <string name="hero_tvdb_rating_label">TVDB</string>
     <string name="cd_rating">Rating</string>
 
     <string name="episodes_season">Season %1$d</string>
@@ -405,6 +406,18 @@
     <string name="settings_playback">Playback</string>
     <string name="settings_playback_subtitle">Player, subtitles, and auto-play</string>
     <string name="settings_trakt_subtitle">Open Trakt connection screen</string>
+    <string name="settings_library_title">Library</string>
+    <string name="settings_library_subtitle">Library source and watch progress</string>
+    <string name="settings_library_description">Choose where Nuvio reads your library and watch progress.</string>
+    <string name="settings_connected_services_title">Connected services</string>
+    <string name="settings_connected_services_subtitle">Connect and manage streaming and tracking services</string>
+    <string name="settings_anime_subtitle">Anime add-ons, plugins, layout and live TV</string>
+    <string name="settings_anime_layout_title">Anime layout</string>
+    <string name="settings_anime_layout_subtitle">Home structure and poster styles for the Anime tab</string>
+    <string name="settings_live_tv_title">Live TV</string>
+    <string name="settings_live_tv_subtitle">M3U playlists and Xtream codes</string>
+    <string name="settings_vpn_title">VPN</string>
+    <string name="settings_vpn_subtitle">WireGuard connections</string>
     <string name="settings_tracking_title">Tracking</string>
     <string name="settings_tracking_subtitle">Manage Trakt and Simkl connections</string>
     <string name="settings_tracking_description">Connect tracking providers and choose which one powers your Library and Continue Watching.</string>
@@ -654,7 +667,38 @@
     <string name="settings_tmdb_subtitle">Metadata enrichment controls</string>
     <string name="settings_mdblist_subtitle">External ratings providers</string>
     <string name="settings_animeskip_subtitle">Anime intro/outro skip timestamps</string>
+    <string name="settings_tvdb_subtitle">TVDB metadata enrichment</string>
     <string name="settings_debrid_subtitle">Experimental cloud account sources</string>
+
+    <string name="tvdb_settings_title">TVDB Enrichment</string>
+    <string name="tvdb_settings_subtitle">Use TVDB to improve series metadata</string>
+    <string name="tvdb_anime_settings_title">TVDB Enrichment</string>
+    <string name="tvdb_anime_settings_subtitle">Use TVDB to improve anime metadata</string>
+    <string name="tvdb_enable_title">Enable TVDB enrichment</string>
+    <string name="tvdb_enable_subtitle">Use TVDB as a metadata source to enrich addon data. Add your API key first.</string>
+    <string name="tvdb_api_key_title">TVDB API key</string>
+    <string name="tvdb_api_key_subtitle">Requires a free account at thetvdb.com</string>
+    <string name="tvdb_api_key_dialog_title">TVDB API key</string>
+    <string name="tvdb_api_key_dialog_subtitle">Enter your TVDB v4 API key</string>
+    <string name="tvdb_api_key_dialog_placeholder">Paste your API key here</string>
+    <string name="tvdb_not_set">Not set</string>
+    <string name="tvdb_language_title">Preferred language</string>
+    <string name="tvdb_language_subtitle">ISO 639-1 code used for localized titles and overviews</string>
+    <string name="tvdb_language_dialog_title">Preferred language</string>
+    <string name="tvdb_language_dialog_subtitle">Enter an ISO 639-1 code such as en, ja, it</string>
+    <string name="tvdb_language_dialog_placeholder">e.g. ja</string>
+    <string name="tvdb_trailers_title">Trailers</string>
+    <string name="tvdb_trailers_subtitle">Add missing trailers from TVDB</string>
+    <string name="tvdb_artwork_title">Artwork</string>
+    <string name="tvdb_artwork_subtitle">Use TVDB artwork for missing backgrounds</string>
+    <string name="tvdb_basic_info_title">Basic info</string>
+    <string name="tvdb_basic_info_subtitle">Localized titles, overviews and ratings</string>
+    <string name="tvdb_credits_title">Credits</string>
+    <string name="tvdb_credits_subtitle">Cast members from TVDB</string>
+    <string name="tvdb_episodes_title">Episodes</string>
+    <string name="tvdb_episodes_subtitle">Episode titles, overviews, thumbnails and air dates</string>
+    <string name="tvdb_season_posters_title">Season posters</string>
+    <string name="tvdb_season_posters_subtitle">Fallback posters for episodes without thumbnails</string>
 
     <string name="playback_title">Playback Settings</string>
     <string name="playback_subtitle">Configure video playback and subtitle options</string>

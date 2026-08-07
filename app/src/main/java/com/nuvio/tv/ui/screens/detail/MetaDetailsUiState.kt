@@ -70,6 +70,7 @@ data class MetaDetailsUiState(
     val mdbListRatings: MDBListRatings? = null,
     val showMdbListImdb: Boolean = false,
     val tmdbRating: Float? = null,
+    val tvdbRating: Float? = null,
     val comments: List<TraktCommentReview> = emptyList(),
     val commentsCurrentPage: Int = 0,
     val commentsPageCount: Int = 0,

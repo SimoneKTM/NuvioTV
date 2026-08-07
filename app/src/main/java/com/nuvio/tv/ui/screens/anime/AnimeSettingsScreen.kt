@@ -71,8 +71,7 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 fun AnimeSettingsScreen(
     viewModel: AnimeSettingsViewModel = hiltViewModel(),
     onBackPress: () -> Unit,
-    onNavigateToPlugins: () -> Unit,
-    onNavigateToTracking: () -> Unit
+    onNavigateToPlugins: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -231,12 +230,6 @@ fun AnimeSettingsScreen(
                     subtitle = stringResource(R.string.anime_settings_plugins_subtitle),
                     onClick = onNavigateToPlugins,
                     leadingIcon = Icons.Default.Build
-                )
-                SettingsActionRow(
-                    title = stringResource(R.string.settings_tracking_title),
-                    subtitle = stringResource(R.string.anime_settings_tracking_subtitle),
-                    onClick = onNavigateToTracking,
-                    leadingIcon = Icons.Default.Sync
                 )
             }
         }

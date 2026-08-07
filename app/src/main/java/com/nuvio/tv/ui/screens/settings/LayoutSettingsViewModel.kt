@@ -132,7 +132,7 @@ sealed class LayoutSettingsEvent {
 }
 
 @HiltViewModel
-class LayoutSettingsViewModel @Inject constructor(
+open class LayoutSettingsViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val streamBadgeSettingsDataStore: StreamBadgeSettingsDataStore,

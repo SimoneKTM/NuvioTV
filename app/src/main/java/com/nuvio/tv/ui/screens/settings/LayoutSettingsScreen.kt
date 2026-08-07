@@ -118,7 +118,9 @@ private enum class LayoutSettingsSection {
 fun LayoutSettingsContent(
     viewModel: LayoutSettingsViewModel = hiltViewModel(),
     initialFocusRequester: FocusRequester? = null,
-    essentialMode: Boolean = false
+    essentialMode: Boolean = false,
+    headerTitleRes: Int = R.string.layout_title,
+    headerSubtitleRes: Int? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val streamBadgeUiState by viewModel.streamBadgeUiState.collectAsStateWithLifecycle()
@@ -191,9 +193,10 @@ fun LayoutSettingsContent(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         SettingsDetailHeader(
-            title = stringResource(R.string.layout_title),
+            title = stringResource(headerTitleRes),
             subtitle = stringResource(
-                if (essentialMode) R.string.layout_selection_subtitle else R.string.layout_subtitle
+                headerSubtitleRes
+                    ?: if (essentialMode) R.string.layout_selection_subtitle else R.string.layout_subtitle
             )
         )
 
