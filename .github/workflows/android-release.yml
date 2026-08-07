@@ -1,3 +1,4 @@
+# Fork release workflow: build signed APK and publish GitHub release from enhanced/tv branch
 name: Build Android TV Release
 
 on:
