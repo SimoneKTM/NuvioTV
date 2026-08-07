@@ -110,18 +110,27 @@ internal enum class SettingsCategory {
 
 private enum class IntegrationSettingsSection {
     Hub,
-    ConnectedServices,
     Debrid,
     Tmdb,
     MdbList,
     Tvdb,
-    AnimeSkip
+    AnimeSkip,
+    OpenSubtitles
+}
+
+private enum class LibrarySettingsSection {
+    Hub,
+    Sources,
+    ConnectedServices
 }
 
 private enum class AnimeSettingsSection {
     Hub,
     Layout,
-    Tvdb
+    Tmdb,
+    MdbList,
+    Tvdb,
+    AnimeSkip
 }
 
 internal enum class SettingsSectionDestination {
@@ -321,16 +330,23 @@ fun SettingsScreen(
     }
     val railContainerFocusRequester = remember { FocusRequester() }
     val integrationHubFocusRequester = remember { FocusRequester() }
-    val integrationConnectedServicesFocusRequester = remember { FocusRequester() }
     val integrationDebridFocusRequester = remember { FocusRequester() }
     val integrationTmdbFocusRequester = remember { FocusRequester() }
     val integrationMdbListFocusRequester = remember { FocusRequester() }
     val integrationTvdbFocusRequester = remember { FocusRequester() }
     val integrationAnimeSkipFocusRequester = remember { FocusRequester() }
+    val integrationOpenSubtitlesFocusRequester = remember { FocusRequester() }
+    val libraryHubFocusRequester = remember { FocusRequester() }
+    val librarySourcesFocusRequester = remember { FocusRequester() }
+    val libraryConnectedServicesFocusRequester = remember { FocusRequester() }
     val animeHubFocusRequester = remember { FocusRequester() }
     val animeLayoutFocusRequester = remember { FocusRequester() }
+    val animeTmdbFocusRequester = remember { FocusRequester() }
+    val animeMdbListFocusRequester = remember { FocusRequester() }
     val animeTvdbFocusRequester = remember { FocusRequester() }
+    val animeAnimeSkipFocusRequester = remember { FocusRequester() }
     var integrationSection by remember { mutableStateOf(IntegrationSettingsSection.Hub) }
+    var librarySection by remember { mutableStateOf(LibrarySettingsSection.Hub) }
     var animeSection by remember { mutableStateOf(AnimeSettingsSection.Hub) }
     var pendingContentFocusCategory by remember { mutableStateOf<SettingsCategory?>(null) }
     var pendingContentFocusRequestId by remember { mutableLongStateOf(0L) }
@@ -354,6 +370,9 @@ fun SettingsScreen(
         }
         if (selectedCategory == SettingsCategory.INTEGRATION) {
             integrationSection = IntegrationSettingsSection.Hub
+        }
+        if (selectedCategory == SettingsCategory.LIBRARY) {
+            librarySection = LibrarySettingsSection.Hub
         }
     }
 
@@ -562,17 +581,25 @@ fun SettingsScreen(
                                 integrationSection = integrationSection,
                                 onSelectIntegrationSection = { integrationSection = it },
                                 integrationHubFocusRequester = integrationHubFocusRequester,
-                                integrationConnectedServicesFocusRequester = integrationConnectedServicesFocusRequester,
                                 integrationDebridFocusRequester = integrationDebridFocusRequester,
                                 integrationTmdbFocusRequester = integrationTmdbFocusRequester,
                                 integrationMdbListFocusRequester = integrationMdbListFocusRequester,
                                 integrationTvdbFocusRequester = integrationTvdbFocusRequester,
-                                integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
+integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
+                                openSubtitlesFocusRequester = integrationOpenSubtitlesFocusRequester,
+                                librarySection = librarySection,
+                                onSelectLibrarySection = { librarySection = it },
+                                libraryHubFocusRequester = libraryHubFocusRequester,
+                                librarySourcesFocusRequester = librarySourcesFocusRequester,
+                                libraryConnectedServicesFocusRequester = libraryConnectedServicesFocusRequester,
                                 animeSection = animeSection,
                                 onSelectAnimeSection = { animeSection = it },
                                 animeHubFocusRequester = animeHubFocusRequester,
                                 animeLayoutFocusRequester = animeLayoutFocusRequester,
+                                animeTmdbFocusRequester = animeTmdbFocusRequester,
+                                animeMdbListFocusRequester = animeMdbListFocusRequester,
                                 animeTvdbFocusRequester = animeTvdbFocusRequester,
+                                animeAnimeSkipFocusRequester = animeAnimeSkipFocusRequester,
                                 onNavigateToManageProfiles = onNavigateToManageProfiles,
                                 onNavigateToAddons = onNavigateToAddons,
                                 onNavigateToAnimeSettings = onNavigateToAnimeSettings,
@@ -721,17 +748,25 @@ fun SettingsScreen(
                         integrationSection = integrationSection,
                         onSelectIntegrationSection = { integrationSection = it },
                         integrationHubFocusRequester = integrationHubFocusRequester,
-                        integrationConnectedServicesFocusRequester = integrationConnectedServicesFocusRequester,
                         integrationDebridFocusRequester = integrationDebridFocusRequester,
                         integrationTmdbFocusRequester = integrationTmdbFocusRequester,
                         integrationMdbListFocusRequester = integrationMdbListFocusRequester,
                         integrationTvdbFocusRequester = integrationTvdbFocusRequester,
                         integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
+                        openSubtitlesFocusRequester = integrationOpenSubtitlesFocusRequester,
+                        librarySection = librarySection,
+                        onSelectLibrarySection = { librarySection = it },
+                        libraryHubFocusRequester = libraryHubFocusRequester,
+                        librarySourcesFocusRequester = librarySourcesFocusRequester,
+                        libraryConnectedServicesFocusRequester = libraryConnectedServicesFocusRequester,
                         animeSection = animeSection,
                         onSelectAnimeSection = { animeSection = it },
                         animeHubFocusRequester = animeHubFocusRequester,
                         animeLayoutFocusRequester = animeLayoutFocusRequester,
+                        animeTmdbFocusRequester = animeTmdbFocusRequester,
+                        animeMdbListFocusRequester = animeMdbListFocusRequester,
                         animeTvdbFocusRequester = animeTvdbFocusRequester,
+                        animeAnimeSkipFocusRequester = animeAnimeSkipFocusRequester,
                         onNavigateToManageProfiles = onNavigateToManageProfiles,
                         onNavigateToAddons = onNavigateToAddons,
                         onNavigateToAnimeSettings = onNavigateToAnimeSettings,
@@ -757,17 +792,25 @@ private fun SettingsDetailPane(
     integrationSection: IntegrationSettingsSection,
     onSelectIntegrationSection: (IntegrationSettingsSection) -> Unit,
     integrationHubFocusRequester: FocusRequester,
-    integrationConnectedServicesFocusRequester: FocusRequester,
     integrationDebridFocusRequester: FocusRequester,
     integrationTmdbFocusRequester: FocusRequester,
     integrationMdbListFocusRequester: FocusRequester,
     integrationTvdbFocusRequester: FocusRequester,
     integrationAnimeSkipFocusRequester: FocusRequester,
+    librarySection: LibrarySettingsSection,
+    onSelectLibrarySection: (LibrarySettingsSection) -> Unit,
+    libraryHubFocusRequester: FocusRequester,
+    librarySourcesFocusRequester: FocusRequester,
+    libraryConnectedServicesFocusRequester: FocusRequester,
     animeSection: AnimeSettingsSection,
     onSelectAnimeSection: (AnimeSettingsSection) -> Unit,
     animeHubFocusRequester: FocusRequester,
     animeLayoutFocusRequester: FocusRequester,
+    animeTmdbFocusRequester: FocusRequester,
+    animeMdbListFocusRequester: FocusRequester,
     animeTvdbFocusRequester: FocusRequester,
+    animeAnimeSkipFocusRequester: FocusRequester,
+    openSubtitlesFocusRequester: FocusRequester,
     onNavigateToManageProfiles: () -> Unit,
     onNavigateToAddons: () -> Unit,
     onNavigateToAnimeSettings: () -> Unit,
@@ -805,7 +848,10 @@ private fun SettingsDetailPane(
             },
             hubFocusRequester = animeHubFocusRequester,
             layoutFocusRequester = animeLayoutFocusRequester,
+            tmdbFocusRequester = animeTmdbFocusRequester,
+            mdbListFocusRequester = animeMdbListFocusRequester,
             tvdbFocusRequester = animeTvdbFocusRequester,
+            animeSkipFocusRequester = animeAnimeSkipFocusRequester,
             autoFocusEnabled = allowDetailAutofocus
         )
         SettingsCategory.APPEARANCE -> ThemeSettingsContent(
@@ -868,20 +914,26 @@ private fun SettingsDetailPane(
                 null
             },
             hubFocusRequester = integrationHubFocusRequester,
-            connectedServicesFocusRequester = integrationConnectedServicesFocusRequester,
             debridFocusRequester = integrationDebridFocusRequester,
             tmdbFocusRequester = integrationTmdbFocusRequester,
             mdbListFocusRequester = integrationMdbListFocusRequester,
             tvdbFocusRequester = integrationTvdbFocusRequester,
             animeSkipFocusRequester = integrationAnimeSkipFocusRequester,
+            openSubtitlesFocusRequester = openSubtitlesFocusRequester,
             autoFocusEnabled = allowDetailAutofocus
         )
-        SettingsCategory.LIBRARY -> LibrarySettingsContent(
+        SettingsCategory.LIBRARY -> LibrarySettingsHubContent(
+            selectedSection = librarySection,
+            onSelectSection = onSelectLibrarySection,
             initialFocusRequester = if (allowDetailAutofocus) {
                 contentFocusRequesters[SettingsCategory.LIBRARY]
             } else {
                 null
-            }
+            },
+            hubFocusRequester = libraryHubFocusRequester,
+            sourcesFocusRequester = librarySourcesFocusRequester,
+            connectedServicesFocusRequester = libraryConnectedServicesFocusRequester,
+            autoFocusEnabled = allowDetailAutofocus
         )
         SettingsCategory.ABOUT -> AboutSettingsContent(
             onNavigateToSupportersContributors = onNavigateToSupportersContributors,
@@ -954,6 +1006,91 @@ private fun ContentDiscoverySettingsContent(
 }
 
 @Composable
+private fun LibrarySettingsHubContent(
+    selectedSection: LibrarySettingsSection,
+    onSelectSection: (LibrarySettingsSection) -> Unit,
+    initialFocusRequester: FocusRequester?,
+    hubFocusRequester: FocusRequester,
+    sourcesFocusRequester: FocusRequester,
+    connectedServicesFocusRequester: FocusRequester,
+    autoFocusEnabled: Boolean
+) {
+    BackHandler(enabled = selectedSection != LibrarySettingsSection.Hub) {
+        onSelectSection(LibrarySettingsSection.Hub)
+    }
+    val hubEntryFocusRequester = initialFocusRequester ?: hubFocusRequester
+
+    LaunchedEffect(selectedSection, autoFocusEnabled) {
+        if (!autoFocusEnabled) return@LaunchedEffect
+        val requester = when (selectedSection) {
+            LibrarySettingsSection.Hub -> hubEntryFocusRequester
+            LibrarySettingsSection.Sources -> sourcesFocusRequester
+            LibrarySettingsSection.ConnectedServices -> connectedServicesFocusRequester
+        }
+        runCatching { requester.requestFocus() }
+    }
+
+    when (selectedSection) {
+        LibrarySettingsSection.Hub -> {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+            ) {
+                SettingsDetailHeader(
+                    title = stringResource(R.string.settings_library_title),
+                    subtitle = stringResource(R.string.settings_library_description)
+                )
+                SettingsGroupCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    val libraryHubState = rememberLazyListState()
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            state = libraryHubState,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            item(key = "library_hub_sources") {
+                                SettingsActionRow(
+                                    title = stringResource(R.string.tracking_sources_title),
+                                    subtitle = stringResource(R.string.tracking_sources_subtitle),
+                                    onClick = { onSelectSection(LibrarySettingsSection.Sources) },
+                                    leadingIcon = Icons.Default.GridView,
+                                    modifier = Modifier.focusRequester(hubEntryFocusRequester)
+                                )
+                            }
+                            item(key = "library_hub_connected_services") {
+                                SettingsActionRow(
+                                    title = stringResource(R.string.settings_connected_services_title),
+                                    subtitle = stringResource(R.string.settings_connected_services_subtitle),
+                                    onClick = { onSelectSection(LibrarySettingsSection.ConnectedServices) },
+                                    leadingIcon = Icons.Default.Link
+                                )
+                            }
+                        }
+                        SettingsVerticalScrollIndicators(state = libraryHubState)
+                    }
+                }
+            }
+        }
+
+        LibrarySettingsSection.Sources -> {
+            LibrarySettingsContent(
+                initialFocusRequester = sourcesFocusRequester
+            )
+        }
+
+        LibrarySettingsSection.ConnectedServices -> {
+            ConnectedServicesSettingsContent(
+                initialFocusRequester = connectedServicesFocusRequester,
+                autoFocusEnabled = autoFocusEnabled
+            )
+        }
+    }
+}
+
+@Composable
 private fun AnimeSettingsContent(
     selectedSection: AnimeSettingsSection,
     onSelectSection: (AnimeSettingsSection) -> Unit,
@@ -962,7 +1099,10 @@ private fun AnimeSettingsContent(
     initialFocusRequester: FocusRequester?,
     hubFocusRequester: FocusRequester,
     layoutFocusRequester: FocusRequester,
+    tmdbFocusRequester: FocusRequester,
+    mdbListFocusRequester: FocusRequester,
     tvdbFocusRequester: FocusRequester,
+    animeSkipFocusRequester: FocusRequester,
     autoFocusEnabled: Boolean
 ) {
     BackHandler(enabled = selectedSection != AnimeSettingsSection.Hub) {
@@ -975,7 +1115,10 @@ private fun AnimeSettingsContent(
         val requester = when (selectedSection) {
             AnimeSettingsSection.Hub -> hubEntryFocusRequester
             AnimeSettingsSection.Layout -> layoutFocusRequester
+            AnimeSettingsSection.Tmdb -> tmdbFocusRequester
+            AnimeSettingsSection.MdbList -> mdbListFocusRequester
             AnimeSettingsSection.Tvdb -> tvdbFocusRequester
+            AnimeSettingsSection.AnimeSkip -> animeSkipFocusRequester
         }
         runCatching { requester.requestFocus() }
     }
@@ -1003,7 +1146,7 @@ private fun AnimeSettingsContent(
                         ) {
                             item(key = "anime_hub_addons") {
                                 SettingsActionRow(
-                                    title = stringResource(R.string.anime_addons_section),
+                                    title = stringResource(R.string.anime_settings_addons_title),
                                     subtitle = stringResource(R.string.settings_content_discovery_addons_subtitle),
                                     onClick = onNavigateToAnimeSettings,
                                     leadingIcon = Icons.Default.FilterDrama,
@@ -1026,11 +1169,35 @@ private fun AnimeSettingsContent(
                                     leadingIcon = Icons.Default.GridView
                                 )
                             }
+                            item(key = "anime_hub_tmdb") {
+                                SettingsActionRow(
+                                    title = "TMDB",
+                                    subtitle = stringResource(R.string.settings_tmdb_subtitle),
+                                    onClick = { onSelectSection(AnimeSettingsSection.Tmdb) },
+                                    leadingIcon = Icons.Default.Link
+                                )
+                            }
+                            item(key = "anime_hub_mdblist") {
+                                SettingsActionRow(
+                                    title = "MDBList",
+                                    subtitle = stringResource(R.string.settings_mdblist_subtitle),
+                                    onClick = { onSelectSection(AnimeSettingsSection.MdbList) },
+                                    leadingIcon = Icons.Default.Link
+                                )
+                            }
                             item(key = "anime_hub_tvdb") {
                                 SettingsActionRow(
                                     title = "TVDB",
                                     subtitle = stringResource(R.string.settings_tvdb_subtitle),
                                     onClick = { onSelectSection(AnimeSettingsSection.Tvdb) },
+                                    leadingIcon = Icons.Default.Link
+                                )
+                            }
+                            item(key = "anime_hub_animeskip") {
+                                SettingsActionRow(
+                                    title = "Anime-Skip",
+                                    subtitle = stringResource(R.string.settings_animeskip_subtitle),
+                                    onClick = { onSelectSection(AnimeSettingsSection.AnimeSkip) },
                                     leadingIcon = Icons.Default.Link
                                 )
                             }
@@ -1050,12 +1217,50 @@ private fun AnimeSettingsContent(
             )
         }
 
+        AnimeSettingsSection.Tmdb -> {
+            AnimeTmdbSettingsContent(
+                initialFocusRequester = tmdbFocusRequester
+            )
+        }
+
+        AnimeSettingsSection.MdbList -> {
+            AnimeMDBListSettingsContent(
+                initialFocusRequester = mdbListFocusRequester
+            )
+        }
+
         AnimeSettingsSection.Tvdb -> {
             AnimeTvdbSettingsContent(
                 initialFocusRequester = tvdbFocusRequester
             )
         }
+
+        AnimeSettingsSection.AnimeSkip -> {
+            AnimeSkipSettingsContent(
+                initialFocusRequester = animeSkipFocusRequester
+            )
+        }
     }
+}
+
+@Composable
+private fun AnimeTmdbSettingsContent(
+    initialFocusRequester: FocusRequester? = null
+) {
+    TmdbSettingsContent(
+        viewModel = hiltViewModel<AnimeTmdbSettingsViewModel>(),
+        initialFocusRequester = initialFocusRequester
+    )
+}
+
+@Composable
+private fun AnimeMDBListSettingsContent(
+    initialFocusRequester: FocusRequester? = null
+) {
+    MDBListSettingsContent(
+        viewModel = hiltViewModel<AnimeMDBListSettingsViewModel>(),
+        initialFocusRequester = initialFocusRequester
+    )
 }
 
 @Composable
@@ -1134,12 +1339,12 @@ private fun IntegrationSettingsContent(
     onSelectSection: (IntegrationSettingsSection) -> Unit,
     initialFocusRequester: FocusRequester?,
     hubFocusRequester: FocusRequester,
-    connectedServicesFocusRequester: FocusRequester,
     debridFocusRequester: FocusRequester,
     tmdbFocusRequester: FocusRequester,
     mdbListFocusRequester: FocusRequester,
     tvdbFocusRequester: FocusRequester,
     animeSkipFocusRequester: FocusRequester,
+    openSubtitlesFocusRequester: FocusRequester,
     autoFocusEnabled: Boolean
 ) {
     BackHandler(enabled = selectedSection != IntegrationSettingsSection.Hub) {
@@ -1151,12 +1356,12 @@ private fun IntegrationSettingsContent(
         if (!autoFocusEnabled) return@LaunchedEffect
         val requester = when (selectedSection) {
             IntegrationSettingsSection.Hub -> hubEntryFocusRequester
-            IntegrationSettingsSection.ConnectedServices -> connectedServicesFocusRequester
             IntegrationSettingsSection.Debrid -> debridFocusRequester
             IntegrationSettingsSection.Tmdb -> tmdbFocusRequester
             IntegrationSettingsSection.MdbList -> mdbListFocusRequester
             IntegrationSettingsSection.Tvdb -> tvdbFocusRequester
             IntegrationSettingsSection.AnimeSkip -> animeSkipFocusRequester
+            IntegrationSettingsSection.OpenSubtitles -> openSubtitlesFocusRequester
         }
         runCatching { requester.requestFocus() }
     }
@@ -1183,19 +1388,12 @@ private fun IntegrationSettingsContent(
                             state = integrationHubState,
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            item(key = "integration_hub_connected_services") {
-                                SettingsActionRow(
-                                    title = stringResource(R.string.settings_connected_services_title),
-                                    subtitle = stringResource(R.string.settings_connected_services_subtitle),
-                                    onClick = { onSelectSection(IntegrationSettingsSection.ConnectedServices) },
-                                    modifier = Modifier.focusRequester(hubEntryFocusRequester)
-                                )
-                            }
                             item(key = "integration_hub_debrid") {
                                 SettingsActionRow(
                                     title = stringResource(R.string.debrid_title),
                                     subtitle = stringResource(R.string.settings_debrid_subtitle),
-                                    onClick = { onSelectSection(IntegrationSettingsSection.Debrid) }
+                                    onClick = { onSelectSection(IntegrationSettingsSection.Debrid) },
+                                    modifier = Modifier.focusRequester(hubEntryFocusRequester)
                                 )
                             }
                             item(key = "integration_hub_tmdb") {
@@ -1226,18 +1424,18 @@ private fun IntegrationSettingsContent(
                                     onClick = { onSelectSection(IntegrationSettingsSection.AnimeSkip) }
                                 )
                             }
+                            item(key = "integration_hub_opensubtitles") {
+                                SettingsActionRow(
+                                    title = "OpenSubtitles",
+                                    subtitle = stringResource(R.string.settings_opensubtitles_subtitle),
+                                    onClick = { onSelectSection(IntegrationSettingsSection.OpenSubtitles) }
+                                )
+                            }
                         }
                         SettingsVerticalScrollIndicators(state = integrationHubState)
                     }
                 }
             }
-        }
-
-        IntegrationSettingsSection.ConnectedServices -> {
-            ConnectedServicesSettingsContent(
-                initialFocusRequester = connectedServicesFocusRequester,
-                autoFocusEnabled = autoFocusEnabled
-            )
         }
 
         IntegrationSettingsSection.Debrid -> {
@@ -1267,6 +1465,12 @@ private fun IntegrationSettingsContent(
         IntegrationSettingsSection.AnimeSkip -> {
             AnimeSkipSettingsContent(
                 initialFocusRequester = animeSkipFocusRequester
+            )
+        }
+
+        IntegrationSettingsSection.OpenSubtitles -> {
+            OpenSubtitlesSettingsContent(
+                initialFocusRequester = openSubtitlesFocusRequester
             )
         }
     }

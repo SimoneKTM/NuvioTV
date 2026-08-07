@@ -63,13 +63,13 @@ class StreamRepositoryImpl @Inject constructor(
         type: String,
         videoId: String,
         season: Int?,
-        episode: Int?
+        episode: Int?,
+        sourceAddonBaseUrl: String?
     ): Flow<NetworkResult<List<AddonStreams>>> = flow {
         emit(NetworkResult.Loading)
 
         try {
-            val addons = addonRepository.getInstalledAddons().first().enabledAddons() +
-                animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+            val addons = resolveAddonGroup(sourceAddonBaseUrl)
             
             // Filter addons that support streams for this type and id
             val streamAddons = addons.filter { addon ->
@@ -421,6 +421,29 @@ class StreamRepositoryImpl @Inject constructor(
             lower.contains("360") -> 360
             else -> -1
         }
+    }
+
+    /**
+     * Resolves the addon group for a lookup: when the item originated from an
+     * anime addon, only anime addons are queried; otherwise only Home addons.
+     */
+    private suspend fun resolveAddonGroup(sourceAddonBaseUrl: String?): List<Addon> {
+        val normalizedSource = sourceAddonBaseUrl?.let {
+            val clean = it.trimEnd('/')
+            val qs = clean.indexOf('?')
+            val basePath = if (qs >= 0) clean.substring(0, qs).trimEnd('/') else clean
+            val baseQuery = if (qs >= 0) clean.substring(qs) else ""
+            (basePath + baseQuery).lowercase()
+        }
+        val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+        val isAnimeSource = normalizedSource != null && animeAddons.any { addon ->
+            val clean = addon.baseUrl.trimEnd('/')
+            val qs = clean.indexOf('?')
+            val basePath = if (qs >= 0) clean.substring(0, qs).trimEnd('/') else clean
+            val baseQuery = if (qs >= 0) clean.substring(qs) else ""
+            (basePath + baseQuery).lowercase() == normalizedSource
+        }
+        return if (isAnimeSource) animeAddons else addonRepository.getInstalledAddons().first().enabledAddons()
     }
 
     override suspend fun getStreamsFromAddon(

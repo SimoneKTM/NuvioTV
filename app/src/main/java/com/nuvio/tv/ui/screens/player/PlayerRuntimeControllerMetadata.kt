@@ -18,8 +18,11 @@ internal fun PlayerRuntimeController.fetchMetaDetails(id: String?, type: String?
 
     metaFetchJob = scope.launch {
         when (
-            val result = metaRepository.getMetaFromAllAddons(type = type, id = id)
-                .first { it !is NetworkResult.Loading }
+            val result = metaRepository.getMetaFromAllAddons(
+                type = type,
+                id = id,
+                sourceAddonBaseUrl = playbackSourceAddonBaseUrl
+            ).first { it !is NetworkResult.Loading }
         ) {
             is NetworkResult.Success -> {
                 applyMetaDetails(result.data)

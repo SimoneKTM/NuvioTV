@@ -92,6 +92,12 @@ class PlayerRuntimeController(
     internal val scope: CoroutineScope
 ) {
 
+    /**
+     * Addon base URL that originated the current playback. When set, stream and
+     * meta lookups are scoped to the same addon group (anime vs Home).
+     */
+    internal var playbackSourceAddonBaseUrl: String? = null
+
     companion object {
         internal const val TAG = "PlayerViewModel"
         internal const val SWITCH_TRACE_TAG = "SwitchTrace"

@@ -24,7 +24,8 @@ import javax.inject.Inject
 class SubtitleRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val api: AddonApi,
-    private val addonRepository: AddonRepositoryImpl
+    private val addonRepository: AddonRepositoryImpl,
+    private val animeAddonRepository: AnimeAddonRepositoryImpl
 ) : SubtitleRepository {
 
     companion object {
@@ -39,22 +40,29 @@ class SubtitleRepositoryImpl @Inject constructor(
         videoHash: String?,
         videoSize: Long?,
         filename: String?,
+        sourceAddonBaseUrl: String?,
         onProgress: ((completed: Int, total: Int, addonName: String?) -> Unit)?
     ): List<Subtitle> = withContext(Dispatchers.IO) {
         val requestType = canonicalSubtitleType(type)
         val startedAtMs = System.currentTimeMillis()
         Log.d(TAG, "Fetching subtitles for type=$requestType, id=$id, videoId=$videoId")
-        
-        // Get installed addons
+
+        // Get installed addons from both groups; when the current stream came
+        // from an anime addon, its subtitle addons are consulted first.
         val addons = try {
-            addonRepository.getInstalledAddons().first().enabledAddons()
+            val homeAddons = addonRepository.getInstalledAddons().first().enabledAddons()
+            val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+            val merged = (homeAddons + animeAddons).distinctBy { it.baseUrl.trimEnd('/').lowercase() }
+            if (sourceAddonBaseUrl != null && merged.any { matchesBaseUrl(it.baseUrl, sourceAddonBaseUrl) }) {
+                merged.sortedByDescending { matchesBaseUrl(it.baseUrl, sourceAddonBaseUrl) }
+            } else {
+                merged
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get installed addons", e)
             return@withContext emptyList()
         }
 
-     
-        
         // Filter addons that support subtitles resource
         val subtitleAddons = addons.filter { addon ->
             addon.resources.any { resource ->
@@ -215,6 +223,17 @@ class SubtitleRepositoryImpl @Inject constructor(
 
     private fun encodePathSegment(value: String): String {
         return java.net.URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+    }
+
+    private fun matchesBaseUrl(addonBaseUrl: String, sourceBaseUrl: String): Boolean {
+        fun normalize(url: String): String {
+            val clean = url.trimEnd('/')
+            val qs = clean.indexOf('?')
+            val basePath = if (qs >= 0) clean.substring(0, qs).trimEnd('/') else clean
+            val baseQuery = if (qs >= 0) clean.substring(qs) else ""
+            return (basePath + baseQuery).lowercase()
+        }
+        return normalize(addonBaseUrl) == normalize(sourceBaseUrl)
     }
 
     private fun String?.isNullOfBlank(): Boolean = this == null || this.isBlank()

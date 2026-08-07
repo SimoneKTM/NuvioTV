@@ -110,6 +110,11 @@ class PlayerViewModel @Inject constructor(
         scope = viewModelScope
     )
 
+    init {
+        controller.playbackSourceAddonBaseUrl =
+            savedStateHandle.get<String>("addonBaseUrl")?.takeIf { it.isNotBlank() }
+    }
+
     val uiState: StateFlow<PlayerUiState>
         get() = controller.uiState
 

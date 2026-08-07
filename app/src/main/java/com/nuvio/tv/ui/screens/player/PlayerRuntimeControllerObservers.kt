@@ -101,6 +101,7 @@ internal suspend fun PlayerRuntimeController.fetchAddonSubtitlesNow(
         videoHash = currentVideoHash,
         videoSize = currentVideoSize,
         filename = currentFilename,
+        sourceAddonBaseUrl = playbackSourceAddonBaseUrl,
         onProgress = onProgress
     )
 }

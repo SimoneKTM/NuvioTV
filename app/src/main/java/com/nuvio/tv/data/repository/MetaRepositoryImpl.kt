@@ -153,8 +153,7 @@ class MetaRepositoryImpl @Inject constructor(
 
         emit(NetworkResult.Loading)
 
-        val addons = addonRepository.getInstalledAddons().first().enabledAddons() +
-            animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+        val addons = resolveAddonGroup(sourceAddonBaseUrl)
 
         val requestedType = type.trim()
         val inferredType = inferCanonicalType(requestedType, id)
@@ -356,8 +355,7 @@ class MetaRepositoryImpl @Inject constructor(
 
         emit(NetworkResult.Loading)
 
-        val addons = addonRepository.getInstalledAddons().first().enabledAddons() +
-            animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+        val addons = addonRepository.getInstalledAddons().first().enabledAddons()
         val requestedType = type.trim()
         val inferredType = inferCanonicalType(requestedType, id)
         val candidate = selectPrimaryMetaCandidate(
@@ -433,6 +431,23 @@ class MetaRepositoryImpl @Inject constructor(
     private fun addonMetaCacheKey(addonBaseUrl: String, type: String, id: String): String {
         val (basePath, baseQuery) = splitAddonBaseUrl(addonBaseUrl)
         return "$basePath$baseQuery|$type:$id"
+    }
+
+    /**
+     * Resolves the addon group for a lookup: when the item originated from an
+     * anime addon, only anime addons are queried; otherwise only Home addons.
+     */
+    private suspend fun resolveAddonGroup(sourceAddonBaseUrl: String?): List<Addon> {
+        val normalizedSource = sourceAddonBaseUrl?.let {
+            val (basePath, baseQuery) = splitAddonBaseUrl(it)
+            (basePath + baseQuery).lowercase()
+        }
+        val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+        val isAnimeSource = normalizedSource != null && animeAddons.any { addon ->
+            val (basePath, baseQuery) = splitAddonBaseUrl(addon.baseUrl)
+            (basePath + baseQuery).lowercase() == normalizedSource
+        }
+        return if (isAnimeSource) animeAddons else addonRepository.getInstalledAddons().first().enabledAddons()
     }
 
     private fun buildMetaUrl(baseUrl: String, type: String, id: String): String {

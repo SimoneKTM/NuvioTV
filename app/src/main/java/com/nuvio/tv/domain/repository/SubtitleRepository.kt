@@ -11,6 +11,9 @@ interface SubtitleRepository {
      * @param videoHash Optional OpenSubtitles file hash
      * @param videoSize Optional video file size in bytes
      * @param filename Optional video filename
+     * @param sourceAddonBaseUrl Optional base URL of the addon that provided the
+     *        current stream; when it belongs to the anime group, anime subtitle
+     *        addons are consulted first.
      * @return List of subtitles from all addons
      */
     suspend fun getSubtitles(
@@ -20,6 +23,7 @@ interface SubtitleRepository {
         videoHash: String? = null,
         videoSize: Long? = null,
         filename: String? = null,
+        sourceAddonBaseUrl: String? = null,
         onProgress: ((completed: Int, total: Int, addonName: String?) -> Unit)? = null
     ): List<Subtitle>
 }

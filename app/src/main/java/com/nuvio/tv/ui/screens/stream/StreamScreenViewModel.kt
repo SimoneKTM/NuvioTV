@@ -132,6 +132,8 @@ class StreamScreenViewModel @Inject constructor(
     private val manualSelection: Boolean = savedStateHandle.get<String>("manualSelection")
         ?.toBooleanStrictOrNull()
         ?: false
+    private val sourceAddonBaseUrl: String? =
+        savedStateHandle.getOptionalString("addonBaseUrl")?.takeIf { it.isNotBlank() }
     private val streamCacheKey: String = "${contentType.lowercase()}|$videoId"
 
     private val _uiState = MutableStateFlow(
@@ -641,7 +643,8 @@ class StreamScreenViewModel @Inject constructor(
                     type = contentType,
                     videoId = videoId,
                     season = season,
-                    episode = episode
+                    episode = episode,
+                    sourceAddonBaseUrl = sourceAddonBaseUrl
                 ).collect { result ->
                     when (result) {
                         is NetworkResult.Success -> {
@@ -1030,8 +1033,11 @@ class StreamScreenViewModel @Inject constructor(
 
     private suspend fun getEmbeddedStreamsFromMeta(): AddonStreams? {
         val metaId = contentId?.takeIf { it.isNotBlank() } ?: return null
-        val result = metaRepository.getMetaFromAllAddons(type = contentType, id = metaId)
-            .first { it !is NetworkResult.Loading }
+        val result = metaRepository.getMetaFromAllAddons(
+            type = contentType,
+            id = metaId,
+            sourceAddonBaseUrl = sourceAddonBaseUrl
+        ).first { it !is NetworkResult.Loading }
         val meta = (result as? NetworkResult.Success)?.data ?: return null
         val video = meta.videos.firstOrNull { it.id == videoId } ?: return null
         if (video.streams.isEmpty()) return null
@@ -1057,8 +1063,11 @@ class StreamScreenViewModel @Inject constructor(
         if (metaId.isBlank() || contentType.isBlank()) return
 
         viewModelScope.launch {
-            val result = metaRepository.getMetaFromAllAddons(type = contentType, id = metaId)
-                .first { it !is NetworkResult.Loading }
+            val result = metaRepository.getMetaFromAllAddons(
+                type = contentType,
+                id = metaId,
+                sourceAddonBaseUrl = sourceAddonBaseUrl
+            ).first { it !is NetworkResult.Loading }
 
             if (result !is NetworkResult.Success) return@launch
 
@@ -1686,6 +1695,7 @@ class StreamScreenViewModel @Inject constructor(
                 videoHash = playbackInfo.videoHash,
                 videoSize = playbackInfo.videoSize,
                 filename = playbackInfo.filename,
+                sourceAddonBaseUrl = sourceAddonBaseUrl,
                 onProgress = { completed, total, addonName ->
                     val msg = if (completed == 0) {
                         context.getString(R.string.player_loading_subtitles_from, total)
