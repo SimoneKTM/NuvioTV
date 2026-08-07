@@ -31,6 +31,7 @@ internal fun AniListAccountDialog(
     onStartQrLogin: () -> Unit,
     onRetryQrLogin: () -> Unit,
     onCancelQrLogin: () -> Unit,
+    onConnectToken: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     NuvioDialog(
@@ -52,6 +53,7 @@ internal fun AniListAccountDialog(
                 onStartQrLogin = onStartQrLogin,
                 onRetryQrLogin = onRetryQrLogin,
                 onCancelQrLogin = onCancelQrLogin,
+                onConnectToken = onConnectToken,
                 onDismiss = onDismiss
             )
         }
@@ -116,6 +118,7 @@ private fun AniListConnectContent(
     onStartQrLogin: () -> Unit,
     onRetryQrLogin: () -> Unit,
     onCancelQrLogin: () -> Unit,
+    onConnectToken: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     AniListWordmarkHeader()
@@ -124,12 +127,19 @@ private fun AniListConnectContent(
         style = MaterialTheme.typography.bodyMedium,
         color = NuvioTheme.colors.TextSecondary
     )
-    TrackerQrLoginSection(
-        qrLogin = state.qrLogin,
-        onStart = onStartQrLogin,
-        onRetry = onRetryQrLogin,
-        onCancel = onCancelQrLogin
-    )
+    if (state.qrLogin.isConfigured) {
+        TrackerQrLoginSection(
+            qrLogin = state.qrLogin,
+            onStart = onStartQrLogin,
+            onRetry = onRetryQrLogin,
+            onCancel = onCancelQrLogin
+        )
+    } else {
+        TrackerLocalQrSection(
+            authorizeUrl = state.authorizeUrl,
+            onConnectToken = onConnectToken
+        )
+    }
     if (!state.errorMessage.isNullOrBlank()) {
         Text(
             text = state.errorMessage,

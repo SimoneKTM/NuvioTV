@@ -263,6 +263,7 @@ fun ConnectedServicesSettingsContent(
                 onStartQrLogin = anilistViewModel::startQrLogin,
                 onRetryQrLogin = anilistViewModel::retryQrLogin,
                 onCancelQrLogin = anilistViewModel::cancelQrLogin,
+                onConnectToken = anilistViewModel::connect,
                 onDismiss = {
                     anilistViewModel.cancelQrLogin()
                     activeProvider = null
@@ -282,6 +283,7 @@ fun ConnectedServicesSettingsContent(
                 onStartQrLogin = kitsuViewModel::startQrLogin,
                 onRetryQrLogin = kitsuViewModel::retryQrLogin,
                 onCancelQrLogin = kitsuViewModel::cancelQrLogin,
+                onConnectToken = kitsuViewModel::connect,
                 onDismiss = {
                     kitsuViewModel.cancelQrLogin()
                     activeProvider = null
@@ -301,6 +303,7 @@ fun ConnectedServicesSettingsContent(
                 onStartQrLogin = malViewModel::startQrLogin,
                 onRetryQrLogin = malViewModel::retryQrLogin,
                 onCancelQrLogin = malViewModel::cancelQrLogin,
+                onConnectToken = malViewModel::connect,
                 onDismiss = {
                     malViewModel.cancelQrLogin()
                     activeProvider = null

@@ -446,6 +446,11 @@
     <string name="tracker_qr_sign_in">Sign in with QR</string>
     <string name="tracker_qr_scan_instruction">Scan the QR code with your phone, sign in, then approve on the device.</string>
     <string name="tracker_qr_expires">QR expires in %1$s</string>
+    <string name="tracker_local_qr_instruction">Scan the QR code with your phone, sign in, then paste your access token below.</string>
+    <string name="tracker_local_qr_unavailable">Authorization URL is not available. Configure the provider client credentials first.</string>
+    <string name="tracker_local_token_title">Paste your access token</string>
+    <string name="tracker_local_token_placeholder">Access token</string>
+    <string name="tracker_local_token_connect">Sign in</string>
     <string name="cd_tracker_qr">QR login code</string>
     <string name="tracking_watch_progress_dialog_subtitle">Choose the service Nuvio reads for resume and Continue Watching. Scrobbling remains active for every connected service.</string>
     <string name="tracking_library_source_dialog_subtitle">Choose the service Nuvio reads for your Library. Playback scrobbles to every connected service.</string>
