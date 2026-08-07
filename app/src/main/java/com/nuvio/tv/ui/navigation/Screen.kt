@@ -141,6 +141,14 @@ sealed class Screen(val route: String) {
     data object Discover : Screen("discover")
     data object Library : Screen("library")
     data object Settings : Screen("settings")
+    data object LiveTv : Screen("live_tv")
+    data object LiveTvPlayer : Screen("live_tv_player/{channelName}/{streamUrl}") {
+        private fun encode(value: String): String =
+            URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+
+        fun createRoute(channelName: String, streamUrl: String): String =
+            "live_tv_player/${encode(channelName)}/${encode(streamUrl)}"
+    }
     data object TmdbSettings : Screen("tmdb_settings")
     data object ThemeSettings : Screen("theme_settings")
     data object PlaybackSettings : Screen("playback_settings")

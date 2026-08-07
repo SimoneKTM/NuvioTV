@@ -36,6 +36,7 @@ import com.nuvio.tv.ui.screens.settings.AboutScreen
 import com.nuvio.tv.ui.screens.settings.LayoutSettingsScreen
 import com.nuvio.tv.ui.screens.settings.LicensesAttributionsScreen
 import com.nuvio.tv.ui.screens.settings.PlaybackSettingsScreen
+import com.nuvio.tv.ui.screens.livetv.LiveTvPlayerScreen
 import com.nuvio.tv.ui.screens.settings.SettingsScreen
 import com.nuvio.tv.ui.screens.settings.SupportersContributorsScreen
 import com.nuvio.tv.ui.screens.settings.ThemeSettingsScreen
@@ -1090,6 +1091,37 @@ fun NuvioNavHost(
                 },
                 onNavigateToLicensesAttributions = {
                     navController.navigate(Screen.LicensesAttributions.route)
+                }
+            )
+        }
+
+        composable(
+            route = Screen.LiveTv.route
+        ) {
+            com.nuvio.tv.ui.screens.livetv.LiveTvScreen(
+                onPlayChannel = { channelName, streamUrl ->
+                    navController.navigate(Screen.LiveTvPlayer.createRoute(channelName, streamUrl)) {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
+        composable(
+            route = Screen.LiveTvPlayer.route,
+            arguments = listOf(
+                navArgument("channelName") { type = NavType.StringType },
+                navArgument("streamUrl") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val args = backStackEntry.arguments
+            val channelName = args?.getString("channelName").orEmpty()
+            val streamUrl = args?.getString("streamUrl").orEmpty()
+            LiveTvPlayerScreen(
+                channelName = channelName,
+                streamUrl = streamUrl,
+                onExit = {
+                    navController.popBackStack()
                 }
             )
         }

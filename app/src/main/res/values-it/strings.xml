@@ -1391,8 +1391,23 @@
 <string name="nav_discover">Scopri</string>
 <string name="nav_search">Cerca</string>
 <string name="nav_library">Libreria</string>
+<string name="nav_live_tv">Live TV</string>
 <string name="nav_addons">Addon</string>
 <string name="nav_settings">Impostazioni</string>
+<string name="live_tv_subtitle">Canali dalle tue playlist M3U</string>
+<string name="live_tv_add_playlist">Aggiungi playlist</string>
+<string name="live_tv_add_playlist_subtitle">Inserisci l\'URL di una playlist M3U</string>
+<string name="live_tv_add_playlist_hint">https://example.com/playlist.m3u</string>
+<string name="live_tv_add_btn">Aggiungi</string>
+<string name="live_tv_playlists_title">Playlist</string>
+<string name="live_tv_channels_title">Canali</string>
+<string name="live_tv_channels_count">%1$d canali</string>
+<string name="live_tv_play_channel">Riproduci</string>
+<string name="live_tv_refresh">Aggiorna</string>
+<string name="live_tv_empty_title">Nessuna Live TV</string>
+<string name="live_tv_empty_subtitle">Aggiungi una playlist M3U per iniziare a guardare i canali live</string>
+<string name="live_tv_error_generic">Impossibile caricare la playlist</string>
+<string name="live_tv_player_back">Indietro</string>
 <string name="settings_rounded_ui">Interfaccia arrotondata</string>
 <string name="cd_expand_sidebar">Espandi barra laterale</string>
 
