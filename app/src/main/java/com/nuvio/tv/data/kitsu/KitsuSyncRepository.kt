@@ -175,6 +175,28 @@ class KitsuSyncRepository @Inject constructor(
             }
         }
 
+    internal suspend fun commitProgressChange(
+        mediaId: Long,
+        progress: Int,
+        status: KitsuMediaListStatus? = null
+    ) = withContext(Dispatchers.IO) {
+        ensureLoaded()
+        val profileId = profileManager.activeProfileId.value
+        val generation = profileGeneration
+        snapshotMutex.withLock {
+            if (!isCurrent(profileId, generation)) return@withLock
+            val current = _state.value
+            val snapshot = current.snapshot.applyProgressChange(mediaId, progress, status)
+            if (snapshot == current.snapshot) return@withLock
+            val projection = buildProjection(snapshot)
+            storage.save(profileId, encodeSnapshot(snapshot))
+            if (isCurrent(profileId, generation)) {
+                _projection.value = projection
+                _state.value = current.copy(snapshot = snapshot)
+            }
+        }
+    }
+
     private suspend fun loadProfile(profileId: Int) = loadMutex.withLock {
         if (loadedProfileId == profileId) return@withLock
         val snapshot = storage.load(profileId)
@@ -268,7 +290,8 @@ class KitsuSyncRepository @Inject constructor(
                     totalEpisodes = anime?.episodeCount,
                     rating = attrs.rating ?: attrs.ratingTwenty?.div(4.0),
                     status = status,
-                    updatedAt = parseKitsuTimestamp(attrs.updatedAt)
+                    updatedAt = parseKitsuTimestamp(attrs.updatedAt),
+                    subtype = anime?.subtype
                 )
             }
             items.addAll(page)
@@ -304,6 +327,28 @@ private fun KitsuSyncSnapshot.applyStatusChange(
     } else {
         items.map { item ->
             if (item.id == mediaId) item.copy(status = newStatus) else item
+        }
+    }
+    return copy(items = updatedItems)
+}
+
+private fun KitsuSyncSnapshot.applyProgressChange(
+    mediaId: Long,
+    progress: Int,
+    status: KitsuMediaListStatus?
+): KitsuSyncSnapshot {
+    val normalized = progress.coerceAtLeast(0)
+    val updatedItems = items.map { item ->
+        if (item.id != mediaId) return@map item
+        val newStatus = status ?: item.status
+        if (item.progress == normalized && item.status == newStatus) {
+            item
+        } else {
+            item.copy(
+                progress = normalized,
+                status = newStatus,
+                updatedAt = System.currentTimeMillis()
+            )
         }
     }
     return copy(items = updatedItems)

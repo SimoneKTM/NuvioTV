@@ -28,7 +28,8 @@ data class KitsuLibraryItem(
     val totalEpisodes: Int? = null,
     val rating: Double? = null,
     val status: KitsuMediaListStatus,
-    val updatedAt: Long = 0L
+    val updatedAt: Long = 0L,
+    val subtype: String? = null
 )
 
 @Serializable
@@ -108,6 +109,7 @@ data class KitsuIncludedResource(
 data class KitsuIncludedAttributes(
     val slug: String? = null,
     val synopsis: String? = null,
+    val subtype: String? = null,
     @SerialName("episodeCount") val episodeCount: Int? = null,
     @SerialName("posterImage") val posterImage: KitsuPosterImage? = null,
     val titles: KitsuTitles? = null,

@@ -39,6 +39,8 @@ import com.nuvio.tv.data.anilist.AniListTrackingHistoryWriter
 import com.nuvio.tv.data.anilist.AniListTrackingProgressProvider
 import com.nuvio.tv.data.anilist.AniListTrackingProvider
 import com.nuvio.tv.data.kitsu.KitsuLibraryProvider
+import com.nuvio.tv.data.kitsu.KitsuTrackingHistoryWriter
+import com.nuvio.tv.data.kitsu.KitsuTrackingProgressProvider
 import com.nuvio.tv.data.kitsu.KitsuTrackingProvider
 import com.nuvio.tv.core.profile.ProfileScopedCredentialStore
 import dagger.Binds
@@ -146,6 +148,18 @@ abstract class TrackingModule {
     abstract fun bindKitsuTrackingLibraryProvider(
         provider: KitsuLibraryProvider
     ): TrackingLibraryProvider
+
+    @Binds
+    @IntoSet
+    abstract fun bindKitsuTrackingProgressProvider(
+        provider: KitsuTrackingProgressProvider
+    ): TrackingProgressProvider
+
+    @Binds
+    @IntoSet
+    abstract fun bindKitsuTrackingHistoryWriter(
+        writer: KitsuTrackingHistoryWriter
+    ): TrackingHistoryWriter
 
     @Binds
     @IntoSet
