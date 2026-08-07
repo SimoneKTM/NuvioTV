@@ -179,7 +179,8 @@ class AniListApi(
                     totalEpisodes = media.episodes,
                     score = entry.score,
                     status = entryStatus,
-                    updatedAt = entry.updatedAt
+                    updatedAt = entry.updatedAt,
+                    format = media.format
                 )
             }
         }

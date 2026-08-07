@@ -15,7 +15,8 @@ import kotlinx.coroutines.flow.stateIn
 
 @Singleton
 class AniListTrackingProvider @Inject constructor(
-    authRepository: AniListAuthRepository
+    authRepository: AniListAuthRepository,
+    override val scrobbler: AniListTrackingScrobbler
 ) : TrackingProvider {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -25,7 +26,12 @@ class AniListTrackingProvider @Inject constructor(
         capabilities = setOf(
             TrackingCapability.AUTHENTICATION,
             TrackingCapability.LIBRARY_READ,
-            TrackingCapability.LIBRARY_WRITE
+            TrackingCapability.LIBRARY_WRITE,
+            TrackingCapability.WATCHED_READ,
+            TrackingCapability.WATCHED_WRITE,
+            TrackingCapability.PROGRESS_READ,
+            TrackingCapability.PROGRESS_WRITE,
+            TrackingCapability.SCROBBLE
         )
     )
     override val isAuthenticated = authRepository.state

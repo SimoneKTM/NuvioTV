@@ -174,6 +174,28 @@ class AniListSyncRepository @Inject constructor(
             }
         }
 
+    internal suspend fun commitProgressChange(
+        mediaId: Long,
+        progress: Int,
+        status: AniListMediaListStatus? = null
+    ) = withContext(Dispatchers.IO) {
+        ensureLoaded()
+        val profileId = profileManager.activeProfileId.value
+        val generation = profileGeneration
+        snapshotMutex.withLock {
+            if (!isCurrent(profileId, generation)) return@withLock
+            val current = _state.value
+            val snapshot = current.snapshot.applyProgressChange(mediaId, progress, status)
+            if (snapshot == current.snapshot) return@withLock
+            val projection = buildProjection(snapshot)
+            storage.save(profileId, encodeSnapshot(snapshot))
+            if (isCurrent(profileId, generation)) {
+                _projection.value = projection
+                _state.value = current.copy(snapshot = snapshot)
+            }
+        }
+    }
+
     private suspend fun loadProfile(profileId: Int) = loadMutex.withLock {
         if (loadedProfileId == profileId) return@withLock
         val snapshot = storage.load(profileId)
@@ -260,6 +282,28 @@ private fun AniListSyncSnapshot.applyStatusChange(
     } else {
         items.map { item ->
             if (item.id == mediaId) item.copy(status = newStatus) else item
+        }
+    }
+    return copy(items = updatedItems)
+}
+
+private fun AniListSyncSnapshot.applyProgressChange(
+    mediaId: Long,
+    progress: Int,
+    status: AniListMediaListStatus?
+): AniListSyncSnapshot {
+    val normalized = progress.coerceAtLeast(0)
+    val updatedItems = items.map { item ->
+        if (item.id != mediaId) return@map item
+        val newStatus = status ?: item.status
+        if (item.progress == normalized && item.status == newStatus) {
+            item
+        } else {
+            item.copy(
+                progress = normalized,
+                status = newStatus,
+                updatedAt = System.currentTimeMillis() / 1_000L
+            )
         }
     }
     return copy(items = updatedItems)

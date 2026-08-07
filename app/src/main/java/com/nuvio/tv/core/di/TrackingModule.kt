@@ -35,6 +35,8 @@ import com.nuvio.tv.data.simkl.SimklTrackingHistoryWriter
 import com.nuvio.tv.data.simkl.SimklTrackingProgressProvider
 import com.nuvio.tv.data.simkl.SimklTrackingProvider
 import com.nuvio.tv.data.anilist.AniListLibraryProvider
+import com.nuvio.tv.data.anilist.AniListTrackingHistoryWriter
+import com.nuvio.tv.data.anilist.AniListTrackingProgressProvider
 import com.nuvio.tv.data.anilist.AniListTrackingProvider
 import com.nuvio.tv.data.kitsu.KitsuLibraryProvider
 import com.nuvio.tv.data.kitsu.KitsuTrackingProvider
@@ -126,6 +128,18 @@ abstract class TrackingModule {
     abstract fun bindAniListTrackingLibraryProvider(
         provider: AniListLibraryProvider
     ): TrackingLibraryProvider
+
+    @Binds
+    @IntoSet
+    abstract fun bindAniListTrackingProgressProvider(
+        provider: AniListTrackingProgressProvider
+    ): TrackingProgressProvider
+
+    @Binds
+    @IntoSet
+    abstract fun bindAniListTrackingHistoryWriter(
+        writer: AniListTrackingHistoryWriter
+    ): TrackingHistoryWriter
 
     @Binds
     @IntoSet

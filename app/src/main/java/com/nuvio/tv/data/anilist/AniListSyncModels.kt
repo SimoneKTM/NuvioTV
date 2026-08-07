@@ -6,6 +6,7 @@ import com.nuvio.tv.core.tracking.parseTrackingExternalIds
 import com.nuvio.tv.domain.model.LibraryEntry
 import com.nuvio.tv.domain.model.LibraryListTab
 import com.nuvio.tv.domain.model.PosterShape
+import com.nuvio.tv.domain.model.WatchProgress
 import kotlinx.serialization.Serializable
 
 const val ANILIST_STATUS_SELECTION_GROUP = "anilist:status"
@@ -80,8 +81,17 @@ val anilistStatusDefinitions = listOf(
 data class AniListLibraryProjection(
     val items: List<LibraryEntry> = emptyList(),
     val itemsByStatus: Map<String, List<LibraryEntry>> = emptyMap(),
-    val tabs: List<LibraryListTab> = emptyList()
+    val tabs: List<LibraryListTab> = emptyList(),
+    val progress: List<WatchProgress> = emptyList(),
+    val watchedMovieIds: Set<String> = emptySet(),
+    val watchedShowEpisodes: Map<String, Set<Pair<Int, Int>>> = emptyMap(),
+    val watchedCounts: Map<Long, Int> = emptyMap(),
+    private val recentNextUp: List<WatchProgress> = emptyList(),
+    private val furthestNextUp: List<WatchProgress> = emptyList()
 ) {
+    fun nextUp(preferFurthestEpisode: Boolean): List<WatchProgress> =
+        if (preferFurthestEpisode) furthestNextUp else recentNextUp
+
     companion object {
         val Empty = AniListLibraryProjection()
     }
@@ -107,12 +117,19 @@ fun AniListSyncSnapshot.toAniListLibraryProjection(
             isMembershipDestination = definition.isMembershipDestination
         )
     }
+    val progressProjection = toAniListProgressProjection()
     return AniListLibraryProjection(
         items = itemsByStatus.values.flatten()
             .distinctBy(LibraryEntry::id)
             .sortedByDescending(LibraryEntry::listedAt),
         itemsByStatus = itemsByStatus,
-        tabs = tabs
+        tabs = tabs,
+        progress = progressProjection.progress,
+        watchedMovieIds = progressProjection.watchedMovieIds,
+        watchedShowEpisodes = progressProjection.watchedShowEpisodes,
+        watchedCounts = progressProjection.watchedCounts,
+        recentNextUp = progressProjection.recentNextUp,
+        furthestNextUp = progressProjection.furthestNextUp
     )
 }
 

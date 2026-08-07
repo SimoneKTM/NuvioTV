@@ -35,7 +35,8 @@ data class AniListLibraryItem(
     val totalEpisodes: Int? = null,
     val score: Int? = null,
     val status: AniListMediaListStatus,
-    val updatedAt: Long = 0L
+    val updatedAt: Long = 0L,
+    val format: String? = null
 )
 
 @Serializable
