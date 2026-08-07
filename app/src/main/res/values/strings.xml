@@ -10,6 +10,8 @@
     <string name="web_manage_addons_title">Manage Addons</string>
     <string name="web_manage_addons_subtitle">Manage addons, catalogs, and collections</string>
     <string name="web_manage_addons_only_subtitle">Install or remove add-ons</string>
+    <string name="web_manage_anime_addons_title">Manage Anime Addons</string>
+    <string name="web_manage_anime_addons_subtitle">Install or remove anime add-ons</string>
     <string name="web_add_addon_url">Add addon by URL</string>
     <string name="web_placeholder_url">https://example.com/manifest.json</string>
     <string name="web_btn_add">Add</string>
@@ -667,6 +669,16 @@
     <string name="settings_tmdb_subtitle">Metadata enrichment controls</string>
     <string name="settings_mdblist_subtitle">External ratings providers</string>
     <string name="settings_animeskip_subtitle">Anime intro/outro skip timestamps</string>
+    <string name="settings_opensubtitles_subtitle">Subtitles from the built-in OpenSubtitles add-on</string>
+    <string name="opensubtitles_title">OpenSubtitles</string>
+    <string name="opensubtitles_enable_title">Enable OpenSubtitles</string>
+    <string name="opensubtitles_enable_subtitle">Fetch subtitles from the OpenSubtitles add-on installed by default</string>
+    <string name="opensubtitles_url_title">Add-on URL</string>
+    <string name="opensubtitles_url_subtitle">The built-in OpenSubtitles add-on is used for movie and series subtitles</string>
+    <string name="opensubtitles_not_installed_title">OpenSubtitles add-on not installed</string>
+    <string name="opensubtitles_not_installed_subtitle">The built-in OpenSubtitles add-on was removed</string>
+    <string name="opensubtitles_reinstall_title">Reinstall OpenSubtitles add-on</string>
+    <string name="opensubtitles_reinstall_subtitle">Restore the built-in OpenSubtitles add-on</string>
     <string name="settings_tvdb_subtitle">TVDB metadata enrichment</string>
     <string name="settings_debrid_subtitle">Experimental cloud account sources</string>
 
@@ -2194,6 +2206,13 @@
     <string name="anime_addons_empty">No anime addons installed yet.</string>
     <string name="anime_settings_plugins_subtitle">Stream scrapers used to resolve anime sources</string>
     <string name="anime_settings_tracking_subtitle">Connect AniList, MAL or Kitsu to track anime progress</string>
+    <string name="anime_settings_content_discovery_title">Content and discovery</string>
+    <string name="anime_settings_addons_title">Anime add-ons</string>
+    <string name="anime_settings_addons_subtitle">Install and manage anime add-ons</string>
+    <string name="anime_settings_refresh_title">Update add-ons</string>
+    <string name="anime_settings_refreshing">Updating…</string>
+    <string name="anime_settings_manage_phone_title">Manage from phone</string>
+    <string name="anime_settings_manage_phone_subtitle">Scan a QR code to manage anime add-ons from your phone</string>
 
     <string name="update_checking">Checking for updates…</string>
     <string name="update_download_complete">Download complete. Ready to install.</string>
@@ -2745,6 +2764,11 @@
     <string name="simkl_sync_info_docs">Read the Simkl sync guide</string>
     <string name="error_open_browser_failed">Failed to open browser</string>
     <string name="simkl_missing_credentials">Missing SIMKL_CLIENT_ID</string>
+    <string name="simkl_client_id_title">Client ID</string>
+    <string name="simkl_client_id_subtitle">Optional Simkl application client id. Leave blank to use the built-in id.</string>
+    <string name="simkl_client_id_save">Save</string>
+    <string name="simkl_status_saving_client_id">Saving Simkl client id…</string>
+    <string name="simkl_status_client_id_saved">Simkl client id saved</string>
     <string name="simkl_status_enter_code">Enter the code on Simkl to finish connecting</string>
     <string name="simkl_status_waiting">Waiting for Simkl approval…</string>
     <string name="simkl_status_connected">Connected to Simkl</string>

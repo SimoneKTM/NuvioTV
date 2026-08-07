@@ -21,6 +21,11 @@ enum class AddonWebConfigMode(
         allowAddonManagement = true,
         allowCatalogManagement = false,
         allowCollectionManagement = false
+    ),
+    ANIME_ADDONS(
+        allowAddonManagement = true,
+        allowCatalogManagement = false,
+        allowCollectionManagement = false
     )
 }
 

@@ -23,13 +23,15 @@ object AddonWebPage {
             .replace("'", "\\'")
             .replace("\n", "\\n")
         val isCollectionsOnly = webConfigMode == AddonWebConfigMode.COLLECTIONS_ONLY
-        val pageTitle = if (isCollectionsOnly) {
-            context.getString(R.string.web_manage_collections_title)
-        } else {
-            context.getString(R.string.web_manage_addons_title)
+        val isAnimeMode = webConfigMode == AddonWebConfigMode.ANIME_ADDONS
+        val pageTitle = when {
+            isCollectionsOnly -> context.getString(R.string.web_manage_collections_title)
+            isAnimeMode -> context.getString(R.string.web_manage_anime_addons_title)
+            else -> context.getString(R.string.web_manage_addons_title)
         }
         val pageSubtitle = when {
             isCollectionsOnly -> context.getString(R.string.web_manage_collections_subtitle)
+            isAnimeMode -> context.getString(R.string.web_manage_anime_addons_subtitle)
             webConfigMode == AddonWebConfigMode.ADDONS_ONLY -> {
                 context.getString(R.string.web_manage_addons_only_subtitle)
             }

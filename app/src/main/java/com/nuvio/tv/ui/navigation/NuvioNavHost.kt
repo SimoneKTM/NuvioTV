@@ -264,6 +264,7 @@ fun NuvioNavHost(
             val returnToHomeOnBack = detailArgs
                 ?.getString("returnToHomeOnBack")
                 ?.toBooleanStrictOrNull() == true
+            val detailAddonBaseUrl = detailArgs?.getString("addonBaseUrl")?.takeIf { it.isNotBlank() }
             val returnFocusSeason by savedState.getStateFlow(
                 "returnFocusSeason", detailArgs?.getString("returnFocusSeason")?.toIntOrNull()
             ).collectAsState()
@@ -329,7 +330,8 @@ fun NuvioNavHost(
                             contentName = title,
                             runtime = runtime,
                             returnToDetailOnBack = contentType.equals("series", ignoreCase = true),
-                            contentLanguage = contentLanguage
+                            contentLanguage = contentLanguage,
+                            addonBaseUrl = detailAddonBaseUrl
                         )
                     )
                 },
@@ -352,7 +354,8 @@ fun NuvioNavHost(
                             runtime = runtime,
                             manualSelection = true,
                             returnToDetailOnBack = contentType.equals("series", ignoreCase = true),
-                            contentLanguage = contentLanguage
+                            contentLanguage = contentLanguage,
+                            addonBaseUrl = detailAddonBaseUrl
                         )
                     )
                 },
@@ -375,7 +378,8 @@ fun NuvioNavHost(
                             runtime = runtime,
                             startFromBeginning = true,
                             returnToDetailOnBack = contentType.equals("series", ignoreCase = true),
-                            contentLanguage = contentLanguage
+                            contentLanguage = contentLanguage,
+                            addonBaseUrl = detailAddonBaseUrl
                         )
                     )
                 }
@@ -467,10 +471,16 @@ fun NuvioNavHost(
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
+                },
+                navArgument("addonBaseUrl") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 }
             )
         ) { backStackEntry ->
             val streamArgs = backStackEntry.arguments
+            val streamSourceAddonBaseUrl = streamArgs?.getString("addonBaseUrl")?.takeIf { it.isNotBlank() }
             val returnToDetailOnBack = streamArgs
                 ?.getString("returnToDetailOnBack")
                 ?.toBooleanStrictOrNull() == true
@@ -547,7 +557,8 @@ fun NuvioNavHost(
                                 infoHash = playbackInfo.infoHash,
                                 fileIdx = playbackInfo.fileIdx,
                                 sources = playbackInfo.sources,
-                                contentLanguage = playbackInfo.contentLanguage
+                                contentLanguage = playbackInfo.contentLanguage,
+                                addonBaseUrl = streamSourceAddonBaseUrl
                             )
                         )
                     }
@@ -587,7 +598,8 @@ fun NuvioNavHost(
                                 infoHash = playbackInfo.infoHash,
                                 fileIdx = playbackInfo.fileIdx,
                                 sources = playbackInfo.sources,
-                                contentLanguage = playbackInfo.contentLanguage
+                                contentLanguage = playbackInfo.contentLanguage,
+                                addonBaseUrl = streamSourceAddonBaseUrl
                             )
                         ) {
                             popUpTo(Screen.Stream.route) { inclusive = true }
@@ -727,6 +739,11 @@ fun NuvioNavHost(
                     nullable = true
                     defaultValue = null
                 },
+                navArgument("addonBaseUrl") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
                 navArgument("launchStartedAtMs") {
                     type = NavType.StringType
                     nullable = true
@@ -808,7 +825,8 @@ fun NuvioNavHost(
                                         contentName = args?.getString("contentName"),
                                         manualSelection = true,
                                         returnToDetailOnBack = returnToDetailOnBack,
-                                        returnToHomeOnBack = returnToHomeOnBack
+                                        returnToHomeOnBack = returnToHomeOnBack,
+                                        addonBaseUrl = args?.getString("addonBaseUrl")?.takeIf { it.isNotBlank() }
                                     )
                                 ) {
                                     popUpTo(Screen.Stream.route) { inclusive = true }
@@ -861,7 +879,8 @@ fun NuvioNavHost(
                             contentName = args?.getString("contentName"),
                             runtime = null,
                             returnToDetailOnBack = returnToDetailOnBack,
-                            returnToHomeOnBack = returnToHomeOnBack
+                            returnToHomeOnBack = returnToHomeOnBack,
+                            addonBaseUrl = args?.getString("addonBaseUrl")?.takeIf { it.isNotBlank() }
                         )
                         navController.navigate(route) {
                             popUpTo(Screen.Player.route) { inclusive = true }
@@ -976,7 +995,8 @@ fun NuvioNavHost(
                                 returnToDetailOnBack = args?.getString("returnToDetailOnBack")
                                     ?.toBooleanStrictOrNull() == true,
                                 returnToHomeOnBack = args?.getString("returnToHomeOnBack")
-                                    ?.toBooleanStrictOrNull() == true
+                                    ?.toBooleanStrictOrNull() == true,
+                                addonBaseUrl = args?.getString("addonBaseUrl")?.takeIf { it.isNotBlank() }
                             )
 
                             navController.navigate(route) {
@@ -1102,7 +1122,22 @@ fun NuvioNavHost(
         composable(Screen.AnimeSettings.route) {
             com.nuvio.tv.ui.screens.anime.AnimeSettingsScreen(
                 onBackPress = { navController.popBackStack() },
+                onNavigateToAnimeLayout = { navController.navigate(Screen.AnimeLayoutSettings.route) },
+                onNavigateToAnimeAddons = { navController.navigate(Screen.AnimeAddonManager.route) },
                 onNavigateToPlugins = { navController.navigate(Screen.Plugins.route) }
+            )
+        }
+
+        composable(Screen.AnimeAddonManager.route) {
+            com.nuvio.tv.ui.screens.anime.AnimeAddonManagerScreen(
+                onBackPress = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.AnimeLayoutSettings.route) {
+            LayoutSettingsScreen(
+                viewModel = androidx.hilt.navigation.compose.hiltViewModel<com.nuvio.tv.ui.screens.settings.AnimeLayoutSettingsViewModel>(),
+                onBackPress = { navController.popBackStack() }
             )
         }
 

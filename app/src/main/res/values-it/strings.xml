@@ -7,6 +7,8 @@
     <!-- WebConfigServers -->
 <string name="web_manage_addons_title">Gestisci Addon</string>
 <string name="web_manage_addons_subtitle">Gestisci addon, cataloghi e collezioni</string>
+<string name="web_manage_anime_addons_title">Gestisci Addon Anime</string>
+<string name="web_manage_anime_addons_subtitle">Installa o rimuovi gli addon anime</string>
 <string name="web_add_addon_url">Aggiungi addon tramite URL</string>
 <string name="web_placeholder_url">https://esempio.it/manifest.json</string>
 <string name="web_btn_add">Aggiungi</string>
@@ -347,6 +349,16 @@
 <string name="settings_tmdb_subtitle">Controlli per l\'arricchimento dei metadati</string>
 <string name="settings_mdblist_subtitle">Provider esterni per le valutazioni</string>
 <string name="settings_animeskip_subtitle">Salta inizio/fine Anime</string>
+<string name="settings_opensubtitles_subtitle">Sottotitoli dall\'add-on OpenSubtitles integrato</string>
+<string name="opensubtitles_title">OpenSubtitles</string>
+<string name="opensubtitles_enable_title">Attiva OpenSubtitles</string>
+<string name="opensubtitles_enable_subtitle">Scarica i sottotitoli dall\'add-on OpenSubtitles preinstallato</string>
+<string name="opensubtitles_url_title">URL add-on</string>
+<string name="opensubtitles_url_subtitle">L\'add-on OpenSubtitles integrato viene usato per i sottotitoli di film e serie</string>
+<string name="opensubtitles_not_installed_title">Add-on OpenSubtitles non installato</string>
+<string name="opensubtitles_not_installed_subtitle">L\'add-on OpenSubtitles preinstallato è stato rimosso</string>
+<string name="opensubtitles_reinstall_title">Reinstalla add-on OpenSubtitles</string>
+<string name="opensubtitles_reinstall_subtitle">Ripristina l\'add-on OpenSubtitles preinstallato</string>
 
     <!-- PlaybackSettingsScreen -->
 <string name="playback_title">Impostazioni di riproduzione</string>
@@ -2858,6 +2870,11 @@
   <string name="simkl_error_network">Impossibile raggiungere Simkl. Riprova.</string>
   <string name="simkl_library_source_selected">Simkl selezionato per la Libreria</string>
   <string name="simkl_missing_credentials">Manca SIMKL_CLIENT_ID</string>
+  <string name="simkl_client_id_title">Client ID</string>
+  <string name="simkl_client_id_subtitle">Client id dell\'applicazione Simkl. Lascia vuoto per usare quello integrato.</string>
+  <string name="simkl_client_id_save">Salva</string>
+  <string name="simkl_status_saving_client_id">Salvataggio client id Simkl…</string>
+  <string name="simkl_status_client_id_saved">Client id Simkl salvato</string>
   <string name="simkl_name">Simkl</string>
   <string name="simkl_status_connected">Connesso a Simkl</string>
   <string name="simkl_status_disconnected">Disconnesso da Simkl</string>
@@ -2886,6 +2903,26 @@
   <string name="settings_anime_subtitle">Addon anime, plugin, layout e TV live</string>
   <string name="settings_anime_layout_title">Layout Anime</string>
   <string name="settings_anime_layout_subtitle">Struttura home e stili poster per la scheda Anime</string>
+  <string name="nav_anime">Anime</string>
+  <string name="anime_settings_title">Anime</string>
+  <string name="anime_settings_subtitle">Addon anime, plugin e monitoraggio</string>
+  <string name="anime_home_empty_title">Nessun addon anime configurato</string>
+  <string name="anime_home_empty_subtitle">Aggiungi un addon anime per riempire questa scheda di contenuti.</string>
+  <string name="anime_home_empty_action">Apri le impostazioni anime</string>
+  <string name="anime_home_no_catalogs_title">Nessun catalogo anime disponibile</string>
+  <string name="anime_home_no_catalogs_subtitle">Gli addon anime installati non espongono cataloghi per la home.</string>
+  <string name="anime_home_addons_count">%1$d addon attivi</string>
+  <string name="anime_add_addon">Aggiungi addon anime</string>
+  <string name="anime_addons_section">Addon anime installati</string>
+  <string name="anime_addons_empty">Nessun addon anime installato.</string>
+  <string name="anime_settings_plugins_subtitle">Scraper di stream usati per risolvere le fonti anime</string>
+  <string name="anime_settings_content_discovery_title">Contenuti e scoperta</string>
+  <string name="anime_settings_addons_title">Addon anime</string>
+  <string name="anime_settings_addons_subtitle">Installa e gestisci gli addon anime</string>
+  <string name="anime_settings_refresh_title">Aggiorna add-on</string>
+  <string name="anime_settings_refreshing">Aggiornamento…</string>
+  <string name="anime_settings_manage_phone_title">Gestisci dal telefono</string>
+  <string name="anime_settings_manage_phone_subtitle">Scansiona un codice QR per gestire gli addon anime dal tuo telefono</string>
   <string name="settings_live_tv_title">TV live</string>
   <string name="settings_live_tv_subtitle">Playlist M3U e codici Xtream</string>
   <string name="settings_vpn_title">VPN</string>

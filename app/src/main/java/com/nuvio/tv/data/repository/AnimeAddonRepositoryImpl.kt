@@ -195,6 +195,17 @@ class AnimeAddonRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun refreshAnimeAddons() {
+        val urls = preferences.currentUrls()
+        if (urls.isEmpty()) return
+        coroutineScope {
+            urls.map { url ->
+                async { fetchAnimeAddon(url) }
+            }.awaitAll()
+        }
+        Log.d(TAG, "Refreshed ${urls.size} anime addon manifests")
+    }
+
     suspend fun animeAddonExists(url: String): Boolean {
         val urls = preferences.currentUrls()
         val normalized = normalizeUrl(url)
