@@ -62,7 +62,7 @@ class SearchViewModel @Inject constructor(
     /** Saved focus state for restoring scroll/focus position after returning from details. */
     var savedFocusRowKey: String? = null
     var savedFocusItemIndex: Int = -1
-    var savedRowScrollPositions: Map<String, Pair<Int, Int>> = emptyMap()
+    var savedResultsScrollPosition: Pair<Int, Int>? = null
     var hasSavedSearchFocus: Boolean = false
 
     private val _watchedMovieIds = MutableStateFlow<Set<String>>(emptySet())

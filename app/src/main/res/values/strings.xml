@@ -1898,6 +1898,7 @@
     <string name="search_start_title">Start Searching</string>
     <string name="search_start_subtitle">Enter at least 2 characters</string>
     <string name="search_start_subtitle_no_discover">Discover is disabled. Enter at least 2 characters</string>
+    <string name="search_suggestions_title">Suggestions</string>
     <string name="search_recent_title">Recent searches</string>
     <string name="search_recent_clear">Clear history</string>
     <string name="search_voice_no_speech">No speech detected. Try again.</string>

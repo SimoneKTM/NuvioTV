@@ -1,34 +1,44 @@
 package com.nuvio.tv.ui.screens.search
 
-import com.nuvio.tv.ui.theme.NuvioTheme
-import com.nuvio.tv.ui.screens.home.HeroBackdropState
-
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.view.KeyEvent
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
+import android.view.KeyEvent
+import android.view.inputmethod.CompletionInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.Toast
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,17 +46,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.focusGroup
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,6 +69,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -65,52 +78,71 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
-import com.nuvio.tv.ui.util.recompositionHighlighter
-import com.nuvio.tv.ui.util.dpadRepeatThrottle
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.LayoutDirection
-import com.nuvio.tv.ui.util.RtlKeyUtils
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.tv.material3.Border
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
+import androidx.tv.material3.Card
+import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
-import com.nuvio.tv.ui.components.CatalogRowSection
+import com.nuvio.tv.R
+import com.nuvio.tv.domain.model.CardDepthSurface
+import com.nuvio.tv.domain.model.CatalogRow
+import com.nuvio.tv.domain.model.DiscoverLocation
+import com.nuvio.tv.domain.model.MetaPreview
+import com.nuvio.tv.domain.model.stableItemKey
+import com.nuvio.tv.domain.model.stableKey
 import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.ErrorState
+import com.nuvio.tv.ui.components.GridContentCard
 import com.nuvio.tv.ui.components.LoadingIndicator
+import com.nuvio.tv.ui.components.LocalCardDepthStyle
 import com.nuvio.tv.ui.components.PosterCardDefaults
 import com.nuvio.tv.ui.components.PosterCardStyle
-import com.nuvio.tv.domain.model.DiscoverLocation
-import com.nuvio.tv.domain.model.stableKey
-import android.view.inputmethod.CompletionInfo
-import android.view.inputmethod.InputMethodManager
-import androidx.compose.ui.platform.LocalView
+import com.nuvio.tv.ui.components.nuvioCardDepth
+import com.nuvio.tv.ui.screens.home.HeroBackdropState
+import com.nuvio.tv.ui.theme.NuvioTheme
+import com.nuvio.tv.ui.util.RtlKeyUtils
+import com.nuvio.tv.ui.util.dpadRepeatThrottle
+import com.nuvio.tv.ui.util.localizedContentType
+import com.nuvio.tv.ui.util.recompositionHighlighter
+import kotlin.math.ceil
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
-import androidx.compose.ui.res.stringResource
-import com.nuvio.tv.R
 
 /** Skeleton rows shown while a search is pending, matching the two mobile renders. */
 private const val SEARCH_SKELETON_ROW_COUNT = 2
+
+/**
+ * Width of the WuPlay-style left panel: a 6-key row (6 * 34dp) plus key gaps and
+ * screen padding, so keys keep the reference app's proportions.
+ */
+private val SEARCH_LEFT_PANEL_WIDTH = SearchVirtualKeyboardKeySize * 6 + SearchVirtualKeyboardKeyGap * 5 + 16.dp * 2
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -291,13 +323,13 @@ fun SearchScreen(
     val trimmedQuery = remember(uiState.query) { uiState.query.trim() }
     val trimmedSubmittedQuery = remember(uiState.submittedQuery) { uiState.submittedQuery.trim() }
 
-    // Stable per-row state maps — mirrors ClassicHomeContent pattern so
-    // CatalogRowSection keeps focus when placeholder→real data transitions.
-    val searchRowStates = remember { mutableMapOf<String, LazyListState>() }
-    val searchRowFocusRequesters = remember { mutableMapOf<String, FocusRequester>() }
-    val searchRowEntryFocusRequesters = remember { mutableMapOf<String, FocusRequester>() }
+    // Focus restore bookkeeping for the results grid — mirrors ClassicHomeContent pattern so
+    // the grid keeps focus when placeholder→real data transitions.
     val searchRowFocusedItemIndex = remember { mutableMapOf<String, Int>() }
     var lastFocusedRowKey by remember { mutableStateOf(viewModel.savedFocusRowKey) }
+    val keyboardFirstKeyFocusRequester = remember { FocusRequester() }
+    val resultsFirstItemFocusRequester = remember { FocusRequester() }
+    var isKeyboardFocusActive by remember { mutableStateOf(false) }
 
     // Clean up stale keys when the catalog rows change.
     val visibleRowKeys = remember(uiState.catalogRows) {
@@ -311,9 +343,6 @@ fun SearchScreen(
         uiState.catalogRows.filter { it.items.isNotEmpty() }
     }
     LaunchedEffect(visibleRowKeys) {
-        searchRowStates.keys.retainAll(visibleRowKeys)
-        searchRowFocusRequesters.keys.retainAll(visibleRowKeys)
-        searchRowEntryFocusRequesters.keys.retainAll(visibleRowKeys)
         searchRowFocusedItemIndex.keys.retainAll(visibleRowKeys)
     }
 
@@ -495,15 +524,141 @@ fun SearchScreen(
         }
     }
 
-    Box(
+    Row(
         modifier = Modifier
-            .fillMaxSize(),
-        contentAlignment = Alignment.TopCenter
+            .fillMaxSize()
+            .recompositionHighlighter()
+            .dpadRepeatThrottle()
     ) {
-        val listState = rememberLazyListState()
+        // Left: search field + WuPlay-style virtual keyboard, always laid out even when the
+        // keyboard is collapsed so the field keeps a stable home for focus restoration.
+        Column(
+            modifier = Modifier
+                .width(SEARCH_LEFT_PANEL_WIDTH)
+                .fillMaxHeight()
+                .padding(start = NuvioTheme.spacing.lg)
+        ) {
+            SearchInputField(
+                query = uiState.query,
+                canMoveToResults = canMoveToResults,
+                voiceFocusRequester = if (isVoiceSearchAvailable) voiceFocusRequester else null,
+                searchFocusRequester = searchFocusRequester,
+                onSearchFieldFocusChanged = { focused -> isSearchFieldFocused = focused },
+                onQueryChanged = handleQueryChanged,
+                onSubmit = {
+                    submitCurrentQuery(uiState.query.trim())
+                },
+                showVoiceSearch = false,
+                isVoiceListening = isVoiceListening,
+                voiceRmsLevel = voiceRmsLevel,
+                onVoiceSearch = launchVoiceSearch,
+                onMoveToResults = { focusResults = true },
+                onMoveToKeyboard = {
+                    runCatching { keyboardFirstKeyFocusRequester.requestFocus() }
+                },
+                onOpenDiscover = onOpenDiscover,
+                showDiscoverButton = false,
+                keyboardController = keyboardController,
+                clearHistoryFocusRequester = if (showRecentSearches) recentClearHistoryFocusRequester else null,
+                isScreenActive = isScreenActive,
+                horizontalPadding = NuvioTheme.spacing.md
+            )
+
+            AnimatedVisibility(
+                visible = isSearchFieldFocused || isKeyboardFocusActive,
+                enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
+            ) {
+                SearchVirtualKeyboard(
+                    onKey = { key -> handleQueryChanged(uiState.query + key) },
+                    onSpace = { handleQueryChanged(uiState.query + " ") },
+                    onBackspace = { handleQueryChanged(uiState.query.dropLast(1)) },
+                    onEnter = {
+                        submitCurrentQuery(uiState.query.trim())
+                        focusResults = true
+                    },
+                    firstKeyFocusRequester = keyboardFirstKeyFocusRequester,
+                    resultsFocusRequester = resultsFirstItemFocusRequester,
+                    onFocusChanged = { focused -> isKeyboardFocusActive = focused },
+                    modifier = Modifier.padding(top = NuvioTheme.spacing.lg)
+                )
+
+                if (uiState.suggestions.isNotEmpty()) {
+                    SearchSuggestionsColumn(
+                        suggestions = uiState.suggestions,
+                        onSuggestionClick = { suggestion ->
+                            viewModel.onEvent(SearchEvent.QueryChanged(suggestion))
+                            submitCurrentQuery(suggestion)
+                        },
+                        modifier = Modifier.padding(top = NuvioTheme.spacing.lg)
+                    )
+                }
+            }
+
+            // Secondary actions that used to live in the input row, now below the search box so
+            // the input itself can span the whole panel like the reference app.
+            Row(
+                modifier = Modifier.padding(top = NuvioTheme.spacing.lg),
+                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+            ) {
+                if (isVoiceSearchAvailable) {
+                    IconButton(
+                        onClick = launchVoiceSearch,
+                        modifier = Modifier
+                            .size(NuvioTheme.spacing.huge)
+                            .border(
+                                width = if (isVoiceListening) NuvioTheme.spacing.xxs else NuvioTheme.spacing.hairline,
+                                color = if (isVoiceListening) NuvioTheme.colors.Secondary else NuvioTheme.colors.Border,
+                                shape = RoundedCornerShape(NuvioTheme.radii.md)
+                            )
+                            .background(
+                                color = NuvioTheme.colors.BackgroundCard,
+                                shape = RoundedCornerShape(NuvioTheme.radii.md)
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = stringResource(R.string.cd_voice_search),
+                            tint = if (isVoiceListening) NuvioTheme.colors.Secondary else NuvioTheme.colors.TextPrimary
+                        )
+                    }
+                }
+                if (uiState.discoverLocation == DiscoverLocation.IN_SEARCH) {
+                    IconButton(
+                        onClick = onOpenDiscover,
+                        modifier = Modifier
+                            .size(NuvioTheme.spacing.huge)
+                            .border(
+                                width = NuvioTheme.spacing.hairline,
+                                color = NuvioTheme.colors.Border,
+                                shape = RoundedCornerShape(NuvioTheme.radii.md)
+                            )
+                            .background(
+                                color = NuvioTheme.colors.BackgroundCard,
+                                shape = RoundedCornerShape(NuvioTheme.radii.md)
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Explore,
+                            contentDescription = stringResource(R.string.cd_open_discover),
+                            tint = NuvioTheme.colors.TextPrimary
+                        )
+                    }
+                }
+            }
+        }
+
+        val savedResultsScroll = remember(viewModel.hasSavedSearchFocus) {
+            if (viewModel.hasSavedSearchFocus) viewModel.savedResultsScrollPosition else null
+        }
+        val listState = rememberLazyListState(
+            initialFirstVisibleItemIndex = savedResultsScroll?.first ?: 0,
+            initialFirstVisibleItemScrollOffset = savedResultsScroll?.second ?: 0
+        )
         LazyColumn(
             modifier = Modifier
-                .fillMaxSize()
+                .weight(1f)
+                .fillMaxHeight()
                 .recompositionHighlighter()
                 .dpadRepeatThrottle(),
             state = listState,
@@ -513,29 +668,6 @@ fun SearchScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.lg)
         ) {
-            item(key = "search_input") {
-                SearchInputField(
-                    query = uiState.query,
-                    canMoveToResults = canMoveToResults,
-                    voiceFocusRequester = if (isVoiceSearchAvailable) voiceFocusRequester else null,
-                    searchFocusRequester = searchFocusRequester,
-                    onSearchFieldFocusChanged = { focused -> isSearchFieldFocused = focused },
-                    onQueryChanged = handleQueryChanged,
-                    onSubmit = {
-                        submitCurrentQuery(uiState.query.trim())
-                    },
-                    showVoiceSearch = isVoiceSearchAvailable,
-                    isVoiceListening = isVoiceListening,
-                    voiceRmsLevel = voiceRmsLevel,
-                    onVoiceSearch = launchVoiceSearch,
-                    onMoveToResults = { focusResults = true },
-                    onOpenDiscover = onOpenDiscover,
-                    showDiscoverButton = uiState.discoverLocation == DiscoverLocation.IN_SEARCH,
-                    keyboardController = keyboardController,
-                    clearHistoryFocusRequester = if (showRecentSearches) recentClearHistoryFocusRequester else null,
-                    isScreenActive = isScreenActive
-                )
-            }
 
             if (isDiscoverMode) {
                 if (showRecentSearches) {
@@ -628,11 +760,12 @@ fun SearchScreen(
                                     isLoading = true
                                 )
                             }
-                            CatalogRowSection(
+                            SearchResultsGridSection(
                                 catalogRow = skeletonRow,
                                 onItemClick = { _, _, _ -> },
                                 posterCardStyle = posterCardStyle,
                                 showAddonName = uiState.catalogAddonNameEnabled,
+                                interactive = false,
                                 modifier = Modifier.padding(bottom = 24.dp)
                             )
                         }
@@ -670,26 +803,13 @@ fun SearchScreen(
                                 catalogRow.items.firstOrNull()?.id?.startsWith("__placeholder_") == true
                             val hasEnoughForSeeAll = !isPlaceholder && catalogRow.items.size >= 15
 
-                            val listState = searchRowStates.getOrPut(catalogKey) {
-                                val saved = viewModel.savedRowScrollPositions[catalogKey]
-                                LazyListState(
-                                    firstVisibleItemIndex = saved?.first ?: 0,
-                                    firstVisibleItemScrollOffset = saved?.second ?: 0
-                                )
-                            }
-                            val rowFocusRequester = searchRowFocusRequesters.getOrPut(catalogKey) { FocusRequester() }
-                            val entryFocusRequester = searchRowEntryFocusRequesters.getOrPut(catalogKey) { FocusRequester() }
-
-                            CatalogRowSection(
+                            SearchResultsGridSection(
                                 catalogRow = catalogRow,
                                 showSeeAll = hasEnoughForSeeAll,
                                 showPosterLabels = uiState.posterLabelsEnabled,
                                 showAddonName = uiState.catalogAddonNameEnabled,
                                 showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
-                                enableRowFocusRestorer = true,
-                                rowFocusRequester = rowFocusRequester,
-                                entryFocusRequester = entryFocusRequester,
-                                listState = listState,
+                                entryFocusRequester = if (index == 0) resultsFirstItemFocusRequester else null,
                                 restorerFocusedIndex = if (restoringSearchFocus.value && catalogKey == viewModel.savedFocusRowKey) {
                                     viewModel.savedFocusItemIndex
                                 } else {
@@ -725,9 +845,8 @@ fun SearchScreen(
                                     // Save focus state to ViewModel before navigating
                                     viewModel.savedFocusRowKey = catalogKey
                                     viewModel.savedFocusItemIndex = searchRowFocusedItemIndex[catalogKey] ?: 0
-                                    viewModel.savedRowScrollPositions = searchRowStates.mapValues {
-                                        it.value.firstVisibleItemIndex to it.value.firstVisibleItemScrollOffset
-                                    }
+                                    viewModel.savedResultsScrollPosition =
+                                        listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
                                     viewModel.hasSavedSearchFocus = true
                                     val clickedItem = catalogRow.items.firstOrNull { it.id == id }
                                     HeroBackdropState.update(clickedItem?.backdropUrl)
@@ -775,11 +894,12 @@ fun SearchScreen(
                                         isLoading = true
                                     )
                                 }
-                                CatalogRowSection(
+                                SearchResultsGridSection(
                                     catalogRow = skeletonRow,
                                     onItemClick = { _, _, _ -> },
                                     posterCardStyle = posterCardStyle,
                                     showAddonName = uiState.catalogAddonNameEnabled,
+                                    interactive = false,
                                     modifier = Modifier.padding(bottom = 24.dp)
                                 )
                             }
@@ -803,6 +923,342 @@ fun SearchScreen(
             onNavigateToDetail(id, type, addonBaseUrl)
         }
     )
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SearchSuggestionsColumn(
+    suggestions: List<String>,
+    onSuggestionClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .focusGroup(),
+        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
+    ) {
+        Text(
+            text = stringResource(R.string.search_suggestions_title),
+            style = androidx.tv.material3.MaterialTheme.typography.titleMedium,
+            color = NuvioTheme.colors.TextPrimary
+        )
+        suggestions.take(4).forEach { suggestion ->
+            var isFocused by remember { mutableStateOf(false) }
+            Box(
+                contentAlignment = Alignment.CenterStart,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(NuvioTheme.spacing.huge)
+                    .background(
+                        color = if (isFocused) NuvioTheme.colors.FocusBackground else NuvioTheme.colors.BackgroundCard,
+                        shape = RoundedCornerShape(NuvioTheme.radii.md)
+                    )
+                    .border(
+                        width = if (isFocused) NuvioTheme.spacing.xxs else NuvioTheme.spacing.hairline,
+                        color = if (isFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.Border,
+                        shape = RoundedCornerShape(NuvioTheme.radii.md)
+                    )
+                    .focusProperties { canFocus = true }
+                    .onFocusChanged { state -> isFocused = state.isFocused }
+                    .onPreviewKeyEvent { keyEvent ->
+                        if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_UP &&
+                            (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
+                                keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_ENTER ||
+                                keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER)
+                        ) {
+                            onSuggestionClick(suggestion)
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    .padding(horizontal = NuvioTheme.spacing.xl)
+            ) {
+                Text(
+                    text = suggestion,
+                    style = androidx.tv.material3.MaterialTheme.typography.titleMedium,
+                    color = NuvioTheme.colors.TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@OptIn(
+    ExperimentalTvMaterial3Api::class,
+    ExperimentalComposeUiApi::class
+)
+@Composable
+private fun SearchResultsGridSection(
+    catalogRow: CatalogRow,
+    onItemClick: (String, String, String) -> Unit,
+    modifier: Modifier = Modifier,
+    onSeeAll: () -> Unit = {},
+    showSeeAll: Boolean = catalogRow.hasMore || catalogRow.items.size >= 15,
+    seeAllLabel: String? = null,
+    posterCardStyle: PosterCardStyle = PosterCardDefaults.Style,
+    showPosterLabels: Boolean = true,
+    showAddonName: Boolean = true,
+    showCatalogTypeSuffix: Boolean = true,
+    isItemWatched: (MetaPreview) -> Boolean = { false },
+    onItemLongPress: (MetaPreview, String) -> Unit = { _, _ -> },
+    focusedItemIndex: Int = -1,
+    restorerFocusedIndex: Int = -1,
+    onItemFocused: (itemIndex: Int) -> Unit = {},
+    entryFocusRequester: FocusRequester? = null,
+    interactive: Boolean = true
+) {
+    fun rowItemFocusKey(index: Int, item: MetaPreview): String {
+        return catalogRow.stableItemKey(index)
+    }
+
+    val itemFocusRequestersByKey = remember { mutableMapOf<String, FocusRequester>() }
+    var lastRequestedFocusItemKey by remember { mutableStateOf<String?>(null) }
+    var lastFocusedItemIndex by remember { mutableIntStateOf(-1) }
+
+    val latestOnItemClick by rememberUpdatedState(onItemClick)
+    val latestOnSeeAll by rememberUpdatedState(onSeeAll)
+    val latestIsItemWatched by rememberUpdatedState(isItemWatched)
+    val latestOnItemLongPress by rememberUpdatedState(onItemLongPress)
+    val latestOnItemFocused by rememberUpdatedState(onItemFocused)
+
+    LaunchedEffect(catalogRow.items) {
+        val validKeys = catalogRow.items.mapIndexedTo(mutableSetOf()) { index, item ->
+            rowItemFocusKey(index, item)
+        }
+        itemFocusRequestersByKey.keys.retainAll(validKeys)
+        if (lastRequestedFocusItemKey !in validKeys) {
+            lastRequestedFocusItemKey = null
+        }
+    }
+
+    // Restore focus from saved state when focusedItemIndex is set.
+    LaunchedEffect(focusedItemIndex, catalogRow.items) {
+        if (!interactive) return@LaunchedEffect
+        if (focusedItemIndex >= 0 && focusedItemIndex < catalogRow.items.size) {
+            val targetItem = catalogRow.items[focusedItemIndex]
+            val targetItemKey = rowItemFocusKey(focusedItemIndex, targetItem)
+            if (lastRequestedFocusItemKey == targetItemKey) return@LaunchedEffect
+            val requester = itemFocusRequestersByKey.getOrPut(targetItemKey) { FocusRequester() }
+            repeat(2) { withFrameNanos { } }
+            val focused = runCatching { requester.requestFocus() }.isSuccess
+            if (focused) {
+                lastRequestedFocusItemKey = targetItemKey
+            }
+        } else {
+            lastRequestedFocusItemKey = null
+        }
+    }
+
+    val catalogContext = LocalContext.current
+    val typeLabel = remember(catalogRow.rawType, catalogRow.apiType, catalogContext) {
+        val raw = catalogRow.rawType.takeIf { it.isNotBlank() } ?: catalogRow.apiType
+        localizedContentType(catalogContext, raw)
+    }
+    val catalogTitle = remember(catalogRow.catalogName, typeLabel, showCatalogTypeSuffix) {
+        val formattedName = catalogRow.catalogName.replaceFirstChar { it.uppercase() }
+        if (formattedName.isBlank()) ""
+        else if (showCatalogTypeSuffix && typeLabel.isNotEmpty()) "$formattedName - $typeLabel" else formattedName
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, bottom = NuvioTheme.spacing.md),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)) {
+                Text(
+                    text = catalogTitle.ifBlank { " " },
+                    style = androidx.tv.material3.MaterialTheme.typography.headlineMedium,
+                    color = if (catalogTitle.isBlank()) Color.Transparent else NuvioTheme.colors.TextPrimary,
+                    maxLines = 3,
+                    overflow = TextOverflow.Clip
+                )
+                if (showAddonName) {
+                    Text(
+                        text = if (catalogTitle.isBlank()) " " else stringResource(R.string.catalog_from_addon, catalogRow.addonName),
+                        style = androidx.tv.material3.MaterialTheme.typography.labelMedium,
+                        color = if (catalogTitle.isBlank()) Color.Transparent else NuvioTheme.colors.TextTertiary
+                    )
+                }
+            }
+        }
+
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl)
+        ) {
+            val horizontalSpacing = NuvioTheme.spacing.md
+            val verticalSpacing = NuvioTheme.spacing.md
+            val availableWidth = maxWidth
+            val columns = run {
+                val cols = (availableWidth + horizontalSpacing) /
+                    (posterCardStyle.width + horizontalSpacing)
+                cols.toInt().coerceAtLeast(1)
+            }
+            val labelHeight = if (showPosterLabels) {
+                androidx.tv.material3.MaterialTheme.typography.titleMedium.lineHeight.value.dp +
+                    NuvioTheme.spacing.sm
+            } else {
+                0.dp
+            }
+            val itemCount = catalogRow.items.size + if (showSeeAll) 1 else 0
+            val rowCount = ceil(itemCount.toDouble() / columns).toInt().coerceAtLeast(1)
+            val cellHeight = posterCardStyle.height + labelHeight
+            val gridHeight = cellHeight * rowCount + verticalSpacing * (rowCount - 1)
+
+            val entryTargetIndex = if (lastFocusedItemIndex >= 0) lastFocusedItemIndex else 0
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(columns),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(gridHeight)
+                    .focusGroup()
+                    .dpadRepeatThrottle()
+                    .focusRestorer {
+                        if (!interactive) {
+                            FocusRequester.Default
+                        } else {
+                            val idx = if (lastFocusedItemIndex >= 0) lastFocusedItemIndex else restorerFocusedIndex
+                            val validIdx = idx.coerceIn(0, (catalogRow.items.size - 1).coerceAtLeast(0))
+                            catalogRow.items.getOrNull(validIdx)
+                                ?.let { itemFocusRequestersByKey.getOrPut(rowItemFocusKey(validIdx, it)) { FocusRequester() } }
+                                ?: FocusRequester.Default
+                        }
+                    },
+                userScrollEnabled = false,
+                horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
+                verticalArrangement = Arrangement.spacedBy(verticalSpacing)
+            ) {
+                gridItemsIndexed(
+                    items = catalogRow.items,
+                    key = { index, item -> rowItemFocusKey(index, item) },
+                    contentType = { _, item -> item.apiType }
+                ) { index, item ->
+                    val isPlaceholder = item.id.startsWith("__placeholder_")
+                    val cardFocusRequester = if (interactive) {
+                        remember(rowItemFocusKey(index, item)) {
+                            itemFocusRequestersByKey.getOrPut(rowItemFocusKey(index, item)) { FocusRequester() }
+                        }
+                    } else {
+                        null
+                    }
+                    val isEntryTarget = interactive && entryFocusRequester != null &&
+                        index == entryTargetIndex &&
+                        !isPlaceholder
+                    val isNonFirstPlaceholder = isPlaceholder && index > 0
+
+                    GridContentCard(
+                        item = item,
+                        onClick = {
+                            if (!isPlaceholder) latestOnItemClick(item.id, item.apiType, catalogRow.addonBaseUrl)
+                        },
+                        posterCardStyle = posterCardStyle,
+                        showLabel = showPosterLabels,
+                        isWatched = latestIsItemWatched(item),
+                        focusRequester = cardFocusRequester,
+                        onLongPress = {
+                            if (!isPlaceholder) latestOnItemLongPress(item, catalogRow.addonBaseUrl)
+                        },
+                        onFocused = {
+                            if (interactive && !isPlaceholder) {
+                                if (lastFocusedItemIndex != index) {
+                                    lastFocusedItemIndex = index
+                                    latestOnItemFocused(index)
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .then(
+                                if (isEntryTarget) Modifier.focusRequester(entryFocusRequester!!) else Modifier
+                            )
+                            .then(
+                                if (isNonFirstPlaceholder || !interactive) {
+                                    Modifier.focusProperties { canFocus = false }
+                                } else {
+                                    Modifier
+                                }
+                            )
+                    )
+                }
+
+                if (showSeeAll) {
+                    item(key = "${catalogRow.type}_${catalogRow.catalogId}_see_all") {
+                        val seeAllCardShapeObj = RoundedCornerShape(posterCardStyle.cornerRadius)
+                        val cardDepthStyle = LocalCardDepthStyle.current
+                        Column(modifier = Modifier.width(posterCardStyle.width)) {
+                            Card(
+                                onClick = {
+                                    if (interactive) latestOnSeeAll()
+                                },
+                                modifier = Modifier
+                                    .width(posterCardStyle.width)
+                                    .height(posterCardStyle.height),
+                                shape = CardDefaults.shape(shape = seeAllCardShapeObj),
+                                colors = CardDefaults.colors(
+                                    containerColor = NuvioTheme.colors.BackgroundCard,
+                                    focusedContainerColor = NuvioTheme.colors.BackgroundCard
+                                ),
+                                border = CardDefaults.border(
+                                    focusedBorder = Border(
+                                        border = BorderStroke(posterCardStyle.focusedBorderWidth, NuvioTheme.colors.FocusRing),
+                                        shape = seeAllCardShapeObj
+                                    )
+                                ),
+                                scale = CardDefaults.scale(focusedScale = posterCardStyle.focusedScale)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(seeAllCardShapeObj)
+                                        .nuvioCardDepth(
+                                            shape = seeAllCardShapeObj,
+                                            surface = CardDepthSurface.POSTERS,
+                                            style = cardDepthStyle
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                            contentDescription = seeAllLabel ?: stringResource(R.string.action_see_all),
+                                            modifier = Modifier.size(NuvioTheme.spacing.xxl),
+                                            tint = NuvioTheme.colors.TextSecondary
+                                        )
+                                        Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
+                                        Text(
+                                            text = seeAllLabel ?: stringResource(R.string.action_see_all),
+                                            style = androidx.tv.material3.MaterialTheme.typography.titleSmall,
+                                            color = NuvioTheme.colors.TextSecondary
+                                        )
+                                    }
+                                }
+                            }
+                            if (showPosterLabels) {
+                                Spacer(
+                                    modifier = Modifier
+                                        .width(posterCardStyle.width)
+                                        .padding(top = NuvioTheme.spacing.sm)
+                                        .height(androidx.tv.material3.MaterialTheme.typography.titleMedium.lineHeight.value.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -898,11 +1354,13 @@ private fun SearchInputField(
     voiceRmsLevel: Float,
     onVoiceSearch: () -> Unit,
     onMoveToResults: () -> Unit,
+    onMoveToKeyboard: (() -> Unit)?,
     onOpenDiscover: () -> Unit,
     showDiscoverButton: Boolean,
     keyboardController: androidx.compose.ui.platform.SoftwareKeyboardController?,
     clearHistoryFocusRequester: FocusRequester?,
-    isScreenActive: Boolean = true
+    isScreenActive: Boolean = true,
+    horizontalPadding: Dp = NuvioTheme.spacing.xxxl
 ) {
     var isDiscoverButtonFocused by remember { mutableStateOf(false) }
     var isVoiceButtonFocused by remember { mutableStateOf(false) }
@@ -911,7 +1369,7 @@ private fun SearchInputField(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = NuvioTheme.spacing.xxxl),
+            .padding(horizontal = horizontalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (showDiscoverButton) {
@@ -1057,6 +1515,12 @@ private fun SearchInputField(
                         }
 
                         KeyEvent.KEYCODE_DPAD_DOWN -> {
+                            if (onMoveToKeyboard != null) {
+                                if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                                    onMoveToKeyboard()
+                                }
+                                return@onPreviewKeyEvent true
+                            }
                             if (canMoveToResults) {
                                 if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
                                     onMoveToResults()
