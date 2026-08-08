@@ -28,4 +28,6 @@ class AnimeLayoutSettingsViewModel @Inject constructor(
     trailerSettingsDataStore = trailerSettingsDataStore,
     addonRepository = addonRepository,
     metaRepository = metaRepository
-)
+) {
+    override val showTabVisibilityToggles: Boolean = false
+}

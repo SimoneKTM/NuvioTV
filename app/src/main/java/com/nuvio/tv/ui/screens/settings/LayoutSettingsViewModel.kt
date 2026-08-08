@@ -75,6 +75,8 @@ data class LayoutSettingsUiState(
     val showUnairedNextUp: Boolean = true,
     val continueWatchingSortMode: ContinueWatchingSortMode = ContinueWatchingSortMode.DEFAULT,
     val continueWatchingCardStyle: ContinueWatchingCardStyle = ContinueWatchingCardStyle.CARD,
+    val animeTabVisible: Boolean = true,
+    val liveTvTabVisible: Boolean = true,
 )
 
 data class CatalogInfo(
@@ -127,6 +129,8 @@ sealed class LayoutSettingsEvent {
     data class SetShowUnairedNextUp(val enabled: Boolean) : LayoutSettingsEvent()
     data class SetContinueWatchingSortMode(val mode: ContinueWatchingSortMode) : LayoutSettingsEvent()
     data class SetContinueWatchingCardStyle(val style: ContinueWatchingCardStyle) : LayoutSettingsEvent()
+    data class SetAnimeTabVisible(val visible: Boolean) : LayoutSettingsEvent()
+    data class SetLiveTvTabVisible(val visible: Boolean) : LayoutSettingsEvent()
     data object ResetPosterCardStyle : LayoutSettingsEvent()
     data object ResetCardDepthStyle : LayoutSettingsEvent()
 }
@@ -149,6 +153,8 @@ open class LayoutSettingsViewModel @Inject constructor(
 
     private val _streamBadgeUiState = MutableStateFlow(StreamBadgeSettingsUiState())
     val streamBadgeUiState: StateFlow<StreamBadgeSettingsUiState> = _streamBadgeUiState.asStateFlow()
+
+    open val showTabVisibilityToggles: Boolean = true
 
     private inline fun updateUiStateIfChanged(
         update: (LayoutSettingsUiState) -> LayoutSettingsUiState
@@ -355,6 +361,16 @@ open class LayoutSettingsViewModel @Inject constructor(
                     updateUiStateIfChanged { it.copy(continueWatchingCardStyle = style) }
                 }
         }
+        viewModelScope.launch {
+            layoutPreferenceDataStore.animeTabVisible.distinctUntilChanged().collectLatest { visible ->
+                updateUiStateIfChanged { it.copy(animeTabVisible = visible) }
+            }
+        }
+        viewModelScope.launch {
+            layoutPreferenceDataStore.liveTvTabVisible.distinctUntilChanged().collectLatest { visible ->
+                updateUiStateIfChanged { it.copy(liveTvTabVisible = visible) }
+            }
+        }
         loadAvailableCatalogs()
     }
 
@@ -400,6 +416,8 @@ open class LayoutSettingsViewModel @Inject constructor(
             is LayoutSettingsEvent.SetShowUnairedNextUp -> setShowUnairedNextUp(event.enabled)
             is LayoutSettingsEvent.SetContinueWatchingSortMode -> setContinueWatchingSortMode(event.mode)
             is LayoutSettingsEvent.SetContinueWatchingCardStyle -> setContinueWatchingCardStyle(event.style)
+            is LayoutSettingsEvent.SetAnimeTabVisible -> setAnimeTabVisible(event.visible)
+            is LayoutSettingsEvent.SetLiveTvTabVisible -> setLiveTvTabVisible(event.visible)
             LayoutSettingsEvent.ResetPosterCardStyle -> resetPosterCardStyle()
             LayoutSettingsEvent.ResetCardDepthStyle -> resetCardDepthStyle()
         }
@@ -743,6 +761,20 @@ open class LayoutSettingsViewModel @Inject constructor(
         if (_uiState.value.continueWatchingSortMode == mode) return
         viewModelScope.launch {
             layoutPreferenceDataStore.setContinueWatchingSortMode(mode)
+        }
+    }
+
+    private fun setAnimeTabVisible(visible: Boolean) {
+        if (_uiState.value.animeTabVisible == visible) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setAnimeTabVisible(visible)
+        }
+    }
+
+    private fun setLiveTvTabVisible(visible: Boolean) {
+        if (_uiState.value.liveTvTabVisible == visible) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setLiveTvTabVisible(visible)
         }
     }
 

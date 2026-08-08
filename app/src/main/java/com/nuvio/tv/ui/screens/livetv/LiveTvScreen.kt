@@ -122,10 +122,6 @@ fun LiveTvScreen(
                                 color = NuvioTheme.colors.TextSecondary
                             )
                         }
-                        LiveTvAddButton(
-                            enabled = !uiState.isAdding,
-                            onClick = { showAddDialog = true }
-                        )
                     }
                 }
 

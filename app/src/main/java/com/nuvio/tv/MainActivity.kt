@@ -205,7 +205,9 @@ private data class MainUiPrefs(
     val fastHorizontalNavigationEnabled: Boolean = false,
     val composeHighlighterEnabled: Boolean = false,
     val settingsUiStyle: SettingsUiStyle = SettingsUiStyle.CLASSIC,
-    val cardDepthStyle: CardDepthStyle = CardDepthStyle()
+    val cardDepthStyle: CardDepthStyle = CardDepthStyle(),
+    val animeTabVisible: Boolean = true,
+    val liveTvTabVisible: Boolean = true
 )
 
 @AndroidEntryPoint
@@ -430,7 +432,13 @@ class MainActivity : ComponentActivity() {
                         discoverLocation = discoverLocation,
                     )
                 }
-                val extraFeaturesFlow = combine(
+                val tabVisibilityFlow = combine(
+                    layoutPreferenceDataStore.animeTabVisible,
+                    layoutPreferenceDataStore.liveTvTabVisible
+                ) { animeVisible, liveTvVisible ->
+                    Pair(animeVisible, liveTvVisible)
+                }
+                val extraFeaturesBaseFlow = combine(
                     experienceModeDataStore.addonSetupSkipped,
                     layoutPreferenceDataStore.smoothBringIntoViewEnabled,
                     layoutPreferenceDataStore.fastHorizontalNavigationEnabled,
@@ -443,6 +451,12 @@ class MainActivity : ComponentActivity() {
                         fastHorizontalNavigationEnabled = fastHorizontalNav,
                         composeHighlighterEnabled = composeHighlighter,
                         settingsUiStyle = settingsUiStyle,
+                    )
+                }
+                val extraFeaturesFlow = extraFeaturesBaseFlow.combine(tabVisibilityFlow) { prefs, tabVisibility ->
+                    prefs.copy(
+                        animeTabVisible = tabVisibility.first,
+                        liveTvTabVisible = tabVisibility.second
                     )
                 }
                 combine(
@@ -462,7 +476,9 @@ class MainActivity : ComponentActivity() {
                         fastHorizontalNavigationEnabled = extraPrefs.fastHorizontalNavigationEnabled,
                         composeHighlighterEnabled = extraPrefs.composeHighlighterEnabled,
                         settingsUiStyle = extraPrefs.settingsUiStyle,
-                        cardDepthStyle = cardDepthStyle
+                        cardDepthStyle = cardDepthStyle,
+                        animeTabVisible = extraPrefs.animeTabVisible,
+                        liveTvTabVisible = extraPrefs.liveTvTabVisible
                     )
                 }
             }
@@ -764,7 +780,7 @@ class MainActivity : ComponentActivity() {
                     val strNavLibrary = stringResource(R.string.nav_library)
                     val strNavLiveTv = stringResource(R.string.nav_live_tv)
                     val strNavSettings = stringResource(R.string.nav_settings)
-                    val drawerItems = remember(
+val drawerItems = remember(
                         strNavHome,
                         strNavAnime,
                         strNavDiscover,
@@ -772,7 +788,9 @@ class MainActivity : ComponentActivity() {
 strNavLibrary,
                         strNavLiveTv,
                         strNavSettings,
-                        discoverLocation
+                        discoverLocation,
+                        mainUiPrefs.animeTabVisible,
+                        mainUiPrefs.liveTvTabVisible
                     ) {
                         buildList {
                             add(
@@ -782,6 +800,7 @@ strNavLibrary,
                                     icon = Icons.Default.Home
                                 )
                             )
+                            if (mainUiPrefs.animeTabVisible) {
                             add(
                                 DrawerItem(
                                     route = Screen.Anime.route,
@@ -789,6 +808,7 @@ strNavLibrary,
                                     icon = Icons.Default.FilterDrama
                                 )
                             )
+                            }
                             if (discoverLocation == DiscoverLocation.IN_SIDEBAR) {
                                 add(
                                     DrawerItem(
@@ -812,6 +832,7 @@ strNavLibrary,
                                     iconRes = R.raw.sidebar_library
                                 )
                             )
+                            if (mainUiPrefs.liveTvTabVisible) {
                             add(
                                 DrawerItem(
                                     route = Screen.LiveTv.route,
@@ -819,6 +840,7 @@ strNavLibrary,
                                     icon = Icons.Default.LiveTv
                                 )
                             )
+                            }
                             add(
                                 DrawerItem(
                                     route = Screen.Settings.route,

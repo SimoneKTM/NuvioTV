@@ -132,6 +132,7 @@ android {
         buildConfigField("String", "MAL_REDIRECT_URI", buildConfigString(resolveProperty(devProperties, localProperties, "MAL_REDIRECT_URI", "nuvio://auth/mal")))
         buildConfigField("String", "MAL_CLIENT_SECRET", buildConfigString(resolveProperty(devProperties, localProperties, "MAL_CLIENT_SECRET")))
         buildConfigField("String", "TMDB_API_KEY", "\"${localProperties.getProperty("TMDB_API_KEY", "")}\"")
+        buildConfigField("String", "TVDB_API_KEY", "\"${localProperties.getProperty("TVDB_API_KEY", "")}\"")
         buildConfigField("String", "TV_LOGIN_WEB_BASE_URL", "\"${localProperties.getProperty("TV_LOGIN_WEB_BASE_URL", "https://nuvio.tv/tv-login")}\"")
         buildConfigField("boolean", "DOVI_NATIVE_ENABLED", enableDoviNative.toString())
         buildConfigField("boolean", "DOVI_EXTRACTOR_HOOK_READY", doviExtractorHookReady.toString())
@@ -541,6 +542,9 @@ dependencies {
     implementation(libs.supabase.postgrest)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.sentry.android)
+
+    // WireGuard VPN
+    implementation("com.wireguard.android:tunnel:1.0.20260102")
 
     // Kotlinx Serialization
     implementation(libs.kotlinx.serialization.json)

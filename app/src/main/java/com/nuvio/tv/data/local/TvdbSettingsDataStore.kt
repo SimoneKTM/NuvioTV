@@ -35,7 +35,8 @@ class TvdbSettingsDataStore @Inject constructor(
 
     val settings: Flow<TvdbSettings> = profileManager.activeProfileId.flatMapLatest { pid ->
         factory.get(pid, FEATURE).data.map { prefs ->
-            val apiKey = prefs[apiKeyKey] ?: ""
+            val storedKey = prefs[apiKeyKey] ?: ""
+            val apiKey = storedKey.ifBlank { com.nuvio.tv.BuildConfig.TVDB_API_KEY }
             TvdbSettings(
                 enabled = (prefs[enabledKey] ?: false) && apiKey.isNotBlank(),
                 apiKey = apiKey,

@@ -335,6 +335,20 @@ fun LayoutSettingsContent(
                             }
                         }
                     }
+
+                    if (viewModel.showTabVisibilityToggles) {
+                        CompactToggleRow(
+                            title = stringResource(R.string.layout_show_anime_tab),
+                            subtitle = stringResource(R.string.layout_show_anime_tab_sub),
+                            checked = uiState.animeTabVisible,
+                            onToggle = {
+                                viewModel.onEvent(
+                                    LayoutSettingsEvent.SetAnimeTabVisible(!uiState.animeTabVisible)
+                                )
+                            },
+                            onFocused = { focusedSection = LayoutSettingsSection.HOME_LAYOUT }
+                        )
+                    }
                 }
             }
 
