@@ -2,6 +2,11 @@ from __future__ import annotations
 
 SPECIAL_RULES = [
     (
+        r"feat\(collection\)\s+IPTV\s+playlists\s+as\s+collection\s+sources,\s+anime\s+"
+        r"add-on\s+metadata\s+preference,\s+license\s+logos\s+in\s+attributions",
+        "Added IPTV playlists as collection catalog sources and anime add-on catalogs with anime metadata",
+    ),
+    (
         r"upgrade\s+ass-media\s+so\s+Nuvio's\s+custom\s+ASS\s+Matroska\s+extractor\s+"
         r"can\s+register\s+embedded\s+MKV\s+font\s+attachments\s+through\s+"
         r"AssHandler\.addFont\(\.\.\.\)",

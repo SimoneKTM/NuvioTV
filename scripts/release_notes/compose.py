@@ -288,10 +288,17 @@ def candidate_from_commit(
     if not normalized:
         return None
     languages = localized_languages(commit.files)
+    locale_paths = {
+        path
+        for path in commit.files
+        if re.search(r"/values-[^/]+/strings\.xml$", path)
+    }
+    has_non_locale_files = bool(set(commit.files).difference(locale_paths))
     localization = is_localization(normalized, commit.files, ())
-    if localization and languages:
+    if localization and languages and not has_non_locale_files:
         normalized = localization_text(languages, normalized)
-    category = "Localization" if localization else "Improvements & Fixes"
+    is_localization_bullet = localization and not has_non_locale_files
+    category = "Localization" if is_localization_bullet else "Improvements & Fixes"
     source = f"commit {commit.sha[:8]}"
     blocking, advisory = quality_issues(normalized, source)
     return Candidate(
@@ -300,7 +307,11 @@ def candidate_from_commit(
             normalize_author(resolved_author or author_from_commit(commit)),
         ),
         category=category,
-        topic=localization_topic(languages) if localization else topic_for(normalized),
+        topic=(
+            localization_topic(languages)
+            if is_localization_bullet
+            else topic_for(normalized)
+        ),
         order=commit.order * 10,
         source=source,
         blocking_issues=blocking,
