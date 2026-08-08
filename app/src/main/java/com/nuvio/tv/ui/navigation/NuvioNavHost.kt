@@ -224,7 +224,8 @@ fun NuvioNavHost(
                 },
                 onNavigateToFolderDetail = { collectionId, folderId ->
                     navController.navigate(Screen.FolderDetail.createRoute(collectionId, folderId))
-                }
+                },
+                onOpenAddons = { navController.navigate(Screen.AddonManager.route) }
             )
         }
 
@@ -1177,7 +1178,9 @@ fun NuvioNavHost(
         composable(Screen.AnimeLayoutSettings.route) {
             LayoutSettingsScreen(
                 viewModel = androidx.hilt.navigation.compose.hiltViewModel<com.nuvio.tv.ui.screens.settings.AnimeLayoutSettingsViewModel>(),
-                onBackPress = { navController.popBackStack() }
+                onBackPress = { navController.popBackStack() },
+                headerTitleRes = com.nuvio.tv.R.string.anime_layout_title,
+                headerSubtitleRes = com.nuvio.tv.R.string.settings_anime_layout_subtitle
             )
         }
 

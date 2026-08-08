@@ -42,12 +42,21 @@ function env(varName: string): string {
 const PUBLIC_BASE_URL = env("PUBLIC_BASE_URL") || "http://localhost:8000";
 const REDIRECT_URI_BASE = env("REDIRECT_URI_BASE") || PUBLIC_BASE_URL;
 
+// Client ID dei provider. Ogni ID deve essere registrato sul provider con
+// redirect URI esattamente uguale a `${REDIRECT_URI_BASE}/callback/{provider}`
+// (AniList e Kitsu lo richiedono "exact match"). MAL non richiede la registrazione
+// del redirect ma usa PKCE.
 const PROVIDERS: Record<string, string> = {
   mal: env("MAL_CLIENT_ID"),
   anilist: env("ANILIST_CLIENT_ID"),
   kitsu: env("KITSU_CLIENT_ID"),
   mock: "mock", // il mock non richiede credenziali
 };
+
+// Client secret: obbligatorio per AniList (Authorization Code Grant) e opzionale
+// per Kitsu. Senza di esso lo scambio codice -> token fallisce lato provider.
+const ANILIST_CLIENT_SECRET = env("ANILIST_CLIENT_SECRET");
+const KITSU_CLIENT_SECRET = env("KITSU_CLIENT_SECRET");
 
 // -------- Session store: Postgres su Supabase, Map in locale --------
 interface SessionStore {
@@ -163,6 +172,7 @@ const KITSU_TOKEN_URL = "https://kitsu.app/api/oauth/token";
 const MAL_AUTHORIZE_URL = "https://myanimelist.net/v1/oauth2/authorize";
 const MAL_TOKEN_URL = "https://myanimelist.net/v1/oauth2/token";
 const ANILIST_AUTHORIZE_URL = "https://anilist.co/api/v2/oauth/authorize";
+const ANILIST_TOKEN_URL = "https://anilist.co/api/v2/oauth/token";
 
 // ============================================================
 // /start
@@ -188,7 +198,7 @@ async function handleStart(req: Request): Promise<Response> {
     const url =
       provider === "mock"
         ? mockUrl(userCode)
-        : await buildAuthorizeUrl(provider, PROVIDERS[provider]!, session);
+        : await buildAuthorizeUrl(provider, PROVIDERS[provider] ?? "", session);
     if (!url) return json({ error: "provider not configured on relay" }, 500);
     try {
       await store.create(session);
@@ -314,6 +324,7 @@ async function handleCallback(_req: Request, provider: string): Promise<Response
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const accessToken = url.searchParams.get("access_token");
+  const authError = url.searchParams.get("error");
   let session: RelaySession | null = null;
   try {
     session = state ? await store.get(state) : null;
@@ -321,16 +332,13 @@ async function handleCallback(_req: Request, provider: string): Promise<Response
     console.error("callback store error", error);
   }
 
-  if (session) {
-    // AniList (implicit): il token arriva come #access_token (fragment),
-    // che il server NON vede. Rispondiamo con una pagina HTML che
-    // estrae il fragment via JS e lo invia a /approve.
-    if (provider === "anilist") {
-      const safeCode = state!.replace(/[^a-zA-Z0-9]/g, "");
-      return html(fragmentCapturePage(safeCode));
-    }
-    // MAL / Kitsu (auth-code): il codice arriva come query param.
-    // Facciamo qui lo scambio con i segreti del relay.
+  if (authError) {
+    console.error(`provider ${provider} rejected authorization:`, authError);
+  }
+
+  if (session && !authError) {
+    // AniList / Kitsu / MAL (auth-code): il codice arriva come query param.
+    // Facciamo qui lo scambio con le credenziali del relay.
     if (code) {
       const payload = await exchangeCode(provider, session, code);
       if (payload) {
@@ -342,37 +350,33 @@ async function handleCallback(_req: Request, provider: string): Promise<Response
         session.status = "approved";
         session.payload = payload;
       }
+    } else if (accessToken) {
+      // Fallback: client AniList registrati come implicit restituiscono il
+      // token come query param `access_token`.
+      await store.update(session.userCode, {
+        status: "approved",
+        payload: accessToken,
+        pollIntervalSeconds: 1,
+      });
+      session.status = "approved";
+      session.payload = accessToken;
     }
   }
 
   const approved = session?.status === "approved";
+  const message = approved
+    ? "Puoi chiudere questa finestra e tornare sul TV."
+    : authError
+      ? "Hai annullato l'autorizzazione o il provider l'ha rifiutata. Puoi chiudere questa finestra e riprovare dal TV."
+      : "Nessuna autorizzazione ricevuta. Puoi chiudere questa finestra.";
   return html(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:sans-serif;background:#0b0b0f;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
   <div style="text-align:center">
-    <h2>${approved ? "Puoi chiudere questa finestra e tornare sul TV." : "Nessuna autorizzazione ricevuta. Puoi chiudere questa finestra."}</h2>
+    <h2 style="font-weight:normal">${approved ? "✓" : "✕"}</h2>
+    <h3 style="font-weight:normal">${message}</h3>
   </div>
 </body></html>`);
-}
-
-// Pagina usata dall'implicit grant (AniList): estrae l'access token dal
-// fragment dell'URL e lo consegna al relay.
-function fragmentCapturePage(safeCode: string): string {
-  return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"></head>
-<body style="font-family:sans-serif;background:#0b0b0f;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
-  <div style="text-align:center"><h2>Finalizzazione accesso sul TV…</h2></div>
-<script>
-  const token = location.hash
-    .replace(/^#access_token=([^&]*).*/, "$1")
-    .replace(/&.*$/, "");
-  fetch("/approve", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_code: ${JSON.stringify(safeCode)}, payload: token })
-  }).then(() => { document.querySelector("h2").textContent = "Fatto! Torna sul TV."; });
-</script>
-</body></html>`;
 }
 
 // ============================================================
@@ -406,9 +410,25 @@ async function exchangeCode(
         code,
         redirect_uri: `${REDIRECT_URI_BASE}/callback/kitsu`,
       };
-      const secret = env("KITSU_CLIENT_SECRET");
-      if (secret) form.client_secret = secret;
+      if (KITSU_CLIENT_SECRET) form.client_secret = KITSU_CLIENT_SECRET;
       const tokens = await tokenExchange(KITSU_TOKEN_URL, form);
+      return tokensJson(tokens);
+    }
+    if (provider === "anilist") {
+      // AniList accetta solo il grant "authorization_code" (Authorization
+      // Code Grant). Il client_secret va incluso SOLO per i client
+      // "confidential": i client pubblici falliscono se il secret è
+      // presente, perciò l'env è opzionale.
+      const clientId = PROVIDERS.anilist;
+      if (!clientId) return null;
+      const body: Record<string, string> = {
+        grant_type: "authorization_code",
+        client_id: clientId,
+        code,
+        redirect_uri: `${REDIRECT_URI_BASE}/callback/anilist`,
+      };
+      if (ANILIST_CLIENT_SECRET) body.client_secret = ANILIST_CLIENT_SECRET;
+      const tokens = await jsonTokenExchange(ANILIST_TOKEN_URL, body);
       return tokensJson(tokens);
     }
     return null;
@@ -416,6 +436,20 @@ async function exchangeCode(
     console.error("exchangeCode failed", err);
     return null;
   }
+}
+
+// AniList vuole il body in JSON (non form-encoded).
+async function jsonTokenExchange(
+  url: string,
+  payload: Record<string, string>,
+): Promise<Record<string, unknown> | null> {
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!resp.ok) return null;
+  return (await resp.json()).catch(() => null) as Record<string, unknown> | null;
 }
 
 async function tokenExchange(
@@ -487,10 +521,17 @@ async function buildAuthorizeUrl(
   session: RelaySession,
 ): Promise<string | null> {
   const redirectUri = `${REDIRECT_URI_BASE}/callback/${provider}`;
+  // Un client ID vuoto (env non configurato sul relay) produce errori
+  // incomprensibili lato provider (es. MAL "invalid_client"). Meglio un
+  // errore chiaro subito, così il telefono mostra "non configurato".
+  if (!clientId) return null;
   switch (provider) {
     case "mal": return malAuthorizeUrl(clientId, redirectUri, session);
     case "kitsu": return `${KITSU_AUTHORIZE_URL}?response_type=code&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${session.userCode}`;
-    case "anilist": return `${ANILIST_AUTHORIZE_URL}?response_type=token&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${session.userCode}`;
+    // AniList: solo Authorization Code Grant (response_type=code). L'implicit
+    // grant (response_type=token) non è supportato da AniList: il provider
+    // risponde "unsupported_grant_type".
+    case "anilist": return `${ANILIST_AUTHORIZE_URL}?response_type=code&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${session.userCode}`;
     default: return null;
   }
 }

@@ -12,12 +12,19 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material3.Divider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +53,7 @@ import com.nuvio.tv.domain.model.LibraryListTab
 import com.nuvio.tv.domain.model.LibrarySourceMode
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.ui.components.ErrorState
+import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.components.NuvioDialog
 import com.nuvio.tv.ui.components.PosterCardDefaults
@@ -87,7 +95,8 @@ fun HomeScreen(
     onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit = onContinueWatchingClick,
     onContinueWatchingPlayManually: (ContinueWatchingItem) -> Unit = onContinueWatchingClick,
     onNavigateToCatalogSeeAll: (String, String, String) -> Unit = { _, _, _ -> },
-    onNavigateToFolderDetail: (String, String) -> Unit = { _, _ -> }
+    onNavigateToFolderDetail: (String, String) -> Unit = { _, _ -> },
+    onOpenAddons: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val initialCwResolved by viewModel.initialCwResolved.collectAsStateWithLifecycle()
@@ -236,15 +245,20 @@ fun HomeScreen(
                 if (!homeStableGateReleased) {
                     Unit
                 } else {
-                    Box(
+                    Column(
                         modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Text(
-                            text = stringResource(R.string.home_no_addons),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = NuvioTheme.colors.TextSecondary
+                        EmptyScreenState(
+                            title = stringResource(R.string.home_error_no_addons),
+                            subtitle = stringResource(R.string.home_empty_addons_subtitle),
+                            icon = Icons.Default.Extension
                         )
+                        Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+                        Button(onClick = onOpenAddons) {
+                            Text(stringResource(R.string.home_empty_open_addons))
+                        }
                     }
                 }
             }
@@ -253,15 +267,20 @@ fun HomeScreen(
                 if (!homeStableGateReleased) {
                     Unit
                 } else {
-                    Box(
+                    Column(
                         modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Text(
-                            text = stringResource(R.string.home_no_catalog_addons),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = NuvioTheme.colors.TextSecondary
+                        EmptyScreenState(
+                            title = stringResource(R.string.home_error_no_catalog_addons),
+                            subtitle = stringResource(R.string.home_empty_catalogs_subtitle),
+                            icon = Icons.Default.VideoLibrary
                         )
+                        Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+                        Button(onClick = onOpenAddons) {
+                            Text(stringResource(R.string.home_empty_open_addons))
+                        }
                     }
                 }
             }
@@ -279,16 +298,11 @@ fun HomeScreen(
                 if (!homeStableGateReleased) {
                     Unit
                 } else {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = stringResource(R.string.web_no_catalogs),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = NuvioTheme.colors.TextSecondary
-                        )
-                    }
+                    EmptyScreenState(
+                        title = stringResource(R.string.web_no_catalogs),
+                        subtitle = stringResource(R.string.home_empty_catalogs_subtitle),
+                        icon = Icons.Default.Home
+                    )
                 }
             }
 

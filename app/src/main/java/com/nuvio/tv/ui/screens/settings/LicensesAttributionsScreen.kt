@@ -69,6 +69,11 @@ private const val NuvioRepositoryUrl = "https://github.com/NuvioMedia/NuvioTV"
 private const val TmdbUrl = "https://www.themoviedb.org"
 private const val TraktUrl = "https://trakt.tv"
 private const val SimklUrl = "https://simkl.com"
+private const val TvdbUrl = "https://www.thetvdb.com"
+private const val AniListUrl = "https://anilist.co"
+private const val KitsuUrl = "https://kitsu.app"
+private const val MalUrl = "https://myanimelist.net"
+private const val OpenSubtitlesUrl = "https://www.opensubtitles.com"
 private const val PremiumizeUrl = "https://www.premiumize.me"
 private const val TorboxUrl = "https://torbox.app"
 private const val MdbListUrl = "https://mdblist.com"
@@ -376,6 +381,34 @@ private fun dataAttributionItems() = listOf(
         body = stringResource(R.string.licenses_attributions_simkl_body),
         url = SimklUrl,
         logo = LicenseLogo.Raw(R.raw.simkl_tv_glyph)
+    ),
+    LicenseAttributionItem(
+        title = stringResource(R.string.licenses_attributions_tvdb_title),
+        body = stringResource(R.string.licenses_attributions_tvdb_body),
+        url = TvdbUrl
+    ),
+    LicenseAttributionItem(
+        title = stringResource(R.string.licenses_attributions_anilist_title),
+        body = stringResource(R.string.licenses_attributions_anilist_body),
+        url = AniListUrl,
+        logo = LicenseLogo.Raw(R.raw.anilist_icon)
+    ),
+    LicenseAttributionItem(
+        title = stringResource(R.string.licenses_attributions_kitsu_title),
+        body = stringResource(R.string.licenses_attributions_kitsu_body),
+        url = KitsuUrl,
+        logo = LicenseLogo.Raw(R.raw.kitsu_icon)
+    ),
+    LicenseAttributionItem(
+        title = stringResource(R.string.licenses_attributions_mal_title),
+        body = stringResource(R.string.licenses_attributions_mal_body),
+        url = MalUrl,
+        logo = LicenseLogo.Raw(R.raw.mal_icon)
+    ),
+    LicenseAttributionItem(
+        title = stringResource(R.string.licenses_attributions_opensubtitles_title),
+        body = stringResource(R.string.licenses_attributions_opensubtitles_body),
+        url = OpenSubtitlesUrl
     ),
     LicenseAttributionItem(
         title = stringResource(R.string.licenses_attributions_premiumize_title),

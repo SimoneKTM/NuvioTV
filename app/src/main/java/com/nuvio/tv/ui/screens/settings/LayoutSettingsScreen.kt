@@ -1,4 +1,4 @@
-﻿@file:OptIn(ExperimentalTvMaterial3Api::class)
+@file:OptIn(ExperimentalTvMaterial3Api::class)
 
 package com.nuvio.tv.ui.screens.settings
 
@@ -92,21 +92,24 @@ import com.nuvio.tv.ui.screens.addon.QrCodeOverlay
 @Composable
 fun LayoutSettingsScreen(
     viewModel: LayoutSettingsViewModel = hiltViewModel(),
-    onBackPress: () -> Unit
+    onBackPress: () -> Unit,
+    headerTitleRes: Int = R.string.layout_title,
+    headerSubtitleRes: Int? = null
 ) {
     BackHandler { onBackPress() }
 
     SettingsStandaloneScaffold(
-        title = stringResource(R.string.layout_title),
-        subtitle = stringResource(R.string.layout_subtitle)
+        title = stringResource(headerTitleRes),
+        subtitle = stringResource(headerSubtitleRes ?: R.string.layout_subtitle)
     ) {
-        LayoutSettingsContent(viewModel = viewModel)
+        LayoutSettingsContent(viewModel = viewModel, headerTitleRes = headerTitleRes, headerSubtitleRes = headerSubtitleRes)
     }
 }
 
 private enum class LayoutSettingsSection {
     HOME_LAYOUT,
     HOME_CONTENT,
+    ANIME_CONTENT,
     DETAIL_PAGE,
     STREAMS,
     CONTINUE_WATCHING,
@@ -129,6 +132,7 @@ fun LayoutSettingsContent(
 
     var homeLayoutExpanded by rememberSaveable(essentialMode) { mutableStateOf(essentialMode) }
     var homeContentExpanded by rememberSaveable { mutableStateOf(false) }
+    var animeContentExpanded by rememberSaveable { mutableStateOf(false) }
     var detailPageExpanded by rememberSaveable { mutableStateOf(false) }
     var streamsExpanded by rememberSaveable { mutableStateOf(false) }
     var continueWatchingExpanded by rememberSaveable { mutableStateOf(false) }
@@ -140,6 +144,7 @@ fun LayoutSettingsContent(
 
     val defaultHomeLayoutHeaderFocus = remember { FocusRequester() }
     val homeContentHeaderFocus = remember { FocusRequester() }
+    val animeContentHeaderFocus = remember { FocusRequester() }
     val detailPageHeaderFocus = remember { FocusRequester() }
     val streamsHeaderFocus = remember { FocusRequester() }
     val continueWatchingHeaderFocus = remember { FocusRequester() }
@@ -157,6 +162,11 @@ fun LayoutSettingsContent(
     LaunchedEffect(homeContentExpanded, focusedSection) {
         if (!homeContentExpanded && focusedSection == LayoutSettingsSection.HOME_CONTENT) {
             homeContentHeaderFocus.requestFocus()
+        }
+    }
+    LaunchedEffect(animeContentExpanded, focusedSection) {
+        if (!animeContentExpanded && focusedSection == LayoutSettingsSection.ANIME_CONTENT) {
+            animeContentHeaderFocus.requestFocus()
         }
     }
     LaunchedEffect(detailPageExpanded, focusedSection) {
@@ -353,6 +363,42 @@ fun LayoutSettingsContent(
                 }
             }
 
+            if (homeOnlyLayout) {
+            item(key = "anime_content_section") {
+                CollapsibleSectionCard(
+                    title = stringResource(R.string.layout_section_anime_content),
+                    description = stringResource(R.string.layout_section_anime_content_desc),
+                    expanded = animeContentExpanded,
+                    onToggle = { animeContentExpanded = !animeContentExpanded },
+                    focusRequester = animeContentHeaderFocus,
+                    onFocused = { focusedSection = LayoutSettingsSection.ANIME_CONTENT }
+                ) {
+                    CompactToggleRow(
+                        title = stringResource(R.string.layout_catalog_type),
+                        subtitle = stringResource(R.string.layout_catalog_type_sub),
+                        checked = uiState.catalogTypeSuffixEnabled,
+                        onToggle = {
+                            viewModel.onEvent(
+                                LayoutSettingsEvent.SetCatalogTypeSuffixEnabled(!uiState.catalogTypeSuffixEnabled)
+                            )
+                        },
+                        onFocused = { focusedSection = LayoutSettingsSection.ANIME_CONTENT }
+                    )
+                    CompactToggleRow(
+                        title = stringResource(R.string.layout_hide_unreleased),
+                        subtitle = stringResource(R.string.layout_hide_unreleased_sub),
+                        checked = uiState.hideUnreleasedContent,
+                        onToggle = {
+                            viewModel.onEvent(
+                                LayoutSettingsEvent.SetHideUnreleasedContent(!uiState.hideUnreleasedContent)
+                            )
+                        },
+                        onFocused = { focusedSection = LayoutSettingsSection.ANIME_CONTENT }
+                    )
+                }
+            }
+            }
+
             if (!essentialMode && !homeOnlyLayout) {
             item(key = "home_content_section") {
                 CollapsibleSectionCard(
@@ -472,7 +518,6 @@ fun LayoutSettingsContent(
                 }
             }
 
-            if (!homeOnlyLayout) {
             item(key = "detail_page_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_detail),
@@ -627,9 +672,6 @@ fun LayoutSettingsContent(
                 }
             }
 
-            }
-
-            if (!homeOnlyLayout) {
             item(key = "continue_watching_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_continue_watching),
@@ -746,8 +788,6 @@ fun LayoutSettingsContent(
                         onFocused = { focusedSection = LayoutSettingsSection.CONTINUE_WATCHING }
                     )
                 }
-            }
-
             }
 
             if (uiState.selectedLayout != HomeLayout.GRID && !homeOnlyLayout) {

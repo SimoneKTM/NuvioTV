@@ -78,6 +78,8 @@ import com.nuvio.tv.data.local.PlayerPreference
 import com.nuvio.tv.data.local.PlayerSettings
 import com.nuvio.tv.data.local.VodCacheSizeMode
 import com.nuvio.tv.ui.components.NuvioDialog
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private enum class PlaybackSection {
     GENERAL,
@@ -726,23 +728,17 @@ internal fun PlaybackSettingsSections(
                     onResetNetworkToDefaults = onResetNetworkSettingsToDefaults
                 )
                 item(key = "buffer_network_vpn") {
-                    SettingsActionRow(
+                    val vpnViewModel: VpnSettingsViewModel = hiltViewModel()
+                    val vpnUiState by vpnViewModel.uiState.collectAsStateWithLifecycle()
+                    ToggleSettingsItem(
+                        icon = Icons.Default.VpnKey,
                         title = stringResource(R.string.settings_vpn_title),
                         subtitle = stringResource(R.string.settings_vpn_subtitle),
-                        onClick = onNavigateToVpn,
-                        leadingIcon = Icons.Default.VpnKey
+                        isChecked = vpnUiState.hasConfig,
+                        onCheckedChange = { onNavigateToVpn() }
                     )
                 }
             }
-        }
-
-        item(key = "live_tv_settings_entry") {
-            SettingsActionRow(
-                title = stringResource(R.string.settings_live_tv_title),
-                subtitle = stringResource(R.string.settings_live_tv_subtitle),
-                onClick = onNavigateToLiveTv,
-                leadingIcon = Icons.Default.LiveTv
-            )
         }
 
     }

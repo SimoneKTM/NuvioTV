@@ -7,10 +7,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -121,20 +123,23 @@ private fun KitsuConnectContent(
     onConnectToken: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    KitsuWordmarkHeader()
-    Text(
-        text = stringResource(R.string.kitsu_connect_instruction),
-        style = MaterialTheme.typography.bodyMedium,
-        color = NuvioTheme.colors.TextSecondary
-    )
     if (state.qrLogin.isConfigured) {
         TrackerQrLoginSection(
             qrLogin = state.qrLogin,
+            providerName = stringResource(R.string.kitsu_name),
+            logo = rememberRawSvgPainter(R.raw.kitsu_icon, 220.dp),
+            logoContentDescription = stringResource(R.string.cd_kitsu_logo),
+            instruction = stringResource(R.string.kitsu_connect_instruction),
             onStart = onStartQrLogin,
-            onRetry = onRetryQrLogin,
-            onCancel = onCancelQrLogin
+            onRetry = onRetryQrLogin
         )
     } else {
+        KitsuWordmarkHeader()
+        Text(
+            text = stringResource(R.string.kitsu_connect_instruction),
+            style = MaterialTheme.typography.bodyMedium,
+            color = NuvioTheme.colors.TextSecondary
+        )
         TrackerLocalQrSection(
             authorizeUrl = state.authorizeUrl,
             onConnectToken = onConnectToken
@@ -159,27 +164,12 @@ private fun KitsuConnectContent(
 
 @Composable
 private fun KitsuWordmarkHeader() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-    ) {
-        Image(
-            painter = rememberRawSvgPainter(R.raw.kitsu_icon, 52.dp),
-            contentDescription = stringResource(R.string.cd_kitsu_logo),
-            modifier = Modifier.size(52.dp)
-        )
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = stringResource(R.string.kitsu_name),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = stringResource(R.string.kitsu_description),
-                style = MaterialTheme.typography.bodySmall,
-                color = NuvioTheme.colors.TextSecondary
-            )
-        }
-    }
+    Image(
+        painter = rememberRawSvgPainter(R.raw.kitsu_icon, 220.dp),
+        contentDescription = stringResource(R.string.cd_kitsu_logo),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(40.dp),
+        contentScale = ContentScale.Fit
+    )
 }

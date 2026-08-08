@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
@@ -18,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -35,10 +35,22 @@ import kotlinx.coroutines.delay
 @Composable
 internal fun TrackerQrLoginSection(
     qrLogin: TrackerQrLoginState,
+    providerName: String,
+    logo: Painter,
+    logoContentDescription: String,
+    instruction: String,
     onStart: () -> Unit,
-    onRetry: () -> Unit,
-    onCancel: () -> Unit
+    onRetry: () -> Unit
 ) {
+    // Logo grande in cima, stesso stile dei dialog Trakt/Simkl.
+    Image(
+        painter = logo,
+        contentDescription = logoContentDescription,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(40.dp),
+        contentScale = ContentScale.Fit
+    )
     val session = qrLogin.session
     when {
         qrLogin.isStarting -> {
@@ -50,9 +62,9 @@ internal fun TrackerQrLoginSection(
                 ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                LoadingIndicator(modifier = Modifier.size(24.dp))
+                LoadingIndicator(modifier = Modifier.size(28.dp))
                 Text(
-                    text = stringResource(R.string.tracker_qr_preparing),
+                    text = stringResource(R.string.tracking_connecting_provider, providerName),
                     style = MaterialTheme.typography.bodyMedium,
                     color = NuvioTheme.colors.TextSecondary
                 )
@@ -77,7 +89,7 @@ internal fun TrackerQrLoginSection(
                 verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
             ) {
                 Text(
-                    text = stringResource(R.string.tracker_qr_scan_instruction),
+                    text = instruction,
                     style = MaterialTheme.typography.bodyMedium,
                     color = NuvioTheme.colors.TextSecondary,
                     textAlign = TextAlign.Center,
@@ -91,37 +103,45 @@ internal fun TrackerQrLoginSection(
                         Image(
                             bitmap = qrBitmap.asImageBitmap(),
                             contentDescription = stringResource(R.string.cd_tracker_qr),
-                            modifier = Modifier.size(150.dp),
+                            modifier = Modifier.size(144.dp),
                             contentScale = ContentScale.Fit
                         )
                     }
                 }
-                Text(
-                    text = session.userCode,
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    color = NuvioTheme.colors.TextPrimary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Text(
-                    text = session.url,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NuvioTheme.colors.TextTertiary,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                session.expiresAtEpochMs?.let { expiresAt ->
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
+                ) {
                     Text(
-                        text = stringResource(
-                            R.string.tracker_qr_expires,
-                            formatTrackingDuration((expiresAt - nowMillis).coerceAtLeast(0L))
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = NuvioTheme.colors.TextSecondary,
+                        text = session.userCode,
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        color = NuvioTheme.colors.TextPrimary,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    if (!session.url.isNullOrBlank()) {
+                        Text(
+                            text = session.url,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = NuvioTheme.colors.TextTertiary,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    session.expiresAtEpochMs?.let { expiresAt ->
+                        Text(
+                            text = stringResource(
+                                R.string.tracker_qr_expires,
+                                formatTrackingDuration((expiresAt - nowMillis).coerceAtLeast(0L))
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = NuvioTheme.colors.TextSecondary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),

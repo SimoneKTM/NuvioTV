@@ -38,10 +38,12 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FilterDrama
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.People
@@ -106,6 +108,7 @@ internal enum class SettingsCategory {
     INTEGRATION,
     LIBRARY,
     PLAYBACK,
+    LIVE_TV,
     ABOUT,
     ADVANCED,
     DEBUG
@@ -129,12 +132,14 @@ private enum class LibrarySettingsSection {
 
 private enum class AnimeSettingsSection {
     Hub,
+    ContentDiscovery,
     Layout,
     Integrations,
     Tmdb,
     MdbList,
     Tvdb,
-    AnimeSkip
+    AnimeSkip,
+    OpenSubtitles
 }
 
 internal enum class SettingsSectionDestination {
@@ -234,6 +239,13 @@ private fun rememberSettingsSectionSpecs() = listOf(
         destination = SettingsSectionDestination.Inline
     ),
     SettingsSectionSpec(
+        category = SettingsCategory.LIVE_TV,
+        title = stringResource(R.string.nav_live_tv),
+        icon = Icons.Default.LiveTv,
+        subtitle = stringResource(R.string.settings_live_tv_subtitle),
+        destination = SettingsSectionDestination.Inline
+    ),
+    SettingsSectionSpec(
         category = SettingsCategory.ABOUT,
         title = stringResource(R.string.about_title),
         icon = Icons.Default.Info,
@@ -329,6 +341,7 @@ fun SettingsScreen(
             SettingsCategory.INTEGRATION to FocusRequester(),
             SettingsCategory.LIBRARY to FocusRequester(),
             SettingsCategory.PLAYBACK to FocusRequester(),
+            SettingsCategory.LIVE_TV to FocusRequester(),
             SettingsCategory.ADVANCED to FocusRequester(),
             SettingsCategory.ABOUT to FocusRequester(),
             SettingsCategory.ACCOUNT to FocusRequester()
@@ -346,6 +359,7 @@ fun SettingsScreen(
     val librarySourcesFocusRequester = remember { FocusRequester() }
     val libraryConnectedServicesFocusRequester = remember { FocusRequester() }
     val animeHubFocusRequester = remember { FocusRequester() }
+    val animeContentDiscoveryFocusRequester = remember { FocusRequester() }
     val animeLayoutFocusRequester = remember { FocusRequester() }
     val animeIntegrationsFocusRequester = remember { FocusRequester() }
     val animeTmdbFocusRequester = remember { FocusRequester() }
@@ -602,6 +616,7 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                                 animeSection = animeSection,
                                 onSelectAnimeSection = { animeSection = it },
                                 animeHubFocusRequester = animeHubFocusRequester,
+                                animeContentDiscoveryFocusRequester = animeContentDiscoveryFocusRequester,
                                 animeLayoutFocusRequester = animeLayoutFocusRequester,
                                 animeIntegrationsFocusRequester = animeIntegrationsFocusRequester,
                                 animeTmdbFocusRequester = animeTmdbFocusRequester,
@@ -772,6 +787,7 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                         animeSection = animeSection,
                         onSelectAnimeSection = { animeSection = it },
                         animeHubFocusRequester = animeHubFocusRequester,
+                        animeContentDiscoveryFocusRequester = animeContentDiscoveryFocusRequester,
                         animeLayoutFocusRequester = animeLayoutFocusRequester,
                         animeIntegrationsFocusRequester = animeIntegrationsFocusRequester,
                         animeTmdbFocusRequester = animeTmdbFocusRequester,
@@ -818,6 +834,7 @@ private fun SettingsDetailPane(
     animeSection: AnimeSettingsSection,
     onSelectAnimeSection: (AnimeSettingsSection) -> Unit,
     animeHubFocusRequester: FocusRequester,
+    animeContentDiscoveryFocusRequester: FocusRequester,
     animeLayoutFocusRequester: FocusRequester,
     animeIntegrationsFocusRequester: FocusRequester,
     animeTmdbFocusRequester: FocusRequester,
@@ -856,18 +873,21 @@ private fun SettingsDetailPane(
             selectedSection = animeSection,
             onSelectSection = onSelectAnimeSection,
             onNavigateToAnimeAddons = onNavigateToAnimeAddons,
+            onNavigateToPlugins = onNavigateToPlugins,
             initialFocusRequester = if (allowDetailAutofocus) {
                 contentFocusRequesters[SettingsCategory.ANIME]
             } else {
                 null
             },
             hubFocusRequester = animeHubFocusRequester,
+            contentDiscoveryFocusRequester = animeContentDiscoveryFocusRequester,
             layoutFocusRequester = animeLayoutFocusRequester,
             integrationsFocusRequester = animeIntegrationsFocusRequester,
             tmdbFocusRequester = animeTmdbFocusRequester,
             mdbListFocusRequester = animeMdbListFocusRequester,
             tvdbFocusRequester = animeTvdbFocusRequester,
             animeSkipFocusRequester = animeAnimeSkipFocusRequester,
+            openSubtitlesFocusRequester = openSubtitlesFocusRequester,
             autoFocusEnabled = allowDetailAutofocus
         )
         SettingsCategory.APPEARANCE -> ThemeSettingsContent(
@@ -961,6 +981,14 @@ private fun SettingsDetailPane(
             } else {
                 null
             }
+        )
+        SettingsCategory.LIVE_TV -> LiveTvSettingsContent(
+            initialFocusRequester = if (allowDetailAutofocus) {
+                contentFocusRequesters[SettingsCategory.LIVE_TV]
+            } else {
+                null
+            },
+            onNavigateToLiveTv = onNavigateToLiveTv
         )
         SettingsCategory.CONTENT_DISCOVERY -> ContentDiscoverySettingsContent(
             onNavigateToAddons = onNavigateToAddons,
@@ -1113,14 +1141,17 @@ private fun AnimeSettingsContent(
     selectedSection: AnimeSettingsSection,
     onSelectSection: (AnimeSettingsSection) -> Unit,
     onNavigateToAnimeAddons: () -> Unit,
+    onNavigateToPlugins: () -> Unit,
     initialFocusRequester: FocusRequester?,
     hubFocusRequester: FocusRequester,
+    contentDiscoveryFocusRequester: FocusRequester,
     layoutFocusRequester: FocusRequester,
     integrationsFocusRequester: FocusRequester,
     tmdbFocusRequester: FocusRequester,
     mdbListFocusRequester: FocusRequester,
     tvdbFocusRequester: FocusRequester,
     animeSkipFocusRequester: FocusRequester,
+    openSubtitlesFocusRequester: FocusRequester,
     autoFocusEnabled: Boolean
 ) {
     BackHandler(enabled = selectedSection != AnimeSettingsSection.Hub) {
@@ -1132,12 +1163,14 @@ private fun AnimeSettingsContent(
         if (!autoFocusEnabled) return@LaunchedEffect
         val requester = when (selectedSection) {
             AnimeSettingsSection.Hub -> hubEntryFocusRequester
+            AnimeSettingsSection.ContentDiscovery -> contentDiscoveryFocusRequester
             AnimeSettingsSection.Layout -> layoutFocusRequester
             AnimeSettingsSection.Integrations -> integrationsFocusRequester
             AnimeSettingsSection.Tmdb -> tmdbFocusRequester
             AnimeSettingsSection.MdbList -> mdbListFocusRequester
             AnimeSettingsSection.Tvdb -> tvdbFocusRequester
             AnimeSettingsSection.AnimeSkip -> animeSkipFocusRequester
+            AnimeSettingsSection.OpenSubtitles -> openSubtitlesFocusRequester
         }
         runCatching { requester.requestFocus() }
     }
@@ -1178,12 +1211,12 @@ private fun AnimeSettingsContent(
                                     }
                                 )
                             }
-                            item(key = "anime_hub_addon") {
+                            item(key = "anime_hub_content_discovery") {
                                 SettingsActionRow(
-                                    title = stringResource(R.string.anime_settings_addons_title),
-                                    subtitle = stringResource(R.string.anime_settings_addons_subtitle),
-                                    onClick = onNavigateToAnimeAddons,
-                                    leadingIcon = Icons.Default.FilterDrama,
+                                    title = stringResource(R.string.settings_anime_content_discovery_title),
+                                    subtitle = stringResource(R.string.settings_anime_content_discovery_subtitle),
+                                    onClick = { onSelectSection(AnimeSettingsSection.ContentDiscovery) },
+                                    leadingIcon = Icons.Default.Explore,
                                     modifier = Modifier.focusRequester(hubEntryFocusRequester)
                                 )
                             }
@@ -1210,11 +1243,44 @@ private fun AnimeSettingsContent(
             }
         }
 
+        AnimeSettingsSection.ContentDiscovery -> {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+            ) {
+                SettingsDetailHeader(
+                    title = stringResource(R.string.settings_anime_content_discovery_title),
+                    subtitle = stringResource(R.string.settings_anime_content_discovery_subtitle)
+                )
+                SettingsGroupCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SettingsActionRow(
+                            title = stringResource(R.string.anime_settings_addons_title),
+                            subtitle = stringResource(R.string.settings_content_discovery_addons_subtitle),
+                            onClick = onNavigateToAnimeAddons,
+                            leadingIcon = Icons.Default.Extension,
+                            modifier = Modifier.focusRequester(contentDiscoveryFocusRequester)
+                        )
+                        SettingsActionRow(
+                            title = stringResource(R.string.plugin_title),
+                            subtitle = stringResource(R.string.anime_settings_plugins_subtitle),
+                            onClick = onNavigateToPlugins,
+                            leadingIcon = Icons.Default.Build
+                        )
+                    }
+                }
+            }
+        }
+
         AnimeSettingsSection.Layout -> {
             LayoutSettingsContent(
                 viewModel = hiltViewModel<AnimeLayoutSettingsViewModel>(),
                 initialFocusRequester = layoutFocusRequester,
-                headerTitleRes = R.string.settings_anime_layout_title,
+                headerTitleRes = R.string.anime_layout_title,
                 headerSubtitleRes = R.string.settings_anime_layout_subtitle
             )
         }
@@ -1264,6 +1330,12 @@ private fun AnimeSettingsContent(
                         onClick = { onSelectSection(AnimeSettingsSection.AnimeSkip) },
                         leadingIcon = Icons.Default.Link
                     )
+                    SettingsActionRow(
+                        title = "OpenSubtitles",
+                        subtitle = stringResource(R.string.settings_opensubtitles_subtitle),
+                        onClick = { onSelectSection(AnimeSettingsSection.OpenSubtitles) },
+                        leadingIcon = Icons.Default.Language
+                    )
                 }
                 }
             }
@@ -1291,6 +1363,68 @@ private fun AnimeSettingsContent(
             AnimeSkipSettingsContent(
                 initialFocusRequester = animeSkipFocusRequester
             )
+        }
+
+        AnimeSettingsSection.OpenSubtitles -> {
+            OpenSubtitlesSettingsContent(
+                initialFocusRequester = openSubtitlesFocusRequester
+            )
+        }
+    }
+}
+
+@Composable
+private fun LiveTvSettingsContent(
+    initialFocusRequester: FocusRequester?,
+    onNavigateToLiveTv: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+    ) {
+        SettingsDetailHeader(
+            title = stringResource(R.string.nav_live_tv),
+            subtitle = stringResource(R.string.settings_live_tv_subtitle)
+        )
+        SettingsGroupCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            val layoutSettingsViewModel: LayoutSettingsViewModel = hiltViewModel()
+            val layoutUiState by layoutSettingsViewModel.uiState.collectAsStateWithLifecycle()
+            val liveTvHubState = rememberLazyListState()
+            val fallbackFocusRequester = remember { FocusRequester() }
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = liveTvHubState,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    item(key = "live_tv_hub_tab_visibility") {
+                        ToggleSettingsItem(
+                            icon = Icons.Default.Visibility,
+                            title = stringResource(R.string.settings_live_tv_show_tab_title),
+                            subtitle = stringResource(R.string.settings_live_tv_show_tab_sub),
+                            isChecked = layoutUiState.liveTvTabVisible,
+                            onCheckedChange = {
+                                layoutSettingsViewModel.onEvent(
+                                    LayoutSettingsEvent.SetLiveTvTabVisible(it)
+                                )
+                            }
+                        )
+                    }
+                    item(key = "live_tv_hub_open") {
+                        SettingsActionRow(
+                            title = stringResource(R.string.settings_live_tv_open_title),
+                            subtitle = stringResource(R.string.settings_live_tv_open_subtitle),
+                            onClick = onNavigateToLiveTv,
+                            leadingIcon = Icons.Default.LiveTv,
+                            modifier = Modifier.focusRequester(initialFocusRequester ?: fallbackFocusRequester)
+                        )
+                    }
+                }
+                SettingsVerticalScrollIndicators(state = liveTvHubState)
+            }
         }
     }
 }
