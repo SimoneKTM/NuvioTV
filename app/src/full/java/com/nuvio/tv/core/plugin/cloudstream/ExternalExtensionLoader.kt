@@ -19,6 +19,7 @@ import kotlinx.coroutines.withContext
 import com.nuvio.tv.core.network.IPv4FirstDns
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import com.nuvio.tv.core.plugin.withBrowserHeaders
 import org.json.JSONObject
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -216,7 +217,7 @@ class ExternalExtensionLoader @Inject constructor(
 
             val request = Request.Builder()
                 .url(downloadUrl)
-                .header("User-Agent", "NuvioTV/1.0")
+                .header("User-Agent", "NuvioTV/1.0").withBrowserHeaders()
                 .build()
 
             httpClient.newCall(request).execute().use { response ->

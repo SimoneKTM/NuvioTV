@@ -12,6 +12,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import com.nuvio.tv.core.network.IPv4FirstDns
 import okhttp3.OkHttpClient
+import com.nuvio.tv.core.plugin.withBrowserHeaders
 import okhttp3.Request
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -117,7 +118,7 @@ class ExternalRepoParser @Inject constructor(
         return try {
             val request = Request.Builder()
                 .url(url)
-                .header("User-Agent", "NuvioTV/1.0")
+                .header("User-Agent", "NuvioTV/1.0").withBrowserHeaders()
                 .build()
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
