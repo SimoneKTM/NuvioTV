@@ -71,7 +71,7 @@ fun OpenSubtitlesSettingsContent(
                                         Modifier
                                     }
                                 ),
-                            enabled = uiState.isInstalled && !uiState.isBusy
+                            enabled = !uiState.isBusy
                         )
                     }
 
@@ -80,20 +80,12 @@ fun OpenSubtitlesSettingsContent(
                             SettingsActionRow(
                                 title = stringResource(R.string.opensubtitles_url_title),
                                 subtitle = stringResource(R.string.opensubtitles_url_subtitle),
-                                value = "https://opensubtitles-v3.strem.io",
-                                onClick = {},
-                                enabled = false
+                                value = uiState.addonUrl,
+                                onClick = { viewModel.reinstallAddon() },
+                                enabled = !uiState.isBusy
                             )
                         }
                     } else {
-                        item(key = "opensubtitles_not_installed") {
-                            SettingsActionRow(
-                                title = stringResource(R.string.opensubtitles_not_installed_title),
-                                subtitle = stringResource(R.string.opensubtitles_not_installed_subtitle),
-                                onClick = {},
-                                enabled = false
-                            )
-                        }
                         item(key = "opensubtitles_reinstall") {
                             SettingsActionRow(
                                 title = stringResource(R.string.opensubtitles_reinstall_title),

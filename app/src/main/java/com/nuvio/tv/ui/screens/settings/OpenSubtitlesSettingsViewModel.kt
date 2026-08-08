@@ -12,11 +12,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+private const val OPEN_SUBTITLES_URL = "https://opensubtitles-v3.strem.io"
+
 data class OpenSubtitlesSettingsUiState(
     val isInstalled: Boolean = false,
     val isEnabled: Boolean = false,
     val isBusy: Boolean = false,
-    val toggleError: String? = null
+    val toggleError: String? = null,
+    val addonUrl: String = OPEN_SUBTITLES_URL
 )
 
 @HiltViewModel
@@ -71,8 +74,4 @@ class OpenSubtitlesSettingsViewModel @Inject constructor(
 
     private fun normalizeUrl(url: String): String =
         url.trim().trimEnd('/').lowercase()
-
-    companion object {
-        private const val OPEN_SUBTITLES_URL = "https://opensubtitles-v3.strem.io"
-    }
 }

@@ -150,6 +150,7 @@ sealed class Screen(val route: String) {
             "live_tv_player/${encode(channelName)}/${encode(streamUrl)}"
     }
     data object TmdbSettings : Screen("tmdb_settings")
+    data object VpnSettings : Screen("vpn_settings")
     data object ThemeSettings : Screen("theme_settings")
     data object PlaybackSettings : Screen("playback_settings")
     data object About : Screen("about")
