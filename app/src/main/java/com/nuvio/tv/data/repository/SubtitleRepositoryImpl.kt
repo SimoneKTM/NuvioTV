@@ -25,7 +25,8 @@ class SubtitleRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val api: AddonApi,
     private val addonRepository: AddonRepositoryImpl,
-    private val animeAddonRepository: AnimeAddonRepositoryImpl
+    private val animeAddonRepository: AnimeAddonRepositoryImpl,
+    private val openSubtitlesDirectRepository: OpenSubtitlesDirectRepository
 ) : SubtitleRepository {
 
     companion object {
@@ -105,11 +106,26 @@ class SubtitleRepositoryImpl @Inject constructor(
                 }
             }.awaitAll().flatten()
         }
+
+        // When the direct OpenSubtitles API is configured, fetch from it too
+        // and merge the results (one subtitle per preferred language).
+        val directSubtitles = if (openSubtitlesDirectRepository.isConfigured()) {
+            try {
+                openSubtitlesDirectRepository.searchAndPrepareSubtitles(type, id, videoId)
+            } catch (e: Exception) {
+                Log.e(TAG, "Direct OpenSubtitles fetch failed", e)
+                emptyList()
+            }
+        } else {
+            emptyList()
+        }
+        val merged = (result + directSubtitles).distinctBy { it.id }
+
         Log.d(
             TAG,
-            "Subtitle fetch completed total=${result.size} fromAddons=${subtitleAddons.size} in ${System.currentTimeMillis() - startedAtMs}ms"
+            "Subtitle fetch completed total=${merged.size} (addons=${result.size} direct=${directSubtitles.size}) in ${System.currentTimeMillis() - startedAtMs}ms"
         )
-        result
+        merged
     }
 
     private fun canonicalSubtitleType(type: String): String {

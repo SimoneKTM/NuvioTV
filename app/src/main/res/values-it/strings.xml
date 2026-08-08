@@ -364,6 +364,21 @@
 <string name="opensubtitles_not_installed_subtitle">L\'add-on OpenSubtitles preinstallato è stato rimosso</string>
 <string name="opensubtitles_reinstall_title">Reinstalla add-on OpenSubtitles</string>
 <string name="opensubtitles_reinstall_subtitle">Ripristina l\'add-on OpenSubtitles preinstallato</string>
+<string name="opensubtitles_direct_enable_title">API diretta</string>
+<string name="opensubtitles_direct_enable_subtitle">Scarica i sottotitoli direttamente dall\'API OpenSubtitles con il tuo account</string>
+<string name="opensubtitles_api_key_title">Chiave API</string>
+<string name="opensubtitles_api_key_subtitle">La tua chiave API opensubtitles.com</string>
+<string name="opensubtitles_api_key_placeholder">Incolla qui la tua chiave API</string>
+<string name="opensubtitles_username_title">Nome utente</string>
+<string name="opensubtitles_username_subtitle">Facoltativo: nome utente dell\'account per scaricare i sottotitoli</string>
+<string name="opensubtitles_username_placeholder">Inserisci il tuo nome utente</string>
+<string name="opensubtitles_password_title">Password</string>
+<string name="opensubtitles_password_subtitle">Facoltativo: password dell\'account per scaricare i sottotitoli</string>
+<string name="opensubtitles_password_placeholder">Inserisci la tua password</string>
+<string name="opensubtitles_languages_title">Lingue preferite</string>
+<string name="opensubtitles_languages_subtitle">Verrà scaricato un sottotitolo per ogni lingua</string>
+<string name="opensubtitles_not_set">Non impostato</string>
+<string name="opensubtitles_legacy_addon_section">Add-on legacy</string>
 
     <!-- PlaybackSettingsScreen -->
 <string name="playback_title">Impostazioni di riproduzione</string>
