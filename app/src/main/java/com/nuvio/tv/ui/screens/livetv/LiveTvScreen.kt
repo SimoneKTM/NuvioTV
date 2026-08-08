@@ -380,12 +380,35 @@ private fun LiveTvChannelRow(
 }
 
 @Composable
-private fun LiveTvAddPlaylistDialog(
+internal fun LiveTvAddPlaylistDialog(
     isBusy: Boolean,
     errorMessage: String?,
     onAddM3u: (String) -> Unit,
     onAddXtream: (String, String, String) -> Unit,
     onDismiss: () -> Unit
+) {
+    NuvioDialog(
+        onDismiss = onDismiss,
+        title = stringResource(R.string.live_tv_add_playlist),
+        subtitle = stringResource(R.string.live_tv_add_subtitle),
+        width = 560.dp,
+        suppressFirstKeyUp = false
+    ) {
+        LiveTvAddPlaylistForm(
+            isBusy = isBusy,
+            errorMessage = errorMessage,
+            onAddM3u = onAddM3u,
+            onAddXtream = onAddXtream
+        )
+    }
+}
+
+@Composable
+internal fun LiveTvAddPlaylistForm(
+    isBusy: Boolean,
+    errorMessage: String?,
+    onAddM3u: (String) -> Unit,
+    onAddXtream: (String, String, String) -> Unit
 ) {
     var isXtream by remember { mutableStateOf(false) }
     var url by remember { mutableStateOf("") }
@@ -404,83 +427,75 @@ private fun LiveTvAddPlaylistDialog(
         }
     }
 
-    NuvioDialog(
-        onDismiss = onDismiss,
-        title = stringResource(R.string.live_tv_add_playlist),
-        subtitle = stringResource(R.string.live_tv_add_subtitle),
-        width = 560.dp,
-        suppressFirstKeyUp = false
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
     ) {
-        Column(
+        Row(horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)) {
+            LiveTvSourceToggle(
+                label = stringResource(R.string.live_tv_source_m3u),
+                selected = !isXtream,
+                onClick = { isXtream = false }
+            )
+            LiveTvSourceToggle(
+                label = stringResource(R.string.live_tv_source_xtream),
+                selected = isXtream,
+                onClick = { isXtream = true }
+            )
+        }
+        if (isXtream) {
+            LiveTvInputField(
+                value = serverUrl,
+                onValueChange = { serverUrl = it },
+                label = stringResource(R.string.live_tv_xtream_server_label),
+                hint = stringResource(R.string.live_tv_xtream_server_hint),
+                onSubmit = submit
+            )
+            LiveTvInputField(
+                value = username,
+                onValueChange = { username = it },
+                label = stringResource(R.string.live_tv_xtream_username_label),
+                hint = stringResource(R.string.live_tv_xtream_username_hint),
+                onSubmit = submit
+            )
+            LiveTvInputField(
+                value = password,
+                onValueChange = { password = it },
+                label = stringResource(R.string.live_tv_xtream_password_label),
+                hint = stringResource(R.string.live_tv_xtream_password_hint),
+                isPassword = true,
+                onSubmit = submit
+            )
+        } else {
+            LiveTvInputField(
+                value = url,
+                onValueChange = { url = it },
+                label = stringResource(R.string.live_tv_m3u_label),
+                hint = stringResource(R.string.live_tv_add_playlist_hint),
+                onSubmit = submit
+            )
+        }
+        if (!errorMessage.isNullOrBlank()) {
+            Text(
+                text = errorMessage,
+                style = MaterialTheme.typography.bodySmall,
+                color = NuvioTheme.colors.Error
+            )
+        }
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+            horizontalArrangement = Arrangement.End
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)) {
-                LiveTvSourceToggle(
-                    label = stringResource(R.string.live_tv_source_m3u),
-                    selected = !isXtream,
-                    onClick = { isXtream = false }
-                )
-                LiveTvSourceToggle(
-                    label = stringResource(R.string.live_tv_source_xtream),
-                    selected = isXtream,
-                    onClick = { isXtream = true }
-                )
-            }
-            if (isXtream) {
-                LiveTvInputField(
-                    value = serverUrl,
-                    onValueChange = { serverUrl = it },
-                    label = stringResource(R.string.live_tv_xtream_server_label),
-                    hint = stringResource(R.string.live_tv_xtream_server_hint),
-                    onSubmit = submit
-                )
-                LiveTvInputField(
-                    value = username,
-                    onValueChange = { username = it },
-                    label = stringResource(R.string.live_tv_xtream_username_label),
-                    hint = stringResource(R.string.live_tv_xtream_username_hint),
-                    onSubmit = submit
-                )
-                LiveTvInputField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = stringResource(R.string.live_tv_xtream_password_label),
-                    hint = stringResource(R.string.live_tv_xtream_password_hint),
-                    isPassword = true,
-                    onSubmit = submit
-                )
-            } else {
-                LiveTvInputField(
-                    value = url,
-                    onValueChange = { url = it },
-                    label = stringResource(R.string.live_tv_m3u_label),
-                    hint = stringResource(R.string.live_tv_add_playlist_hint),
-                    onSubmit = submit
-                )
-            }
-            if (!errorMessage.isNullOrBlank()) {
-                Text(
-                    text = errorMessage,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NuvioTheme.colors.Error
-                )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+            Button(
+                onClick = { submit() },
+                enabled = !isBusy && if (isXtream) {
+                    serverUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank()
+                } else {
+                    url.isNotBlank()
+                },
+                colors = ButtonDefaults.colors(containerColor = NuvioTheme.colors.Primary)
             ) {
-                Button(
-                    onClick = { submit() },
-                    enabled = !isBusy && if (isXtream) {
-                        serverUrl.isNotBlank() && username.isNotBlank() && password.isNotBlank()
-                    } else {
-                        url.isNotBlank()
-                    },
-                    colors = ButtonDefaults.colors(containerColor = NuvioTheme.colors.Primary)
-                ) {
-                    Text(stringResource(R.string.live_tv_add_btn))
-                }
+                Text(stringResource(R.string.live_tv_add_btn))
             }
         }
     }

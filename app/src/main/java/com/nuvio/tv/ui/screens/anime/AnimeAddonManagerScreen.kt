@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -22,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Reorder
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -88,6 +92,13 @@ fun AnimeAddonManagerScreen(
     val surfaceFocusRequester = remember { FocusRequester() }
     val textFieldFocusRequester = remember { FocusRequester() }
     val installButtonFocusRequester = remember { FocusRequester() }
+    val listState = rememberLazyListState()
+    val installedSectionBringIntoView = remember { BringIntoViewRequester() }
+    val scrollToInstalled: () -> Unit = {
+        coroutineScope.launch {
+            runCatching { installedSectionBringIntoView.bringIntoView() }
+        }
+    }
 
     BackHandler { onBackPress() }
 
@@ -133,6 +144,7 @@ fun AnimeAddonManagerScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 36.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -256,31 +268,6 @@ fun AnimeAddonManagerScreen(
                                     }
                                 )
                             }
-                            Button(
-                                onClick = viewModel::refreshAddons,
-                                enabled = !uiState.isRefreshing,
-                                colors = ButtonDefaults.colors(
-                                    containerColor = NuvioTheme.colors.BackgroundCard,
-                                    contentColor = NuvioTheme.colors.TextSecondary,
-                                    focusedContainerColor = NuvioTheme.colors.FocusBackground,
-                                    focusedContentColor = NuvioTheme.colors.Primary
-                                ),
-                                shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
-                            ) {
-                                if (uiState.isRefreshing) {
-                                    LoadingIndicator(modifier = Modifier.height(NuvioTheme.spacing.xl))
-                                } else {
-                                    Icon(imageVector = Icons.Default.Sync, contentDescription = stringResource(R.string.anime_settings_refresh_title))
-                                }
-                                Spacer(modifier = Modifier.width(NuvioTheme.spacing.sm))
-                                Text(
-                                    text = if (uiState.isRefreshing) {
-                                        stringResource(R.string.anime_settings_refreshing)
-                                    } else {
-                                        stringResource(R.string.anime_settings_refresh_title)
-                                    }
-                                )
-                            }
                         }
                         if (uiState.error != null) {
                             Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
@@ -294,8 +281,51 @@ fun AnimeAddonManagerScreen(
                 }
             }
 
+            item(key = "update") {
+                SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
+                    SettingsActionRow(
+                        title = stringResource(R.string.anime_settings_refresh_title),
+                        subtitle = if (uiState.isRefreshing) {
+                            stringResource(R.string.anime_settings_refreshing)
+                        } else {
+                            stringResource(R.string.anime_settings_update_subtitle)
+                        },
+                        onClick = viewModel::refreshAddons,
+                        leadingIcon = Icons.Default.Sync
+                    )
+                }
+            }
+
+            item(key = "reorder") {
+                SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
+                    SettingsActionRow(
+                        title = stringResource(R.string.anime_settings_reorder_title),
+                        subtitle = stringResource(R.string.anime_settings_reorder_subtitle),
+                        onClick = scrollToInstalled,
+                        leadingIcon = Icons.Default.Reorder
+                    )
+                }
+            }
+
             item(key = "installed") {
                 SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .bringIntoViewRequester(installedSectionBringIntoView)
+                            .padding(start = NuvioTheme.spacing.lg, end = NuvioTheme.spacing.lg, top = NuvioTheme.spacing.lg),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.addon_installed_section),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                            color = NuvioTheme.colors.TextPrimary
+                        )
+                        Spacer(modifier = Modifier.width(NuvioTheme.spacing.md))
+                        if (uiState.isLoading && uiState.addons.isEmpty()) {
+                            LoadingIndicator(modifier = Modifier.height(NuvioTheme.spacing.xl))
+                        }
+                    }
                     if (uiState.isLoading && uiState.addons.isEmpty()) {
                         Box(
                             modifier = Modifier.fillMaxWidth().padding(NuvioTheme.spacing.lg),

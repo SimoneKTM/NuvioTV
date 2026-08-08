@@ -75,6 +75,7 @@ import com.nuvio.tv.domain.model.AddonCatalogCollectionSource
 import com.nuvio.tv.domain.model.CollectionFolder
 import com.nuvio.tv.domain.model.CollectionSource
 import com.nuvio.tv.domain.model.FolderViewMode
+import com.nuvio.tv.domain.model.LiveTvCollectionSource
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.model.TmdbCollectionFilters
 import com.nuvio.tv.domain.model.TmdbCollectionMediaType
@@ -143,6 +144,27 @@ fun FolderEditorContent(
             onAddFromInput = { viewModel.addTraktSourceFromInput() },
             onAddResult = { viewModel.addTraktSourceFromResult(it) },
             onBack = { viewModel.hideTraktSourcePicker() }
+        )
+        return
+    }
+
+    if (uiState.showLiveTvSourcePicker) {
+        BackHandler { viewModel.hideLiveTvSourcePicker() }
+        LiveTvSourcePickerContent(
+            playlists = uiState.liveTvPlaylists,
+            isLoading = uiState.liveTvPlaylistsLoading,
+            alreadyAdded = folder.sources,
+            onToggle = { playlist ->
+                val index = folder.sources.indexOfFirst {
+                    it is LiveTvCollectionSource && it.playlistId == playlist.id
+                }
+                if (index >= 0) {
+                    viewModel.removeLiveTvSource(index)
+                } else {
+                    viewModel.addLiveTvSource(playlist)
+                }
+            },
+            onBack = { viewModel.hideLiveTvSourcePicker() }
         )
         return
     }
@@ -616,6 +638,7 @@ fun FolderEditorContent(
                 val addonSource = source as? AddonCatalogCollectionSource
                 val tmdbSource = source as? TmdbCollectionSource
                 val traktSource = source as? TraktCollectionSource
+                val livetvSource = source as? LiveTvCollectionSource
                 val catalog = addonSource?.let { addon ->
                     uiState.availableCatalogs.find {
                         it.addonId == addon.addonId && it.type == addon.type && it.catalogId == addon.catalogId
@@ -661,8 +684,10 @@ fun FolderEditorContent(
                                 text = catalog?.catalogName?.replaceFirstChar { it.uppercase() }
                                     ?: tmdbSource?.title
                                     ?: traktSource?.title
+                                    ?: livetvSource?.playlistName?.takeIf(String::isNotBlank)
                                     ?: addonCatalogInfo?.catalogName?.replaceFirstChar { it.uppercase() }
                                     ?: addonSource?.catalogId
+                                    ?: livetvSource?.playlistId
                                     ?: stringResource(R.string.collections_editor_source),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = if (isMissing) NuvioTheme.colors.Error else NuvioTheme.colors.TextPrimary
@@ -672,6 +697,7 @@ fun FolderEditorContent(
                                     isMissing -> stringResource(R.string.collections_editor_addon_missing, addonSource.addonId)
                                     addonSource != null && catalog != null -> "$addonTypeLabel - ${catalog.addonName}"
                                     addonSource != null && addonCatalogInfo != null -> "$addonTypeLabel - ${addonCatalogInfo.addonName}"
+                                    livetvSource != null -> stringResource(R.string.collections_editor_livetv_source_type)
                                     tmdbSource != null -> tmdbSourceSubtitle(tmdbSource)
                                     traktSource != null -> traktSourceSubtitle(traktSource)
                                     else -> stringResource(R.string.collections_editor_source)
@@ -845,6 +871,11 @@ fun FolderEditorContent(
                         Icon(Icons.Default.Add, stringResource(R.string.cd_add))
                         Spacer(modifier = Modifier.width(NuvioTheme.spacing.sm))
                         Text(stringResource(R.string.collections_editor_add_trakt_source))
+                    }
+                    NuvioButton(onClick = { viewModel.showLiveTvSourcePicker() }) {
+                        Icon(Icons.Default.Add, stringResource(R.string.cd_add))
+                        Spacer(modifier = Modifier.width(NuvioTheme.spacing.sm))
+                        Text(stringResource(R.string.collections_editor_add_livetv_source))
                     }
                 }
             }

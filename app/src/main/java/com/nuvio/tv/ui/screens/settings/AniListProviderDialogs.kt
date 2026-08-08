@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -131,7 +132,8 @@ private fun AniListConnectContent(
             logoContentDescription = stringResource(R.string.cd_anilist_logo),
             instruction = stringResource(R.string.anilist_connect_instruction),
             onStart = onStartQrLogin,
-            onRetry = onRetryQrLogin
+            onRetry = onRetryQrLogin,
+            qrOverlayLogo = painterResource(R.drawable.anilist_logo)
         )
     } else {
         AniListWordmarkHeader()
@@ -142,7 +144,8 @@ private fun AniListConnectContent(
         )
         TrackerLocalQrSection(
             authorizeUrl = state.authorizeUrl,
-            onConnectToken = onConnectToken
+            onConnectToken = onConnectToken,
+            qrOverlayLogo = painterResource(R.drawable.anilist_logo)
         )
     }
     if (!state.errorMessage.isNullOrBlank()) {

@@ -1179,8 +1179,9 @@ fun NuvioNavHost(
             LayoutSettingsScreen(
                 viewModel = androidx.hilt.navigation.compose.hiltViewModel<com.nuvio.tv.ui.screens.settings.AnimeLayoutSettingsViewModel>(),
                 onBackPress = { navController.popBackStack() },
-                headerTitleRes = com.nuvio.tv.R.string.anime_layout_title,
-                headerSubtitleRes = com.nuvio.tv.R.string.settings_anime_layout_subtitle
+                headerTitleRes = com.nuvio.tv.R.string.settings_anime_layout_title,
+                headerSubtitleRes = com.nuvio.tv.R.string.settings_anime_layout_subtitle,
+                animeMode = true
             )
         }
 
@@ -1284,6 +1285,9 @@ fun NuvioNavHost(
                 onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
                     val heroBackdrop = HeroBackdropState.consumeAndClear()
                     navController.navigate(Screen.Detail.createRoute(itemId, itemType, addonBaseUrl, heroBackdropUrl = heroBackdrop))
+                },
+                onPlayChannel = { channelName, streamUrl ->
+                    navController.navigate(Screen.LiveTvPlayer.createRoute(channelName, streamUrl))
                 },
                 onBack = { navController.popBackStack() }
             )

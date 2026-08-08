@@ -524,7 +524,6 @@ fun SearchScreen(
         modifier = Modifier
             .fillMaxSize()
             .recompositionHighlighter()
-            .dpadRepeatThrottle()
     ) {
         // Left: search field + WuPlay-style virtual keyboard, always laid out even when the
         // keyboard is collapsed so the field keeps a stable home for focus restoration.
@@ -646,7 +645,6 @@ fun SearchScreen(
                 .weight(1f)
                 .fillMaxHeight()
                 .recompositionHighlighter()
-                .dpadRepeatThrottle()
         ) {
             when {
                 isDiscoverMode -> {

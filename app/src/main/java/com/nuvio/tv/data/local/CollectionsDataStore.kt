@@ -13,6 +13,7 @@ import com.nuvio.tv.domain.model.CollectionCatalogSource
 import com.nuvio.tv.domain.model.CollectionFolder
 import com.nuvio.tv.domain.model.CollectionSource
 import com.nuvio.tv.domain.model.FolderViewMode
+import com.nuvio.tv.domain.model.LiveTvCollectionSource
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.model.TmdbCollectionFilters
 import com.nuvio.tv.domain.model.TmdbCollectionMediaType
@@ -328,6 +329,11 @@ class CollectionsDataStore @Inject constructor(
                 sortBy = sortBy,
                 sortHow = sortHow
             )
+            is LiveTvCollectionSource -> SerializableSource(
+                provider = "livetv",
+                catalogId = playlistId,
+                title = playlistName
+            )
         }
     }
 
@@ -419,6 +425,13 @@ class CollectionsDataStore @Inject constructor(
                     } ?: TmdbCollectionMediaType.MOVIE,
                     sortBy = TraktListSort.normalize(sortBy),
                     sortHow = TraktSortHow.normalize(sortHow)
+                )
+            }
+            "livetv" -> {
+                val playlistId = catalogId?.takeIf { it.isNotBlank() } ?: return null
+                LiveTvCollectionSource(
+                    playlistId = playlistId,
+                    playlistName = title.orEmpty()
                 )
             }
             else -> {

@@ -37,6 +37,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FilterDrama
@@ -93,6 +95,7 @@ import com.nuvio.tv.R
 import com.nuvio.tv.core.build.AppFeaturePolicy
 import com.nuvio.tv.domain.model.ExperienceMode
 import com.nuvio.tv.domain.model.SettingsUiStyle
+import com.nuvio.tv.ui.screens.livetv.LiveTvAddPlaylistForm
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlin.math.roundToInt
@@ -1280,8 +1283,9 @@ private fun AnimeSettingsContent(
             LayoutSettingsContent(
                 viewModel = hiltViewModel<AnimeLayoutSettingsViewModel>(),
                 initialFocusRequester = layoutFocusRequester,
-                headerTitleRes = R.string.anime_layout_title,
-                headerSubtitleRes = R.string.settings_anime_layout_subtitle
+                headerTitleRes = R.string.settings_anime_layout_title,
+                headerSubtitleRes = R.string.settings_anime_layout_subtitle,
+                animeMode = true
             )
         }
 
@@ -1393,8 +1397,11 @@ private fun LiveTvSettingsContent(
         ) {
             val layoutSettingsViewModel: LayoutSettingsViewModel = hiltViewModel()
             val layoutUiState by layoutSettingsViewModel.uiState.collectAsStateWithLifecycle()
+            val liveTvViewModel: com.nuvio.tv.ui.screens.livetv.LiveTvViewModel = hiltViewModel()
+            val liveTvUiState by liveTvViewModel.uiState.collectAsStateWithLifecycle()
             val liveTvHubState = rememberLazyListState()
             val fallbackFocusRequester = remember { FocusRequester() }
+            var addPlaylistExpanded by remember { mutableStateOf(false) }
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     state = liveTvHubState,
@@ -1413,14 +1420,42 @@ private fun LiveTvSettingsContent(
                             }
                         )
                     }
-                    item(key = "live_tv_hub_open") {
+                    item(key = "live_tv_hub_add_playlist_header") {
                         SettingsActionRow(
-                            title = stringResource(R.string.settings_live_tv_open_title),
-                            subtitle = stringResource(R.string.settings_live_tv_open_subtitle),
-                            onClick = onNavigateToLiveTv,
+                            title = stringResource(R.string.live_tv_add_playlist),
+                            subtitle = stringResource(R.string.live_tv_add_subtitle),
+                            value = if (addPlaylistExpanded) {
+                                stringResource(R.string.playback_afr_open)
+                            } else {
+                                stringResource(R.string.playback_afr_closed)
+                            },
+                            onClick = { addPlaylistExpanded = !addPlaylistExpanded },
                             leadingIcon = Icons.Default.LiveTv,
+                            trailingIcon = if (addPlaylistExpanded) {
+                                Icons.Default.ExpandMore
+                            } else {
+                                Icons.Default.ChevronRight
+                            },
                             modifier = Modifier.focusRequester(initialFocusRequester ?: fallbackFocusRequester)
                         )
+                    }
+                    if (addPlaylistExpanded) {
+                        item(key = "live_tv_hub_add_playlist_form") {
+                            LiveTvAddPlaylistForm(
+                                isBusy = liveTvUiState.isAdding,
+                                errorMessage = liveTvUiState.addError,
+                                onAddM3u = { url ->
+                                    liveTvViewModel.addPlaylist(url) {
+                                        addPlaylistExpanded = false
+                                    }
+                                },
+                                onAddXtream = { server, username, password ->
+                                    liveTvViewModel.addXtreamPlaylist(server, username, password) {
+                                        addPlaylistExpanded = false
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
                 SettingsVerticalScrollIndicators(state = liveTvHubState)

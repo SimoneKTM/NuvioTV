@@ -90,6 +90,7 @@ import kotlinx.coroutines.launch
 fun FolderDetailScreen(
     viewModel: FolderDetailViewModel = hiltViewModel(),
     onNavigateToDetail: (String, String, String) -> Unit,
+    onPlayChannel: (String, String) -> Unit,
     onBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -123,6 +124,25 @@ fun FolderDetailScreen(
     val trailerPreviewAudioUrls by viewModel.trailerPreviewAudioUrls.collectAsStateWithLifecycle()
     val scrollToTopTrigger by viewModel.scrollToTopTrigger.collectAsStateWithLifecycle()
 
+    fun itemClick(id: String, type: String, addonBaseUrl: String) {
+        if (type == "channel") {
+            val channel = uiState.tabs.firstNotNullOfOrNull { tab ->
+                tab.catalogRow?.items?.firstOrNull { it.id == id }
+            }
+            if (channel != null) {
+                onPlayChannel(channel.name, channel.sourceAddonBaseUrl.orEmpty())
+                return
+            }
+        }
+        onNavigateToDetail(id, type, addonBaseUrl)
+    }
+
+    val itemLongPress: (MetaPreview, String) -> Unit = { item, addonBaseUrl ->
+        if (item.apiType != "channel") {
+            viewModel.posterOptions.show(item, addonBaseUrl)
+        }
+    }
+
     if (uiState.viewMode == FolderViewMode.FOLLOW_LAYOUT) {
         FollowLayoutContent(
             uiState = uiState,
@@ -130,7 +150,7 @@ fun FolderDetailScreen(
             enrichingItemId = enrichingItemId,
             enrichedPreviews = enrichedPreviews,
             failedEnrichmentIds = failedEnrichmentIds,
-            onNavigateToDetail = onNavigateToDetail,
+            onNavigateToDetail = ::itemClick,
             onLoadMoreCatalog = viewModel::loadMoreForCatalog,
             onSaveFocusState = { vi, vo, rk, ikm, m, ri, ii ->
                 viewModel.saveFollowLayoutFocusState(vi, vo, rk, ikm, m, ri, ii)
@@ -138,9 +158,7 @@ fun FolderDetailScreen(
             onSaveGridFocusState = viewModel::saveFollowLayoutGridFocusState,
             onItemFocus = viewModel::onItemFocused,
             onPreloadAdjacentItem = viewModel::preloadAdjacentItem,
-            onCatalogItemLongPress = { item, addonBaseUrl ->
-                viewModel.posterOptions.show(item, addonBaseUrl)
-            },
+            onCatalogItemLongPress = itemLongPress,
             trailerPreviewUrls = trailerPreviewUrls,
             trailerPreviewAudioUrls = trailerPreviewAudioUrls,
             onRequestTrailerPreview = viewModel::requestTrailerPreview,
@@ -158,7 +176,7 @@ fun FolderDetailScreen(
                     folder = folder,
                     tabFocusState = tabFocusStates[uiState.selectedTabIndex] ?: FolderDetailGridFocusState(),
                     onSelectTab = viewModel::selectTab,
-                    onNavigateToDetail = onNavigateToDetail,
+                    onNavigateToDetail = ::itemClick,
                     isItemWatched = isItemWatched,
                     onLoadMore = { viewModel.loadMoreItems(uiState.selectedTabIndex) },
                     onSaveFocusState = { verticalIndex, verticalOffset, focusedItemKey ->
@@ -169,25 +187,21 @@ fun FolderDetailScreen(
                             focusedItemKey = focusedItemKey
                         )
                     },
-                    onItemLongPress = { item, addonBaseUrl ->
-                        viewModel.posterOptions.show(item, addonBaseUrl)
-                    }
+                    onItemLongPress = itemLongPress
                 )
                 FolderViewMode.ROWS -> {
                     FolderHeader(folder = folder)
                     RowsContent(
                         uiState = uiState,
                         focusState = rowsFocusState,
-                        onNavigateToDetail = onNavigateToDetail,
+                        onNavigateToDetail = ::itemClick,
                         isItemWatched = isItemWatched,
                         onLoadMoreCatalog = viewModel::loadMoreForCatalog,
                         onSaveFocusState = { vi, vo, rk, ikm, m, ri, ii ->
                             viewModel.saveRowsFocusState(vi, vo, rk, ikm, m, ri, ii)
                         },
                         onItemFocus = viewModel::onItemFocused,
-                        onItemLongPress = { item, addonBaseUrl ->
-                            viewModel.posterOptions.show(item, addonBaseUrl)
-                        }
+                        onItemLongPress = itemLongPress
                     )
                 }
                 FolderViewMode.FOLLOW_LAYOUT -> {} // handled above
@@ -199,9 +213,7 @@ fun FolderDetailScreen(
     com.nuvio.tv.ui.components.posteroptions.PosterOptionsHost(
         state = posterOptionsState,
         controller = viewModel.posterOptions,
-        onNavigateToDetail = { id, type, addonBaseUrl ->
-            onNavigateToDetail(id, type, addonBaseUrl)
-        }
+        onNavigateToDetail = ::itemClick
     )
 }
 

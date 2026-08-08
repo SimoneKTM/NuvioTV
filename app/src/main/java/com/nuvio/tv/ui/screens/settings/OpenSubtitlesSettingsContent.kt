@@ -125,7 +125,8 @@ fun OpenSubtitlesSettingsContent(
                             title = stringResource(R.string.opensubtitles_api_key_title),
                             subtitle = stringResource(R.string.opensubtitles_api_key_subtitle),
                             value = maskSecret(uiState.hasApiKey, stringResource(R.string.opensubtitles_not_set)),
-                            onClick = { showApiKeyDialog = true }
+                            onClick = { showApiKeyDialog = true },
+                            enabled = uiState.enabledDirect
                         )
                     }
 
@@ -135,7 +136,8 @@ fun OpenSubtitlesSettingsContent(
                             title = stringResource(R.string.opensubtitles_username_title),
                             subtitle = stringResource(R.string.opensubtitles_username_subtitle),
                             value = uiState.username.ifBlank { stringResource(R.string.opensubtitles_not_set) },
-                            onClick = { showUsernameDialog = true }
+                            onClick = { showUsernameDialog = true },
+                            enabled = uiState.enabledDirect
                         )
                     }
 
@@ -145,11 +147,12 @@ fun OpenSubtitlesSettingsContent(
                             title = stringResource(R.string.opensubtitles_password_title),
                             subtitle = stringResource(R.string.opensubtitles_password_subtitle),
                             value = if (uiState.hasUserCredentials) {
-                                "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                                "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
                             } else {
                                 stringResource(R.string.opensubtitles_not_set)
                             },
-                            onClick = { showPasswordDialog = true }
+                            onClick = { showPasswordDialog = true },
+                            enabled = uiState.enabledDirect
                         )
                     }
 
@@ -163,16 +166,24 @@ fun OpenSubtitlesSettingsContent(
                             } else {
                                 stringResource(R.string.opensubtitles_not_set)
                             },
-                            onClick = { showLanguagesDialog = true }
+                            onClick = { showLanguagesDialog = true },
+                            enabled = uiState.enabledDirect
                         )
                     }
 
                     item(key = "opensubtitles_legacy_header") {
-                        Text(
-                            text = stringResource(R.string.opensubtitles_legacy_addon_section),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = NuvioTheme.colors.TextSecondary
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = stringResource(R.string.opensubtitles_legacy_addon_section),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = NuvioTheme.colors.TextSecondary
+                            )
+                            Text(
+                                text = stringResource(R.string.opensubtitles_legacy_addon_section_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = NuvioTheme.colors.TextTertiary
+                            )
+                        }
                     }
 
                     item(key = "opensubtitles_enable") {
@@ -412,4 +423,4 @@ private fun OpenSubtitlesLanguagesDialog(
 }
 
 private fun maskSecret(hasValue: Boolean, notSetLabel: String): String =
-    if (hasValue) "â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" else notSetLabel
+    if (hasValue) "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" else notSetLabel

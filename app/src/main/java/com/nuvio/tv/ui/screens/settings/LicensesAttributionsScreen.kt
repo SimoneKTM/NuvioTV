@@ -385,30 +385,32 @@ private fun dataAttributionItems() = listOf(
     LicenseAttributionItem(
         title = stringResource(R.string.licenses_attributions_tvdb_title),
         body = stringResource(R.string.licenses_attributions_tvdb_body),
-        url = TvdbUrl
+        url = TvdbUrl,
+        logo = LicenseLogo.Raw(R.raw.tvdb_logo)
     ),
     LicenseAttributionItem(
         title = stringResource(R.string.licenses_attributions_anilist_title),
         body = stringResource(R.string.licenses_attributions_anilist_body),
         url = AniListUrl,
-        logo = LicenseLogo.Raw(R.raw.anilist_icon)
+        logo = LicenseLogo.Raw(R.raw.anilist_logo)
     ),
     LicenseAttributionItem(
         title = stringResource(R.string.licenses_attributions_kitsu_title),
         body = stringResource(R.string.licenses_attributions_kitsu_body),
         url = KitsuUrl,
-        logo = LicenseLogo.Raw(R.raw.kitsu_icon)
+        logo = LicenseLogo.Raw(R.raw.kitsu_logo)
     ),
     LicenseAttributionItem(
         title = stringResource(R.string.licenses_attributions_mal_title),
         body = stringResource(R.string.licenses_attributions_mal_body),
         url = MalUrl,
-        logo = LicenseLogo.Raw(R.raw.mal_icon)
+        logo = LicenseLogo.Raw(R.raw.mal_logo)
     ),
     LicenseAttributionItem(
         title = stringResource(R.string.licenses_attributions_opensubtitles_title),
         body = stringResource(R.string.licenses_attributions_opensubtitles_body),
-        url = OpenSubtitlesUrl
+        url = OpenSubtitlesUrl,
+        logo = LicenseLogo.Drawable(R.drawable.opensubtitles_favicon)
     ),
     LicenseAttributionItem(
         title = stringResource(R.string.licenses_attributions_premiumize_title),

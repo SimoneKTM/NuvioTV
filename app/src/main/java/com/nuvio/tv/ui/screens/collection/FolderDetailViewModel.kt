@@ -21,6 +21,7 @@ import com.nuvio.tv.domain.model.CollectionFolder
 import com.nuvio.tv.domain.model.FocusedPosterTrailerPlaybackTarget
 import com.nuvio.tv.domain.model.FolderViewMode
 import com.nuvio.tv.domain.model.HomeLayout
+import com.nuvio.tv.domain.model.LiveTvCollectionSource
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.TmdbCollectionSource
 import com.nuvio.tv.domain.model.TraktCollectionSource
@@ -110,6 +111,8 @@ class FolderDetailViewModel @Inject constructor(
     private val addonRepository: AddonRepository,
     private val animeAddonRepository: AnimeAddonRepository,
     private val catalogRepository: CatalogRepository,
+    private val liveTvSettingsDataStore: com.nuvio.tv.data.local.LiveTvSettingsDataStore,
+    private val liveTvRepository: com.nuvio.tv.data.repository.LiveTvRepository,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val watchProgressRepository: WatchProgressRepository,
     private val watchedSeriesStateHolder: com.nuvio.tv.data.local.WatchedSeriesStateHolder,
@@ -132,6 +135,18 @@ class FolderDetailViewModel @Inject constructor(
         (addonRepository.getInstalledAddons().first().enabledAddons() +
             animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons())
             .distinctBy { it.id }
+
+    private fun resolveAddonForSource(
+        source: AddonCatalogCollectionSource,
+        addons: List<com.nuvio.tv.domain.model.Addon>,
+        animeAddons: List<com.nuvio.tv.domain.model.Addon>
+    ): com.nuvio.tv.domain.model.Addon? {
+        return if (source.animeAddon) {
+            animeAddons.find { it.id == source.addonId } ?: addons.find { it.id == source.addonId }
+        } else {
+            addons.find { it.id == source.addonId }
+        }
+    }
 
     private val _uiState = MutableStateFlow(FolderDetailUiState())
     val uiState: StateFlow<FolderDetailUiState> = _uiState.asStateFlow()
@@ -235,6 +250,8 @@ class FolderDetailViewModel @Inject constructor(
             }
 
             val addons = installedAddons()
+            val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+            val liveTvPlaylists = liveTvSettingsDataStore.playlists.first()
             val homeLayout = layoutPreferenceDataStore.selectedLayout.first()
             val posterLabelsEnabled = layoutPreferenceDataStore.posterLabelsEnabled.first()
             val catalogAddonNameEnabled = layoutPreferenceDataStore.catalogAddonNameEnabled.first()
@@ -252,21 +269,33 @@ class FolderDetailViewModel @Inject constructor(
             val posterCardWidthDp = layoutPreferenceDataStore.posterCardWidthDp.first()
             val posterCardHeightDp = layoutPreferenceDataStore.posterCardHeightDp.first()
             val posterCardCornerRadiusDp = layoutPreferenceDataStore.posterCardCornerRadiusDp.first()
-            val showAll = (collection?.showAllTab ?: true) && folder.sources.size >= 2
+            val nonLiveTvSources = folder.sources.filterNot { it is LiveTvCollectionSource }
+            val showAll = (collection?.showAllTab ?: true) && nonLiveTvSources.size >= 2
 
-            val viewMode = collection?.viewMode ?: FolderViewMode.TABBED_GRID
+            val requestedViewMode = collection?.viewMode ?: FolderViewMode.TABBED_GRID
+            val viewMode = if (nonLiveTvSources.size != folder.sources.size) {
+                FolderViewMode.TABBED_GRID
+            } else {
+                requestedViewMode
+            }
             val useShimmerPlaceholders = viewMode == FolderViewMode.FOLLOW_LAYOUT &&
                 (homeLayout == HomeLayout.MODERN || homeLayout == HomeLayout.CLASSIC)
 
             val sourceTabs = folder.sources.map { source ->
                 val (name, typeLabel, rawType) = when (source) {
                     is AddonCatalogCollectionSource -> {
-                        val addon = addons.find { it.id == source.addonId }
+                        val addon = resolveAddonForSource(source, addons, animeAddons)
                         val catalog = addon?.catalogs?.find { it.id == source.catalogId && it.apiType == source.type }
                             ?: addon?.catalogs?.find { it.id == source.catalogId.substringBefore(",") && it.apiType == source.type }
                             ?: addons.firstNotNullOfOrNull { a -> a.catalogs.find { it.id == source.catalogId && it.apiType == source.type } }
                         val labels = buildAddonTabLabels(source, catalog?.name)
                         Triple(labels.first, labels.second, source.type)
+                    }
+                    is LiveTvCollectionSource -> {
+                        val playlistName = liveTvPlaylists.find { it.id == source.playlistId }?.name
+                            ?: source.playlistName.takeIf(String::isNotBlank)
+                            ?: appContext.getString(R.string.collections_editor_livetv_source_type)
+                        Triple(playlistName, appContext.getString(R.string.collections_editor_livetv_source_type), "channel")
                     }
                     is TmdbCollectionSource -> Triple(source.title, buildTmdbTypeLabel(source), source.mediaType.value.toCollectionRawType())
                     is TraktCollectionSource -> Triple(source.title, buildTraktTypeLabel(source), source.mediaType.value.toCollectionRawType())
@@ -275,9 +304,10 @@ class FolderDetailViewModel @Inject constructor(
                 val placeholderRow = if (useShimmerPlaceholders) {
                     val (placeholderAddonId, placeholderCatalogId, placeholderBaseUrl) = when (source) {
                         is AddonCatalogCollectionSource -> {
-                            val baseUrl = addons.find { it.id == source.addonId }?.baseUrl ?: ""
+                            val baseUrl = resolveAddonForSource(source, addons, animeAddons)?.baseUrl ?: ""
                             Triple(source.addonId, source.catalogId, baseUrl)
                         }
+                        is LiveTvCollectionSource -> Triple("livetv_${source.playlistId}", source.playlistId, "")
                         is TmdbCollectionSource -> Triple("tmdb", buildTmdbSourceKey(source), "")
                         is TraktCollectionSource -> Triple("trakt", buildTraktSourceKey(source), "")
                     }
@@ -369,7 +399,7 @@ class FolderDetailViewModel @Inject constructor(
     private fun rebuildAllTab() {
         val state = _uiState.value
         if (!hasAllTab) return
-        val sourceTabs = state.tabs.drop(1) // skip the All tab
+        val sourceTabs = state.tabs.drop(1).filterNot { it.source is LiveTvCollectionSource } // skip the All tab
         val anyLoading = sourceTabs.any { tab ->
             tab.catalogRow?.isLoading == true || tab.isLoading
         }
@@ -424,7 +454,7 @@ class FolderDetailViewModel @Inject constructor(
     private fun rebuildFollowLayoutState() {
         val state = _uiState.value
         if (state.viewMode != FolderViewMode.FOLLOW_LAYOUT) return
-        val sourceTabs = state.tabs.filter { !it.isAllTab }
+        val sourceTabs = state.tabs.filter { !it.isAllTab && it.source !is LiveTvCollectionSource }
         val loadedRows = sourceTabs.mapNotNull { it.catalogRow }
         val useShimmer = state.homeLayout == HomeLayout.MODERN || state.homeLayout == HomeLayout.CLASSIC
 
@@ -618,15 +648,89 @@ class FolderDetailViewModel @Inject constructor(
     private fun loadSourceForTab(tabIndex: Int, source: CollectionSource) {
         when (source) {
             is AddonCatalogCollectionSource -> loadAddonCatalogForTab(tabIndex, source)
+            is LiveTvCollectionSource -> loadLiveTvSourceForTab(tabIndex, source)
             is TmdbCollectionSource -> loadTmdbSourceForTab(tabIndex, source, page = 1, append = false)
             is TraktCollectionSource -> loadTraktSourceForTab(tabIndex, source, page = 1, append = false)
+        }
+    }
+
+    private fun loadLiveTvSourceForTab(tabIndex: Int, source: LiveTvCollectionSource) {
+        viewModelScope.launch {
+            val playlist = liveTvSettingsDataStore.playlists.first().find { it.id == source.playlistId }
+            if (playlist == null) {
+                _uiState.update { state ->
+                    val tabs = state.tabs.toMutableList()
+                    if (tabIndex < tabs.size) {
+                        tabs[tabIndex] = tabs[tabIndex].copy(
+                            isLoading = false,
+                            error = appContext.getString(R.string.collections_editor_no_livetv_playlists)
+                        )
+                    }
+                    state.copy(tabs = tabs)
+                }
+                rebuildAllTab()
+                rebuildFollowLayoutState()
+                return@launch
+            }
+            liveTvRepository.fetchPlaylist(playlist).onSuccess { channels ->
+                val apiType = "channel"
+                val items = channels.map { channel ->
+                    MetaPreview(
+                        id = channel.id,
+                        type = com.nuvio.tv.domain.model.ContentType.CHANNEL,
+                        rawType = apiType,
+                        name = channel.name,
+                        poster = channel.logo,
+                        posterShape = com.nuvio.tv.domain.model.PosterShape.SQUARE,
+                        background = null,
+                        logo = null,
+                        description = null,
+                        releaseInfo = channel.group,
+                        imdbRating = null,
+                        genres = emptyList(),
+                        sourceAddonBaseUrl = channel.streamUrl
+                    )
+                }
+                val row = CatalogRow(
+                    addonId = "livetv_${playlist.id}",
+                    addonName = playlist.name,
+                    addonBaseUrl = "",
+                    catalogId = playlist.id,
+                    catalogName = playlist.name,
+                    type = com.nuvio.tv.domain.model.ContentType.CHANNEL,
+                    rawType = apiType,
+                    items = items,
+                    isLoading = false,
+                    hasMore = false
+                )
+                _uiState.update { state ->
+                    val tabs = state.tabs.toMutableList()
+                    if (tabIndex < tabs.size) {
+                        tabs[tabIndex] = tabs[tabIndex].copy(catalogRow = row, isLoading = false)
+                    }
+                    state.copy(tabs = tabs)
+                }
+                rebuildAllTab()
+                rebuildFollowLayoutState()
+            }.onFailure { e ->
+                _uiState.update { state ->
+                    val tabs = state.tabs.toMutableList()
+                    if (tabIndex < tabs.size) {
+                        tabs[tabIndex] = tabs[tabIndex].copy(isLoading = false, error = e.message)
+                    }
+                    state.copy(tabs = tabs)
+                }
+                rebuildAllTab()
+                rebuildFollowLayoutState()
+            }
         }
     }
 
     private fun loadAddonCatalogForTab(tabIndex: Int, source: AddonCatalogCollectionSource) {
         viewModelScope.launch {
             val addons = installedAddons()
-            val addon = addons.find { it.id == source.addonId }
+            val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+            val addon = resolveAddonForSource(source, addons, animeAddons)
 
             if (addon == null) {
                 _uiState.update { state ->
@@ -1095,6 +1199,7 @@ class FolderDetailViewModel @Inject constructor(
     }
 
     fun onItemFocused(item: MetaPreview) {
+        if (item.apiType == "channel") return
         // Clear enriching for previous item immediately.
         if (_enrichingItemId.value != null && _enrichingItemId.value != item.id) {
             _enrichingItemId.value = null
@@ -1301,6 +1406,7 @@ class FolderDetailViewModel @Inject constructor(
         apiType: String,
         fallbackYtId: String? = null
     ) {
+        if (apiType == "channel") return
         if (!AppFeaturePolicy.inAppTrailerPlaybackEnabled) return
         if (activeTrailerPreviewItemId != itemId) {
             activeTrailerPreviewItemId = itemId
@@ -1392,6 +1498,7 @@ class FolderDetailViewModel @Inject constructor(
      * Mirrors HomeViewModel.preloadAdjacentItem behavior.
      */
     fun preloadAdjacentItem(item: MetaPreview) {
+        if (item.apiType == "channel") return
         if (item.id in enrichedItemIds) return
         if (item.id in prefetchedTmdbIds || item.id in prefetchedExternalMetaIds) return
         if (pendingAdjacentPrefetchItemId == item.id) return

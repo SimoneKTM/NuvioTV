@@ -162,8 +162,13 @@ fun CatalogPickerContent(
                                 catalog.genreOptions.isNotEmpty() -> stringResource(R.string.collections_editor_genre_optional)
                                 else -> null
                             }
+                            val animeBadge = if (catalog.animeAddon) {
+                                stringResource(R.string.collections_editor_anime_badge)
+                            } else {
+                                null
+                            }
                             Text(
-                                text = listOfNotNull("${catalog.type} - ${catalog.addonName}", supportingGenreText).joinToString(" • "),
+                                text = listOfNotNull("${catalog.type} - ${catalog.addonName}", animeBadge, supportingGenreText).joinToString(" • "),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = NuvioTheme.colors.TextTertiary
                             )

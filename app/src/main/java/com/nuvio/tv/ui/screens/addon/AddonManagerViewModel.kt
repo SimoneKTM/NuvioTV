@@ -45,6 +45,7 @@ import com.nuvio.tv.domain.model.ExperienceMode
 import com.nuvio.tv.domain.model.TmdbCollectionSource
 import com.nuvio.tv.domain.model.TmdbCollectionSourceType
 import com.nuvio.tv.domain.model.TraktCollectionSource
+import com.nuvio.tv.domain.model.LiveTvCollectionSource
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -778,6 +779,11 @@ class AddonManagerViewModel @Inject constructor(
                                     mediaType = source.mediaType.name,
                                     sortBy = source.sortBy,
                                     sortHow = source.sortHow
+                                )
+                                is LiveTvCollectionSource -> CollectionSourceInfo(
+                                    provider = "livetv",
+                                    catalogId = source.playlistId,
+                                    title = source.playlistName
                                 )
                             }
                         }

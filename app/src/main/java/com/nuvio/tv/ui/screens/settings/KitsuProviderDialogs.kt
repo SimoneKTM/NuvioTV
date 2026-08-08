@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -127,11 +128,12 @@ private fun KitsuConnectContent(
         TrackerQrLoginSection(
             qrLogin = state.qrLogin,
             providerName = stringResource(R.string.kitsu_name),
-            logo = rememberRawSvgPainter(R.raw.kitsu_icon, 220.dp),
+            logo = painterResource(R.drawable.kitsu_logo),
             logoContentDescription = stringResource(R.string.cd_kitsu_logo),
             instruction = stringResource(R.string.kitsu_connect_instruction),
             onStart = onStartQrLogin,
-            onRetry = onRetryQrLogin
+            onRetry = onRetryQrLogin,
+            qrOverlayLogo = painterResource(R.drawable.kitsu_logo)
         )
     } else {
         KitsuWordmarkHeader()
@@ -142,7 +144,8 @@ private fun KitsuConnectContent(
         )
         TrackerLocalQrSection(
             authorizeUrl = state.authorizeUrl,
-            onConnectToken = onConnectToken
+            onConnectToken = onConnectToken,
+            qrOverlayLogo = painterResource(R.drawable.kitsu_logo)
         )
     }
     if (!state.errorMessage.isNullOrBlank()) {
@@ -165,7 +168,7 @@ private fun KitsuConnectContent(
 @Composable
 private fun KitsuWordmarkHeader() {
     Image(
-        painter = rememberRawSvgPainter(R.raw.kitsu_icon, 220.dp),
+        painter = painterResource(R.drawable.kitsu_logo),
         contentDescription = stringResource(R.string.cd_kitsu_logo),
         modifier = Modifier
             .fillMaxWidth()

@@ -7,7 +7,8 @@ data class CollectionCatalogSource(
     val addonId: String,
     val type: String,
     val catalogId: String,
-    val genre: String? = null
+    val genre: String? = null,
+    val animeAddon: Boolean = false
 )
 
 @Immutable
@@ -18,7 +19,14 @@ data class AddonCatalogCollectionSource(
     val addonId: String,
     val type: String,
     val catalogId: String,
-    val genre: String? = null
+    val genre: String? = null,
+    val animeAddon: Boolean = false
+) : CollectionSource
+
+@Immutable
+data class LiveTvCollectionSource(
+    val playlistId: String,
+    val playlistName: String = ""
 ) : CollectionSource
 
 @Immutable
@@ -134,7 +142,8 @@ data class CollectionFolder(
                     addonId = it.addonId,
                     type = it.type,
                     catalogId = it.catalogId,
-                    genre = it.genre
+                    genre = it.genre,
+                    animeAddon = it.animeAddon
                 )
             }
         }

@@ -78,6 +78,14 @@ import com.nuvio.tv.data.local.PlayerPreference
 import com.nuvio.tv.data.local.PlayerSettings
 import com.nuvio.tv.data.local.VodCacheSizeMode
 import com.nuvio.tv.ui.components.NuvioDialog
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.nio.charset.StandardCharsets
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -88,6 +96,7 @@ private enum class PlaybackSection {
     SUBTITLES,
     P2P,
     BUFFER_NETWORK,
+    VPN,
     DIAGNOSTICS
 }
 
@@ -209,6 +218,7 @@ internal fun PlaybackSettingsSections(
     var subtitlesExpanded by rememberSaveable { mutableStateOf(false) }
     var p2pExpanded by rememberSaveable { mutableStateOf(false) }
     var bufferAndNetworkExpanded by rememberSaveable { mutableStateOf(false) }
+    var vpnExpanded by rememberSaveable { mutableStateOf(false) }
 
     val defaultGeneralHeaderFocus = remember { FocusRequester() }
     val afrHeaderFocus = remember { FocusRequester() }
@@ -218,9 +228,35 @@ internal fun PlaybackSettingsSections(
     val subtitlesHeaderFocus = remember { FocusRequester() }
     val p2pHeaderFocus = remember { FocusRequester() }
     val bufferAndNetworkHeaderFocus = remember { FocusRequester() }
+    val vpnHeaderFocus = remember { FocusRequester() }
     val generalHeaderFocus = initialFocusRequester ?: defaultGeneralHeaderFocus
 
     var focusedSection by remember { mutableStateOf<PlaybackSection?>(null) }
+
+    val vpnViewModel: VpnSettingsViewModel = hiltViewModel()
+    val vpnUiState by vpnViewModel.uiState.collectAsStateWithLifecycle()
+    val vpnContext = LocalContext.current
+    val vpnPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        val name = uri.lastPathSegment?.substringAfterLast('/') ?: "wireguard.conf"
+        val text = runCatching {
+            vpnContext.contentResolver.openInputStream(uri)?.use { input ->
+                BufferedReader(InputStreamReader(input, StandardCharsets.UTF_8)).use { it.readText() }
+            }
+        }.getOrNull()
+        if (text != null) vpnViewModel.importConfig(name, text)
+    }
+    val vpnPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        vpnViewModel.onPermissionResult(result.resultCode == Activity.RESULT_OK)
+    }
+    LaunchedEffect(vpnUiState.permissionIntent) {
+        val intent = vpnUiState.permissionIntent ?: return@LaunchedEffect
+        vpnPermissionLauncher.launch(intent)
+    }
 
     val context = LocalContext.current
     val activity = remember(context) {
@@ -267,6 +303,8 @@ internal fun PlaybackSettingsSections(
     val strSectionP2pDesc = stringResource(R.string.settings_p2p_subtitle)
     val strHideTorrentStats = stringResource(R.string.settings_p2p_hide_stats_title)
     val strHideTorrentStatsDesc = stringResource(R.string.settings_p2p_hide_stats_subtitle)
+    val strVpnTitle = stringResource(R.string.settings_vpn_title)
+    val strVpnDesc = stringResource(R.string.settings_vpn_subtitle)
     val generalUi = PlaybackGeneralUi(
         isExternalPlayer = playerSettings.playerPreference == PlayerPreference.EXTERNAL,
         frameRateMatchingLabel = frameRateMatchingModeLabel(
@@ -292,6 +330,11 @@ internal fun PlaybackSettingsSections(
     LaunchedEffect(generalExpanded, focusedSection) {
         if (!generalExpanded && focusedSection == PlaybackSection.GENERAL) {
             generalHeaderFocus.requestFocus()
+        }
+    }
+    LaunchedEffect(vpnExpanded, focusedSection) {
+        if (!vpnExpanded && focusedSection == PlaybackSection.VPN) {
+            vpnHeaderFocus.requestFocus()
         }
     }
     LaunchedEffect(autoSkipExpanded, focusedSection) {
@@ -727,16 +770,74 @@ internal fun PlaybackSettingsSections(
                     onSetEnableHttp2 = onSetEnableHttp2,
                     onResetNetworkToDefaults = onResetNetworkSettingsToDefaults
                 )
-                item(key = "buffer_network_vpn") {
-                    val vpnViewModel: VpnSettingsViewModel = hiltViewModel()
-                    val vpnUiState by vpnViewModel.uiState.collectAsStateWithLifecycle()
-                    ToggleSettingsItem(
-                        icon = Icons.Default.VpnKey,
-                        title = stringResource(R.string.settings_vpn_title),
-                        subtitle = stringResource(R.string.settings_vpn_subtitle),
-                        isChecked = vpnUiState.hasConfig,
-                        onCheckedChange = { onNavigateToVpn() }
-                    )
+                playbackCollapsibleSection(
+                    keyPrefix = "vpn",
+                    title = strVpnTitle,
+                    description = strVpnDesc,
+                    expanded = vpnExpanded,
+                    onToggle = { vpnExpanded = !vpnExpanded },
+                    focusRequester = vpnHeaderFocus,
+                    onHeaderFocused = { focusedSection = PlaybackSection.VPN },
+                    icon = Icons.Default.VpnKey
+                ) {
+                    item(key = "vpn_config") {
+                        SettingsActionRow(
+                            title = stringResource(R.string.vpn_config_title),
+                            subtitle = stringResource(R.string.vpn_config_subtitle),
+                            value = vpnUiState.configName
+                                ?: stringResource(R.string.vpn_config_missing),
+                            onClick = {
+                                vpnPickerLauncher.launch(arrayOf("*/*"))
+                            }
+                        )
+                    }
+                    item(key = "vpn_status") {
+                        SettingsActionRow(
+                            title = stringResource(R.string.vpn_status_title),
+                            subtitle = stringResource(R.string.vpn_status_subtitle),
+                            value = stringResource(
+                                if (vpnUiState.isConnected) R.string.vpn_status_connected
+                                else R.string.vpn_status_disconnected
+                            ),
+                            onClick = {},
+                            enabled = vpnUiState.hasConfig
+                        )
+                    }
+                    item(key = "vpn_enable") {
+                        SettingsToggleRow(
+                            title = stringResource(R.string.vpn_enable_title),
+                            subtitle = stringResource(R.string.vpn_enable_subtitle),
+                            checked = vpnUiState.isConnected,
+                            enabled = vpnUiState.hasConfig && !vpnUiState.isBusy,
+                            onToggle = {
+                                if (vpnUiState.isConnected) {
+                                    vpnViewModel.disconnect()
+                                } else {
+                                    vpnViewModel.connect()
+                                }
+                            }
+                        )
+                    }
+                    if (vpnUiState.hasConfig) {
+                        item(key = "vpn_remove_config") {
+                            SettingsActionRow(
+                                title = stringResource(R.string.vpn_remove_config_title),
+                                subtitle = stringResource(R.string.vpn_remove_config_subtitle),
+                                onClick = { vpnViewModel.removeConfig() },
+                                enabled = !vpnUiState.isBusy
+                            )
+                        }
+                    }
+                    val vpnMessage = vpnUiState.message
+                    if (vpnMessage != null) {
+                        item(key = "vpn_message") {
+                            Text(
+                                text = vpnMessage,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = NuvioTheme.colors.Warning
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -754,6 +855,7 @@ private fun LazyListScope.playbackCollapsibleSection(
     onToggle: () -> Unit,
     focusRequester: FocusRequester,
     onHeaderFocused: () -> Unit,
+    icon: ImageVector? = null,
     content: LazyListScope.() -> Unit
 ) {
     item(key = "${keyPrefix}_header") {
@@ -763,7 +865,8 @@ private fun LazyListScope.playbackCollapsibleSection(
             expanded = expanded,
             onToggle = onToggle,
             focusRequester = focusRequester,
-            onFocused = onHeaderFocused
+            onFocused = onHeaderFocused,
+            icon = icon
         )
     }
 

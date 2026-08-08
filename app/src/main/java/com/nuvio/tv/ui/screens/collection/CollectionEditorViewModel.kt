@@ -18,6 +18,8 @@ import com.nuvio.tv.domain.model.Collection
 import com.nuvio.tv.domain.model.CollectionFolder
 import com.nuvio.tv.domain.model.CollectionSource
 import com.nuvio.tv.domain.model.FolderViewMode
+import com.nuvio.tv.domain.model.LiveTvCollectionSource
+import com.nuvio.tv.domain.model.LiveTvPlaylist
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.model.TmdbCollectionFilters
 import com.nuvio.tv.domain.model.TmdbCollectionMediaType
@@ -58,6 +60,9 @@ data class CollectionEditorUiState(
     val showCatalogPicker: Boolean = false,
     val showTmdbSourcePicker: Boolean = false,
     val showTraktSourcePicker: Boolean = false,
+    val showLiveTvSourcePicker: Boolean = false,
+    val liveTvPlaylists: List<com.nuvio.tv.domain.model.LiveTvPlaylist> = emptyList(),
+    val liveTvPlaylistsLoading: Boolean = false,
     val editingTmdbSourceIndex: Int? = null,
     val editingTraktSourceIndex: Int? = null,
     val tmdbBuilderMode: TmdbBuilderMode = TmdbBuilderMode.PRESETS,
@@ -91,7 +96,8 @@ data class AvailableCatalog(
     val catalogId: String,
     val catalogName: String,
     val genreOptions: List<String> = emptyList(),
-    val genreRequired: Boolean = false
+    val genreRequired: Boolean = false,
+    val animeAddon: Boolean = false
 )
 
 data class AddonCatalogInfo(
@@ -122,6 +128,7 @@ class CollectionEditorViewModel @Inject constructor(
     private val collectionsDataStore: CollectionsDataStore,
     private val addonRepository: AddonRepository,
     private val animeAddonRepository: AnimeAddonRepository,
+    private val liveTvSettingsDataStore: com.nuvio.tv.data.local.LiveTvSettingsDataStore,
     private val tmdbCollectionSourceResolver: TmdbCollectionSourceResolver,
     private val traktPublicListSourceResolver: TraktPublicListSourceResolver,
     private val collectionSyncService: CollectionSyncService
@@ -140,6 +147,8 @@ class CollectionEditorViewModel @Inject constructor(
 
     private fun loadData() {
         viewModelScope.launch {
+            val animeAddonIds = animeAddonRepository.getInstalledAnimeAddons().first()
+                .enabledAddons().mapTo(mutableSetOf()) { it.id }
             val addons = (addonRepository.getInstalledAddons().first().enabledAddons() +
                 animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons())
                 .distinctBy { it.id }
@@ -157,7 +166,8 @@ class CollectionEditorViewModel @Inject constructor(
                             catalogId = catalog.id,
                             catalogName = catalog.name,
                             genreOptions = genreExtra?.options.orEmpty(),
-                            genreRequired = genreExtra?.isRequired == true
+                            genreRequired = genreExtra?.isRequired == true,
+                            animeAddon = addon.id in animeAddonIds
                         )
                     }
             }
@@ -372,7 +382,8 @@ class CollectionEditorViewModel @Inject constructor(
                 addonId = catalog.addonId,
                 type = catalog.type,
                 catalogId = catalog.catalogId,
-                genre = defaultGenre
+                genre = defaultGenre,
+                animeAddon = catalog.animeAddon
             )
             if (folder.sources.any { it is AddonCatalogCollectionSource && it.addonId == source.addonId && it.type == source.type && it.catalogId == source.catalogId }) {
                 return@update state
@@ -433,7 +444,8 @@ class CollectionEditorViewModel @Inject constructor(
                     addonId = catalog.addonId,
                     type = catalog.type,
                     catalogId = catalog.catalogId,
-                    genre = defaultGenre
+                    genre = defaultGenre,
+                    animeAddon = catalog.animeAddon
                 )
             }
             state.copy(
@@ -496,6 +508,45 @@ class CollectionEditorViewModel @Inject constructor(
 
     fun hideTraktSourcePicker() {
         _uiState.update { it.copy(showTraktSourcePicker = false, editingTraktSourceIndex = null, traktSearchError = null) }
+    }
+
+    fun showLiveTvSourcePicker() {
+        _uiState.update {
+            it.copy(showLiveTvSourcePicker = true, genrePickerSourceIndex = null, liveTvPlaylistsLoading = true)
+        }
+        viewModelScope.launch {
+            val playlists = liveTvSettingsDataStore.playlists.first()
+            _uiState.update {
+                it.copy(liveTvPlaylists = playlists, liveTvPlaylistsLoading = false)
+            }
+        }
+    }
+
+    fun hideLiveTvSourcePicker() {
+        _uiState.update { it.copy(showLiveTvSourcePicker = false) }
+    }
+
+    fun addLiveTvSource(playlist: com.nuvio.tv.domain.model.LiveTvPlaylist) {
+        _uiState.update { state ->
+            val folder = state.editingFolder ?: return@update state
+            val source = LiveTvCollectionSource(
+                playlistId = playlist.id,
+                playlistName = playlist.name
+            )
+            if (folder.sources.any { it is LiveTvCollectionSource && it.playlistId == playlist.id }) {
+                return@update state
+            }
+            state.copy(editingFolder = folder.copy(sources = folder.sources + source))
+        }
+    }
+
+    fun removeLiveTvSource(index: Int) {
+        _uiState.update { state ->
+            val folder = state.editingFolder ?: return@update state
+            val sources = folder.sources.toMutableList()
+            if (index in sources.indices) sources.removeAt(index)
+            state.copy(editingFolder = folder.copy(sources = sources))
+        }
     }
 
     fun editTraktSource(index: Int) {
@@ -1105,6 +1156,7 @@ class CollectionEditorViewModel @Inject constructor(
                 showCatalogPicker = false,
                 showTmdbSourcePicker = false,
                 showTraktSourcePicker = false,
+                showLiveTvSourcePicker = false,
                 genrePickerSourceIndex = null,
                 showEmojiPicker = false
             )
@@ -1119,6 +1171,7 @@ class CollectionEditorViewModel @Inject constructor(
                 showCatalogPicker = false,
                 showTmdbSourcePicker = false,
                 showTraktSourcePicker = false,
+                showLiveTvSourcePicker = false,
                 genrePickerSourceIndex = null,
                 showEmojiPicker = false
             )

@@ -94,7 +94,8 @@ fun LayoutSettingsScreen(
     viewModel: LayoutSettingsViewModel = hiltViewModel(),
     onBackPress: () -> Unit,
     headerTitleRes: Int = R.string.layout_title,
-    headerSubtitleRes: Int? = null
+    headerSubtitleRes: Int? = null,
+    animeMode: Boolean = false
 ) {
     BackHandler { onBackPress() }
 
@@ -102,7 +103,12 @@ fun LayoutSettingsScreen(
         title = stringResource(headerTitleRes),
         subtitle = stringResource(headerSubtitleRes ?: R.string.layout_subtitle)
     ) {
-        LayoutSettingsContent(viewModel = viewModel, headerTitleRes = headerTitleRes, headerSubtitleRes = headerSubtitleRes)
+        LayoutSettingsContent(
+            viewModel = viewModel,
+            headerTitleRes = headerTitleRes,
+            headerSubtitleRes = headerSubtitleRes,
+            animeMode = animeMode
+        )
     }
 }
 
@@ -122,6 +128,7 @@ fun LayoutSettingsContent(
     viewModel: LayoutSettingsViewModel = hiltViewModel(),
     initialFocusRequester: FocusRequester? = null,
     essentialMode: Boolean = false,
+    animeMode: Boolean = false,
     headerTitleRes: Int = R.string.layout_title,
     headerSubtitleRes: Int? = null
 ) {
@@ -226,7 +233,9 @@ fun LayoutSettingsContent(
         ) {
             item(key = "home_layout_section") {
                 CollapsibleSectionCard(
-                    title = stringResource(R.string.layout_section_home),
+                    title = stringResource(
+                        if (animeMode) R.string.anime_layout_title else R.string.layout_section_home
+                    ),
                     description = stringResource(R.string.layout_section_home_desc),
                     expanded = homeLayoutExpanded,
                     onToggle = { homeLayoutExpanded = !homeLayoutExpanded },
@@ -363,6 +372,7 @@ fun LayoutSettingsContent(
                 }
             }
 
+            if (animeMode) {
             item(key = "anime_content_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_anime_content),
@@ -396,8 +406,9 @@ fun LayoutSettingsContent(
                     )
                 }
             }
+            }
 
-            if (!essentialMode) {
+            if (!essentialMode && !animeMode) {
             item(key = "home_content_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_content),
@@ -515,7 +526,9 @@ fun LayoutSettingsContent(
                     )
                 }
             }
+            }
 
+            if (!essentialMode) {
             item(key = "detail_page_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_detail),
@@ -786,7 +799,7 @@ fun LayoutSettingsContent(
                 }
             }
 
-            if (uiState.selectedLayout != HomeLayout.GRID) {
+            if (!animeMode && uiState.selectedLayout != HomeLayout.GRID) {
             item(key = "focused_poster_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_focused),
@@ -1225,7 +1238,7 @@ private fun DiscoverLocationRow(
     )
     if (sectionEnabled) {
         val currentLabel = when (selectedLocation) {
-            DiscoverLocation.IN_SIDEBAR -> stringResource(R.string.layout_discover_location_in_sidebar)
+            DiscoverLocation.IN_SIDEBAR,
             DiscoverLocation.IN_SEARCH -> stringResource(R.string.layout_discover_location_in_search)
             DiscoverLocation.OFF -> ""
         }
@@ -1261,15 +1274,13 @@ private fun DiscoverLocationDialog(
             DiscoverLocation.IN_SEARCH,
             stringResource(R.string.layout_discover_location_in_search),
             stringResource(R.string.layout_discover_location_in_search_desc)
-        ),
-        SettingsPickerOption(
-            DiscoverLocation.IN_SIDEBAR,
-            stringResource(R.string.layout_discover_location_in_sidebar),
-            stringResource(R.string.layout_discover_location_in_sidebar_desc)
         )
     )
 
-    val effectiveSelected = if (selectedLocation == DiscoverLocation.OFF) {
+    val effectiveSelected = if (
+        selectedLocation == DiscoverLocation.OFF ||
+        selectedLocation == DiscoverLocation.IN_SIDEBAR
+    ) {
         DiscoverLocation.IN_SEARCH
     } else {
         selectedLocation

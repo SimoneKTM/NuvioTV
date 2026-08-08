@@ -89,8 +89,7 @@ internal fun SearchVirtualKeyboard(
             .onFocusChanged { state ->
                 onFocusChanged?.invoke(state.hasFocus || state.isFocused)
             }
-            .recompositionHighlighter()
-            .dpadRepeatThrottle(),
+            .recompositionHighlighter(),
         verticalArrangement = Arrangement.spacedBy(SearchVirtualKeyboardKeyGap)
     ) {
         LazyVerticalGrid(

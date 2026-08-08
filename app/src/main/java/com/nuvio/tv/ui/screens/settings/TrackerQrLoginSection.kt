@@ -3,19 +3,25 @@
 package com.nuvio.tv.ui.screens.settings
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
@@ -40,8 +46,14 @@ internal fun TrackerQrLoginSection(
     logoContentDescription: String,
     instruction: String,
     onStart: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    qrOverlayLogo: Painter? = null
 ) {
+    LaunchedEffect(qrLogin.session, qrLogin.isStarting, qrLogin.errorMessage) {
+        if (qrLogin.session == null && !qrLogin.isStarting && qrLogin.errorMessage == null) {
+            onStart()
+        }
+    }
     // Logo grande in cima, stesso stile dei dialog Trakt/Simkl.
     Image(
         painter = logo,
@@ -100,12 +112,29 @@ internal fun TrackerQrLoginSection(
                         modifier = Modifier.fillMaxWidth(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Image(
-                            bitmap = qrBitmap.asImageBitmap(),
-                            contentDescription = stringResource(R.string.cd_tracker_qr),
+                        Box(
                             modifier = Modifier.size(144.dp),
-                            contentScale = ContentScale.Fit
-                        )
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                bitmap = qrBitmap.asImageBitmap(),
+                                contentDescription = stringResource(R.string.cd_tracker_qr),
+                                modifier = Modifier.size(144.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                            if (qrOverlayLogo != null) {
+                                Image(
+                                    painter = qrOverlayLogo,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color.White)
+                                        .padding(2.dp),
+                                    contentScale = ContentScale.Fit
+                                )
+                            }
+                        }
                     }
                 }
                 Column(
@@ -185,14 +214,8 @@ internal fun TrackerQrLoginSection(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
-                SettingsDialogActionRow(horizontalAlignment = Alignment.CenterHorizontally) {
-                    SettingsDialogActionButton(
-                        text = stringResource(R.string.tracker_qr_sign_in),
-                        onClick = onStart,
-                        primary = true,
-                        enabled = qrLogin.isConfigured
-                    )
-                    if (qrLogin.errorMessage != null) {
+                if (!qrLogin.errorMessage.isNullOrBlank()) {
+                    SettingsDialogActionRow(horizontalAlignment = Alignment.CenterHorizontally) {
                         SettingsDialogActionButton(
                             text = stringResource(R.string.action_retry),
                             onClick = onRetry

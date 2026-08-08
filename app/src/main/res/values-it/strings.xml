@@ -382,6 +382,7 @@
 <string name="opensubtitles_languages_subtitle">Verrà scaricato un sottotitolo per ogni lingua</string>
 <string name="opensubtitles_not_set">Non impostato</string>
 <string name="opensubtitles_legacy_addon_section">Add-on legacy</string>
+<string name="opensubtitles_legacy_addon_section_subtitle">L\'add-on OpenSubtitles preinstallato con l\'app. Scarica i sottotitoli di film e serie come ripiego.</string>
 
     <!-- PlaybackSettingsScreen -->
 <string name="playback_title">Impostazioni di riproduzione</string>
@@ -1709,6 +1710,10 @@
   <string name="collections_editor_tmdb_title_optional">Titolo (opzionale)</string>
   <string name="collections_editor_tmdb_search">Cerca</string>
   <string name="collections_editor_add_source">Aggiungi sorgente</string>
+  <string name="collections_editor_add_livetv_source">Aggiungi sorgente IPTV</string>
+  <string name="collections_editor_no_livetv_playlists">Nessuna playlist IPTV disponibile. Aggiungine una nelle impostazioni IPTV.</string>
+  <string name="collections_editor_livetv_source_type">IPTV</string>
+  <string name="collections_editor_anime_badge">Anime</string>
   <string name="collections_editor_save_source">Salva sorgente</string>
   <string name="collections_editor_tmdb_collection">Collezione TMDB</string>
   <string name="collections_editor_tmdb_help_presets">Scegli una sorgente predefinita. Puoi modificarla o rimuoverla dopo l\'aggiunta.</string>
@@ -2995,6 +3000,9 @@
   <string name="anime_settings_show_tab_sub">Mostra o nascondi la tab Anime nella barra di navigazione principale</string>
   <string name="anime_settings_refresh_title">Aggiorna add-on</string>
   <string name="anime_settings_refreshing">Aggiornamento…</string>
+  <string name="anime_settings_update_subtitle">Scarica le ultime modifiche per gli add-on anime</string>
+  <string name="anime_settings_reorder_title">Riordina catalogo Anime</string>
+  <string name="anime_settings_reorder_subtitle">Cambia l\'ordine degli add-on e dei cataloghi della scheda Anime</string>
   <string name="anime_settings_manage_phone_title">Gestisci dal telefono</string>
   <string name="anime_settings_manage_phone_subtitle">Scansiona un codice QR per gestire gli addon anime dal tuo telefono</string>
   <string name="settings_live_tv_title">TV live</string>

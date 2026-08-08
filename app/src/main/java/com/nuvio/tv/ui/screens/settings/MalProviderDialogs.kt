@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -127,11 +128,12 @@ private fun MalConnectContent(
         TrackerQrLoginSection(
             qrLogin = state.qrLogin,
             providerName = stringResource(R.string.mal_name),
-            logo = rememberRawSvgPainter(R.raw.mal_icon, 220.dp),
+            logo = painterResource(R.drawable.mal_logo_app),
             logoContentDescription = stringResource(R.string.cd_mal_logo),
             instruction = stringResource(R.string.mal_connect_instruction),
             onStart = onStartQrLogin,
-            onRetry = onRetryQrLogin
+            onRetry = onRetryQrLogin,
+            qrOverlayLogo = painterResource(R.drawable.mal_logo_wordmark)
         )
     } else {
         MalWordmarkHeader()
@@ -142,7 +144,8 @@ private fun MalConnectContent(
         )
         TrackerLocalQrSection(
             authorizeUrl = state.authorizeUrl,
-            onConnectToken = onConnectToken
+            onConnectToken = onConnectToken,
+            qrOverlayLogo = painterResource(R.drawable.mal_logo_wordmark)
         )
     }
     if (!state.errorMessage.isNullOrBlank()) {
@@ -165,7 +168,7 @@ private fun MalConnectContent(
 @Composable
 private fun MalWordmarkHeader() {
     Image(
-        painter = rememberRawSvgPainter(R.raw.mal_icon, 220.dp),
+        painter = painterResource(R.drawable.mal_logo_app),
         contentDescription = stringResource(R.string.cd_mal_logo),
         modifier = Modifier
             .fillMaxWidth()

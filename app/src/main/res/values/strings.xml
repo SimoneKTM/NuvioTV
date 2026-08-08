@@ -721,6 +721,7 @@
     <string name="opensubtitles_languages_subtitle">One subtitle per language will be downloaded</string>
     <string name="opensubtitles_not_set">Not set</string>
     <string name="opensubtitles_legacy_addon_section">Legacy add-on</string>
+    <string name="opensubtitles_legacy_addon_section_subtitle">The OpenSubtitles add-on preinstalled with the app. It fetches subtitles for movies and series as a fallback.</string>
     <string name="settings_tvdb_subtitle">TVDB metadata enrichment</string>
     <string name="settings_debrid_subtitle">Experimental cloud account sources</string>
 
@@ -2300,6 +2301,9 @@
     <string name="anime_settings_show_tab_sub">Show or hide the Anime tab in the main navigation</string>
     <string name="anime_settings_refresh_title">Update add-ons</string>
     <string name="anime_settings_refreshing">Updating…</string>
+    <string name="anime_settings_update_subtitle">Pull the latest changes for anime add-ons</string>
+    <string name="anime_settings_reorder_title">Reorder Anime catalog</string>
+    <string name="anime_settings_reorder_subtitle">Changes the order of the add-ons and catalogs of the Anime tab</string>
     <string name="anime_settings_manage_phone_title">Manage from phone</string>
     <string name="anime_settings_manage_phone_subtitle">Scan a QR code to manage anime add-ons from your phone</string>
 
@@ -2541,6 +2545,10 @@
     <string name="collections_editor_tmdb_title_optional">Title (optional)</string>
     <string name="collections_editor_tmdb_search">Search</string>
     <string name="collections_editor_add_source">Add Source</string>
+    <string name="collections_editor_add_livetv_source">Add IPTV Source</string>
+    <string name="collections_editor_no_livetv_playlists">No IPTV playlists available. Add one in the IPTV settings first.</string>
+    <string name="collections_editor_livetv_source_type">IPTV</string>
+    <string name="collections_editor_anime_badge">Anime</string>
     <string name="collections_editor_save_source">Save Source</string>
     <string name="collections_editor_tmdb_collection">TMDB Collection</string>
     <string name="collections_editor_tmdb_default_list">TMDB List</string>

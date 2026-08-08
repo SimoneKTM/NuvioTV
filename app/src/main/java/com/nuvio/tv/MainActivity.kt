@@ -45,7 +45,6 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.FilterDrama
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
@@ -486,7 +485,6 @@ class MainActivity : ComponentActivity() {
             val installedAddons by remember(addonRepository) {
                 addonRepository.getInstalledAddons()
             }.collectAsState(initial = null)
-            val discoverLocation = mainUiPrefs.discoverLocation
 
             NuvioTheme(
                 appTheme = mainUiPrefs.theme,
@@ -761,7 +759,6 @@ class MainActivity : ComponentActivity() {
 
                     val strNavHome = stringResource(R.string.nav_home)
                     val strNavAnime = stringResource(R.string.nav_anime)
-                    val strNavDiscover = stringResource(R.string.nav_discover)
                     val strNavSearch = stringResource(R.string.nav_search)
                     val strNavLibrary = stringResource(R.string.nav_library)
                     val strNavLiveTv = stringResource(R.string.nav_live_tv)
@@ -769,12 +766,10 @@ class MainActivity : ComponentActivity() {
 val drawerItems = remember(
                         strNavHome,
                         strNavAnime,
-                        strNavDiscover,
                         strNavSearch,
 strNavLibrary,
                         strNavLiveTv,
                         strNavSettings,
-                        discoverLocation,
                         mainUiPrefs.animeTabVisible,
                         mainUiPrefs.liveTvTabVisible
                     ) {
@@ -795,13 +790,6 @@ strNavLibrary,
                                 )
                             )
                             }
-                            add(
-                                DrawerItem(
-                                    route = Screen.Discover.route,
-                                    label = strNavDiscover,
-                                    icon = Icons.Default.Explore
-                                )
-                            )
                             add(
                                 DrawerItem(
                                     route = Screen.Search.route,
