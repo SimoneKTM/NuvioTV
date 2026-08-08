@@ -2968,8 +2968,10 @@
   <string name="anime_addons_empty">Nessun addon anime installato.</string>
   <string name="anime_settings_plugins_subtitle">Scraper di stream usati per risolvere le fonti anime</string>
   <string name="anime_settings_content_discovery_title">Contenuti e scoperta</string>
-  <string name="anime_settings_addons_title">Addon anime</string>
+  <string name="anime_settings_addons_title">Addon</string>
   <string name="anime_settings_addons_subtitle">Installa e gestisci gli addon anime</string>
+  <string name="anime_settings_show_tab_title">Mostra tab Anime</string>
+  <string name="anime_settings_show_tab_sub">Mostra o nascondi la tab Anime nella barra di navigazione principale</string>
   <string name="anime_settings_refresh_title">Aggiorna add-on</string>
   <string name="anime_settings_refreshing">Aggiornamento…</string>
   <string name="anime_settings_manage_phone_title">Gestisci dal telefono</string>

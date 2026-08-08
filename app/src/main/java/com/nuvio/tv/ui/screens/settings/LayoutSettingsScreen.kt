@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+﻿@file:OptIn(ExperimentalTvMaterial3Api::class)
 
 package com.nuvio.tv.ui.screens.settings
 
@@ -124,6 +124,7 @@ fun LayoutSettingsContent(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val streamBadgeUiState by viewModel.streamBadgeUiState.collectAsStateWithLifecycle()
+    val homeOnlyLayout = viewModel.homeOnlyLayout
     val context = LocalContext.current
 
     var homeLayoutExpanded by rememberSaveable(essentialMode) { mutableStateOf(essentialMode) }
@@ -352,7 +353,7 @@ fun LayoutSettingsContent(
                 }
             }
 
-            if (!essentialMode) {
+            if (!essentialMode && !homeOnlyLayout) {
             item(key = "home_content_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_content),
@@ -471,6 +472,7 @@ fun LayoutSettingsContent(
                 }
             }
 
+            if (!homeOnlyLayout) {
             item(key = "detail_page_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_detail),
@@ -568,6 +570,9 @@ fun LayoutSettingsContent(
                 }
             }
 
+            }
+
+            if (!homeOnlyLayout) {
             item(key = "streams_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_streams),
@@ -622,6 +627,9 @@ fun LayoutSettingsContent(
                 }
             }
 
+            }
+
+            if (!homeOnlyLayout) {
             item(key = "continue_watching_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_continue_watching),
@@ -740,7 +748,9 @@ fun LayoutSettingsContent(
                 }
             }
 
-            if (uiState.selectedLayout != HomeLayout.GRID) {
+            }
+
+            if (uiState.selectedLayout != HomeLayout.GRID && !homeOnlyLayout) {
             item(key = "focused_poster_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_focused),
@@ -853,6 +863,7 @@ fun LayoutSettingsContent(
             }
             }
 
+            if (!homeOnlyLayout) {
             item(key = "poster_style_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_card_style),
@@ -909,6 +920,8 @@ fun LayoutSettingsContent(
             }
             }
         }
+            }
+
         SettingsVerticalScrollIndicators(state = layoutListState)
         }
         }
@@ -1815,3 +1828,4 @@ private data class PresetOption(
     val label: String,
     val value: Int
 )
+

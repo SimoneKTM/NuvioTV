@@ -156,6 +156,8 @@ open class LayoutSettingsViewModel @Inject constructor(
 
     open val showTabVisibilityToggles: Boolean = true
 
+    open val homeOnlyLayout: Boolean = false
+
     private inline fun updateUiStateIfChanged(
         update: (LayoutSettingsUiState) -> LayoutSettingsUiState
     ) {

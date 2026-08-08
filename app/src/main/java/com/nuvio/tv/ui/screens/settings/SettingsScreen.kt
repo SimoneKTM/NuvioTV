@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -128,7 +129,6 @@ private enum class LibrarySettingsSection {
 
 private enum class AnimeSettingsSection {
     Hub,
-    ContentDiscovery,
     Layout,
     Integrations,
     Tmdb,
@@ -260,7 +260,7 @@ private fun rememberSettingsSectionSpecs() = listOf(
 fun SettingsScreen(
     showBuiltInHeader: Boolean = true,
     onNavigateToAddons: () -> Unit = {},
-    onNavigateToAnimeSettings: () -> Unit = {},
+    onNavigateToAnimeAddons: () -> Unit = {},
     onNavigateToPlugins: () -> Unit = {},
     onNavigateToAuthQrSignIn: () -> Unit = {},
     onNavigateToManageProfiles: () -> Unit = {},
@@ -346,7 +346,6 @@ fun SettingsScreen(
     val librarySourcesFocusRequester = remember { FocusRequester() }
     val libraryConnectedServicesFocusRequester = remember { FocusRequester() }
     val animeHubFocusRequester = remember { FocusRequester() }
-    val animeContentDiscoveryFocusRequester = remember { FocusRequester() }
     val animeLayoutFocusRequester = remember { FocusRequester() }
     val animeIntegrationsFocusRequester = remember { FocusRequester() }
     val animeTmdbFocusRequester = remember { FocusRequester() }
@@ -603,7 +602,6 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                                 animeSection = animeSection,
                                 onSelectAnimeSection = { animeSection = it },
                                 animeHubFocusRequester = animeHubFocusRequester,
-                                animeContentDiscoveryFocusRequester = animeContentDiscoveryFocusRequester,
                                 animeLayoutFocusRequester = animeLayoutFocusRequester,
                                 animeIntegrationsFocusRequester = animeIntegrationsFocusRequester,
                                 animeTmdbFocusRequester = animeTmdbFocusRequester,
@@ -612,7 +610,7 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                                 animeAnimeSkipFocusRequester = animeAnimeSkipFocusRequester,
                                 onNavigateToManageProfiles = onNavigateToManageProfiles,
                                 onNavigateToAddons = onNavigateToAddons,
-                                onNavigateToAnimeSettings = onNavigateToAnimeSettings,
+                                onNavigateToAnimeAddons = onNavigateToAnimeAddons,
                                 onNavigateToPlugins = onNavigateToPlugins,
                                 onNavigateToAuthQrSignIn = onNavigateToAuthQrSignIn,
                                 onNavigateToSupportersContributors = onNavigateToSupportersContributors,
@@ -774,7 +772,6 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                         animeSection = animeSection,
                         onSelectAnimeSection = { animeSection = it },
                         animeHubFocusRequester = animeHubFocusRequester,
-                        animeContentDiscoveryFocusRequester = animeContentDiscoveryFocusRequester,
                         animeLayoutFocusRequester = animeLayoutFocusRequester,
                         animeIntegrationsFocusRequester = animeIntegrationsFocusRequester,
                         animeTmdbFocusRequester = animeTmdbFocusRequester,
@@ -783,7 +780,7 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                         animeAnimeSkipFocusRequester = animeAnimeSkipFocusRequester,
                         onNavigateToManageProfiles = onNavigateToManageProfiles,
                         onNavigateToAddons = onNavigateToAddons,
-                        onNavigateToAnimeSettings = onNavigateToAnimeSettings,
+                        onNavigateToAnimeAddons = onNavigateToAnimeAddons,
                         onNavigateToPlugins = onNavigateToPlugins,
                         onNavigateToAuthQrSignIn = onNavigateToAuthQrSignIn,
                         onNavigateToSupportersContributors = onNavigateToSupportersContributors,
@@ -821,7 +818,6 @@ private fun SettingsDetailPane(
     animeSection: AnimeSettingsSection,
     onSelectAnimeSection: (AnimeSettingsSection) -> Unit,
     animeHubFocusRequester: FocusRequester,
-    animeContentDiscoveryFocusRequester: FocusRequester,
     animeLayoutFocusRequester: FocusRequester,
     animeIntegrationsFocusRequester: FocusRequester,
     animeTmdbFocusRequester: FocusRequester,
@@ -831,7 +827,7 @@ private fun SettingsDetailPane(
     openSubtitlesFocusRequester: FocusRequester,
     onNavigateToManageProfiles: () -> Unit,
     onNavigateToAddons: () -> Unit,
-    onNavigateToAnimeSettings: () -> Unit,
+    onNavigateToAnimeAddons: () -> Unit,
     onNavigateToPlugins: () -> Unit,
     onNavigateToAuthQrSignIn: () -> Unit,
     onNavigateToSupportersContributors: () -> Unit,
@@ -859,15 +855,13 @@ private fun SettingsDetailPane(
         SettingsCategory.ANIME -> AnimeSettingsContent(
             selectedSection = animeSection,
             onSelectSection = onSelectAnimeSection,
-            onNavigateToAnimeSettings = onNavigateToAnimeSettings,
-            onNavigateToPlugins = onNavigateToPlugins,
+            onNavigateToAnimeAddons = onNavigateToAnimeAddons,
             initialFocusRequester = if (allowDetailAutofocus) {
                 contentFocusRequesters[SettingsCategory.ANIME]
             } else {
                 null
             },
             hubFocusRequester = animeHubFocusRequester,
-            contentDiscoveryFocusRequester = animeContentDiscoveryFocusRequester,
             layoutFocusRequester = animeLayoutFocusRequester,
             integrationsFocusRequester = animeIntegrationsFocusRequester,
             tmdbFocusRequester = animeTmdbFocusRequester,
@@ -905,7 +899,9 @@ private fun SettingsDetailPane(
                     contentFocusRequesters[SettingsCategory.PLAYBACK]
                 } else {
                     null
-                }
+                },
+                onNavigateToLiveTv = onNavigateToLiveTv,
+                onNavigateToVpn = onNavigateToVpn
             )
         }
         SettingsCategory.ADVANCED -> if (isEssentialMode) {
@@ -955,8 +951,6 @@ private fun SettingsDetailPane(
             hubFocusRequester = libraryHubFocusRequester,
             sourcesFocusRequester = librarySourcesFocusRequester,
             connectedServicesFocusRequester = libraryConnectedServicesFocusRequester,
-            onNavigateToLiveTv = onNavigateToLiveTv,
-            onNavigateToVpn = onNavigateToVpn,
             autoFocusEnabled = allowDetailAutofocus
         )
         SettingsCategory.ABOUT -> AboutSettingsContent(
@@ -1037,8 +1031,6 @@ private fun LibrarySettingsHubContent(
     hubFocusRequester: FocusRequester,
     sourcesFocusRequester: FocusRequester,
     connectedServicesFocusRequester: FocusRequester,
-    onNavigateToLiveTv: () -> Unit,
-    onNavigateToVpn: () -> Unit,
     autoFocusEnabled: Boolean
 ) {
     BackHandler(enabled = selectedSection != LibrarySettingsSection.Hub) {
@@ -1094,22 +1086,6 @@ private fun LibrarySettingsHubContent(
                                     leadingIcon = Icons.Default.Link
                                 )
                             }
-                            item(key = "library_hub_live_tv") {
-                                SettingsActionRow(
-                                    title = stringResource(R.string.settings_live_tv_title),
-                                    subtitle = stringResource(R.string.settings_live_tv_subtitle),
-                                    onClick = onNavigateToLiveTv,
-                                    leadingIcon = Icons.Default.LiveTv
-                                )
-                            }
-                            item(key = "library_hub_vpn") {
-                                SettingsActionRow(
-                                    title = stringResource(R.string.settings_vpn_title),
-                                    subtitle = stringResource(R.string.settings_vpn_subtitle),
-                                    onClick = onNavigateToVpn,
-                                    leadingIcon = Icons.Default.VpnKey
-                                )
-                            }
                         }
                         SettingsVerticalScrollIndicators(state = libraryHubState)
                     }
@@ -1136,11 +1112,9 @@ private fun LibrarySettingsHubContent(
 private fun AnimeSettingsContent(
     selectedSection: AnimeSettingsSection,
     onSelectSection: (AnimeSettingsSection) -> Unit,
-    onNavigateToAnimeSettings: () -> Unit,
-    onNavigateToPlugins: () -> Unit,
+    onNavigateToAnimeAddons: () -> Unit,
     initialFocusRequester: FocusRequester?,
     hubFocusRequester: FocusRequester,
-    contentDiscoveryFocusRequester: FocusRequester,
     layoutFocusRequester: FocusRequester,
     integrationsFocusRequester: FocusRequester,
     tmdbFocusRequester: FocusRequester,
@@ -1158,7 +1132,6 @@ private fun AnimeSettingsContent(
         if (!autoFocusEnabled) return@LaunchedEffect
         val requester = when (selectedSection) {
             AnimeSettingsSection.Hub -> hubEntryFocusRequester
-            AnimeSettingsSection.ContentDiscovery -> contentDiscoveryFocusRequester
             AnimeSettingsSection.Layout -> layoutFocusRequester
             AnimeSettingsSection.Integrations -> integrationsFocusRequester
             AnimeSettingsSection.Tmdb -> tmdbFocusRequester
@@ -1185,17 +1158,32 @@ private fun AnimeSettingsContent(
                         .weight(1f)
                 ) {
                     val animeHubState = rememberLazyListState()
+                    val layoutSettingsViewModel: LayoutSettingsViewModel = hiltViewModel()
+                    val layoutUiState by layoutSettingsViewModel.uiState.collectAsStateWithLifecycle()
                     Box(modifier = Modifier.fillMaxSize()) {
                         LazyColumn(
                             state = animeHubState,
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            item(key = "anime_hub_content_discovery") {
+                            item(key = "anime_hub_tab_visibility") {
+                                ToggleSettingsItem(
+                                    icon = Icons.Default.Visibility,
+                                    title = stringResource(R.string.anime_settings_show_tab_title),
+                                    subtitle = stringResource(R.string.anime_settings_show_tab_sub),
+                                    isChecked = layoutUiState.animeTabVisible,
+                                    onCheckedChange = {
+                                        layoutSettingsViewModel.onEvent(
+                                            LayoutSettingsEvent.SetAnimeTabVisible(it)
+                                        )
+                                    }
+                                )
+                            }
+                            item(key = "anime_hub_addon") {
                                 SettingsActionRow(
-                                    title = stringResource(R.string.settings_anime_content_discovery_title),
-                                    subtitle = stringResource(R.string.settings_anime_content_discovery_subtitle),
-                                    onClick = { onSelectSection(AnimeSettingsSection.ContentDiscovery) },
-                                    leadingIcon = Icons.Default.Explore,
+                                    title = stringResource(R.string.anime_settings_addons_title),
+                                    subtitle = stringResource(R.string.anime_settings_addons_subtitle),
+                                    onClick = onNavigateToAnimeAddons,
+                                    leadingIcon = Icons.Default.FilterDrama,
                                     modifier = Modifier.focusRequester(hubEntryFocusRequester)
                                 )
                             }
@@ -1217,44 +1205,6 @@ private fun AnimeSettingsContent(
                             }
                         }
                         SettingsVerticalScrollIndicators(state = animeHubState)
-                    }
-                }
-            }
-        }
-
-        AnimeSettingsSection.ContentDiscovery -> {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-            ) {
-                SettingsDetailHeader(
-                    title = stringResource(R.string.settings_anime_content_discovery_title),
-                    subtitle = stringResource(R.string.settings_anime_content_discovery_subtitle)
-                )
-                SettingsGroupCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(NuvioTheme.spacing.md),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        SettingsActionRow(
-                            title = stringResource(R.string.anime_settings_addons_title),
-                            subtitle = stringResource(R.string.settings_content_discovery_addons_subtitle),
-                            onClick = onNavigateToAnimeSettings,
-                            leadingIcon = Icons.Default.FilterDrama,
-                            modifier = Modifier.focusRequester(contentDiscoveryFocusRequester)
-                        )
-                        SettingsActionRow(
-                            title = stringResource(R.string.plugin_title),
-                            subtitle = stringResource(R.string.anime_settings_plugins_subtitle),
-                            onClick = onNavigateToPlugins,
-                            leadingIcon = Icons.Default.Build
-                        )
                     }
                 }
             }

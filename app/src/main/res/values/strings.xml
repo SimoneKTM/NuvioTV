@@ -2258,8 +2258,10 @@
     <string name="anime_settings_plugins_subtitle">Stream scrapers used to resolve anime sources</string>
     <string name="anime_settings_tracking_subtitle">Connect AniList, MAL or Kitsu to track anime progress</string>
     <string name="anime_settings_content_discovery_title">Content and discovery</string>
-    <string name="anime_settings_addons_title">Anime add-ons</string>
+    <string name="anime_settings_addons_title">Addon</string>
     <string name="anime_settings_addons_subtitle">Install and manage anime add-ons</string>
+    <string name="anime_settings_show_tab_title">Show Anime tab</string>
+    <string name="anime_settings_show_tab_sub">Show or hide the Anime tab in the main navigation</string>
     <string name="anime_settings_refresh_title">Update add-ons</string>
     <string name="anime_settings_refreshing">Updating…</string>
     <string name="anime_settings_manage_phone_title">Manage from phone</string>

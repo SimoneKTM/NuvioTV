@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.PauseCircle
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
@@ -193,7 +195,9 @@ internal fun PlaybackSettingsSections(
     onSetVodCacheSizeMb: (Int) -> Unit,
     onResetBufferSettingsToDefaults: () -> Unit,
     onSetEnableHttp2: (Boolean) -> Unit,
-    onResetNetworkSettingsToDefaults: () -> Unit
+    onResetNetworkSettingsToDefaults: () -> Unit,
+    onNavigateToLiveTv: () -> Unit = {},
+    onNavigateToVpn: () -> Unit = {}
 ) {
     var generalExpanded by rememberSaveable { mutableStateOf(false) }
     var afrExpanded by rememberSaveable { mutableStateOf(false) }
@@ -721,7 +725,24 @@ internal fun PlaybackSettingsSections(
                     onSetEnableHttp2 = onSetEnableHttp2,
                     onResetNetworkToDefaults = onResetNetworkSettingsToDefaults
                 )
+                item(key = "buffer_network_vpn") {
+                    SettingsActionRow(
+                        title = stringResource(R.string.settings_vpn_title),
+                        subtitle = stringResource(R.string.settings_vpn_subtitle),
+                        onClick = onNavigateToVpn,
+                        leadingIcon = Icons.Default.VpnKey
+                    )
+                }
             }
+        }
+
+        item(key = "live_tv_settings_entry") {
+            SettingsActionRow(
+                title = stringResource(R.string.settings_live_tv_title),
+                subtitle = stringResource(R.string.settings_live_tv_subtitle),
+                onClick = onNavigateToLiveTv,
+                leadingIcon = Icons.Default.LiveTv
+            )
         }
 
     }

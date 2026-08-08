@@ -30,4 +30,5 @@ class AnimeLayoutSettingsViewModel @Inject constructor(
     metaRepository = metaRepository
 ) {
     override val showTabVisibilityToggles: Boolean = false
+    override val homeOnlyLayout: Boolean = true
 }
