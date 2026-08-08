@@ -741,35 +741,21 @@ class MainActivity : ComponentActivity() {
 
                     val view = LocalView.current
                     LaunchedEffect(currentRoute) {
-                        val holder = PerformanceMetricsState.getHolderForHierarchy(view)
                         if (currentRoute != null) {
+                            val holder = PerformanceMetricsState.getHolderForHierarchy(view)
                             holder.state?.putState("Screen", currentRoute)
                         }
                     }
 
-                    LaunchedEffect(discoverLocation, currentRoute) {
-                        if (discoverLocation == null) return@LaunchedEffect
-                        val onDiscoverRoute = currentRoute == Screen.Discover.route ||
-                            currentRoute?.startsWith("${Screen.Discover.route}/") == true
-                        if (discoverLocation == DiscoverLocation.OFF && onDiscoverRoute) {
-                            navController.navigate(Screen.Home.route) {
-                                popUpTo(navController.graph.startDestinationId) { saveState = false }
-                                launchSingleTop = true
-                            }
-                        }
-                    }
-
-                    val rootRoutes = remember(discoverLocation) {
+                    val rootRoutes = remember {
                         buildSet {
                             add(Screen.Home.route)
                             add(Screen.Anime.route)
+                            add(Screen.Discover.route)
                             add(Screen.Search.route)
                             add(Screen.Library.route)
                             add(Screen.LiveTv.route)
                             add(Screen.Settings.route)
-                            if (discoverLocation == DiscoverLocation.IN_SIDEBAR) {
-                                add(Screen.Discover.route)
-                            }
                         }
                     }
 
@@ -809,15 +795,13 @@ strNavLibrary,
                                 )
                             )
                             }
-                            if (discoverLocation == DiscoverLocation.IN_SIDEBAR) {
-                                add(
-                                    DrawerItem(
-                                        route = Screen.Discover.route,
-                                        label = strNavDiscover,
-                                        icon = Icons.Default.Explore
-                                    )
+                            add(
+                                DrawerItem(
+                                    route = Screen.Discover.route,
+                                    label = strNavDiscover,
+                                    icon = Icons.Default.Explore
                                 )
-                            }
+                            )
                             add(
                                 DrawerItem(
                                     route = Screen.Search.route,

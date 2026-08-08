@@ -363,7 +363,6 @@ fun LayoutSettingsContent(
                 }
             }
 
-            if (homeOnlyLayout) {
             item(key = "anime_content_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_anime_content),
@@ -397,9 +396,8 @@ fun LayoutSettingsContent(
                     )
                 }
             }
-            }
 
-            if (!essentialMode && !homeOnlyLayout) {
+            if (!essentialMode) {
             item(key = "home_content_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_content),
@@ -614,10 +612,8 @@ fun LayoutSettingsContent(
                     )
                 }
             }
-
             }
 
-            if (!homeOnlyLayout) {
             item(key = "streams_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_streams),
@@ -790,7 +786,7 @@ fun LayoutSettingsContent(
                 }
             }
 
-            if (uiState.selectedLayout != HomeLayout.GRID && !homeOnlyLayout) {
+            if (uiState.selectedLayout != HomeLayout.GRID) {
             item(key = "focused_poster_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_focused),
@@ -903,7 +899,6 @@ fun LayoutSettingsContent(
             }
             }
 
-            if (!homeOnlyLayout) {
             item(key = "poster_style_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_card_style),
@@ -958,8 +953,6 @@ fun LayoutSettingsContent(
                     )
                 }
             }
-            }
-        }
             }
 
         SettingsVerticalScrollIndicators(state = layoutListState)

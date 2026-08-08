@@ -1177,7 +1177,7 @@
 
     <!-- SearchScreen -->
 <string name="search_keyboard_hint">Premi Invio sulla tastiera per cercare</string>
-<string name="search_placeholder">Cerca film &amp; serie</string>
+<string name="search_placeholder">Cerca</string>
 <string name="search_start_title">Inizia Ricerca</string>
 <string name="search_start_subtitle">Inserisci almeno 2 caratteri</string>
 <string name="search_start_subtitle_no_discover">Scopri disabilitato. Inserisci almeno 2 caratteri</string>

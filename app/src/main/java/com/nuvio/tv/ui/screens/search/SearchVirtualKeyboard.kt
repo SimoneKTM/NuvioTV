@@ -76,6 +76,7 @@ internal fun SearchVirtualKeyboard(
     firstKeyFocusRequester: FocusRequester,
     resultsFocusRequester: FocusRequester? = null,
     onFocusChanged: ((Boolean) -> Unit)? = null,
+    onMoveToRecents: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val keys = remember { KEYBOARD_ROWS.flatten() }
@@ -128,7 +129,7 @@ internal fun SearchVirtualKeyboard(
                                 event.nativeKeyEvent.action == AndroidKeyEvent.ACTION_DOWN &&
                                 KEYBOARD_ROWS.last().contains(label)
                             ) {
-                                onEnter()
+                                onMoveToRecents?.invoke() ?: onEnter()
                                 true
                             } else {
                                 false
@@ -146,7 +147,17 @@ internal fun SearchVirtualKeyboard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .focusGroup(),
+                .focusGroup()
+                .onPreviewKeyEvent { event ->
+                    if (event.nativeKeyEvent.keyCode == AndroidKeyEvent.KEYCODE_DPAD_DOWN &&
+                        event.nativeKeyEvent.action == AndroidKeyEvent.ACTION_DOWN
+                    ) {
+                        onMoveToRecents?.invoke() ?: onEnter()
+                        true
+                    } else {
+                        false
+                    }
+                },
             horizontalArrangement = Arrangement.spacedBy(SearchVirtualKeyboardKeyGap)
         ) {
             KeyCell(
