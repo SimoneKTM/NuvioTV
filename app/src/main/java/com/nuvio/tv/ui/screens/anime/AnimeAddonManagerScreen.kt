@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -76,6 +74,7 @@ import com.nuvio.tv.ui.screens.addon.QrCodeOverlay
 import com.nuvio.tv.ui.screens.settings.SettingsActionRow
 import com.nuvio.tv.ui.screens.settings.SettingsGroupCard
 import com.nuvio.tv.ui.theme.NuvioTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -93,10 +92,32 @@ fun AnimeAddonManagerScreen(
     val textFieldFocusRequester = remember { FocusRequester() }
     val installButtonFocusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
-    val installedSectionBringIntoView = remember { BringIntoViewRequester() }
     val scrollToInstalled: () -> Unit = {
         coroutineScope.launch {
-            runCatching { installedSectionBringIntoView.bringIntoView() }
+            val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+            listState.animateScrollToItem(lastIndex)
+        }
+    }
+
+    val defaultRefreshSubtitle = stringResource(R.string.anime_settings_update_subtitle)
+    val refreshedAddonsSubtitle = stringResource(R.string.addon_refresh_done_subtitle)
+    val refreshFailedSubtitle = stringResource(R.string.anime_settings_refresh_failed)
+    var refreshSubtitle by remember(defaultRefreshSubtitle) {
+        mutableStateOf(defaultRefreshSubtitle)
+    }
+    var refreshRequested by remember { mutableStateOf(false) }
+
+    LaunchedEffect(refreshSubtitle) {
+        if (refreshSubtitle != defaultRefreshSubtitle) {
+            delay(5_000)
+            refreshSubtitle = defaultRefreshSubtitle
+        }
+    }
+
+    LaunchedEffect(uiState.isRefreshing) {
+        if (refreshRequested && !uiState.isRefreshing) {
+            refreshRequested = false
+            refreshSubtitle = if (uiState.error != null) refreshFailedSubtitle else refreshedAddonsSubtitle
         }
     }
 
@@ -288,9 +309,12 @@ fun AnimeAddonManagerScreen(
                         subtitle = if (uiState.isRefreshing) {
                             stringResource(R.string.anime_settings_refreshing)
                         } else {
-                            stringResource(R.string.anime_settings_update_subtitle)
+                            refreshSubtitle
                         },
-                        onClick = viewModel::refreshAddons,
+                        onClick = {
+                            refreshRequested = true
+                            viewModel.refreshAddons()
+                        },
                         leadingIcon = Icons.Default.Sync
                     )
                 }
@@ -323,7 +347,6 @@ fun AnimeAddonManagerScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .bringIntoViewRequester(installedSectionBringIntoView)
                             .padding(start = NuvioTheme.spacing.lg, end = NuvioTheme.spacing.lg, top = NuvioTheme.spacing.lg),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
