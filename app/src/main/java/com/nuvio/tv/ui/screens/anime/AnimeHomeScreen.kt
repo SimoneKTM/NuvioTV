@@ -209,7 +209,7 @@ private fun buildAnimeHeroPreview(item: MetaPreview): HeroPreview {
     }
     return HeroPreview(
         title = item.name,
-        logo = item.logo,
+        logo = null,
         description = item.description,
         contentTypeText = contentTypeText,
         isSeries = isSeries,

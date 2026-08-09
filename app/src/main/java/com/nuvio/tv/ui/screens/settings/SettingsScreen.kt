@@ -138,6 +138,7 @@ private enum class AnimeSettingsSection {
     ContentDiscovery,
     Layout,
     Integrations,
+    ConnectedServices,
     Tmdb,
     MdbList,
     Tvdb,
@@ -365,6 +366,7 @@ fun SettingsScreen(
     val animeContentDiscoveryFocusRequester = remember { FocusRequester() }
     val animeLayoutFocusRequester = remember { FocusRequester() }
     val animeIntegrationsFocusRequester = remember { FocusRequester() }
+    val animeConnectedServicesFocusRequester = remember { FocusRequester() }
     val animeTmdbFocusRequester = remember { FocusRequester() }
     val animeMdbListFocusRequester = remember { FocusRequester() }
     val animeTvdbFocusRequester = remember { FocusRequester() }
@@ -622,6 +624,7 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                                 animeContentDiscoveryFocusRequester = animeContentDiscoveryFocusRequester,
                                 animeLayoutFocusRequester = animeLayoutFocusRequester,
                                 animeIntegrationsFocusRequester = animeIntegrationsFocusRequester,
+                                animeConnectedServicesFocusRequester = animeConnectedServicesFocusRequester,
                                 animeTmdbFocusRequester = animeTmdbFocusRequester,
                                 animeMdbListFocusRequester = animeMdbListFocusRequester,
                                 animeTvdbFocusRequester = animeTvdbFocusRequester,
@@ -793,6 +796,7 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                         animeContentDiscoveryFocusRequester = animeContentDiscoveryFocusRequester,
                         animeLayoutFocusRequester = animeLayoutFocusRequester,
                         animeIntegrationsFocusRequester = animeIntegrationsFocusRequester,
+                        animeConnectedServicesFocusRequester = animeConnectedServicesFocusRequester,
                         animeTmdbFocusRequester = animeTmdbFocusRequester,
                         animeMdbListFocusRequester = animeMdbListFocusRequester,
                         animeTvdbFocusRequester = animeTvdbFocusRequester,
@@ -840,6 +844,7 @@ private fun SettingsDetailPane(
     animeContentDiscoveryFocusRequester: FocusRequester,
     animeLayoutFocusRequester: FocusRequester,
     animeIntegrationsFocusRequester: FocusRequester,
+    animeConnectedServicesFocusRequester: FocusRequester,
     animeTmdbFocusRequester: FocusRequester,
     animeMdbListFocusRequester: FocusRequester,
     animeTvdbFocusRequester: FocusRequester,
@@ -886,6 +891,7 @@ private fun SettingsDetailPane(
             contentDiscoveryFocusRequester = animeContentDiscoveryFocusRequester,
             layoutFocusRequester = animeLayoutFocusRequester,
             integrationsFocusRequester = animeIntegrationsFocusRequester,
+            connectedServicesFocusRequester = animeConnectedServicesFocusRequester,
             tmdbFocusRequester = animeTmdbFocusRequester,
             mdbListFocusRequester = animeMdbListFocusRequester,
             tvdbFocusRequester = animeTvdbFocusRequester,
@@ -1150,6 +1156,7 @@ private fun AnimeSettingsContent(
     contentDiscoveryFocusRequester: FocusRequester,
     layoutFocusRequester: FocusRequester,
     integrationsFocusRequester: FocusRequester,
+    connectedServicesFocusRequester: FocusRequester,
     tmdbFocusRequester: FocusRequester,
     mdbListFocusRequester: FocusRequester,
     tvdbFocusRequester: FocusRequester,
@@ -1169,6 +1176,7 @@ private fun AnimeSettingsContent(
             AnimeSettingsSection.ContentDiscovery -> contentDiscoveryFocusRequester
             AnimeSettingsSection.Layout -> layoutFocusRequester
             AnimeSettingsSection.Integrations -> integrationsFocusRequester
+            AnimeSettingsSection.ConnectedServices -> connectedServicesFocusRequester
             AnimeSettingsSection.Tmdb -> tmdbFocusRequester
             AnimeSettingsSection.MdbList -> mdbListFocusRequester
             AnimeSettingsSection.Tvdb -> tvdbFocusRequester
@@ -1310,13 +1318,21 @@ private fun AnimeSettingsContent(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                             contentPadding = PaddingValues(8.dp)
                         ) {
+                            item(key = "anime_integration_connected_services") {
+                                SettingsActionRow(
+                                    title = stringResource(R.string.settings_connected_services_title),
+                                    subtitle = stringResource(R.string.settings_connected_services_subtitle),
+                                    onClick = { onSelectSection(AnimeSettingsSection.ConnectedServices) },
+                                    leadingIcon = Icons.Default.Link,
+                                    modifier = Modifier.focusRequester(integrationsFocusRequester)
+                                )
+                            }
                             item(key = "anime_integration_tmdb") {
                                 SettingsActionRow(
                                     title = "TMDB",
                                     subtitle = stringResource(R.string.settings_tmdb_subtitle),
                                     onClick = { onSelectSection(AnimeSettingsSection.Tmdb) },
-                                    leadingIcon = Icons.Default.Link,
-                                    modifier = Modifier.focusRequester(integrationsFocusRequester)
+                                    leadingIcon = Icons.Default.Link
                                 )
                             }
                             item(key = "anime_integration_mdblist") {
@@ -1356,6 +1372,13 @@ private fun AnimeSettingsContent(
                     }
                 }
             }
+        }
+
+        AnimeSettingsSection.ConnectedServices -> {
+            ConnectedServicesSettingsContent(
+                initialFocusRequester = connectedServicesFocusRequester,
+                autoFocusEnabled = autoFocusEnabled
+            )
         }
 
         AnimeSettingsSection.Tmdb -> {
