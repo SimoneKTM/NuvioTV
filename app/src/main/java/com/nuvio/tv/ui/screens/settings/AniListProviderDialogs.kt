@@ -128,7 +128,7 @@ private fun AniListConnectContent(
         TrackerQrLoginSection(
             qrLogin = state.qrLogin,
             providerName = stringResource(R.string.anilist_name),
-            logo = rememberRawSvgPainter(R.raw.anilist_icon, 220.dp),
+            logo = painterResource(R.drawable.anilist_logo),
             logoContentDescription = stringResource(R.string.cd_anilist_logo),
             instruction = stringResource(R.string.anilist_connect_instruction),
             onStart = onStartQrLogin,
@@ -168,7 +168,7 @@ private fun AniListConnectContent(
 @Composable
 private fun AniListWordmarkHeader() {
     Image(
-        painter = rememberRawSvgPainter(R.raw.anilist_icon, 220.dp),
+        painter = painterResource(R.drawable.anilist_logo),
         contentDescription = stringResource(R.string.cd_anilist_logo),
         modifier = Modifier
             .fillMaxWidth()

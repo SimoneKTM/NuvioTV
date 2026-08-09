@@ -369,6 +369,7 @@
 <string name="opensubtitles_reinstall_subtitle">Ripristina l\'add-on OpenSubtitles preinstallato</string>
 <string name="opensubtitles_direct_enable_title">API diretta</string>
 <string name="opensubtitles_direct_enable_subtitle">Scarica i sottotitoli direttamente dall\'API OpenSubtitles con il tuo account</string>
+<string name="opensubtitles_direct_no_api_key_hint">L\'API diretta richiede una chiave API per funzionare. Aggiungila qui sotto.</string>
 <string name="opensubtitles_api_key_title">Chiave API</string>
 <string name="opensubtitles_api_key_subtitle">La tua chiave API opensubtitles.com</string>
 <string name="opensubtitles_api_key_placeholder">Incolla qui la tua chiave API</string>
@@ -3000,6 +3001,7 @@
   <string name="anime_settings_show_tab_sub">Mostra o nascondi la tab Anime nella barra di navigazione principale</string>
   <string name="anime_settings_refresh_title">Aggiorna add-on</string>
   <string name="anime_settings_refreshing">Aggiornamento…</string>
+  <string name="anime_settings_refresh_failed">Impossibile aggiornare gli add-on. Controlla la connessione e riprova.</string>
   <string name="anime_settings_update_subtitle">Scarica le ultime modifiche per gli add-on anime</string>
   <string name="anime_settings_reorder_title">Riordina catalogo Anime</string>
   <string name="anime_settings_reorder_subtitle">Cambia l\'ordine degli add-on e dei cataloghi della scheda Anime</string>

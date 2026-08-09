@@ -119,6 +119,17 @@ fun OpenSubtitlesSettingsContent(
                         )
                     }
 
+                    if (uiState.enabledDirect && !uiState.hasApiKey) {
+                        item(key = "opensubtitles_direct_api_key_hint") {
+                            Text(
+                                text = stringResource(R.string.opensubtitles_direct_no_api_key_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = NuvioTheme.colors.TextTertiary,
+                                modifier = Modifier.padding(horizontal = NuvioTheme.spacing.md)
+                            )
+                        }
+                    }
+
                     item(key = "opensubtitles_direct_api_key") {
                         SettingsActionRow(
                             leadingIcon = Icons.Default.Key,

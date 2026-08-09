@@ -307,6 +307,17 @@ fun AnimeAddonManagerScreen(
                 }
             }
 
+            item(key = "manage") {
+                SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
+                    SettingsActionRow(
+                        title = stringResource(R.string.anime_settings_manage_phone_title),
+                        subtitle = stringResource(R.string.anime_settings_manage_phone_subtitle),
+                        onClick = viewModel::startQrMode,
+                        leadingIcon = Icons.Default.QrCode2
+                    )
+                }
+            }
+
             item(key = "installed") {
                 SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
                     Row(
@@ -361,17 +372,6 @@ fun AnimeAddonManagerScreen(
                             }
                         }
                     }
-                }
-            }
-
-            item(key = "manage") {
-                SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
-                    SettingsActionRow(
-                        title = stringResource(R.string.anime_settings_manage_phone_title),
-                        subtitle = stringResource(R.string.anime_settings_manage_phone_subtitle),
-                        onClick = viewModel::startQrMode,
-                        leadingIcon = Icons.Default.QrCode2
-                    )
                 }
             }
         }

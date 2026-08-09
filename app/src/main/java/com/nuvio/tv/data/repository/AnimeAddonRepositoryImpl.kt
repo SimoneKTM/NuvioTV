@@ -195,15 +195,20 @@ class AnimeAddonRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun refreshAnimeAddons() {
+    override suspend fun refreshAnimeAddons(): Int {
         val urls = preferences.currentUrls()
-        if (urls.isEmpty()) return
-        coroutineScope {
+        if (urls.isEmpty()) return 0
+        val results = coroutineScope {
             urls.map { url ->
                 async { fetchAnimeAddon(url) }
             }.awaitAll()
         }
-        Log.d(TAG, "Refreshed ${urls.size} anime addon manifests")
+        val successCount = results.count { it is NetworkResult.Success }
+        Log.d(TAG, "Refreshed $successCount/${urls.size} anime addon manifests")
+        if (successCount == 0) {
+            throw IllegalStateException("All anime addon manifest fetches failed")
+        }
+        return successCount
     }
 
     suspend fun animeAddonExists(url: String): Boolean {

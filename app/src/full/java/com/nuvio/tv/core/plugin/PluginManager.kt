@@ -304,6 +304,20 @@ class PluginManager @Inject constructor(
             }
 
             val sanitizedUrl = resolvedUrl.trimEnd('/')
+
+            // GitHub repo URLs are almost always CloudStream-style repos.
+            // Normalize them to raw.githubusercontent.com candidates (repo.json with
+            // master/main fallback) before trying the other formats, so we don't
+            // waste requests on the GitHub HTML page or a 404 manifest.
+            if (looksLikeGithubUrl(sanitizedUrl)) {
+                Log.d(TAG, "Input looks like a GitHub repo URL, trying CloudStream candidates: $sanitizedUrl")
+                val cloudStreamResult = tryAddCloudStreamRepository(sanitizedUrl)
+                if (cloudStreamResult != null) {
+                    return@withContext cloudStreamResult
+                }
+                Log.w(TAG, "CloudStream candidates failed for $sanitizedUrl, falling back to auto-detect")
+            }
+
             val filename = sanitizedUrl.substringAfterLast("/")
             val isExplicitJsonFile = filename.endsWith(".json", ignoreCase = true)
                     && !filename.equals("manifest.json", ignoreCase = true)
@@ -341,6 +355,106 @@ class PluginManager @Inject constructor(
             Log.e(TAG, "Failed to add repository: ${e.message}", e)
             Result.failure(e)
         }
+    }
+
+    /**
+     * Tries to add the URL as a CloudStream-style repository. Returns the added
+     * repository on success, or null if none of the candidate manifests parsed.
+     */
+    private suspend fun tryAddCloudStreamRepository(repoUrl: String): Result<PluginRepository>? {
+        for (candidate in cloudStreamManifestCandidates(repoUrl)) {
+            Log.d(TAG, "Trying CloudStream repository manifest: $candidate")
+            val externalResult = externalRepoParser.tryParse(candidate)
+            if (externalResult != null) {
+                return addExternalRepository(candidate, externalResult)
+            }
+        }
+        return null
+    }
+
+    private fun looksLikeGithubUrl(url: String): Boolean {
+        val lower = url.lowercase()
+        return lower.startsWith("https://github.com/") ||
+            lower.startsWith("http://github.com/") ||
+            lower.startsWith("github.com/") ||
+            lower.startsWith("https://raw.githubusercontent.com/") ||
+            lower.startsWith("http://raw.githubusercontent.com/") ||
+            lower.startsWith("raw.githubusercontent.com/")
+    }
+
+    private fun cloudStreamManifestCandidates(rawUrl: String): List<String> {
+        val normalized = normalizeCloudStreamRepositoryUrl(rawUrl)
+        val alternate = when {
+            "/master/repo.json" in normalized -> normalized.replace("/master/repo.json", "/main/repo.json")
+            "/main/repo.json" in normalized -> normalized.replace("/main/repo.json", "/master/repo.json")
+            else -> null
+        }
+        return listOfNotNull(normalized, alternate).distinct()
+    }
+
+    /**
+     * Converts a CloudStream repository URL into a directly fetchable raw URL.
+     * Handles GitHub pages, raw.githubusercontent.com refs/heads paths and
+     * appends /repo.json when no file extension is present.
+     */
+    private fun normalizeCloudStreamRepositoryUrl(rawUrl: String): String {
+        var value = rawUrl.trim()
+        if (value.isBlank()) return rawUrl
+        value = value
+            .removePrefix("cloudstreamrepo://")
+            .removePrefix("https://cs.repo/?")
+            .removePrefix("http://cs.repo/?")
+            .trim()
+        if (!value.startsWith("http://") && !value.startsWith("https://")) {
+            value = "https://$value"
+        }
+        if (!value.startsWith("https://") && !value.startsWith("http://")) {
+            return rawUrl
+        }
+        value = value.substringBefore('#')
+
+        val githubPrefix = "https://github.com/"
+        if (value.startsWith(githubPrefix, ignoreCase = true)) {
+            val rest = value.substring(githubPrefix.length).trim('/')
+            val parts = rest.split('/').filter { it.isNotBlank() }
+            if (parts.size >= 2) {
+                val owner = parts[0]
+                val repository = parts[1].removeSuffix(".git")
+                value = when {
+                    parts.size >= 5 && parts[2] == "blob" ->
+                        "https://raw.githubusercontent.com/$owner/$repository/${parts[3]}/${parts.drop(4).joinToString("/")}"
+                    parts.size >= 5 && parts[2] == "raw" ->
+                        "https://raw.githubusercontent.com/$owner/$repository/${parts[3]}/${parts.drop(4).joinToString("/")}"
+                    parts.size == 2 -> "https://raw.githubusercontent.com/$owner/$repository/master/repo.json"
+                    else -> value
+                }
+            }
+        }
+
+        val rawGithubPrefix = "https://raw.githubusercontent.com/"
+        if (value.startsWith(rawGithubPrefix, ignoreCase = true)) {
+            val rest = value.substring(rawGithubPrefix.length).trim('/')
+            val parts = rest.split('/').filter { it.isNotBlank() }
+            if (parts.size >= 6 && parts[2] == "refs" && parts[3] == "heads") {
+                value = buildString {
+                    append(rawGithubPrefix)
+                    append(parts[0])
+                    append('/')
+                    append(parts[1])
+                    append('/')
+                    append(parts[4])
+                    append('/')
+                    append(parts.drop(5).joinToString("/"))
+                }
+            }
+        }
+
+        val withoutQuery = value.substringBefore('?')
+        val lastSegment = withoutQuery.substringAfterLast('/')
+        if (!lastSegment.contains('.')) {
+            value = value.trimEnd('/') + "/repo.json"
+        }
+        return value
     }
 
     /**

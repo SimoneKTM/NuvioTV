@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -111,7 +112,7 @@ fun AnimeHomeScreen(
                             Column(verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)) {
                                 Text(
                                     text = stringResource(R.string.nav_anime),
-                                    style = MaterialTheme.typography.headlineLarge,
+                                    style = MaterialTheme.typography.headlineMedium,
                                     color = NuvioTheme.colors.TextPrimary
                                 )
                                 if (uiState.installedAddonsCount > 0) {
@@ -174,9 +175,24 @@ private fun AnimeHomeHeroBanner(
             .padding(horizontal = NuvioTheme.spacing.xxxl)
             .clip(RoundedCornerShape(NuvioTheme.radii.lg))
     ) {
+        if (item.backdropUrl.isNullOrBlank()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                NuvioTheme.colors.Primary.copy(alpha = 0.45f),
+                                NuvioTheme.colors.BackgroundElevated
+                            )
+                        )
+                    )
+            )
+        }
         AsyncImage(
             model = item.backdropUrl,
             contentDescription = item.name,
+            contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
         Box(

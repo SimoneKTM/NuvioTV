@@ -15,5 +15,10 @@ interface AnimeAddonRepository {
     suspend fun removeAnimeAddon(url: String)
     suspend fun setAnimeAddonOrder(urls: List<String>)
     suspend fun setAnimeAddonEnabled(url: String, enabled: Boolean)
-    suspend fun refreshAnimeAddons()
+    /**
+     * Refetches all installed anime addon manifests and refreshes the cache.
+     * Returns the number of manifests that were successfully refreshed.
+     * Throws if none of the fetches succeeded.
+     */
+    suspend fun refreshAnimeAddons(): Int
 }

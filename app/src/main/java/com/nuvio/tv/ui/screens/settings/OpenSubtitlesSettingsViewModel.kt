@@ -94,7 +94,7 @@ class OpenSubtitlesSettingsViewModel @Inject constructor(
     fun setDirectEnabled(enabled: Boolean) {
         viewModelScope.launch {
             directDataStore.setEnabled(enabled)
-            _uiState.update { it.copy(enabledDirect = enabled && it.hasApiKey) }
+            _uiState.update { it.copy(enabledDirect = enabled) }
         }
     }
 

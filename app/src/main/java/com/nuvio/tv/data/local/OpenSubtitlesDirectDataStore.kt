@@ -52,15 +52,12 @@ class OpenSubtitlesDirectDataStore @Inject constructor(
             password = prefs[passwordKey].orEmpty().trim(),
             userToken = prefs[userTokenKey].orEmpty().trim(),
             languages = prefs[languagesKey] ?: emptySet()
-        ).let { s ->
-            if (apiKey.isBlank()) s.copy(enabled = false) else s
-        }
+        )
     }
 
     suspend fun setEnabled(value: Boolean) {
         dataStore.edit { prefs ->
-            val apiKey = prefs[apiKeyKey].orEmpty().trim()
-            prefs[enabledKey] = value && apiKey.isNotBlank()
+            prefs[enabledKey] = value
         }
     }
 

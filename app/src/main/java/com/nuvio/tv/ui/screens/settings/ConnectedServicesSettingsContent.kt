@@ -556,7 +556,7 @@ private fun ConnectedServicesOverview(
                             subtitle = anilistPresentation.subtitle,
                             value = anilistPresentation.value,
                             valueColor = anilistPresentation.color,
-                            leadingRawIconRes = R.raw.anilist_icon,
+                            leadingDrawableRes = R.drawable.anilist_logo,
                             leadingArtworkSize = 40.dp,
                             onClick = onAniListClick,
                             modifier = Modifier
@@ -568,7 +568,7 @@ private fun ConnectedServicesOverview(
                             subtitle = kitsuPresentation.subtitle,
                             value = kitsuPresentation.value,
                             valueColor = kitsuPresentation.color,
-                            leadingRawIconRes = R.raw.kitsu_icon,
+                            leadingDrawableRes = R.drawable.kitsu_logo,
                             leadingArtworkSize = 40.dp,
                             onClick = onKitsuClick,
                             modifier = Modifier
@@ -580,7 +580,7 @@ private fun ConnectedServicesOverview(
                             subtitle = malPresentation.subtitle,
                             value = malPresentation.value,
                             valueColor = malPresentation.color,
-                            leadingRawIconRes = R.raw.mal_icon,
+                            leadingDrawableRes = R.drawable.mal_logo_app,
                             leadingArtworkSize = 40.dp,
                             onClick = onMalClick,
                             modifier = Modifier

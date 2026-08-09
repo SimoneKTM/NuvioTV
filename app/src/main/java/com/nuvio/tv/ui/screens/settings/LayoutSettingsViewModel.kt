@@ -154,8 +154,6 @@ open class LayoutSettingsViewModel @Inject constructor(
     private val _streamBadgeUiState = MutableStateFlow(StreamBadgeSettingsUiState())
     val streamBadgeUiState: StateFlow<StreamBadgeSettingsUiState> = _streamBadgeUiState.asStateFlow()
 
-    open val showTabVisibilityToggles: Boolean = true
-
     open val homeOnlyLayout: Boolean = false
 
     private inline fun updateUiStateIfChanged(

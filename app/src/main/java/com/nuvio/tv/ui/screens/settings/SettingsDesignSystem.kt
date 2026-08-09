@@ -775,6 +775,7 @@ internal fun SettingsActionRow(
     titleTrailingIconTint: Color = NuvioTheme.colors.TextPrimary,
     leadingIcon: ImageVector? = null,
     @RawRes leadingRawIconRes: Int? = null,
+    @androidx.annotation.DrawableRes leadingDrawableRes: Int? = null,
     leadingArtworkSize: Dp = NuvioTheme.spacing.xl,
     valueColor: Color = NuvioTheme.colors.TextSecondary
 ) {
@@ -822,7 +823,17 @@ internal fun SettingsActionRow(
                 .padding(horizontal = 18.dp, vertical = NuvioTheme.spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (leadingRawIconRes != null) {
+            if (leadingDrawableRes != null) {
+                Image(
+                    painter = painterResource(id = leadingDrawableRes),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(leadingArtworkSize)
+                        .alpha(contentAlpha),
+                    contentScale = ContentScale.Fit
+                )
+                Spacer(modifier = Modifier.width(NuvioTheme.spacing.lg))
+            } else if (leadingRawIconRes != null) {
                 Image(
                     painter = rememberRawSvgPainter(leadingRawIconRes, leadingArtworkSize),
                     contentDescription = null,

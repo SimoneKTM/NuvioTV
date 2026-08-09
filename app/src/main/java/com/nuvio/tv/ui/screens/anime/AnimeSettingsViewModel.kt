@@ -145,10 +145,16 @@ class AnimeSettingsViewModel @Inject constructor(
 
     fun refreshAddons() {
         if (_uiState.value.isRefreshing) return
-        _uiState.update { it.copy(isRefreshing = true) }
+        _uiState.update { it.copy(isRefreshing = true, error = null) }
         viewModelScope.launch {
-            animeAddonRepository.refreshAnimeAddons()
-            _uiState.update { it.copy(isRefreshing = false) }
+            try {
+                animeAddonRepository.refreshAnimeAddons()
+            } catch (e: Exception) {
+                Log.e("AnimeSettingsViewModel", "Failed to refresh anime addons", e)
+                _uiState.update { it.copy(error = context.getString(R.string.anime_settings_refresh_failed)) }
+            } finally {
+                _uiState.update { it.copy(isRefreshing = false) }
+            }
         }
     }
 
