@@ -1294,6 +1294,15 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
                 )
             }
         }
+        PlayerEvent.OnOpenSubtitlesSearch -> {
+            openOpenSubtitlesSearch()
+        }
+        PlayerEvent.OnDismissOpenSubtitlesDialog -> {
+            dismissOpenSubtitlesDialog()
+        }
+        is PlayerEvent.OnSelectOpenSubtitlesResult -> {
+            selectOpenSubtitlesResult(event.item)
+        }
         is PlayerEvent.OnSetPlaybackSpeed -> {
             if (isUsingMpvEngine()) {
                 setPlaybackSpeedInternal(event.speed)

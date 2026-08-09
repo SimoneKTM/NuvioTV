@@ -241,6 +241,8 @@ fun PlayerScreen(
             returnToDetailsFromEndPrompt()
         } else if (uiState.error != null) {
             exitPlayerFromError()
+        } else if (uiState.showOpenSubtitlesDialog) {
+            viewModel.onEvent(PlayerEvent.OnDismissOpenSubtitlesDialog)
         } else if (uiState.showAudioOverlay || uiState.showSubtitleOverlay) {
             viewModel.onEvent(PlayerEvent.OnDismissTransientOverlay)
         } else if (uiState.showStreamInfoOverlay) {
@@ -501,7 +503,8 @@ fun PlayerScreen(
                     !uiState.showSubtitleOverlay &&
                     !uiState.showSubtitleStylePanel &&
                     !uiState.showSubtitleTimingDialog &&
-                    !uiState.showSpeedDialog
+                    !uiState.showSpeedDialog &&
+                    !uiState.showOpenSubtitlesDialog
                 ) {
                     viewModel.onEvent(PlayerEvent.OnShowSubtitleOverlay)
                 }
@@ -576,7 +579,7 @@ fun PlayerScreen(
                         uiState.showAudioOverlay || uiState.showSubtitleOverlay ||
                         uiState.showSubtitleStylePanel || uiState.showSpeedDialog ||
                         uiState.showSubtitleDelayOverlay || uiState.showSubtitleTimingDialog ||
-                        uiState.showMoreDialog ||
+                        uiState.showMoreDialog || uiState.showOpenSubtitlesDialog ||
                         shouldConfirmNextEpisodeOnEnd ||
                         uiState.postPlayMode is PostPlayMode.StillWatching
                 if (panelOrDialogOpen) return@onKeyEvent false
@@ -1290,14 +1293,29 @@ fun PlayerScreen(
             subtitleDelayMs = uiState.subtitleDelayMs,
             installedSubtitleAddonOrder = uiState.installedSubtitleAddonOrder,
             isLoadingAddons = uiState.isLoadingAddonSubtitles,
+            openSubtitlesEnabled = uiState.isOpenSubtitlesConfigured,
             onInternalTrackSelected = { viewModel.onEvent(PlayerEvent.OnSelectSubtitleTrack(it)) },
             onAddonSubtitleSelected = { viewModel.onEvent(PlayerEvent.OnSelectAddonSubtitle(it)) },
+            onOpenSubtitlesSearch = { viewModel.onEvent(PlayerEvent.OnOpenSubtitlesSearch) },
             onDisableSubtitles = { viewModel.onEvent(PlayerEvent.OnDisableSubtitles) },
             onEvent = { viewModel.onEvent(it) },
             onDismiss = { viewModel.onEvent(PlayerEvent.OnDismissTransientOverlay) },
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(2.6f)
+        )
+
+        OpenSubtitlesSearchOverlay(
+            visible = uiState.showOpenSubtitlesDialog,
+            isSearching = uiState.isSearchingOpenSubtitles,
+            isDownloading = uiState.isDownloadingOpenSubtitles,
+            results = uiState.openSubtitlesResults,
+            error = uiState.openSubtitlesError,
+            onSelect = { viewModel.onEvent(PlayerEvent.OnSelectOpenSubtitlesResult(it)) },
+            onDismiss = { viewModel.onEvent(PlayerEvent.OnDismissOpenSubtitlesDialog) },
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(2.7f)
         )
 
         PlayerOverlayScaffold(

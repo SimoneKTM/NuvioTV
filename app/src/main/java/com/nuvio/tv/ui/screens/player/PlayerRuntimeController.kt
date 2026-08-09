@@ -565,6 +565,7 @@ class PlayerRuntimeController(
         observeTorrentSettings()
         observeStreamBadgeSettings()
         observeDeviceLocalAspectMode()
+        observeOpenSubtitlesConfig()
     }
 
     private fun observeTorrentSettings() {

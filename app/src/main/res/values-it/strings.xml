@@ -1121,6 +1121,14 @@
 <string name="subtitle_no_builtin">Nessun sottotitolo integrato disponibile</string>
 <string name="subtitle_loading_addon">Caricamento sottotitoli dagli addon\u2026</string>
 <string name="subtitle_no_addon">Nessun sottotitolo da addon disponibile</string>
+<string name="player_opensubtitles_search_button">Cerca su OpenSubtitles</string>
+<string name="player_opensubtitles_dialog_title">OpenSubtitles</string>
+<string name="player_opensubtitles_searching">Ricerca su OpenSubtitles\u2026</string>
+<string name="player_opensubtitles_downloading">Download del sottotitolo\u2026</string>
+<string name="player_opensubtitles_search_empty">Nessun sottotitolo trovato su OpenSubtitles</string>
+<string name="player_opensubtitles_error_missing_api_key">Manca la chiave API di OpenSubtitles. Aggiungila in Impostazioni \u2192 OpenSubtitles.</string>
+<string name="player_opensubtitles_error_credentials">Accesso a OpenSubtitles non riuscito. Controlla chiave API e nome utente/password.</string>
+<string name="player_opensubtitles_error_download">Impossibile scaricare il sottotitolo da OpenSubtitles. Prova un altro risultato.</string>
 <string name="subtitle_text_color">Colore del testo</string>
 <string name="subtitle_outline_color">Colore del contorno</string>
 <string name="subtitle_reset_defaults">Ripristina predefiniti</string>

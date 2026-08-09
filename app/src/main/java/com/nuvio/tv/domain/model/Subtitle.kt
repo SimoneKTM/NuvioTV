@@ -17,3 +17,19 @@ data class Subtitle(
         fun languageCodeToName(code: String): String = com.nuvio.tv.ui.util.languageCodeToName(code)
     }
 }
+
+/**
+ * A single OpenSubtitles search result, listed before the subtitle file is
+ * downloaded (download happens on selection to stay within API rate limits).
+ */
+@Immutable
+data class OpenSubtitlesManualSubtitle(
+    val fileId: Int,
+    val language: String,
+    val languageCode: String,
+    val release: String?,
+    val fileName: String?,
+    val hearingImpaired: Boolean,
+    val fromTrusted: Boolean,
+    val downloadCount: Int
+)

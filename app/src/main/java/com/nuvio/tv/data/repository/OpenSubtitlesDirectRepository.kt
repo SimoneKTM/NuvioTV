@@ -3,6 +3,7 @@ package com.nuvio.tv.data.repository
 import android.util.Log
 import com.nuvio.tv.data.local.OpenSubtitlesDirectDataStore
 import com.nuvio.tv.data.remote.api.OpenSubtitlesApi
+import com.nuvio.tv.domain.model.OpenSubtitlesManualSubtitle
 import com.nuvio.tv.domain.model.Subtitle
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -182,6 +183,119 @@ class OpenSubtitlesDirectRepository @Inject constructor(
 
         Log.d(TAG, "Returning ${results.size} subtitles")
         return results
+    }
+
+    /**
+     * Lists all matching OpenSubtitles results (several per language) without
+     * downloading them. Download happens on selection via [downloadManualItem]
+     * to stay within the OpenSubtitles API rate limits.
+     */
+    suspend fun searchManual(type: String, id: String, videoId: String?): List<OpenSubtitlesManualSubtitle> {
+        val settings = dataStore.settings.first()
+        if (!settings.enabled || !settings.hasApiKey) return emptyList()
+        if (settings.languages.isEmpty()) return emptyList()
+
+        val ref = parseMediaRef(type, id, videoId)
+        val imdbId = ref.imdbId ?: return emptyList()
+
+        Log.d(TAG, "Manual search: imdb=$imdbId S${ref.seasonNumber ?: "-"}E${ref.episodeNumber ?: "-"} languages=${settings.languages}")
+
+        val searchResponse = try {
+            api.searchSubtitles(
+                apiKey = settings.apiKey,
+                imdbId = imdbId,
+                type = if (
+                    type.equals("tv", ignoreCase = true) ||
+                    type.equals("series", ignoreCase = true)
+                ) {
+                    "episode"
+                } else {
+                    "movie"
+                },
+                seasonNumber = ref.seasonNumber,
+                episodeNumber = ref.episodeNumber,
+                languages = settings.languages.sorted().joinToString(",")
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Manual search request failed", e)
+            return emptyList()
+        }
+        val searchBody = searchResponse.body()
+        if (!searchResponse.isSuccessful || searchBody == null) {
+            Log.w(TAG, "Manual search failed: code=${searchResponse.code()} message=${searchResponse.message()}")
+            return emptyList()
+        }
+
+        return searchBody.data
+            .filter { it.attributes?.files?.isNotEmpty() == true }
+            .sortedWith(
+                compareByDescending<com.nuvio.tv.data.remote.dto.OpenSubtitlesSubtitleData> {
+                    it.attributes?.fromTrusted == true
+                }
+                    .thenByDescending { it.attributes?.downloadCount ?: 0 }
+            )
+            .mapNotNull { sub ->
+                val attrs = sub.attributes ?: return@mapNotNull null
+                val file = attrs.files?.firstOrNull() ?: return@mapNotNull null
+                val fileId = file.fileId ?: return@mapNotNull null
+                OpenSubtitlesManualSubtitle(
+                    fileId = fileId,
+                    language = attrs.language ?: "",
+                    languageCode = (attrs.language ?: "").take(2).lowercase(),
+                    release = attrs.release,
+                    fileName = file.fileName,
+                    hearingImpaired = attrs.hearingImpaired == true,
+                    fromTrusted = attrs.fromTrusted == true,
+                    downloadCount = attrs.downloadCount ?: 0
+                )
+            }
+    }
+
+    /**
+     * Downloads a single manual search result (mirroring the mobile app's
+     * lazy download flow) and returns the ready-to-attach subtitle.
+     */
+    suspend fun downloadManualItem(item: OpenSubtitlesManualSubtitle): Result<Subtitle> {
+        val settings = dataStore.settings.first()
+        if (!settings.hasApiKey) {
+            return Result.failure(IllegalStateException("missing_api_key"))
+        }
+        val token = settings.userToken
+        if (token.isBlank()) {
+            val loginError = ensureLoggedIn(settings)
+            if (loginError != null) {
+                return Result.failure(IllegalStateException(loginError))
+            }
+        }
+        val currentToken = dataStore.settings.first().userToken
+        if (currentToken.isBlank()) {
+            return Result.failure(IllegalStateException("no_credentials"))
+        }
+        return try {
+            val downloadResponse = api.downloadSubtitle(
+                apiKey = settings.apiKey,
+                authorization = "Bearer $currentToken",
+                body = com.nuvio.tv.data.remote.dto.OpenSubtitlesDownloadRequest(item.fileId)
+            )
+            val downloadUrl = downloadResponse.body()?.link
+            if (downloadResponse.isSuccessful && downloadUrl != null) {
+                Result.success(
+                    Subtitle(
+                        id = "opensubtitles-${item.fileId}",
+                        url = downloadUrl,
+                        lang = item.languageCode,
+                        addonName = "OpenSubtitles",
+                        addonLogo = null
+                    )
+                )
+            } else {
+                Log.w(TAG, "Manual download failed: code=${downloadResponse.code()} message=${downloadResponse.message()}")
+                Result.failure(IllegalStateException("no_link"))
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Manual download error: ${e.message}", e)
+            Result.failure(e)
+        }
     }
 
     private suspend fun ensureLoggedIn(

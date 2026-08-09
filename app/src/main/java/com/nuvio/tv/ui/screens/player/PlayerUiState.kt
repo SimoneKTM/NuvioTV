@@ -11,6 +11,7 @@ import com.nuvio.tv.data.local.StreamAutoPlayMode
 import com.nuvio.tv.data.local.SubtitleStyleSettings
 import com.nuvio.tv.data.repository.SkipInterval
 import com.nuvio.tv.domain.model.MetaCastMember
+import com.nuvio.tv.domain.model.OpenSubtitlesManualSubtitle
 import com.nuvio.tv.domain.model.Stream
 import com.nuvio.tv.domain.model.Subtitle
 import com.nuvio.tv.domain.model.Video
@@ -122,6 +123,14 @@ data class PlayerUiState(
     val selectedAddonSubtitle: Subtitle? = null,
     val addonSubtitlesError: String? = null,
     val installedSubtitleAddonOrder: List<String> = emptyList(),
+    // Manual OpenSubtitles search (direct API)
+    val isOpenSubtitlesConfigured: Boolean = false,
+    val showOpenSubtitlesDialog: Boolean = false,
+    val isSearchingOpenSubtitles: Boolean = false,
+    val openSubtitlesResults: List<OpenSubtitlesManualSubtitle> = emptyList(),
+    val openSubtitlesError: String? = null,
+    val openSubtitlesSearchKey: String? = null,
+    val isDownloadingOpenSubtitles: Boolean = false,
     // Episodes/streams side panel (for series)
     val showEpisodesPanel: Boolean = false,
     val isLoadingEpisodes: Boolean = false,
@@ -275,6 +284,9 @@ sealed class PlayerEvent {
     data class OnSelectSubtitleTrack(val index: Int) : PlayerEvent()
     data object OnDisableSubtitles : PlayerEvent()
     data class OnSelectAddonSubtitle(val subtitle: Subtitle) : PlayerEvent()
+    data object OnOpenSubtitlesSearch : PlayerEvent()
+    data object OnDismissOpenSubtitlesDialog : PlayerEvent()
+    data class OnSelectOpenSubtitlesResult(val item: OpenSubtitlesManualSubtitle) : PlayerEvent()
     data class OnSetPlaybackSpeed(val speed: Float) : PlayerEvent()
     data object OnToggleControls : PlayerEvent()
     data object OnShowAudioOverlay : PlayerEvent()

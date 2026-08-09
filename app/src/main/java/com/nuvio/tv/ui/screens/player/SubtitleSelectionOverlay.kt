@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -65,9 +66,11 @@ import androidx.tv.material3.Text
 import com.nuvio.tv.R
 import com.nuvio.tv.data.local.SUBTITLE_LANGUAGE_FORCED
 import com.nuvio.tv.data.local.SubtitleStyleSettings
+import com.nuvio.tv.domain.model.OpenSubtitlesManualSubtitle
 import com.nuvio.tv.domain.model.Subtitle
 import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
+import kotlinx.coroutines.delay
 
 private const val SubtitleOffLanguageKey = "__off__"
 private const val SubtitleUnknownLanguageKey = "__unknown__"
@@ -102,8 +105,10 @@ internal fun SubtitleSelectionOverlay(
     subtitleDelayMs: Int,
     installedSubtitleAddonOrder: List<String>,
     isLoadingAddons: Boolean,
+    openSubtitlesEnabled: Boolean = false,
     onInternalTrackSelected: (Int) -> Unit,
     onAddonSubtitleSelected: (Subtitle) -> Unit,
+    onOpenSubtitlesSearch: () -> Unit = {},
     onDisableSubtitles: () -> Unit,
     onEvent: (PlayerEvent) -> Unit,
     onDismiss: () -> Unit,
@@ -159,8 +164,9 @@ internal fun SubtitleSelectionOverlay(
         )
         optionId.takeIf { sessionInitialLanguageKey == sessionSelectedSubtitleLanguageKey }
     }
+    val openSubtitlesSearchLabel = stringResource(R.string.player_opensubtitles_search_button)
     fun buildSessionOptions(languageKey: String, activeSelectedOptionId: String?): List<SubtitleOptionRailItem> {
-        return buildSubtitleOptionRailItems(
+        val base = buildSubtitleOptionRailItems(
             selectedLanguageKey = languageKey,
             internalTracks = sessionInternalTracks,
             addonSubtitles = sessionAddonSubtitles,
@@ -169,6 +175,18 @@ internal fun SubtitleSelectionOverlay(
             builtInLabel = builtInLabel,
             forcedLabel = forcedLabel
         )
+        return if (openSubtitlesEnabled && languageKey != SubtitleOffLanguageKey) {
+            base + SubtitleOptionRailItem(
+                id = OpenSubtitlesSearchOptionId,
+                kind = SubtitleOptionKind.OPENSEARCH,
+                title = openSubtitlesSearchLabel,
+                sourceLabel = "OpenSubtitles",
+                meta = null,
+                isSelected = false
+            )
+        } else {
+            base
+        }
     }
 
     val sessionInitialSubtitleOptions = remember(
@@ -538,6 +556,9 @@ internal fun SubtitleSelectionOverlay(
                             activeRail = OverlayFocusRail.OPTION
                             onAddonSubtitleSelected(subtitle)
                             revealStyleRail = true
+                        },
+                        onOpenSubtitlesSearch = {
+                            onEvent(PlayerEvent.OnOpenSubtitlesSearch)
                         }
                     )
                 }
@@ -661,7 +682,8 @@ private fun SubtitleOptionsRail(
     onMoveLeft: () -> Unit,
     onMoveRight: () -> Unit,
     onInternalTrackSelected: (String, Int) -> Unit,
-    onAddonSubtitleSelected: (String, Subtitle) -> Unit
+    onAddonSubtitleSelected: (String, Subtitle) -> Unit,
+    onOpenSubtitlesSearch: () -> Unit = {}
 ) {
     LaunchedEffect(focusToken) {
         if (focusToken <= 0) return@LaunchedEffect
@@ -744,6 +766,10 @@ private fun SubtitleOptionsRail(
                                         option.addonSubtitle?.let { subtitle ->
                                             onAddonSubtitleSelected(option.id, subtitle)
                                         }
+                                    }
+
+                                    SubtitleOptionKind.OPENSEARCH -> {
+                                        onOpenSubtitlesSearch()
                                     }
                                 }
                             }
@@ -1657,7 +1683,8 @@ private data class SubtitleLanguageRailItem(
 
 private enum class SubtitleOptionKind {
     INTERNAL,
-    ADDON
+    ADDON,
+    OPENSEARCH
 }
 
 private data class SubtitleOptionRailItem(
@@ -1670,6 +1697,8 @@ private data class SubtitleOptionRailItem(
     val internalTrackIndex: Int? = null,
     val addonSubtitle: Subtitle? = null
 )
+
+private const val OpenSubtitlesSearchOptionId = "__opensubtitles_search__"
 
 private fun buildSubtitleLanguageRailItems(
     internalTracks: List<TrackInfo>,
@@ -1902,5 +1931,189 @@ private fun formatSubtitleDelay(delayMs: Int): String {
         delayMs > 0 -> "+${delayMs}ms"
         delayMs < 0 -> "${delayMs}ms"
         else -> "0ms"
+    }
+}
+
+/**
+ * Full-screen search dialog for the direct OpenSubtitles API. Lists all
+ * matching results (multiple per language); selecting one downloads it lazily
+ * before attaching it through the standard addon-subtitle pipeline.
+ */
+@Composable
+internal fun OpenSubtitlesSearchOverlay(
+    visible: Boolean,
+    isSearching: Boolean,
+    isDownloading: Boolean,
+    results: List<OpenSubtitlesManualSubtitle>,
+    error: String?,
+    onSelect: (OpenSubtitlesManualSubtitle) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val resultFocusRequesters = remember { mutableStateMapOf<Int, FocusRequester>() }
+    val firstResultId = results.firstOrNull()?.fileId
+    LaunchedEffect(visible, firstResultId) {
+        if (!visible || firstResultId == null) return@LaunchedEffect
+        repeat(10) { attempt ->
+            val requester = resultFocusRequesters[firstResultId]
+            if (requester != null) {
+                requester.requestFocusAfterFrames(frames = if (attempt == 0) 2 else 1)
+                return@LaunchedEffect
+            }
+            delay(30)
+        }
+    }
+    PlayerOverlayScaffold(
+        visible = visible,
+        onDismiss = onDismiss,
+        modifier = modifier,
+        captureKeys = false,
+        contentPadding = PaddingValues(start = 52.dp, end = 52.dp, top = 36.dp, bottom = 76.dp)
+    ) {
+        Column(
+            verticalArrangement = Arrangement.Bottom,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = stringResource(R.string.player_opensubtitles_dialog_title),
+                style = MaterialTheme.typography.headlineMedium,
+                color = Color.White,
+                modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)
+            )
+
+            when {
+                isDownloading -> {
+                    OverlayLoadingCard(text = stringResource(R.string.player_opensubtitles_downloading))
+                }
+
+                isSearching -> {
+                    OverlayLoadingCard(text = stringResource(R.string.player_opensubtitles_searching))
+                }
+
+                results.isEmpty() -> {
+                    OverlayEmptyCard(
+                        text = error ?: stringResource(R.string.player_opensubtitles_search_empty)
+                    )
+                }
+
+                else -> {
+                    if (error != null) {
+                        Text(
+                            text = error,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = NuvioTheme.colors.Error,
+                            modifier = Modifier.padding(bottom = NuvioTheme.spacing.sm)
+                        )
+                    }
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs),
+                        contentPadding = PaddingValues(top = NuvioTheme.spacing.sm, bottom = NuvioTheme.spacing.sm),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 720.dp)
+                    ) {
+                        items(items = results, key = { item -> item.fileId }) { item ->
+                            OpenSubtitlesResultCard(
+                                item = item,
+                                onClick = { onSelect(item) },
+                                modifier = remember(item.fileId) {
+                                    FocusRequester().also { resultFocusRequesters[item.fileId] = it }
+                                }.let { requester -> Modifier.focusRequester(requester) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OpenSubtitlesResultCard(
+    item: OpenSubtitlesManualSubtitle,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        colors = overlayCardColors(selected = false),
+        shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
+        border = overlayCardBorder(),
+        scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = NuvioTheme.spacing.md, vertical = 9.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                SourceChip(label = "OpenSubtitles")
+                Text(
+                    text = item.language.ifBlank { item.languageCode },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White
+                )
+                if (!item.release.isNullOrBlank()) {
+                    Text(
+                        text = item.release,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NuvioTheme.colors.TextTertiary
+                    )
+                }
+                if (!item.fileName.isNullOrBlank()) {
+                    Text(
+                        text = item.fileName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = NuvioTheme.colors.TextTertiary.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (item.hearingImpaired) {
+                    OpenSubtitlesResultBadge(label = "HI")
+                }
+                if (item.fromTrusted) {
+                    OpenSubtitlesResultBadge(label = "✓", tint = Color(0xFF00FF88))
+                }
+                Text(
+                    text = "${item.downloadCount}×",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NuvioTheme.colors.TextTertiary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OpenSubtitlesResultBadge(
+    label: String,
+    tint: Color = NuvioTheme.colors.TextTertiary
+) {
+    Box(
+        modifier = Modifier
+            .background(
+                color = tint.copy(alpha = 0.16f),
+                shape = RoundedCornerShape(NuvioTheme.radii.sm)
+            )
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = tint
+        )
     }
 }

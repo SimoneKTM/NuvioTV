@@ -1,5 +1,6 @@
 package com.nuvio.tv.domain.repository
 
+import com.nuvio.tv.domain.model.OpenSubtitlesManualSubtitle
 import com.nuvio.tv.domain.model.Subtitle
 
 interface SubtitleRepository {
@@ -26,4 +27,20 @@ interface SubtitleRepository {
         sourceAddonBaseUrl: String? = null,
         onProgress: ((completed: Int, total: Int, addonName: String?) -> Unit)? = null
     ): List<Subtitle>
+
+    /** Whether the direct OpenSubtitles API is configured (enabled + API key + languages). */
+    suspend fun isOpenSubtitlesConfigured(): Boolean
+
+    /**
+     * Manually searches the direct OpenSubtitles API for the current media,
+     * returning multiple results per language without downloading them.
+     */
+    suspend fun searchOpenSubtitles(
+        type: String,
+        id: String,
+        videoId: String?
+    ): List<OpenSubtitlesManualSubtitle>
+
+    /** Downloads a single manual search result and returns the ready-to-attach subtitle. */
+    suspend fun downloadOpenSubtitles(item: OpenSubtitlesManualSubtitle): Result<Subtitle>
 }

@@ -7,6 +7,7 @@ import com.nuvio.tv.core.network.safeApiCall
 import com.nuvio.tv.data.local.AddonPreferences
 import com.nuvio.tv.data.remote.api.AddonApi
 import com.nuvio.tv.domain.model.Addon
+import com.nuvio.tv.domain.model.OpenSubtitlesManualSubtitle
 import com.nuvio.tv.domain.model.Subtitle
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.SubtitleRepository
@@ -126,6 +127,28 @@ class SubtitleRepositoryImpl @Inject constructor(
             "Subtitle fetch completed total=${merged.size} (addons=${result.size} direct=${directSubtitles.size}) in ${System.currentTimeMillis() - startedAtMs}ms"
         )
         merged
+    }
+
+    override suspend fun isOpenSubtitlesConfigured(): Boolean =
+        openSubtitlesDirectRepository.isConfigured()
+
+    override suspend fun searchOpenSubtitles(
+        type: String,
+        id: String,
+        videoId: String?
+    ): List<OpenSubtitlesManualSubtitle> = withContext(Dispatchers.IO) {
+        try {
+            openSubtitlesDirectRepository.searchManual(type, id, videoId)
+        } catch (e: Exception) {
+            Log.e(TAG, "Direct OpenSubtitles manual search failed", e)
+            emptyList()
+        }
+    }
+
+    override suspend fun downloadOpenSubtitles(
+        item: OpenSubtitlesManualSubtitle
+    ): Result<Subtitle> = withContext(Dispatchers.IO) {
+        openSubtitlesDirectRepository.downloadManualItem(item)
     }
 
     private fun canonicalSubtitleType(type: String): String {

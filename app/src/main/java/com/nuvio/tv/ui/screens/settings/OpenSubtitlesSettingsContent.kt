@@ -182,49 +182,51 @@ fun OpenSubtitlesSettingsContent(
                         )
                     }
 
-                    item(key = "opensubtitles_legacy_header") {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = stringResource(R.string.opensubtitles_legacy_addon_section),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = NuvioTheme.colors.TextSecondary
-                            )
-                            Text(
-                                text = stringResource(R.string.opensubtitles_legacy_addon_section_subtitle),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = NuvioTheme.colors.TextTertiary
-                            )
+                    if (!uiState.enabledDirect) {
+                        item(key = "opensubtitles_legacy_header") {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    text = stringResource(R.string.opensubtitles_legacy_addon_section),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = NuvioTheme.colors.TextSecondary
+                                )
+                                Text(
+                                    text = stringResource(R.string.opensubtitles_legacy_addon_section_subtitle),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = NuvioTheme.colors.TextTertiary
+                                )
+                            }
                         }
-                    }
 
-                    item(key = "opensubtitles_enable") {
-                        SettingsToggleRow(
-                            title = stringResource(R.string.opensubtitles_enable_title),
-                            subtitle = stringResource(R.string.opensubtitles_enable_subtitle),
-                            checked = uiState.isInstalled && uiState.isEnabled,
-                            onToggle = { viewModel.setEnabled(!uiState.isEnabled) },
-                            enabled = !uiState.isBusy
-                        )
-                    }
-
-                    if (uiState.isInstalled) {
-                        item(key = "opensubtitles_url") {
-                            SettingsActionRow(
-                                title = stringResource(R.string.opensubtitles_url_title),
-                                subtitle = stringResource(R.string.opensubtitles_url_subtitle),
-                                value = uiState.addonUrl,
-                                onClick = { viewModel.reinstallAddon() },
+                        item(key = "opensubtitles_enable") {
+                            SettingsToggleRow(
+                                title = stringResource(R.string.opensubtitles_enable_title),
+                                subtitle = stringResource(R.string.opensubtitles_enable_subtitle),
+                                checked = uiState.isInstalled && uiState.isEnabled,
+                                onToggle = { viewModel.setEnabled(!uiState.isEnabled) },
                                 enabled = !uiState.isBusy
                             )
                         }
-                    } else {
-                        item(key = "opensubtitles_reinstall") {
-                            SettingsActionRow(
-                                title = stringResource(R.string.opensubtitles_reinstall_title),
-                                subtitle = stringResource(R.string.opensubtitles_reinstall_subtitle),
-                                onClick = { viewModel.reinstallAddon() },
-                                enabled = !uiState.isBusy
-                            )
+
+                        if (uiState.isInstalled) {
+                            item(key = "opensubtitles_url") {
+                                SettingsActionRow(
+                                    title = stringResource(R.string.opensubtitles_url_title),
+                                    subtitle = stringResource(R.string.opensubtitles_url_subtitle),
+                                    value = uiState.addonUrl,
+                                    onClick = { viewModel.reinstallAddon() },
+                                    enabled = !uiState.isBusy
+                                )
+                            }
+                        } else {
+                            item(key = "opensubtitles_reinstall") {
+                                SettingsActionRow(
+                                    title = stringResource(R.string.opensubtitles_reinstall_title),
+                                    subtitle = stringResource(R.string.opensubtitles_reinstall_subtitle),
+                                    onClick = { viewModel.reinstallAddon() },
+                                    enabled = !uiState.isBusy
+                                )
+                            }
                         }
                     }
                 }

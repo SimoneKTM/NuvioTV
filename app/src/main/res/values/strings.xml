@@ -1847,6 +1847,14 @@
     <string name="subtitle_no_builtin">No built-in subtitles available</string>
     <string name="subtitle_loading_addon">Loading subtitles from addons\u2026</string>
     <string name="subtitle_no_addon">No addon subtitles available</string>
+    <string name="player_opensubtitles_search_button">Search OpenSubtitles</string>
+    <string name="player_opensubtitles_dialog_title">OpenSubtitles</string>
+    <string name="player_opensubtitles_searching">Searching OpenSubtitles\u2026</string>
+    <string name="player_opensubtitles_downloading">Downloading subtitle\u2026</string>
+    <string name="player_opensubtitles_search_empty">No subtitles found on OpenSubtitles</string>
+    <string name="player_opensubtitles_error_missing_api_key">OpenSubtitles API key is missing. Add it in Settings \u2192 OpenSubtitles.</string>
+    <string name="player_opensubtitles_error_credentials">OpenSubtitles login failed. Check your API key and username/password.</string>
+    <string name="player_opensubtitles_error_download">Could not download the subtitle from OpenSubtitles. Try another result.</string>
     <string name="subtitle_text_color">Text Color</string>
     <string name="subtitle_outline_color">Outline Color</string>
     <string name="subtitle_reset_defaults">Reset Defaults</string>
