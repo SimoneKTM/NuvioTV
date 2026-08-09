@@ -5,7 +5,6 @@ package com.nuvio.tv.ui.screens.settings
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import android.view.KeyEvent
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +23,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,7 +33,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -69,16 +66,10 @@ fun OpenSubtitlesSettingsContent(
     initialFocusRequester: FocusRequester? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val context = LocalContext.current
     var showApiKeyDialog by remember { mutableStateOf(false) }
     var showUsernameDialog by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var showLanguagesDialog by remember { mutableStateOf(false) }
-
-    LaunchedEffect(uiState.toggleError) {
-        val error = uiState.toggleError ?: return@LaunchedEffect
-        Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
-    }
 
     Column(
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -180,54 +171,6 @@ fun OpenSubtitlesSettingsContent(
                             onClick = { showLanguagesDialog = true },
                             enabled = uiState.enabledDirect && uiState.hasApiKey
                         )
-                    }
-
-                    if (!uiState.enabledDirect) {
-                        item(key = "opensubtitles_legacy_header") {
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(
-                                    text = stringResource(R.string.opensubtitles_legacy_addon_section),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = NuvioTheme.colors.TextSecondary
-                                )
-                                Text(
-                                    text = stringResource(R.string.opensubtitles_legacy_addon_section_subtitle),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = NuvioTheme.colors.TextTertiary
-                                )
-                            }
-                        }
-
-                        item(key = "opensubtitles_enable") {
-                            SettingsToggleRow(
-                                title = stringResource(R.string.opensubtitles_enable_title),
-                                subtitle = stringResource(R.string.opensubtitles_enable_subtitle),
-                                checked = uiState.isInstalled && uiState.isEnabled,
-                                onToggle = { viewModel.setEnabled(!uiState.isEnabled) },
-                                enabled = !uiState.isBusy
-                            )
-                        }
-
-                        if (uiState.isInstalled) {
-                            item(key = "opensubtitles_url") {
-                                SettingsActionRow(
-                                    title = stringResource(R.string.opensubtitles_url_title),
-                                    subtitle = stringResource(R.string.opensubtitles_url_subtitle),
-                                    value = uiState.addonUrl,
-                                    onClick = { viewModel.reinstallAddon() },
-                                    enabled = !uiState.isBusy
-                                )
-                            }
-                        } else {
-                            item(key = "opensubtitles_reinstall") {
-                                SettingsActionRow(
-                                    title = stringResource(R.string.opensubtitles_reinstall_title),
-                                    subtitle = stringResource(R.string.opensubtitles_reinstall_subtitle),
-                                    onClick = { viewModel.reinstallAddon() },
-                                    enabled = !uiState.isBusy
-                                )
-                            }
-                        }
                     }
                 }
                 SettingsVerticalScrollIndicators(state = state)

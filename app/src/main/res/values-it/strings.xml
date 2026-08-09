@@ -359,14 +359,6 @@
 <string name="settings_animeskip_subtitle">Salta inizio/fine Anime</string>
 <string name="settings_opensubtitles_subtitle">Sottotitoli dall\'add-on OpenSubtitles integrato</string>
 <string name="opensubtitles_title">OpenSubtitles</string>
-<string name="opensubtitles_enable_title">Attiva OpenSubtitles</string>
-<string name="opensubtitles_enable_subtitle">Scarica i sottotitoli dall\'add-on OpenSubtitles preinstallato</string>
-<string name="opensubtitles_url_title">URL add-on</string>
-<string name="opensubtitles_url_subtitle">L\'add-on OpenSubtitles integrato viene usato per i sottotitoli di film e serie</string>
-<string name="opensubtitles_not_installed_title">Add-on OpenSubtitles non installato</string>
-<string name="opensubtitles_not_installed_subtitle">L\'add-on OpenSubtitles preinstallato è stato rimosso</string>
-<string name="opensubtitles_reinstall_title">Reinstalla add-on OpenSubtitles</string>
-<string name="opensubtitles_reinstall_subtitle">Ripristina l\'add-on OpenSubtitles preinstallato</string>
 <string name="opensubtitles_direct_enable_title">API diretta</string>
 <string name="opensubtitles_direct_enable_subtitle">Scarica i sottotitoli direttamente dall\'API OpenSubtitles con il tuo account</string>
 <string name="opensubtitles_direct_no_api_key_hint">Aggiungi la chiave API qui sotto per attivare le opzioni dell\'API diretta.</string>
@@ -382,8 +374,6 @@
 <string name="opensubtitles_languages_title">Lingue preferite</string>
 <string name="opensubtitles_languages_subtitle">Verrà scaricato un sottotitolo per ogni lingua</string>
 <string name="opensubtitles_not_set">Non impostato</string>
-<string name="opensubtitles_legacy_addon_section">Add-on legacy</string>
-<string name="opensubtitles_legacy_addon_section_subtitle">L\'add-on OpenSubtitles preinstallato con l\'app. Scarica i sottotitoli di film e serie come ripiego.</string>
 
     <!-- PlaybackSettingsScreen -->
 <string name="playback_title">Impostazioni di riproduzione</string>

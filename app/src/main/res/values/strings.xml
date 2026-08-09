@@ -698,14 +698,6 @@
     <string name="settings_animeskip_subtitle">Anime intro/outro skip timestamps</string>
     <string name="settings_opensubtitles_subtitle">Subtitles from the built-in OpenSubtitles add-on</string>
     <string name="opensubtitles_title">OpenSubtitles</string>
-    <string name="opensubtitles_enable_title">Enable OpenSubtitles</string>
-    <string name="opensubtitles_enable_subtitle">Fetch subtitles from the OpenSubtitles add-on installed by default</string>
-    <string name="opensubtitles_url_title">Add-on URL</string>
-    <string name="opensubtitles_url_subtitle">The built-in OpenSubtitles add-on is used for movie and series subtitles</string>
-    <string name="opensubtitles_not_installed_title">OpenSubtitles add-on not installed</string>
-    <string name="opensubtitles_not_installed_subtitle">The built-in OpenSubtitles add-on was removed</string>
-    <string name="opensubtitles_reinstall_title">Reinstall OpenSubtitles add-on</string>
-    <string name="opensubtitles_reinstall_subtitle">Restore the built-in OpenSubtitles add-on</string>
     <string name="opensubtitles_direct_enable_title">Direct API</string>
     <string name="opensubtitles_direct_enable_subtitle">Fetch subtitles directly from the OpenSubtitles API using your account</string>
     <string name="opensubtitles_direct_no_api_key_hint">Add your API key below to activate the Direct API options.</string>
@@ -721,8 +713,6 @@
     <string name="opensubtitles_languages_title">Preferred languages</string>
     <string name="opensubtitles_languages_subtitle">One subtitle per language will be downloaded</string>
     <string name="opensubtitles_not_set">Not set</string>
-    <string name="opensubtitles_legacy_addon_section">Legacy add-on</string>
-    <string name="opensubtitles_legacy_addon_section_subtitle">The OpenSubtitles add-on preinstalled with the app. It fetches subtitles for movies and series as a fallback.</string>
     <string name="settings_tvdb_subtitle">TVDB metadata enrichment</string>
     <string name="settings_debrid_subtitle">Experimental cloud account sources</string>
 

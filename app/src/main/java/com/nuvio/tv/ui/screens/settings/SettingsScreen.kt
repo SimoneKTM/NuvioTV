@@ -1303,44 +1303,57 @@ private fun AnimeSettingsContent(
                         .fillMaxWidth()
                         .weight(1f)
                 ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    SettingsActionRow(
-                        title = "TMDB",
-                        subtitle = stringResource(R.string.settings_tmdb_subtitle),
-                        onClick = { onSelectSection(AnimeSettingsSection.Tmdb) },
-                        leadingIcon = Icons.Default.Link,
-                        modifier = Modifier.focusRequester(integrationsFocusRequester)
-                    )
-                    SettingsActionRow(
-                        title = "MDBList",
-                        subtitle = stringResource(R.string.settings_mdblist_subtitle),
-                        onClick = { onSelectSection(AnimeSettingsSection.MdbList) },
-                        leadingIcon = Icons.Default.Link
-                    )
-                    SettingsActionRow(
-                        title = "TVDB",
-                        subtitle = stringResource(R.string.settings_tvdb_subtitle),
-                        onClick = { onSelectSection(AnimeSettingsSection.Tvdb) },
-                        leadingIcon = Icons.Default.Link
-                    )
-                    SettingsActionRow(
-                        title = "Anime-Skip",
-                        subtitle = stringResource(R.string.settings_animeskip_subtitle),
-                        onClick = { onSelectSection(AnimeSettingsSection.AnimeSkip) },
-                        leadingIcon = Icons.Default.Link
-                    )
-                    SettingsActionRow(
-                        title = "OpenSubtitles",
-                        subtitle = stringResource(R.string.settings_opensubtitles_subtitle),
-                        onClick = { onSelectSection(AnimeSettingsSection.OpenSubtitles) },
-                        leadingIcon = Icons.Default.Language
-                    )
-                }
+                    val animeIntegrationsState = rememberLazyListState()
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            state = animeIntegrationsState,
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            contentPadding = PaddingValues(8.dp)
+                        ) {
+                            item(key = "anime_integration_tmdb") {
+                                SettingsActionRow(
+                                    title = "TMDB",
+                                    subtitle = stringResource(R.string.settings_tmdb_subtitle),
+                                    onClick = { onSelectSection(AnimeSettingsSection.Tmdb) },
+                                    leadingIcon = Icons.Default.Link,
+                                    modifier = Modifier.focusRequester(integrationsFocusRequester)
+                                )
+                            }
+                            item(key = "anime_integration_mdblist") {
+                                SettingsActionRow(
+                                    title = "MDBList",
+                                    subtitle = stringResource(R.string.settings_mdblist_subtitle),
+                                    onClick = { onSelectSection(AnimeSettingsSection.MdbList) },
+                                    leadingIcon = Icons.Default.Link
+                                )
+                            }
+                            item(key = "anime_integration_tvdb") {
+                                SettingsActionRow(
+                                    title = "TVDB",
+                                    subtitle = stringResource(R.string.settings_tvdb_subtitle),
+                                    onClick = { onSelectSection(AnimeSettingsSection.Tvdb) },
+                                    leadingIcon = Icons.Default.Link
+                                )
+                            }
+                            item(key = "anime_integration_animeskip") {
+                                SettingsActionRow(
+                                    title = "Anime-Skip",
+                                    subtitle = stringResource(R.string.settings_animeskip_subtitle),
+                                    onClick = { onSelectSection(AnimeSettingsSection.AnimeSkip) },
+                                    leadingIcon = Icons.Default.Link
+                                )
+                            }
+                            item(key = "anime_integration_opensubtitles") {
+                                SettingsActionRow(
+                                    title = "OpenSubtitles",
+                                    subtitle = stringResource(R.string.settings_opensubtitles_subtitle),
+                                    onClick = { onSelectSection(AnimeSettingsSection.OpenSubtitles) },
+                                    leadingIcon = Icons.Default.Language
+                                )
+                            }
+                        }
+                        SettingsVerticalScrollIndicators(state = animeIntegrationsState)
+                    }
                 }
             }
         }

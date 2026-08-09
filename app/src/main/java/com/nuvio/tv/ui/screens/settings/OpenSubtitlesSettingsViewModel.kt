@@ -13,14 +13,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-private const val OPEN_SUBTITLES_URL = "https://opensubtitles-v3.strem.io"
-
 data class OpenSubtitlesSettingsUiState(
-    val isInstalled: Boolean = false,
-    val isEnabled: Boolean = false,
-    val isBusy: Boolean = false,
-    val toggleError: String? = null,
-    val addonUrl: String = OPEN_SUBTITLES_URL,
     val enabledDirect: Boolean = false,
     val hasApiKey: Boolean = false,
     val hasUserCredentials: Boolean = false,
@@ -30,7 +23,6 @@ data class OpenSubtitlesSettingsUiState(
 
 @HiltViewModel
 class OpenSubtitlesSettingsViewModel @Inject constructor(
-    private val addonRepository: com.nuvio.tv.domain.repository.AddonRepository,
     private val directDataStore: OpenSubtitlesDirectDataStore
 ) : ViewModel() {
 
@@ -39,18 +31,6 @@ class OpenSubtitlesSettingsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), OpenSubtitlesSettingsUiState())
 
     init {
-        viewModelScope.launch {
-            addonRepository.getInstalledAddons().collect { addons ->
-                val addon = addons.firstOrNull { normalizeUrl(it.baseUrl) == OPEN_SUBTITLES_URL }
-                _uiState.update {
-                    it.copy(
-                        isInstalled = addon != null,
-                        isEnabled = addon?.enabled ?: false,
-                        toggleError = null
-                    )
-                }
-            }
-        }
         viewModelScope.launch {
             val settings = directDataStore.settings.first()
             _uiState.update {
@@ -61,32 +41,6 @@ class OpenSubtitlesSettingsViewModel @Inject constructor(
                     username = settings.username,
                     languages = settings.languages
                 )
-            }
-        }
-    }
-
-    fun setEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isBusy = true, toggleError = null) }
-            val installed = _uiState.value.isInstalled
-            try {
-                if (!installed) {
-                    addonRepository.addAddon(OPEN_SUBTITLES_URL)
-                }
-                addonRepository.setAddonEnabled(OPEN_SUBTITLES_URL, enabled)
-            } catch (e: Exception) {
-                _uiState.update { it.copy(toggleError = e.message, isBusy = false) }
-            }
-        }
-    }
-
-    fun reinstallAddon() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isBusy = true, toggleError = null) }
-            try {
-                addonRepository.addAddon(OPEN_SUBTITLES_URL)
-            } catch (e: Exception) {
-                _uiState.update { it.copy(toggleError = e.message, isBusy = false) }
             }
         }
     }
@@ -132,7 +86,4 @@ class OpenSubtitlesSettingsViewModel @Inject constructor(
             directDataStore.setUserToken("")
         }
     }
-
-    private fun normalizeUrl(url: String): String =
-        url.trim().trimEnd('/').lowercase()
 }
