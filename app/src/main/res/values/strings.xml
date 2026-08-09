@@ -1680,6 +1680,10 @@
     <string name="catalog_order_enable">Enable</string>
     <string name="catalog_order_disable">Disable</string>
 
+    <string name="anime_catalog_order_title">Reorder Anime Catalogs</string>
+    <string name="anime_catalog_order_subtitle">This controls catalog row order on the Anime tab (Classic + Modern + Grid).</string>
+    <string name="anime_catalog_order_empty">No anime catalogs available yet.</string>
+
 
     <string name="stream_retry">Retry</string>
     <string name="stream_no_streams">No streams found</string>

@@ -25,6 +25,7 @@ import com.nuvio.tv.ui.screens.LayoutSelectionScreen
 import com.nuvio.tv.ui.screens.detail.MetaDetailsScreen
 import com.nuvio.tv.ui.screens.home.HomeScreen
 import com.nuvio.tv.ui.screens.addon.AddonManagerScreen
+import com.nuvio.tv.ui.screens.addon.AnimeCatalogOrderScreen
 import com.nuvio.tv.ui.screens.addon.CatalogOrderScreen
 import com.nuvio.tv.ui.screens.library.LibraryScreen
 import com.nuvio.tv.ui.screens.player.PlayerExitReason
@@ -1171,6 +1172,13 @@ fun NuvioNavHost(
 
         composable(Screen.AnimeAddonManager.route) {
             com.nuvio.tv.ui.screens.anime.AnimeAddonManagerScreen(
+                onBackPress = { navController.popBackStack() },
+                onNavigateToReorder = { navController.navigate(Screen.AnimeCatalogOrder.route) }
+            )
+        }
+
+        composable(Screen.AnimeCatalogOrder.route) {
+            AnimeCatalogOrderScreen(
                 onBackPress = { navController.popBackStack() }
             )
         }

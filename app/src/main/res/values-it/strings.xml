@@ -986,6 +986,9 @@
 <string name="catalog_order_disabled_on_home">Disabilitati nella Home</string>
 <string name="catalog_order_enable">Abilita</string>
 <string name="catalog_order_disable">Disabilita</string>
+<string name="anime_catalog_order_title">Riordina cataloghi Anime</string>
+<string name="anime_catalog_order_subtitle">Controlla l\'ordine delle righe dei cataloghi nella scheda Anime (Classica + Moderna + Griglia).</string>
+<string name="anime_catalog_order_empty">Nessun catalogo Anime ancora disponibile.</string>
 
 
     <!-- StreamScreen -->

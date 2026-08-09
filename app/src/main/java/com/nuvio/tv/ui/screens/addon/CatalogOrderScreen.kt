@@ -56,6 +56,53 @@ fun CatalogOrderScreen(
     onBackPress: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    CatalogOrderScreenContent(
+        uiState = uiState,
+        titleRes = R.string.catalog_order_title,
+        subtitleRes = R.string.catalog_order_subtitle,
+        emptyRes = R.string.catalog_order_empty,
+        showFollowAddons = true,
+        onMoveUp = viewModel::moveUp,
+        onMoveDown = viewModel::moveDown,
+        onToggleEnabled = viewModel::toggleCatalogEnabled,
+        onToggleFollowAddons = viewModel::toggleFollowAddonsOrder,
+        onBackPress = onBackPress
+    )
+}
+
+@Composable
+fun AnimeCatalogOrderScreen(
+    viewModel: AnimeCatalogOrderViewModel = hiltViewModel(),
+    onBackPress: () -> Unit
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    CatalogOrderScreenContent(
+        uiState = uiState,
+        titleRes = R.string.anime_catalog_order_title,
+        subtitleRes = R.string.anime_catalog_order_subtitle,
+        emptyRes = R.string.anime_catalog_order_empty,
+        showFollowAddons = false,
+        onMoveUp = viewModel::moveUp,
+        onMoveDown = viewModel::moveDown,
+        onToggleEnabled = viewModel::toggleCatalogEnabled,
+        onToggleFollowAddons = {},
+        onBackPress = onBackPress
+    )
+}
+
+@Composable
+private fun CatalogOrderScreenContent(
+    uiState: CatalogOrderUiState,
+    titleRes: Int,
+    subtitleRes: Int,
+    emptyRes: Int,
+    showFollowAddons: Boolean,
+    onMoveUp: (String) -> Unit,
+    onMoveDown: (String) -> Unit,
+    onToggleEnabled: (String) -> Unit,
+    onToggleFollowAddons: (Boolean) -> Unit,
+    onBackPress: () -> Unit
+) {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
@@ -74,13 +121,13 @@ fun CatalogOrderScreen(
         ) {
             item {
                 Text(
-                    text = stringResource(R.string.catalog_order_title),
+                    text = stringResource(titleRes),
                     style = MaterialTheme.typography.headlineLarge,
                     color = NuvioTheme.colors.TextPrimary
                 )
                 Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
                 Text(
-                    text = stringResource(R.string.catalog_order_subtitle),
+                    text = stringResource(subtitleRes),
                     style = MaterialTheme.typography.bodyMedium,
                     color = NuvioTheme.colors.TextSecondary
                 )
@@ -102,14 +149,16 @@ fun CatalogOrderScreen(
                             color = NuvioTheme.colors.TextSecondary
                         )
                     }
-                    Switch(
-                        checked = uiState.followAddonsOrder,
-                        onCheckedChange = { viewModel.toggleFollowAddonsOrder(it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = NuvioTheme.colors.Primary,
-                            checkedTrackColor = NuvioTheme.colors.Primary.copy(alpha = 0.5f)
+                    if (showFollowAddons) {
+                        Switch(
+                            checked = uiState.followAddonsOrder,
+                            onCheckedChange = onToggleFollowAddons,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = NuvioTheme.colors.Primary,
+                                checkedTrackColor = NuvioTheme.colors.Primary.copy(alpha = 0.5f)
+                            )
                         )
-                    )
+                    }
                 }
             }
 
@@ -130,7 +179,7 @@ fun CatalogOrderScreen(
                 uiState.items.isEmpty() -> {
                     item {
                         Text(
-                            text = stringResource(R.string.catalog_order_empty),
+                            text = stringResource(emptyRes),
                             style = MaterialTheme.typography.bodyLarge,
                             color = NuvioTheme.colors.TextSecondary
                         )
@@ -145,20 +194,20 @@ fun CatalogOrderScreen(
                         CatalogOrderCard(
                             item = item,
                             onMoveUp = {
-                                viewModel.moveUp(item.key)
+                                onMoveUp(item.key)
                                 scope.launch {
                                     listState.animateScrollToItem((index - 1).coerceAtLeast(0))
                                 }
                             },
                             onMoveDown = {
-                                viewModel.moveDown(item.key)
+                                onMoveDown(item.key)
                                 scope.launch {
                                     listState.animateScrollToItem(
                                         (index + 1).coerceAtMost(uiState.items.lastIndex)
                                     )
                                 }
                             },
-                            onToggleEnabled = { viewModel.toggleCatalogEnabled(item.disableKey) }
+                            onToggleEnabled = { onToggleEnabled(item.disableKey) }
                         )
                     }
                 }

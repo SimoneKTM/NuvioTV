@@ -81,7 +81,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun AnimeAddonManagerScreen(
     viewModel: AnimeSettingsViewModel = hiltViewModel(),
-    onBackPress: () -> Unit
+    onBackPress: () -> Unit,
+    onNavigateToReorder: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -92,12 +93,6 @@ fun AnimeAddonManagerScreen(
     val textFieldFocusRequester = remember { FocusRequester() }
     val installButtonFocusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
-    val scrollToInstalled: () -> Unit = {
-        coroutineScope.launch {
-            val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
-            listState.animateScrollToItem(lastIndex)
-        }
-    }
 
     val defaultRefreshSubtitle = stringResource(R.string.anime_settings_update_subtitle)
     val refreshedAddonsSubtitle = stringResource(R.string.addon_refresh_done_subtitle)
@@ -325,7 +320,7 @@ fun AnimeAddonManagerScreen(
                     SettingsActionRow(
                         title = stringResource(R.string.anime_settings_reorder_title),
                         subtitle = stringResource(R.string.anime_settings_reorder_subtitle),
-                        onClick = scrollToInstalled,
+                        onClick = onNavigateToReorder,
                         leadingIcon = Icons.Default.Reorder
                     )
                 }
