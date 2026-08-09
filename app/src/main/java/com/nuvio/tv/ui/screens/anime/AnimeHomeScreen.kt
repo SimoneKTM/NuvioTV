@@ -1,11 +1,10 @@
 package com.nuvio.tv.ui.screens.anime
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,35 +12,38 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FilterDrama
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.Icon
-import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import coil3.compose.AsyncImage
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.legacyKey
 import com.nuvio.tv.ui.components.CatalogRowSection
 import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.LoadingIndicator
+import com.nuvio.tv.ui.screens.home.HeroPreview
+import com.nuvio.tv.ui.screens.home.HeroTitleBlock
+import com.nuvio.tv.ui.screens.home.ModernHeroScene
+import com.nuvio.tv.ui.screens.home.ModernHeroSceneState
+import com.nuvio.tv.ui.screens.home.extractYearText
+import com.nuvio.tv.ui.screens.home.firstNonBlank
+import com.nuvio.tv.ui.screens.home.formatHeroRuntime
+import com.nuvio.tv.ui.screens.home.isSeriesType
 import com.nuvio.tv.ui.theme.NuvioTheme
+import com.nuvio.tv.ui.util.asStable
 import com.nuvio.tv.ui.util.dpadRepeatThrottle
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -90,46 +92,16 @@ fun AnimeHomeScreen(
             }
 
             else -> {
+                val heroItem = uiState.heroItem
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
                         .dpadRepeatThrottle(),
                     contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
                 ) {
-                    item(key = "anime_header") {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(
-                                    start = NuvioTheme.spacing.xxxl,
-                                    end = NuvioTheme.spacing.xxxl,
-                                    top = NuvioTheme.spacing.xl,
-                                    bottom = NuvioTheme.spacing.lg
-                                ),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)) {
-                                Text(
-                                    text = stringResource(R.string.nav_anime),
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    color = NuvioTheme.colors.TextPrimary
-                                )
-                                if (uiState.installedAddonsCount > 0) {
-                                    Text(
-                                        text = stringResource(R.string.anime_home_addons_count, uiState.installedAddonsCount),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = NuvioTheme.colors.TextSecondary
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    val heroItem = uiState.heroItem
                     if (uiState.heroEnabled && heroItem != null) {
                         item(key = "anime_hero") {
-                            AnimeHomeHeroBanner(
+                            AnimeHomeModernHero(
                                 item = heroItem,
                                 onOpen = {
                                     onNavigateToDetail(
@@ -163,89 +135,94 @@ fun AnimeHomeScreen(
 }
 
 @Composable
-private fun AnimeHomeHeroBanner(
+private fun AnimeHomeModernHero(
     item: MetaPreview,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val heroHeightPx = with(density) {
+        (configuration.screenHeightDp * 0.60f).dp.roundToPx()
+    }
+    val requestWidthPx = with(density) { configuration.screenWidthDp.dp.roundToPx() }
+    val heroPreview = remember(item) { buildAnimeHeroPreview(item) }
+    val heroSceneState = remember(item) {
+        {
+            ModernHeroSceneState(
+                heroBackdrop = firstNonBlank(
+                    item.backdropUrl,
+                    item.background,
+                    item.landscapePoster,
+                    item.poster
+                ),
+                preview = heroPreview,
+                enrichmentActive = false,
+                shouldPlayTrailer = false,
+                trailerFirstFrameRendered = false,
+                trailerUrl = null,
+                trailerAudioUrl = null,
+                trailerPlaybackKey = null,
+                trailerMuted = true,
+                fullScreenBackdrop = false
+            )
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(300.dp)
-            .padding(horizontal = NuvioTheme.spacing.xxxl)
-            .clip(RoundedCornerShape(NuvioTheme.radii.lg))
+            .height(with(density) { heroHeightPx.toDp() })
+            .clickable { onOpen() }
     ) {
-        if (item.backdropUrl.isNullOrBlank()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                NuvioTheme.colors.Primary.copy(alpha = 0.45f),
-                                NuvioTheme.colors.BackgroundElevated
-                            )
-                        )
-                    )
-            )
-        }
-        AsyncImage(
-            model = item.backdropUrl,
-            contentDescription = item.name,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
+        ModernHeroScene(
+            state = heroSceneState,
+            isFullScreen = { false },
+            bgColor = NuvioTheme.colors.Background,
+            modifier = Modifier.fillMaxSize(),
+            requestWidthPx = requestWidthPx,
+            requestHeightPx = heroHeightPx,
+            onTrailerEnded = {},
+            onFirstFrameRendered = {}
         )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            NuvioTheme.colors.BackgroundElevated,
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, NuvioTheme.colors.BackgroundElevated)
-                    )
-                )
-        )
-        Column(
+        HeroTitleBlock(
+            previewProvider = { heroPreview },
+            portraitMode = true,
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .padding(NuvioTheme.spacing.xl),
-            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-        ) {
-            Text(
-                text = item.name,
-                style = MaterialTheme.typography.headlineLarge,
-                color = NuvioTheme.colors.TextPrimary,
-                maxLines = 2
-            )
-            val details = buildList {
-                item.releaseInfo?.takeIf { it.isNotBlank() }?.let(::add)
-                item.genres.takeIf { it.isNotEmpty() }?.joinToString(" • ")?.let(::add)
-            }
-            if (details.isNotEmpty()) {
-                Text(
-                    text = details.joinToString("  •  "),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = NuvioTheme.colors.TextSecondary,
-                    maxLines = 1
+                .padding(
+                    start = NuvioTheme.spacing.xxxl,
+                    end = NuvioTheme.spacing.xxxl,
+                    bottom = NuvioTheme.spacing.xxxl
                 )
-            }
-            Button(onClick = onOpen) {
-                Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
-                Spacer(modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xs))
-                Text(stringResource(R.string.hero_play))
-            }
-        }
+                .fillMaxWidth(0.72f)
+        )
     }
+}
+
+private fun buildAnimeHeroPreview(item: MetaPreview): HeroPreview {
+    val isSeries = isSeriesType(item.apiType)
+    val contentTypeText = when {
+        item.rawType.isNotBlank() -> item.rawType.replaceFirstChar { it.uppercase() }
+        isSeries -> "Series"
+        else -> "Movie"
+    }
+    return HeroPreview(
+        title = item.name,
+        logo = item.logo,
+        description = item.description,
+        contentTypeText = contentTypeText,
+        isSeries = isSeries,
+        yearText = extractYearText(item.type, item.releaseInfo, item.released),
+        runtimeText = formatHeroRuntime(item.runtime),
+        imdbText = item.imdbRating?.let { String.format(java.util.Locale.US, "%.1f", it) },
+        ageRatingText = item.ageRating,
+        statusText = item.status,
+        countryText = item.country,
+        languageText = item.language?.uppercase(),
+        genres = item.genres.take(3).asStable(),
+        poster = item.poster,
+        backdrop = item.backdropUrl,
+        imageUrl = item.poster ?: item.backdropUrl
+    )
 }
