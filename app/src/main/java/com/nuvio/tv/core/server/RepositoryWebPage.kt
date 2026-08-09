@@ -103,6 +103,13 @@ object RepositoryWebPage {
     display: none;
     padding-left: 1.25rem;
   }
+  .add-hint {
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 0.75rem;
+    margin-top: 0.6rem;
+    padding-left: 1.25rem;
+    line-height: 1.5;
+  }
   .btn {
     display: inline-flex;
     align-items: center;
@@ -330,6 +337,16 @@ object RepositoryWebPage {
     <div class="add-error" id="addError"></div>
   </div>
 
+  <div class="add-section">
+    <label>${context.getString(R.string.web_add_cloudstream_repo_url)}</label>
+    <div class="add-row">
+      <input type="url" id="cloudstreamUrl" placeholder="${context.getString(R.string.web_placeholder_cs_url)}" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="btn" id="csAddBtn" onclick="addCloudStreamRepo()">${context.getString(R.string.web_btn_add)}</button>
+    </div>
+    <div class="add-hint">${context.getString(R.string.web_cloudstream_repo_hint)}</div>
+    <div class="add-error" id="csAddError"></div>
+  </div>
+
   <div class="section-label">${context.getString(R.string.web_installed)}</div>
   <ul class="repo-list" id="repoList"></ul>
   <div class="empty-state" id="emptyState">${context.getString(R.string.web_no_repos)}</div>
@@ -420,6 +437,35 @@ async function addRepo() {
   if (url.startsWith('stremio://')) {
     url = url.replace(/^stremio:\/\//, 'https://');
   }
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url;
+  }
+  url = url.replace(/\/+$/, '');
+
+  if (repos.some(function(r) { return r.url === url; })) {
+    errorEl.textContent = '${context.getString(R.string.web_error_repo_exists).replace("'", "\\'")}';
+    errorEl.style.display = 'block';
+    setTimeout(function() { errorEl.style.display = 'none'; }, 3000);
+    return;
+  }
+
+  errorEl.style.display = 'none';
+  repos.push({ url: url, name: url, description: null, isNew: true });
+  input.value = '';
+  renderList();
+}
+
+async function addCloudStreamRepo() {
+  const input = document.getElementById('cloudstreamUrl');
+  const errorEl = document.getElementById('csAddError');
+  let url = input.value.trim();
+  if (!url) return;
+
+  url = url
+    .replace(/^cloudstreamrepo:\/\//i, '')
+    .replace(/^https:\/\/cs\.repo\/\?/i, '')
+    .replace(/^http:\/\/cs\.repo\/\?/i, '')
+    .trim();
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     url = 'https://' + url;
   }
@@ -597,6 +643,10 @@ function escapeHtml(str) {
 
 document.getElementById('repoUrl').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') addRepo();
+});
+
+document.getElementById('cloudstreamUrl').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') addCloudStreamRepo();
 });
 
 loadRepos();

@@ -14,6 +14,7 @@
     <string name="web_manage_anime_addons_subtitle">Install or remove anime add-ons</string>
     <string name="web_add_addon_url">Add addon by URL</string>
     <string name="web_placeholder_url">https://example.com/manifest.json</string>
+    <string name="web_placeholder_cs_url">https://github.com/user/cloudstream-repo</string>
     <string name="web_btn_add">Add</string>
     <string name="web_installed_addons">Installed Addons</string>
     <string name="web_no_addons">No addons installed</string>
@@ -43,6 +44,8 @@
     <string name="web_manage_repos_title">Manage Repositories</string>
     <string name="web_manage_repos_subtitle">Manage your repositories</string>
     <string name="web_add_repo_url">Add repository by URL</string>
+    <string name="web_add_cloudstream_repo_url">Add CloudStream repository</string>
+    <string name="web_cloudstream_repo_hint">CloudStream repositories use a repo.json manifest (e.g. a GitHub repo URL)</string>
     <string name="web_installed">Installed</string>
     <string name="web_no_repos">No repositories installed</string>
     <string name="web_error_repo_exists">This repository is already in the list</string>
