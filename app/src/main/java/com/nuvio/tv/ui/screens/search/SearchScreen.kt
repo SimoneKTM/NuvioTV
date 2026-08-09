@@ -557,7 +557,10 @@ fun SearchScreen(
                     onVoiceSearch = launchVoiceSearch,
                     onMoveToResults = { focusResults = true },
                     onMoveToKeyboard = {
-                        runCatching { keyboardFirstKeyFocusRequester.requestFocus() }
+                        coroutineScope.launch {
+                            repeat(2) { withFrameNanos { } }
+                            runCatching { keyboardFirstKeyFocusRequester.requestFocus() }
+                        }
                     },
                     onOpenDiscover = onOpenDiscover,
                     showDiscoverButton = uiState.discoverLocation == DiscoverLocation.IN_SEARCH,
@@ -583,6 +586,11 @@ fun SearchScreen(
                     },
                     onMoveToRecents = if (panelRecentSearches.isNotEmpty()) {
                         { runCatching { recentFirstItemFocusRequester.requestFocus() } }
+                    } else {
+                        null
+                    },
+                    onMoveToResults = if (canMoveToResults) {
+                        { focusResults = true }
                     } else {
                         null
                     }
@@ -877,7 +885,8 @@ private fun SearchInputField(
                 .onPreviewKeyEvent { keyEvent ->
                     when (keyEvent.nativeKeyEvent.keyCode) {
                         KeyEvent.KEYCODE_ENTER,
-                        KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                        KeyEvent.KEYCODE_NUMPAD_ENTER,
+                        KeyEvent.KEYCODE_DPAD_CENTER -> {
                             if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
                                 onSubmit()
                             }
@@ -895,6 +904,15 @@ private fun SearchInputField(
                                 if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
                                     onMoveToResults()
                                 }
+                                return@onPreviewKeyEvent true
+                            }
+                        }
+
+                        KeyEvent.KEYCODE_DPAD_UP -> {
+                            if (canMoveToResults &&
+                                keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN
+                            ) {
+                                onMoveToResults()
                                 return@onPreviewKeyEvent true
                             }
                         }
