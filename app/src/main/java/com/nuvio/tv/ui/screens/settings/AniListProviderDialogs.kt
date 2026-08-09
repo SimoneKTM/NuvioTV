@@ -128,7 +128,11 @@ private fun AniListConnectContent(
         TrackerQrLoginSection(
             qrLogin = state.qrLogin,
             providerName = stringResource(R.string.anilist_name),
-            logo = painterResource(R.drawable.anilist_logo),
+            logo = rememberRemoteLogoPainter(
+                url = "https://cdn.myanimelist.net/images/app_lp/applogo.png",
+                fallbackRes = R.drawable.anilist_logo,
+                targetSize = 40.dp
+            ),
             logoContentDescription = stringResource(R.string.cd_anilist_logo),
             instruction = stringResource(R.string.anilist_connect_instruction),
             onStart = onStartQrLogin,
@@ -168,7 +172,11 @@ private fun AniListConnectContent(
 @Composable
 private fun AniListWordmarkHeader() {
     Image(
-        painter = painterResource(R.drawable.anilist_logo),
+        painter = rememberRemoteLogoPainter(
+            url = "https://cdn.myanimelist.net/images/app_lp/applogo.png",
+            fallbackRes = R.drawable.anilist_logo,
+            targetSize = 40.dp
+        ),
         contentDescription = stringResource(R.string.cd_anilist_logo),
         modifier = Modifier
             .fillMaxWidth()

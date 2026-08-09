@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -776,6 +777,7 @@ internal fun SettingsActionRow(
     leadingIcon: ImageVector? = null,
     @RawRes leadingRawIconRes: Int? = null,
     @androidx.annotation.DrawableRes leadingDrawableRes: Int? = null,
+    leadingUrl: String? = null,
     leadingArtworkSize: Dp = NuvioTheme.spacing.xl,
     valueColor: Color = NuvioTheme.colors.TextSecondary
 ) {
@@ -823,7 +825,21 @@ internal fun SettingsActionRow(
                 .padding(horizontal = 18.dp, vertical = NuvioTheme.spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (leadingDrawableRes != null) {
+            if (leadingUrl != null) {
+                Image(
+                    painter = rememberRemoteLogoPainter(
+                        url = leadingUrl,
+                        fallbackRes = leadingDrawableRes ?: R.drawable.app_logo_mark,
+                        targetSize = leadingArtworkSize
+                    ),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(leadingArtworkSize)
+                        .alpha(contentAlpha),
+                    contentScale = ContentScale.Fit
+                )
+                Spacer(modifier = Modifier.width(NuvioTheme.spacing.lg))
+            } else if (leadingDrawableRes != null) {
                 Image(
                     painter = painterResource(id = leadingDrawableRes),
                     contentDescription = null,
@@ -1280,4 +1296,30 @@ internal fun rememberRawSvgPainter(
             .build()
     }
     return rememberAsyncImagePainter(model = request)
+}
+
+/**
+ * Loads a remote logo (e.g. provider wordmark) and falls back to the bundled
+ * drawable when the network image cannot be loaded.
+ */
+@Composable
+internal fun rememberRemoteLogoPainter(
+    url: String,
+    fallbackRes: Int,
+    targetSize: Dp = 24.dp
+): Painter {
+    val context = LocalContext.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val sizePx = with(density) { targetSize.roundToPx() }
+    val fallback = painterResource(id = fallbackRes)
+    val request = remember(url, context, sizePx) {
+        ImageRequest.Builder(context)
+            .data(url)
+            .size(sizePx)
+            .crossfade(false)
+            .build()
+    }
+    val painter = rememberAsyncImagePainter(model = request)
+    val state by painter.state.collectAsState()
+    return if (state is coil3.compose.AsyncImagePainter.State.Error) fallback else painter
 }

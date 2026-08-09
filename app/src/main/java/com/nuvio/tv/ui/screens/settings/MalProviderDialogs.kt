@@ -128,7 +128,11 @@ private fun MalConnectContent(
         TrackerQrLoginSection(
             qrLogin = state.qrLogin,
             providerName = stringResource(R.string.mal_name),
-            logo = painterResource(R.drawable.mal_logo_app),
+            logo = rememberRemoteLogoPainter(
+                url = "https://upload.wikimedia.org/wikipedia/commons/9/9b/MyAnimeList_favicon.svg",
+                fallbackRes = R.drawable.mal_logo_app,
+                targetSize = 40.dp
+            ),
             logoContentDescription = stringResource(R.string.cd_mal_logo),
             instruction = stringResource(R.string.mal_connect_instruction),
             onStart = onStartQrLogin,
@@ -168,7 +172,11 @@ private fun MalConnectContent(
 @Composable
 private fun MalWordmarkHeader() {
     Image(
-        painter = painterResource(R.drawable.mal_logo_app),
+        painter = rememberRemoteLogoPainter(
+            url = "https://upload.wikimedia.org/wikipedia/commons/9/9b/MyAnimeList_favicon.svg",
+            fallbackRes = R.drawable.mal_logo_app,
+            targetSize = 40.dp
+        ),
         contentDescription = stringResource(R.string.cd_mal_logo),
         modifier = Modifier
             .fillMaxWidth()
