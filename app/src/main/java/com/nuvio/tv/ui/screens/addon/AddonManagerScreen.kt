@@ -150,11 +150,6 @@ fun AddonManagerScreen(
     val installButtonFocusRequester = remember { FocusRequester() }
     val textFieldFocusRequester = remember { FocusRequester() }
     var isEditing by remember { mutableStateOf(false) }
-    val hasHomeVisibleCatalogs = remember(uiState.installedAddons) {
-        uiState.installedAddons.any { addon ->
-            addon.enabled && addon.catalogs.any { catalog -> !catalog.isSearchOnlyCatalog() }
-        }
-    }
     val manageFromPhoneSubtitle = if (webConfigMode == com.nuvio.tv.core.server.AddonWebConfigMode.COLLECTIONS_ONLY) {
         stringResource(R.string.addon_manage_collections_from_phone_subtitle)
     } else {
@@ -395,7 +390,7 @@ fun AddonManagerScreen(
                 )
             }
 
-            if (!viewModel.isReadOnly && !isEssential && hasHomeVisibleCatalogs) {
+            if (!viewModel.isReadOnly && !isEssential) {
                 item {
                     CatalogOrderEntryCard(onClick = onNavigateToCatalogOrder)
                 }
