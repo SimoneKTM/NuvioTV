@@ -369,7 +369,7 @@
 <string name="opensubtitles_reinstall_subtitle">Ripristina l\'add-on OpenSubtitles preinstallato</string>
 <string name="opensubtitles_direct_enable_title">API diretta</string>
 <string name="opensubtitles_direct_enable_subtitle">Scarica i sottotitoli direttamente dall\'API OpenSubtitles con il tuo account</string>
-<string name="opensubtitles_direct_no_api_key_hint">L\'API diretta richiede una chiave API per funzionare. Aggiungila qui sotto.</string>
+<string name="opensubtitles_direct_no_api_key_hint">Aggiungi la chiave API qui sotto per attivare le opzioni dell\'API diretta.</string>
 <string name="opensubtitles_api_key_title">Chiave API</string>
 <string name="opensubtitles_api_key_subtitle">La tua chiave API opensubtitles.com</string>
 <string name="opensubtitles_api_key_placeholder">Incolla qui la tua chiave API</string>

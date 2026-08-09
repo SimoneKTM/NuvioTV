@@ -708,7 +708,7 @@
     <string name="opensubtitles_reinstall_subtitle">Restore the built-in OpenSubtitles add-on</string>
     <string name="opensubtitles_direct_enable_title">Direct API</string>
     <string name="opensubtitles_direct_enable_subtitle">Fetch subtitles directly from the OpenSubtitles API using your account</string>
-    <string name="opensubtitles_direct_no_api_key_hint">The Direct API needs an API key to work. Add it below.</string>
+    <string name="opensubtitles_direct_no_api_key_hint">Add your API key below to activate the Direct API options.</string>
     <string name="opensubtitles_api_key_title">API key</string>
     <string name="opensubtitles_api_key_subtitle">Your opensubtitles.com API key</string>
     <string name="opensubtitles_api_key_placeholder">Paste your API key here</string>

@@ -148,7 +148,7 @@ fun OpenSubtitlesSettingsContent(
                             subtitle = stringResource(R.string.opensubtitles_username_subtitle),
                             value = uiState.username.ifBlank { stringResource(R.string.opensubtitles_not_set) },
                             onClick = { showUsernameDialog = true },
-                            enabled = uiState.enabledDirect
+                            enabled = uiState.enabledDirect && uiState.hasApiKey
                         )
                     }
 
@@ -163,7 +163,7 @@ fun OpenSubtitlesSettingsContent(
                                 stringResource(R.string.opensubtitles_not_set)
                             },
                             onClick = { showPasswordDialog = true },
-                            enabled = uiState.enabledDirect
+                            enabled = uiState.enabledDirect && uiState.hasApiKey
                         )
                     }
 
@@ -178,7 +178,7 @@ fun OpenSubtitlesSettingsContent(
                                 stringResource(R.string.opensubtitles_not_set)
                             },
                             onClick = { showLanguagesDialog = true },
-                            enabled = uiState.enabledDirect
+                            enabled = uiState.enabledDirect && uiState.hasApiKey
                         )
                     }
 
