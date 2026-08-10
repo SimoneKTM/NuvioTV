@@ -1,0 +1,59 @@
+name: Build APK TV (unsigned)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "enhanced/tv"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-apk-tv-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build fullRelease APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Prepare local properties
+        run: |
+          touch local.properties
+          touch local.dev.properties
+          printf 'ANILIST_CLIENT_ID=%s\n' "${{ secrets.ANILIST_CLIENT_ID }}" >> local.properties
+          printf 'MAL_CLIENT_ID=%s\n' "${{ secrets.MAL_CLIENT_ID }}" >> local.properties
+          printf 'KITSU_CLIENT_ID=%s\n' "${{ secrets.KITSU_CLIENT_ID }}" >> local.properties
+          printf 'KITSU_CLIENT_SECRET=%s\n' "${{ secrets.KITSU_CLIENT_SECRET }}" >> local.properties
+          printf 'TRAKT_CLIENT_ID=%s\n' "${{ secrets.TRAKT_CLIENT_ID }}" >> local.properties
+          printf 'TRAKT_CLIENT_SECRET=%s\n' "${{ secrets.TRAKT_CLIENT_SECRET }}" >> local.properties
+          printf 'TRAKT_REDIRECT_URI=%s\n' "${{ secrets.TRAKT_REDIRECT_URI }}" >> local.properties
+          printf 'TRACKER_LOGIN_RELAY_BASE_URL=%s\n' "${{ secrets.TRACKER_LOGIN_RELAY_BASE_URL }}" >> local.properties
+
+      - name: Build fullRelease APK (debug-signed)
+        env:
+          CI_USE_DEBUG_SIGNING: "true"
+        run: ./gradlew :app:assembleFullRelease --stacktrace
+
+      - name: Upload fullRelease APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: nuvio-tv-full-release
+          path: app/build/outputs/apk/full/release/*.apk
+          if-no-files-found: error
+          retention-days: 14
