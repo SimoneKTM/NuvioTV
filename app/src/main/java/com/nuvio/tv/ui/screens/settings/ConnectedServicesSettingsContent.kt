@@ -581,7 +581,7 @@ private fun ConnectedServicesOverview(
                             value = malPresentation.value,
                             valueColor = malPresentation.color,
                             leadingDrawableRes = R.drawable.mal_logo_app,
-                            leadingUrl = "https://upload.wikimedia.org/wikipedia/commons/9/9b/MyAnimeList_favicon.svg",
+                            leadingUrl = "https://play-lh.googleusercontent.com/4c9or3pCb89Th0EYmmYdKdb9bJHoLNTIM4IqiJZW_XNDtpyy5WtLie-UTDcbcxNQUUvW3ajnnHHpnexqr_WswIU",
                             leadingArtworkSize = 40.dp,
                             onClick = onMalClick,
                             modifier = Modifier
