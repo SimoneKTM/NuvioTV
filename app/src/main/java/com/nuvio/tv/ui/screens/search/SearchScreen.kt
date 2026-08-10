@@ -110,11 +110,12 @@ import com.nuvio.tv.ui.util.recompositionHighlighter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/**
- * Width of the WuPlay-style left panel: a 6-key row (6 * 34dp) plus key gaps and
- * screen padding, so keys keep the reference app's proportions.
- */
+/** Width of the WuPlay-style left panel: a 6-key row (6 * 34dp) plus key gaps and
+ * screen padding, so keys keep the reference app's proportions. */
 private val SEARCH_LEFT_PANEL_WIDTH = SearchVirtualKeyboardKeySize * 6 + SearchVirtualKeyboardKeyGap * 5 + 16.dp * 2
+
+/** How many retries (50ms apart) for the initial focus grab before giving up. */
+private const val MAX_INITIAL_FOCUS_ATTEMPTS = 20
 
 /** Maximum recent-search entries shown under the virtual keyboard. */
 private const val PANEL_RECENT_SEARCH_LIMIT = 4
@@ -464,10 +465,29 @@ fun SearchScreen(
         pendingFocusMoveHadExistingSearchRows = false
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(topInputFocusRequester) {
         if (viewModel.hasSavedSearchFocus) return@LaunchedEffect
-        repeat(2) { withFrameNanos { } }
-        runCatching { topInputFocusRequester.requestFocus() }
+        var attempt = 0
+        while (attempt < MAX_INITIAL_FOCUS_ATTEMPTS) {
+            repeat(2) { withFrameNanos { } }
+            val focused = runCatching { topInputFocusRequester.requestFocus() }.getOrDefault(false)
+            if (focused) break
+            attempt++
+            delay(50)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (viewModel.hasSavedSearchFocus) {
+            // The results grid is expected to restore focus itself. If it never shows up
+            // (e.g. empty state), fall back to the search field so the D-pad stays usable.
+            delay(600)
+            if (restoringSearchFocus.value) {
+                runCatching { topInputFocusRequester.requestFocus() }
+                restoringSearchFocus.value = false
+                viewModel.hasSavedSearchFocus = false
+            }
+        }
     }
 
     // Push search suggestions to the native keyboard suggestion bar
