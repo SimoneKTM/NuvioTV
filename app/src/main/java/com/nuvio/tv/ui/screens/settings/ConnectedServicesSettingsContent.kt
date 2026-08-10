@@ -557,7 +557,6 @@ private fun ConnectedServicesOverview(
                             value = anilistPresentation.value,
                             valueColor = anilistPresentation.color,
                             leadingDrawableRes = R.drawable.anilist_logo,
-                            leadingUrl = "https://cdn.myanimelist.net/images/app_lp/applogo.png",
                             leadingArtworkSize = 40.dp,
                             onClick = onAniListClick,
                             modifier = Modifier
@@ -570,7 +569,6 @@ private fun ConnectedServicesOverview(
                             value = kitsuPresentation.value,
                             valueColor = kitsuPresentation.color,
                             leadingDrawableRes = R.drawable.kitsu_logo,
-                            leadingUrl = "https://mir-s3-cdn-cf.behance.net/project_modules/max_632_webp/b2af2551546457.58f11c050e272.png",
                             leadingArtworkSize = 40.dp,
                             onClick = onKitsuClick,
                             modifier = Modifier

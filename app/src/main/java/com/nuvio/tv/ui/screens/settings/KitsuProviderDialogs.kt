@@ -128,11 +128,7 @@ private fun KitsuConnectContent(
         TrackerQrLoginSection(
             qrLogin = state.qrLogin,
             providerName = stringResource(R.string.kitsu_name),
-            logo = rememberRemoteLogoPainter(
-                url = "https://mir-s3-cdn-cf.behance.net/project_modules/max_632_webp/b2af2551546457.58f11c050e272.png",
-                fallbackRes = R.drawable.kitsu_logo,
-                targetSize = 40.dp
-            ),
+            logo = painterResource(R.drawable.kitsu_logo),
             logoContentDescription = stringResource(R.string.cd_kitsu_logo),
             instruction = stringResource(R.string.kitsu_connect_instruction),
             onStart = onStartQrLogin,
@@ -172,11 +168,7 @@ private fun KitsuConnectContent(
 @Composable
 private fun KitsuWordmarkHeader() {
     Image(
-        painter = rememberRemoteLogoPainter(
-            url = "https://mir-s3-cdn-cf.behance.net/project_modules/max_632_webp/b2af2551546457.58f11c050e272.png",
-            fallbackRes = R.drawable.kitsu_logo,
-            targetSize = 40.dp
-        ),
+        painter = painterResource(R.drawable.kitsu_logo),
         contentDescription = stringResource(R.string.cd_kitsu_logo),
         modifier = Modifier
             .fillMaxWidth()
