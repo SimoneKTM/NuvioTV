@@ -7,7 +7,7 @@ on:
       - "enhanced/tv"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: build-apk-tv-${{ github.ref }}
@@ -57,3 +57,18 @@ jobs:
           path: app/build/outputs/apk/full/release/*.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish APK to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RELEASE_TAG="enhanced-tv-latest"
+          RELEASE_TITLE="Enhanced TV (dev build)"
+          if gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release delete "$RELEASE_TAG" --repo "${{ github.repository }}" --yes --cleanup-tag
+          fi
+          gh release create "$RELEASE_TAG" app/build/outputs/apk/full/release/*.apk \
+            --repo "${{ github.repository }}" \
+            --prerelease \
+            --title "$RELEASE_TITLE" \
+            --notes "APK debug-signed built automatically from branch \`enhanced/tv\` at commit \`${{ github.sha }}\`."
