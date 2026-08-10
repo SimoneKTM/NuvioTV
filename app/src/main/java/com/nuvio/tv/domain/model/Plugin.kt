@@ -87,6 +87,7 @@ data class ScraperInfo(
     fun supportsType(type: String): Boolean {
         val targetTypes = when (type.lowercase()) {
             "series" -> listOf("series", "tv", "anime")
+            "anime" -> listOf("anime", "tv", "series")
             "other" -> listOf("other", "tv")
             else -> listOf(type.lowercase())
         }
