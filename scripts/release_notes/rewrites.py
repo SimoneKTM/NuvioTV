@@ -315,4 +315,28 @@ SPECIAL_RULES = [
         r"fix\s+vertical\s+fast\s+scroll\s+in\s+classic\s+mode",
         "Fixed Classic mode vertical fast scrolling",
     ),
+    (
+        r"open\s+dedicated\s+reorder\s+screen\s+for\s+anime\s+catalogs",
+        "Added a dedicated reorder screen for anime catalogs",
+    ),
+    (
+        r"always\s+show\s+home\s+catalog\s+reorder\s+entry",
+        "Added an always-visible home catalog reorder entry",
+    ),
+    (
+        r"run\s+cloudstream\s+scrapers\s+for\s+anime\s+content\s+type",
+        "Enabled Cloudstream scrapers for anime content type",
+    ),
+    (
+        r"retry\s+initial\s+focus\s+grab\s+and\s+fall\s+back\s+to\s+field",
+        "Fixed initial search focus grabbing with retry fallback",
+    ),
+    (
+        r"apply\s+anime\s+layout\s+settings\s+to\s+tab\s+and\s+detail\s+pages",
+        "Updated anime layout settings to apply on tab and detail pages",
+    ),
+    (
+        r"public\s+supabase\s+relay,\s+clean\s+qr\s+codes,\s+keyboard\s+focus\s+polish",
+        "Updated tracker login to use the public Supabase relay, with cleaner QR codes and keyboard focus polish",
+    ),
 ]
