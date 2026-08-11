@@ -429,7 +429,7 @@ interface ExchangeResult {
 }
 
 function describeError(resp: Response, bodyText: string): string {
-  const trimmed = bodyText.trim().replace(/\s+/g, " ").slice(0, 300);
+  const trimmed = bodyText.trim().replace(/\s+/g, " ").slice(0, 1500);
   return trimmed || `HTTP ${resp.status} ${resp.statusText}`;
 }
 
@@ -613,18 +613,19 @@ async function buildAuthorizeUrl(
   }
 }
 
-// MyAnimeList: auth-code + PKCE (S256). Il code_verifier è generato e
-// conservato nella sessione (server-side), poi il codice → token.
+// MyAnimeList: auth-code + PKCE. MAL accetta SOLO il metodo "plain":
+// la code_challenge DEVE essere il code_verifier stesso (S256 -> "Failed
+// to verify code_verifier"). Il code_verifier è generato e conservato
+// nella sessione (server-side), poi usato nel codice → token.
 async function malAuthorizeUrl(
   clientId: string,
   redirectUri: string,
   session: RelaySession,
 ): Promise<string> {
   const verifier = generateOauthValue(64);
-  const challenge = await pkceS256(verifier);
   session.state.codeVerifier = verifier;
   session.state.state = session.userCode;
-  return `${MAL_AUTHORIZE_URL}?response_type=code&client_id=${encodeURIComponent(clientId)}&code_challenge=${challenge}&code_challenge_method=S256&state=${session.userCode}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+  return `${MAL_AUTHORIZE_URL}?response_type=code&client_id=${encodeURIComponent(clientId)}&code_challenge=${encodeURIComponent(verifier)}&code_challenge_method=plain&state=${session.userCode}&redirect_uri=${encodeURIComponent(redirectUri)}`;
 }
 
 function generateOauthValue(minLength: number): string {
@@ -635,18 +636,6 @@ function generateOauthValue(minLength: number): string {
   let out = "";
   for (const b of bytes) out += alphabet[b % alphabet.length];
   return out.slice(0, minLength);
-}
-
-async function pkceS256(verifier: string): Promise<string> {
-  const data = new TextEncoder().encode(verifier);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return base64Url(new Uint8Array(digest));
-}
-
-function base64Url(bytes: Uint8Array): string {
-  let binary = "";
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 // ============================================================
