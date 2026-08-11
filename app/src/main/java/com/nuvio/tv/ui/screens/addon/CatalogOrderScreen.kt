@@ -81,11 +81,11 @@ fun AnimeCatalogOrderScreen(
         titleRes = R.string.anime_catalog_order_title,
         subtitleRes = R.string.anime_catalog_order_subtitle,
         emptyRes = R.string.anime_catalog_order_empty,
-        showFollowAddons = false,
+        showFollowAddons = true,
         onMoveUp = viewModel::moveUp,
         onMoveDown = viewModel::moveDown,
         onToggleEnabled = viewModel::toggleCatalogEnabled,
-        onToggleFollowAddons = {},
+        onToggleFollowAddons = viewModel::toggleFollowAddonsOrder,
         onBackPress = onBackPress
     )
 }

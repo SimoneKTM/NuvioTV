@@ -568,7 +568,7 @@ private fun ConnectedServicesOverview(
                             subtitle = kitsuPresentation.subtitle,
                             value = kitsuPresentation.value,
                             valueColor = kitsuPresentation.color,
-                            leadingDrawableRes = R.drawable.kitsu_logo,
+                            leadingDrawableRes = R.drawable.kitsu_icon_legacy,
                             leadingArtworkSize = 40.dp,
                             onClick = onKitsuClick,
                             modifier = Modifier

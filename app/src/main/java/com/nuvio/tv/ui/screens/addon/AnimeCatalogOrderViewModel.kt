@@ -34,11 +34,19 @@ class AnimeCatalogOrderViewModel @Inject constructor(
     }
 
     fun moveUp(key: String) {
+        if (_uiState.value.followAddonsOrder) return
         moveCatalog(key, -1)
     }
 
     fun moveDown(key: String) {
+        if (_uiState.value.followAddonsOrder) return
         moveCatalog(key, 1)
+    }
+
+    fun toggleFollowAddonsOrder(enabled: Boolean) {
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setFollowAddonsOrder(enabled)
+        }
     }
 
     fun toggleCatalogEnabled(disableKey: String) {
@@ -73,7 +81,8 @@ class AnimeCatalogOrderViewModel @Inject constructor(
             combine(
                 animeAddonRepository.getInstalledAnimeAddons(),
                 layoutPreferenceDataStore.homeCatalogOrderKeys,
-                layoutPreferenceDataStore.disabledHomeCatalogKeys
+                layoutPreferenceDataStore.disabledHomeCatalogKeys,
+                layoutPreferenceDataStore.followAddonsOrder
             ) { values ->
                 @Suppress("UNCHECKED_CAST")
                 val addons = values[0] as List<Addon>
@@ -81,20 +90,22 @@ class AnimeCatalogOrderViewModel @Inject constructor(
                 val savedOrderKeys = values[1] as List<String>
                 @Suppress("UNCHECKED_CAST")
                 val disabledKeys = (values[2] as List<String>).toSet()
+                val followAddons = values[3] as Boolean
 
                 val items = buildOrderedCatalogItems(
                     addons = addons.enabledAddons(),
                     savedOrderKeys = savedOrderKeys,
-                    disabledKeys = disabledKeys
+                    disabledKeys = disabledKeys,
+                    followAddonsOrder = followAddons
                 )
-                items
-            }.collectLatest { orderedItems ->
+                Pair(items, followAddons)
+            }.collectLatest { (orderedItems, followAddons) ->
                 disabledKeysCache = orderedItems.filter { it.isDisabled }.map { it.disableKey }.toSet()
                 _uiState.update {
                     it.copy(
                         isLoading = false,
                         items = orderedItems,
-                        followAddonsOrder = false
+                        followAddonsOrder = followAddons
                     )
                 }
             }
@@ -104,21 +115,28 @@ class AnimeCatalogOrderViewModel @Inject constructor(
     private fun buildOrderedCatalogItems(
         addons: List<Addon>,
         savedOrderKeys: List<String>,
-        disabledKeys: Set<String>
+        disabledKeys: Set<String>,
+        followAddonsOrder: Boolean = false
     ): List<CatalogOrderItem> {
         val entries = buildDefaultCatalogEntries(addons)
         val availableMap = entries.associateBy { it.key }
         val defaultOrderKeys = entries.map { it.key }
 
-        val savedValid = savedOrderKeys
-            .asSequence()
-            .filter { it in availableMap }
-            .distinct()
-            .toList()
+        val effectiveOrder: List<String>
+        if (followAddonsOrder) {
+            // In follow mode, catalogs stay in manifest order.
+            effectiveOrder = defaultOrderKeys
+        } else {
+            val savedValid = savedOrderKeys
+                .asSequence()
+                .filter { it in availableMap }
+                .distinct()
+                .toList()
 
-        val savedKeySet = savedValid.toSet()
-        val missing = defaultOrderKeys.filterNot { it in savedKeySet }
-        val effectiveOrder = savedValid + missing
+            val savedKeySet = savedValid.toSet()
+            val missing = defaultOrderKeys.filterNot { it in savedKeySet }
+            effectiveOrder = savedValid + missing
+        }
 
         return effectiveOrder.mapIndexedNotNull { index, key ->
             val entry = availableMap[key] ?: return@mapIndexedNotNull null
@@ -130,8 +148,8 @@ class AnimeCatalogOrderViewModel @Inject constructor(
                 addonName = entry.addonName,
                 typeLabel = entry.typeLabel,
                 isDisabled = entry.key in disabledKeys,
-                canMoveUp = index > 0,
-                canMoveDown = index < effectiveOrder.lastIndex
+                canMoveUp = !followAddonsOrder && index > 0,
+                canMoveDown = !followAddonsOrder && index < effectiveOrder.lastIndex
             )
         }
     }

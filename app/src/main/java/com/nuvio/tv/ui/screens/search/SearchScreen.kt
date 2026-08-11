@@ -65,6 +65,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -72,6 +73,7 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
@@ -277,9 +279,7 @@ fun SearchScreen(
             speechRecognizer?.destroy()
         }
     }
-    val topInputFocusRequester = remember(isVoiceSearchAvailable) {
-        if (isVoiceSearchAvailable) voiceFocusRequester else searchFocusRequester
-    }
+    val topInputFocusRequester = remember { searchFocusRequester }
     val launchVoiceSearch: () -> Unit = {
         if (!isVoiceSearchAvailable || speechRecognizer == null) {
             Toast.makeText(context, strVoiceUnavailable, Toast.LENGTH_SHORT).show()
@@ -317,13 +317,29 @@ fun SearchScreen(
 
     // The left input panel (search bar + virtual keyboard + recents) collapses while focus is
     // on the results grid, giving the posters the full width (4 -> 6 columns transition).
+    val focusManager = LocalFocusManager.current
     var inputAreaActive by remember { mutableStateOf(true) }
     var pendingKeyboardFocus by remember { mutableStateOf(false) }
     LaunchedEffect(inputAreaActive, pendingKeyboardFocus) {
         if (inputAreaActive && pendingKeyboardFocus) {
             delay(50)
-            runCatching { keyboardFirstKeyFocusRequester.requestFocus() }
+            val focused = runCatching { keyboardFirstKeyFocusRequester.requestFocus() }.getOrDefault(false)
+            if (!focused) {
+                focusManager.moveFocus(FocusDirection.Down)
+            }
             pendingKeyboardFocus = false
+        }
+    }
+
+    // Moves focus from the top input row down into the virtual keyboard, falling back to
+    // native traversal if the explicit request fails (e.g. key not composed yet).
+    val requestKeyboardFocus: () -> Unit = {
+        coroutineScope.launch {
+            repeat(2) { withFrameNanos { } }
+            val focused = runCatching { keyboardFirstKeyFocusRequester.requestFocus() }.getOrDefault(false)
+            if (!focused) {
+                focusManager.moveFocus(FocusDirection.Down)
+            }
         }
     }
 
@@ -505,7 +521,6 @@ fun SearchScreen(
     val latestShouldKeepSearchFocus by rememberUpdatedState(
         focusResults || uiState.isSearching || isVoiceListening
     )
-    val latestVoiceSearchAvailable by rememberUpdatedState(isVoiceSearchAvailable)
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -520,13 +535,7 @@ fun SearchScreen(
                 } else if (!latestShouldKeepSearchFocus) {
                     coroutineScope.launch {
                         repeat(2) { withFrameNanos { } }
-                        runCatching {
-                            if (latestVoiceSearchAvailable) {
-                                voiceFocusRequester.requestFocus()
-                            } else {
-                                searchFocusRequester.requestFocus()
-                            }
-                        }
+                        runCatching { searchFocusRequester.requestFocus() }
                     }
                 }
             } else if (event == Lifecycle.Event.ON_PAUSE) {
@@ -576,12 +585,7 @@ fun SearchScreen(
                     voiceRmsLevel = voiceRmsLevel,
                     onVoiceSearch = launchVoiceSearch,
                     onMoveToResults = { focusResults = true },
-                    onMoveToKeyboard = {
-                        coroutineScope.launch {
-                            repeat(2) { withFrameNanos { } }
-                            runCatching { keyboardFirstKeyFocusRequester.requestFocus() }
-                        }
-                    },
+                    onMoveToKeyboard = requestKeyboardFocus,
                     onOpenDiscover = onOpenDiscover,
                     showDiscoverButton = uiState.discoverLocation == DiscoverLocation.IN_SEARCH,
                     clearHistoryFocusRequester = if (panelRecentSearches.isNotEmpty()) recentClearHistoryFocusRequester else null,
@@ -838,6 +842,17 @@ private fun SearchInputField(
                 onClick = onOpenDiscover,
                 modifier = Modifier
                     .onFocusChanged { isDiscoverButtonFocused = it.isFocused }
+                    .onPreviewKeyEvent { keyEvent ->
+                        if (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN &&
+                            keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&
+                            onMoveToKeyboard != null
+                        ) {
+                            onMoveToKeyboard()
+                            true
+                        } else {
+                            false
+                        }
+                    }
                     .size(NuvioTheme.spacing.xxl)
                     .border(
                         width = if (isDiscoverButtonFocused) NuvioTheme.spacing.xxs else NuvioTheme.spacing.hairline,
@@ -869,6 +884,17 @@ private fun SearchInputField(
                         }
                     )
                     .onFocusChanged { isVoiceButtonFocused = it.isFocused }
+                    .onPreviewKeyEvent { keyEvent ->
+                        if (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN &&
+                            keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&
+                            onMoveToKeyboard != null
+                        ) {
+                            onMoveToKeyboard()
+                            true
+                        } else {
+                            false
+                        }
+                    }
                     .size(NuvioTheme.spacing.xxl)
                     .border(
                         width = if (isVoiceButtonFocused || isVoiceListening) NuvioTheme.spacing.xxs else NuvioTheme.spacing.hairline,

@@ -133,7 +133,7 @@ private fun KitsuConnectContent(
             instruction = stringResource(R.string.kitsu_connect_instruction),
             onStart = onStartQrLogin,
             onRetry = onRetryQrLogin,
-            qrOverlayLogo = painterResource(R.drawable.kitsu_logo)
+            qrOverlayLogo = painterResource(R.drawable.kitsu_icon)
         )
     } else {
         KitsuWordmarkHeader()
@@ -145,7 +145,7 @@ private fun KitsuConnectContent(
         TrackerLocalQrSection(
             authorizeUrl = state.authorizeUrl,
             onConnectToken = onConnectToken,
-            qrOverlayLogo = painterResource(R.drawable.kitsu_logo)
+            qrOverlayLogo = painterResource(R.drawable.kitsu_icon)
         )
     }
     if (!state.errorMessage.isNullOrBlank()) {

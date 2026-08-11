@@ -42,27 +42,32 @@ import kotlinx.coroutines.delay
 internal fun TrackerQrLoginSection(
     qrLogin: TrackerQrLoginState,
     providerName: String,
-    logo: Painter,
-    logoContentDescription: String,
     instruction: String,
     onStart: () -> Unit,
     onRetry: () -> Unit,
-    qrOverlayLogo: Painter? = null
+    qrOverlayLogo: Painter? = null,
+    logo: Painter? = null,
+    logoContentDescription: String? = null,
+    logoContent: (@Composable () -> Unit)? = null
 ) {
     LaunchedEffect(qrLogin.session, qrLogin.isStarting, qrLogin.errorMessage) {
         if (qrLogin.session == null && !qrLogin.isStarting && qrLogin.errorMessage == null) {
             onStart()
         }
     }
-    // Logo grande in cima, stesso stile dei dialog Trakt/Simkl.
-    Image(
-        painter = logo,
-        contentDescription = logoContentDescription,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(40.dp),
-        contentScale = ContentScale.Fit
-    )
+    // Logo grande in cima: slot composable (wordmark) oppure immagine, stile dialog Trakt/Simkl.
+    if (logoContent != null) {
+        logoContent()
+    } else if (logo != null) {
+        Image(
+            painter = logo,
+            contentDescription = logoContentDescription,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp),
+            contentScale = ContentScale.Fit
+        )
+    }
     val session = qrLogin.session
     when {
         qrLogin.isStarting -> {

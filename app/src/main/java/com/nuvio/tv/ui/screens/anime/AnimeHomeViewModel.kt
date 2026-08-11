@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.core.network.NetworkResult
 import com.nuvio.tv.core.sync.homeCatalogKey
 import com.nuvio.tv.core.util.filterReleasedItems
+import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
@@ -22,12 +23,18 @@ import com.nuvio.tv.domain.repository.CatalogRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.domain.repository.WatchProgressRepository
 import com.nuvio.tv.ui.screens.home.ContinueWatchingItem
+import com.nuvio.tv.ui.screens.home.CwMetaSummary
+import com.nuvio.tv.ui.screens.home.NextUpInfo
+import com.nuvio.tv.ui.screens.home.NextUpResolution
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -43,7 +50,8 @@ class AnimeHomeViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository,
     internal val watchProgressRepository: WatchProgressRepository,
     internal val metaRepository: MetaRepository,
-    @Named("anime_layout") internal val layoutPreferenceDataStore: LayoutPreferenceDataStore
+    @Named("anime_layout") internal val layoutPreferenceDataStore: LayoutPreferenceDataStore,
+    @Named("anime_cw_cache") internal val animeCwEnrichmentCache: ContinueWatchingEnrichmentCache
 ) : ViewModel() {
 
     companion object {
@@ -52,6 +60,19 @@ class AnimeHomeViewModel @Inject constructor(
     }
 
     internal val _uiState = MutableStateFlow(AnimeHomeUiState())
+
+    internal val animeCwMetaCache = Collections.synchronizedMap(mutableMapOf<String, CwMetaSummary?>())
+    internal val animeCwMetaNegativeCacheTimestamps = ConcurrentHashMap<String, Long>()
+    internal val animeCwNextUpResolutionCache =
+        Collections.synchronizedMap(mutableMapOf<String, NextUpResolution?>())
+    internal val animeCwNextUpNegativeCacheTimestamps = ConcurrentHashMap<String, Long>()
+    internal val animeDiscoveredOlderNextUpItems =
+        Collections.synchronizedList(mutableListOf<ContinueWatchingItem.NextUp>())
+    internal val animeCwLastProcessedNextUpContentIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    internal val animeCwEnrichedNextUpOverlay = ConcurrentHashMap<String, NextUpInfo>()
+    internal val animeCwEnrichedInProgressOverlay =
+        ConcurrentHashMap<String, ContinueWatchingItem.InProgress>()
+    internal var animeCwPipelineJob: Job? = null
     val uiState: StateFlow<AnimeHomeUiState> = _uiState.asStateFlow()
 
     private val _fullCatalogRows = MutableStateFlow<List<CatalogRow>>(emptyList())
@@ -69,6 +90,7 @@ class AnimeHomeViewModel @Inject constructor(
     private var homeLayout = HomeLayout.MODERN
     private var catalogTypeSuffixEnabled = true
     private var hideUnreleasedContent = false
+    private var followAddonsOrder = false
     private var modernLandscapePostersEnabled = false
     private var modernHeroFullScreenBackdropEnabled = false
     private var classicFocusGradientEnabled = false
@@ -102,11 +124,13 @@ class AnimeHomeViewModel @Inject constructor(
             val baseSnapshotFlow = combine(
                 coreSnapshotFlow,
                 layoutPreferenceDataStore.catalogTypeSuffixEnabled,
-                layoutPreferenceDataStore.hideUnreleasedContent
-            ) { snapshot, typeSuffix, hideUnreleased ->
+                layoutPreferenceDataStore.hideUnreleasedContent,
+                layoutPreferenceDataStore.followAddonsOrder
+            ) { snapshot, typeSuffix, hideUnreleased, followAddons ->
                 snapshot.copy(
                     catalogTypeSuffixEnabled = typeSuffix,
-                    hideUnreleasedContent = hideUnreleased
+                    hideUnreleasedContent = hideUnreleased,
+                    followAddonsOrder = followAddons
                 )
             }
             val viewSnapshotFlow = combine(
@@ -143,6 +167,7 @@ class AnimeHomeViewModel @Inject constructor(
                 homeLayout = snapshot.layout
                 catalogTypeSuffixEnabled = snapshot.catalogTypeSuffixEnabled
                 hideUnreleasedContent = snapshot.hideUnreleasedContent
+                followAddonsOrder = snapshot.followAddonsOrder
                 modernLandscapePostersEnabled = snapshot.modernLandscapePostersEnabled
                 modernHeroFullScreenBackdropEnabled = snapshot.modernHeroFullScreenBackdropEnabled
                 classicFocusGradientEnabled = snapshot.classicFocusGradientEnabled
@@ -162,6 +187,7 @@ class AnimeHomeViewModel @Inject constructor(
         val layout: HomeLayout,
         val catalogTypeSuffixEnabled: Boolean = true,
         val hideUnreleasedContent: Boolean = false,
+        val followAddonsOrder: Boolean = false,
         val modernLandscapePostersEnabled: Boolean = false,
         val modernHeroFullScreenBackdropEnabled: Boolean = false,
         val classicFocusGradientEnabled: Boolean = false,
@@ -389,16 +415,18 @@ class AnimeHomeViewModel @Inject constructor(
     }
 
     fun removeContinueWatching(item: ContinueWatchingItem) {
-        val progress = when (item) {
-            is ContinueWatchingItem.InProgress -> item.progress
-            is ContinueWatchingItem.NextUp -> null
-        } ?: return
-        viewModelScope.launch {
-            watchProgressRepository.removeFromHistory(
-                contentId = progress.contentId,
-                videoId = progress.videoId,
-                season = progress.season,
-                episode = progress.episode
+        when (item) {
+            is ContinueWatchingItem.InProgress -> removeAnimeContinueWatchingPipeline(
+                contentId = item.progress.contentId,
+                season = item.progress.season,
+                episode = item.progress.episode,
+                isNextUp = false
+            )
+            is ContinueWatchingItem.NextUp -> removeAnimeContinueWatchingPipeline(
+                contentId = item.info.contentId,
+                season = item.info.seedSeason,
+                episode = item.info.seedEpisode,
+                isNextUp = true
             )
         }
     }
@@ -407,7 +435,8 @@ class AnimeHomeViewModel @Inject constructor(
         val enabled = all.filterNot {
             layoutDisabledKeys.contains(homeCatalogKey(it.addonId, it.rawType, it.catalogId))
         }
-        if (layoutOrderKeys.isEmpty()) return enabled
+        // In follow addons order mode, catalogs always stay in manifest order.
+        if (followAddonsOrder || layoutOrderKeys.isEmpty()) return enabled
         val ordered = mutableListOf<CatalogRow>()
         val remaining = enabled.toMutableList()
         for (key in layoutOrderKeys) {

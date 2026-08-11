@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -223,6 +224,7 @@ private fun KeyCell(
                 color = if (isFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.Border,
                 shape = RoundedCornerShape(NuvioTheme.radii.md)
             )
+            .focusable()
             .focusProperties { canFocus = true }
             .onFocusChanged { state -> isFocused = state.isFocused }
             .onPreviewKeyEvent { event ->

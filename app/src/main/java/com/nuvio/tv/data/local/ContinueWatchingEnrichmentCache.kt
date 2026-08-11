@@ -12,6 +12,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 data class CachedNextUpItem(
@@ -69,12 +70,17 @@ data class CachedInProgressItem(
 @Singleton
 class ContinueWatchingEnrichmentCache @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val profileManager: ProfileManager
+    private val profileManager: ProfileManager,
+    @Named("cw_enrichment_namespace") private val namespace: String = ""
 ) {
     companion object {
         private const val TAG = "CwEnrichCache"
         private const val THROTTLE_MS = 1_000L
+        private const val DEFAULT_DIRECTORY = "cw_enrichment"
     }
+
+    private fun cacheDirectory(): String =
+        if (namespace.isBlank()) DEFAULT_DIRECTORY else "${DEFAULT_DIRECTORY}_$namespace"
 
     private val gson = Gson()
     private val mutex = Mutex()
@@ -95,7 +101,7 @@ class ContinueWatchingEnrichmentCache @Inject constructor(
 
     private fun nextUpFile(): File {
         val profileId = profileManager.activeProfileId.value
-        val dir = File(context.filesDir, "cw_enrichment")
+        val dir = File(context.filesDir, cacheDirectory())
         dir.mkdirs()
         return File(dir, "nextup_${profileId}.json")
     }
@@ -141,7 +147,7 @@ class ContinueWatchingEnrichmentCache @Inject constructor(
 
     private fun inProgressFile(): File {
         val profileId = profileManager.activeProfileId.value
-        val dir = File(context.filesDir, "cw_enrichment")
+        val dir = File(context.filesDir, cacheDirectory())
         dir.mkdirs()
         return File(dir, "inprogress_${profileId}.json")
     }

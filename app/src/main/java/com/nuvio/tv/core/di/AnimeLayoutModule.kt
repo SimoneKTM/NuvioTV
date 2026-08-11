@@ -1,5 +1,7 @@
 package com.nuvio.tv.core.di
 
+import android.content.Context
+import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.data.local.MDBListSettingsDataStore
 import com.nuvio.tv.data.local.ProfileDataStoreFactory
@@ -8,6 +10,7 @@ import com.nuvio.tv.core.profile.ProfileManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Named
 import javax.inject.Singleton
@@ -24,6 +27,15 @@ object AnimeLayoutModule {
         profileManager: ProfileManager
     ): LayoutPreferenceDataStore =
         LayoutPreferenceDataStore(factory, profileManager, "anime_layout_settings")
+
+    @Provides
+    @Singleton
+    @Named("anime_cw_cache")
+    fun provideAnimeCwEnrichmentCache(
+        @ApplicationContext context: Context,
+        profileManager: ProfileManager
+    ): ContinueWatchingEnrichmentCache =
+        ContinueWatchingEnrichmentCache(context, profileManager, namespace = "anime")
 
     @Provides
     @Singleton

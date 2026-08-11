@@ -103,6 +103,7 @@ class LayoutPreferenceDataStore @Inject constructor(
     private val nextUpFromFurthestEpisodeKey = booleanPreferencesKey("next_up_from_furthest_episode")
     private val blurContinueWatchingNextUpKey = booleanPreferencesKey("blur_continue_watching_next_up")
     private val continueWatchingSortModeKey = stringPreferencesKey("continue_watching_sort_mode")
+    private val dismissedNextUpKeysKey = stringPreferencesKey("dismissed_next_up_keys")
     private val detailPageTrailerButtonEnabledKey = booleanPreferencesKey("detail_page_trailer_button_enabled")
     private val preferExternalMetaAddonDetailKey = booleanPreferencesKey("prefer_external_meta_addon_detail")
     private val modernHeroFullScreenBackdropKey = booleanPreferencesKey("modern_hero_full_screen_backdrop")
@@ -331,6 +332,10 @@ class LayoutPreferenceDataStore @Inject constructor(
         val stored = prefs[continueWatchingSortModeKey] ?: ContinueWatchingSortMode.DEFAULT.name
         runCatching { ContinueWatchingSortMode.valueOf(stored) }
             .getOrDefault(ContinueWatchingSortMode.DEFAULT)
+    }
+
+    val dismissedNextUpKeys: Flow<Set<String>> = profileFlow { prefs ->
+        parseCatalogKeys(prefs[dismissedNextUpKeysKey]).toSet()
     }
 
     val detailPageTrailerButtonEnabled: Flow<Boolean> = profileFlow { prefs ->
@@ -698,6 +703,17 @@ class LayoutPreferenceDataStore @Inject constructor(
     suspend fun setContinueWatchingSortMode(mode: ContinueWatchingSortMode) {
         store().edit { prefs ->
             prefs[continueWatchingSortModeKey] = mode.name
+        }
+    }
+
+    suspend fun addDismissedNextUpKey(key: String) {
+        val trimmed = key.trim()
+        if (trimmed.isEmpty()) return
+        store().edit { prefs ->
+            val existing = parseCatalogKeys(prefs[dismissedNextUpKeysKey]).toMutableSet()
+            if (existing.add(trimmed)) {
+                prefs[dismissedNextUpKeysKey] = gson.toJson(existing.toList())
+            }
         }
     }
 
