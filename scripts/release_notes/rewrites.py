@@ -339,4 +339,9 @@ SPECIAL_RULES = [
         r"public\s+supabase\s+relay,\s+clean\s+qr\s+codes,\s+keyboard\s+focus\s+polish",
         "Updated tracker login to use the public Supabase relay, with cleaner QR codes and keyboard focus polish",
     ),
+    (
+        r"full-width\s+sticky\s+search\s+bar,\s+ghost\s+poster\s+loader,\s+compact\s+clear\s+history,\s+"
+        r"single\s+anilist\s+wordmark;\s+fix\(relay\):\s+surface\s+real\s+oauth\s+errors",
+        "Added a full-width sticky search bar with ghost poster loading and compact clear history, and improved tracker login error reporting",
+    ),
 ]
