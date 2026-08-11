@@ -4,7 +4,6 @@ package com.nuvio.tv.ui.screens.settings
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,14 +22,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -57,8 +54,7 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 @Composable
 internal fun TrackerLocalQrSection(
     authorizeUrl: String?,
-    onConnectToken: (String) -> Unit,
-    qrOverlayLogo: Painter? = null
+    onConnectToken: (String) -> Unit
 ) {
     val inputFocusRequester = remember { FocusRequester() }
     var token by remember { mutableStateOf("") }
@@ -101,18 +97,6 @@ internal fun TrackerLocalQrSection(
                             modifier = Modifier.size(150.dp),
                             contentScale = ContentScale.Fit
                         )
-                        if (qrOverlayLogo != null) {
-                            Image(
-                                painter = qrOverlayLogo,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color.White)
-                                    .padding(2.dp),
-                                contentScale = ContentScale.Fit
-                            )
-                        }
                     }
                 }
             }

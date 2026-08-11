@@ -39,8 +39,19 @@ function env(varName: string): string {
   return Deno.env.get(varName)?.trim() ?? "";
 }
 
-const PUBLIC_BASE_URL = env("PUBLIC_BASE_URL") || "http://localhost:8000";
-const REDIRECT_URI_BASE = env("REDIRECT_URI_BASE") || PUBLIC_BASE_URL;
+// URL pubblico del relay. Se non configurato lo ricaviamo dall'Host della
+// richiesta in arrivo: così i redirect_uri e l'URL mock sono coerenti con
+// l'indirizzo che l'app usa davvero (es. LAN IP nel test su device reale).
+const PUBLIC_BASE_URL = env("PUBLIC_BASE_URL");
+const REDIRECT_URI_BASE = env("REDIRECT_URI_BASE");
+
+function resolveBaseUrl(req: Request): string {
+  const configured = PUBLIC_BASE_URL || REDIRECT_URI_BASE;
+  if (configured) return configured;
+  const host = req.headers.get("host");
+  if (host) return `${req.url.startsWith("https://") ? "https" : "http"}://${host}`;
+  return "http://localhost:8000";
+}
 
 // Client ID dei provider. Ogni ID deve essere registrato sul provider con
 // redirect URI esattamente uguale a `${REDIRECT_URI_BASE}/callback/{provider}`
@@ -54,9 +65,11 @@ const PROVIDERS: Record<string, string> = {
 };
 
 // Client secret: obbligatorio per AniList (Authorization Code Grant) e opzionale
-// per Kitsu. Senza di esso lo scambio codice -> token fallisce lato provider.
+// per Kitsu. MAL: i client "confidential" (creati dal 2025) lo richiedono nello
+// scambio codice -> token; i client vecchi PKCE-only lo lasciano vuoto.
 const ANILIST_CLIENT_SECRET = env("ANILIST_CLIENT_SECRET");
 const KITSU_CLIENT_SECRET = env("KITSU_CLIENT_SECRET");
+const MAL_CLIENT_SECRET = env("MAL_CLIENT_SECRET");
 
 // -------- Session store: Postgres su Supabase, Map in locale --------
 interface SessionStore {
@@ -197,8 +210,8 @@ async function handleStart(req: Request): Promise<Response> {
     };
     const url =
       provider === "mock"
-        ? mockUrl(userCode)
-        : await buildAuthorizeUrl(provider, PROVIDERS[provider] ?? "", session);
+        ? mockUrl(userCode, resolveBaseUrl(req))
+        : await buildAuthorizeUrl(provider, PROVIDERS[provider] ?? "", session, resolveBaseUrl(req));
     if (!url) return json({ error: "provider not configured on relay" }, 500);
     try {
       await store.create(session);
@@ -272,8 +285,8 @@ async function handleApprove(req: Request): Promise<Response> {
 // Approva la sessione dopo ~2 secondi, simulando "utente ha
 // autorizzato".
 // ============================================================
-function mockUrl(userCode: string): string {
-  return `${PUBLIC_BASE_URL}/mock?user_code=${encodeURIComponent(userCode)}`;
+function mockUrl(userCode: string, baseUrl: string): string {
+  return `${baseUrl}/mock?user_code=${encodeURIComponent(userCode)}`;
 }
 
 async function handleMock(req: Request): Promise<Response> {
@@ -340,7 +353,7 @@ async function handleCallback(_req: Request, provider: string): Promise<Response
     // AniList / Kitsu / MAL (auth-code): il codice arriva come query param.
     // Facciamo qui lo scambio con le credenziali del relay.
     if (code) {
-      const payload = await exchangeCode(provider, session, code);
+      const payload = await exchangeCode(provider, session, code, resolveBaseUrl(_req));
       if (payload) {
         await store.update(session.userCode, {
           status: "approved",
@@ -386,7 +399,13 @@ async function exchangeCode(
   provider: string,
   session: RelaySession,
   code: string,
+  requestBaseUrl: string,
 ): Promise<string | null> {
+  // Il redirect_uri dello scambio deve essere IDENTICO a quello usato
+  // nell'authorize URL, altrimenti i provider rispondono con un errore
+  // "mismatched redirect_uri".
+  const redirectBase = String(session.state.redirectUriBase ?? requestBaseUrl);
+  const redirectUri = `${redirectBase}/callback/${provider}`;
   try {
     if (provider === "mal") {
       const clientId = PROVIDERS.mal;
@@ -397,7 +416,8 @@ async function exchangeCode(
         client_id: clientId,
         code,
         code_verifier: verifier,
-        redirect_uri: `${REDIRECT_URI_BASE}/callback/mal`,
+        redirect_uri: redirectUri,
+        ...(MAL_CLIENT_SECRET ? { client_secret: MAL_CLIENT_SECRET } : {}),
       });
       return tokensJson(tokens);
     }
@@ -408,7 +428,7 @@ async function exchangeCode(
         grant_type: "authorization_code",
         client_id: clientId,
         code,
-        redirect_uri: `${REDIRECT_URI_BASE}/callback/kitsu`,
+        redirect_uri: redirectUri,
       };
       if (KITSU_CLIENT_SECRET) form.client_secret = KITSU_CLIENT_SECRET;
       const tokens = await tokenExchange(KITSU_TOKEN_URL, form);
@@ -425,7 +445,7 @@ async function exchangeCode(
         grant_type: "authorization_code",
         client_id: clientId,
         code,
-        redirect_uri: `${REDIRECT_URI_BASE}/callback/anilist`,
+        redirect_uri: redirectUri,
       };
       if (ANILIST_CLIENT_SECRET) body.client_secret = ANILIST_CLIENT_SECRET;
       const tokens = await jsonTokenExchange(ANILIST_TOKEN_URL, body);
@@ -519,8 +539,10 @@ async function buildAuthorizeUrl(
   provider: string,
   clientId: string,
   session: RelaySession,
+  baseUrl: string,
 ): Promise<string | null> {
-  const redirectUri = `${REDIRECT_URI_BASE}/callback/${provider}`;
+  const redirectUri = `${baseUrl}/callback/${provider}`;
+  session.state.redirectUriBase = baseUrl;
   // Un client ID vuoto (env non configurato sul relay) produce errori
   // incomprensibili lato provider (es. MAL "invalid_client"). Meglio un
   // errore chiaro subito, così il telefono mostra "non configurato".
@@ -577,11 +599,13 @@ function base64Url(bytes: Uint8Array): string {
 // ============================================================
 function router(req: Request): Promise<Response> {
   const url = new URL(req.url);
-  // Su Supabase / Deno Deploy il pathname arriva con il prefisso del
-  // nome funzione (es. /tracker-login/start); se presente lo togliamo
-  // così il router vede i percorsi "relativi" (start, poll, ...).
+  // Su Supabase il pathname arriva con il prefisso `/functions/v1/tracker-login`,
+  // su Deno Deploy con `/tracker-login`; in entrambi i casi lo togliamo così il
+  // router vede i percorsi "relativi" (start, poll, ...).
   const rawPath = url.pathname;
-  const path = rawPath.startsWith("/tracker-login/") ? rawPath.slice("/tracker-login".length) : rawPath;
+  const path = rawPath
+    .replace(/^\/functions\/v1\/tracker-login/, "")
+    .replace(/^\/tracker-login/, "");
   if (req.method === "OPTIONS") {
     return Promise.resolve(
       new Response(null, {

@@ -2,7 +2,6 @@
 
 package com.nuvio.tv.ui.screens.settings
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -13,25 +12,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -145,7 +133,6 @@ private fun AniListConnectContent(
             instruction = stringResource(R.string.anilist_connect_instruction),
             onStart = onStartQrLogin,
             onRetry = onRetryQrLogin,
-            qrOverlayLogo = painterResource(R.drawable.anilist_icon),
             logoContent = { AniListWordmarkHeader() }
         )
     } else {
@@ -157,8 +144,7 @@ private fun AniListConnectContent(
         )
         TrackerLocalQrSection(
             authorizeUrl = state.authorizeUrl,
-            onConnectToken = onConnectToken,
-            qrOverlayLogo = painterResource(R.drawable.anilist_icon)
+            onConnectToken = onConnectToken
         )
     }
     if (!state.errorMessage.isNullOrBlank()) {
@@ -192,43 +178,16 @@ private fun AniListWordmarkHeader() {
             contentScale = ContentScale.Fit
         )
         Spacer(modifier = Modifier.width(NuvioTheme.spacing.md))
-        AniListOutlinedWordmark()
+        AniListWordmark()
     }
 }
 
 @Composable
-private fun AniListOutlinedWordmark() {
-    val density = LocalDensity.current
-    val textMeasurer = rememberTextMeasurer()
-    val headline = MaterialTheme.typography.headlineLarge
-    val style = remember(headline) {
-        headline.copy(
-            fontWeight = FontWeight.ExtraBold,
-            color = Color.White,
-            fontSize = 36.sp
-        )
-    }
-    val text = "AniList"
-    val layout = remember(text, style) {
-        textMeasurer.measure(AnnotatedString(text), style = style)
-    }
-    val strokeWidth = 3.dp
-    val strokePx = with(density) { strokeWidth.toPx() }
-    Canvas(
-        modifier = Modifier
-            .width(with(density) { (layout.size.width + strokePx).toDp() })
-            .height(with(density) { (layout.size.height + strokePx).toDp() })
-    ) {
-        val topLeft = Offset(
-            x = (size.width - layout.size.width) / 2f,
-            y = (size.height - layout.size.height) / 2f
-        )
-        drawText(
-            layout,
-            topLeft = topLeft,
-            color = Color(0xFF02A9FF),
-            drawStyle = Stroke(width = strokePx, join = StrokeJoin.Round, cap = StrokeCap.Round)
-        )
-        drawText(layout, topLeft = topLeft, color = Color.White)
-    }
+private fun AniListWordmark() {
+    Image(
+        painter = painterResource(R.drawable.anilist_wordmark),
+        contentDescription = null,
+        modifier = Modifier.height(38.dp),
+        contentScale = ContentScale.Fit
+    )
 }

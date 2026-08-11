@@ -2,8 +2,15 @@ package com.nuvio.tv.ui.screens.search
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,14 +31,10 @@ import androidx.compose.material.icons.filled.Backspace
 import androidx.compose.material.icons.filled.SpaceBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -210,23 +213,43 @@ private fun KeyCell(
     icon: ImageVector? = null,
     onClick: () -> Unit
 ) {
-    var isFocused by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    val bgColor by animateColorAsState(
+        targetValue = if (isFocused) NuvioTheme.colors.FocusBackground else NuvioTheme.colors.BackgroundCard,
+        animationSpec = tween(120),
+        label = "keyBg"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.Border,
+        animationSpec = tween(120),
+        label = "keyBorder"
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = if (isFocused) NuvioTheme.spacing.xxs else NuvioTheme.spacing.hairline,
+        animationSpec = tween(120),
+        label = "keyBorderWidth"
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (isFocused) NuvioTheme.colors.FocusContent else NuvioTheme.colors.TextPrimary,
+        animationSpec = tween(120),
+        label = "keyContent"
+    )
 
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
+            .focusable(interactionSource = interactionSource)
             .background(
-                color = if (isFocused) NuvioTheme.colors.FocusBackground else NuvioTheme.colors.BackgroundCard,
+                color = bgColor,
                 shape = RoundedCornerShape(NuvioTheme.radii.md)
             )
             .border(
-                width = if (isFocused) 2.dp else NuvioTheme.spacing.hairline,
-                color = if (isFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.Border,
+                width = borderWidth,
+                color = borderColor,
                 shape = RoundedCornerShape(NuvioTheme.radii.md)
             )
-            .focusable()
-            .focusProperties { canFocus = true }
-            .onFocusChanged { state -> isFocused = state.isFocused }
             .onPreviewKeyEvent { event ->
                 if (event.nativeKeyEvent.action == AndroidKeyEvent.ACTION_UP &&
                     (event.nativeKeyEvent.keyCode == AndroidKeyEvent.KEYCODE_DPAD_CENTER ||
@@ -244,14 +267,14 @@ private fun KeyCell(
             Icon(
                 imageVector = icon,
                 contentDescription = label.ifBlank { "action" },
-                tint = NuvioTheme.colors.TextPrimary,
+                tint = contentColor,
                 modifier = Modifier.size(20.dp)
             )
         } else {
             Text(
                 text = label,
                 style = MaterialTheme.typography.titleMedium,
-                color = NuvioTheme.colors.TextPrimary
+                color = contentColor
             )
         }
     }
