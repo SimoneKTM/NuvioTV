@@ -10,6 +10,7 @@ import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
+import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
 import com.nuvio.tv.domain.model.HomeLayout
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.mergeCatalogPage
@@ -18,6 +19,9 @@ import com.nuvio.tv.domain.model.skipStep
 import com.nuvio.tv.domain.model.supportsExtra
 import com.nuvio.tv.domain.repository.AnimeAddonRepository
 import com.nuvio.tv.domain.repository.CatalogRepository
+import com.nuvio.tv.domain.repository.MetaRepository
+import com.nuvio.tv.domain.repository.WatchProgressRepository
+import com.nuvio.tv.ui.screens.home.ContinueWatchingItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,9 +39,11 @@ import javax.inject.Named
 
 @HiltViewModel
 class AnimeHomeViewModel @Inject constructor(
-    private val animeAddonRepository: AnimeAddonRepository,
+    internal val animeAddonRepository: AnimeAddonRepository,
     private val catalogRepository: CatalogRepository,
-    @Named("anime_layout") private val layoutPreferenceDataStore: LayoutPreferenceDataStore
+    internal val watchProgressRepository: WatchProgressRepository,
+    internal val metaRepository: MetaRepository,
+    @Named("anime_layout") internal val layoutPreferenceDataStore: LayoutPreferenceDataStore
 ) : ViewModel() {
 
     companion object {
@@ -45,7 +51,7 @@ class AnimeHomeViewModel @Inject constructor(
         private const val MAX_CONCURRENT_CATALOG_LOADS = 4
     }
 
-    private val _uiState = MutableStateFlow(AnimeHomeUiState())
+    internal val _uiState = MutableStateFlow(AnimeHomeUiState())
     val uiState: StateFlow<AnimeHomeUiState> = _uiState.asStateFlow()
 
     private val _fullCatalogRows = MutableStateFlow<List<CatalogRow>>(emptyList())
@@ -63,10 +69,17 @@ class AnimeHomeViewModel @Inject constructor(
     private var homeLayout = HomeLayout.MODERN
     private var catalogTypeSuffixEnabled = true
     private var hideUnreleasedContent = false
+    private var modernLandscapePostersEnabled = false
+    private var modernHeroFullScreenBackdropEnabled = false
+    private var classicFocusGradientEnabled = false
+    private var continueWatchingCardStyle = ContinueWatchingCardStyle.CARD
+    private var useEpisodeThumbnailsInCw = true
+    private var blurContinueWatchingNextUp = false
 
     init {
         observeLayoutPreferences()
         observeAnimeAddons()
+        observeAnimeContinueWatching()
     }
 
     private fun observeLayoutPreferences() {
@@ -86,7 +99,7 @@ class AnimeHomeViewModel @Inject constructor(
                     layout = layout
                 )
             }
-            combine(
+            val baseSnapshotFlow = combine(
                 coreSnapshotFlow,
                 layoutPreferenceDataStore.catalogTypeSuffixEnabled,
                 layoutPreferenceDataStore.hideUnreleasedContent
@@ -94,6 +107,30 @@ class AnimeHomeViewModel @Inject constructor(
                 snapshot.copy(
                     catalogTypeSuffixEnabled = typeSuffix,
                     hideUnreleasedContent = hideUnreleased
+                )
+            }
+            val viewSnapshotFlow = combine(
+                baseSnapshotFlow,
+                layoutPreferenceDataStore.modernLandscapePostersEnabled,
+                layoutPreferenceDataStore.modernHeroFullScreenBackdropEnabled,
+                layoutPreferenceDataStore.classicFocusGradientEnabled,
+                layoutPreferenceDataStore.continueWatchingCardStyle
+            ) { snapshot, landscape, fullscreenBackdrop, focusGradient, cardStyle ->
+                snapshot.copy(
+                    modernLandscapePostersEnabled = landscape,
+                    modernHeroFullScreenBackdropEnabled = fullscreenBackdrop,
+                    classicFocusGradientEnabled = focusGradient,
+                    continueWatchingCardStyle = cardStyle
+                )
+            }
+            combine(
+                viewSnapshotFlow,
+                layoutPreferenceDataStore.useEpisodeThumbnailsInCw,
+                layoutPreferenceDataStore.blurContinueWatchingNextUp
+            ) { snapshot, thumbnails, blurNextUp ->
+                snapshot.copy(
+                    useEpisodeThumbnailsInCw = thumbnails,
+                    blurContinueWatchingNextUp = blurNextUp
                 )
             }.distinctUntilChanged().collectLatest { snapshot ->
                 layoutOrderKeys.clear()
@@ -106,6 +143,12 @@ class AnimeHomeViewModel @Inject constructor(
                 homeLayout = snapshot.layout
                 catalogTypeSuffixEnabled = snapshot.catalogTypeSuffixEnabled
                 hideUnreleasedContent = snapshot.hideUnreleasedContent
+                modernLandscapePostersEnabled = snapshot.modernLandscapePostersEnabled
+                modernHeroFullScreenBackdropEnabled = snapshot.modernHeroFullScreenBackdropEnabled
+                classicFocusGradientEnabled = snapshot.classicFocusGradientEnabled
+                continueWatchingCardStyle = snapshot.continueWatchingCardStyle
+                useEpisodeThumbnailsInCw = snapshot.useEpisodeThumbnailsInCw
+                blurContinueWatchingNextUp = snapshot.blurContinueWatchingNextUp
                 publishRows()
             }
         }
@@ -118,7 +161,13 @@ class AnimeHomeViewModel @Inject constructor(
         val heroEnabled: Boolean,
         val layout: HomeLayout,
         val catalogTypeSuffixEnabled: Boolean = true,
-        val hideUnreleasedContent: Boolean = false
+        val hideUnreleasedContent: Boolean = false,
+        val modernLandscapePostersEnabled: Boolean = false,
+        val modernHeroFullScreenBackdropEnabled: Boolean = false,
+        val classicFocusGradientEnabled: Boolean = false,
+        val continueWatchingCardStyle: ContinueWatchingCardStyle = ContinueWatchingCardStyle.CARD,
+        val useEpisodeThumbnailsInCw: Boolean = true,
+        val blurContinueWatchingNextUp: Boolean = false
     )
 
     private fun observeAnimeAddons() {
@@ -327,9 +376,30 @@ class AnimeHomeViewModel @Inject constructor(
                 heroAddonBaseUrl = heroRow?.addonBaseUrl,
                 homeLayout = homeLayout,
                 catalogTypeSuffixEnabled = catalogTypeSuffixEnabled,
-                hideUnreleasedContent = hideUnreleasedContent
+                hideUnreleasedContent = hideUnreleasedContent,
+                modernLandscapePostersEnabled = modernLandscapePostersEnabled,
+                modernHeroFullScreenBackdropEnabled = modernHeroFullScreenBackdropEnabled,
+                classicFocusGradientEnabled = classicFocusGradientEnabled,
+                continueWatchingCardStyle = continueWatchingCardStyle,
+                useEpisodeThumbnailsInCw = useEpisodeThumbnailsInCw,
+                blurContinueWatchingNextUp = blurContinueWatchingNextUp
             )
             if (updated == state) state else updated
+        }
+    }
+
+    fun removeContinueWatching(item: ContinueWatchingItem) {
+        val progress = when (item) {
+            is ContinueWatchingItem.InProgress -> item.progress
+            is ContinueWatchingItem.NextUp -> null
+        } ?: return
+        viewModelScope.launch {
+            watchProgressRepository.removeFromHistory(
+                contentId = progress.contentId,
+                videoId = progress.videoId,
+                season = progress.season,
+                episode = progress.episode
+            )
         }
     }
 

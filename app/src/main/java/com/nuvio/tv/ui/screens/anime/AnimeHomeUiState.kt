@@ -2,12 +2,16 @@ package com.nuvio.tv.ui.screens.anime
 
 import androidx.compose.runtime.Immutable
 import com.nuvio.tv.domain.model.CatalogRow
+import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
 import com.nuvio.tv.domain.model.HomeLayout
 import com.nuvio.tv.domain.model.MetaPreview
+import com.nuvio.tv.ui.screens.home.ContinueWatchingItem
 
 @Immutable
 data class AnimeHomeUiState(
     val rows: List<CatalogRow> = emptyList(),
+    val continueWatchingItems: List<ContinueWatchingItem> = emptyList(),
+    val upcomingItems: List<ContinueWatchingItem> = emptyList(),
     val isLoading: Boolean = true,
     val error: String? = null,
     val installedAddonsCount: Int = 0,
@@ -17,7 +21,13 @@ data class AnimeHomeUiState(
     val heroAddonBaseUrl: String? = null,
     val homeLayout: HomeLayout = HomeLayout.MODERN,
     val catalogTypeSuffixEnabled: Boolean = true,
-    val hideUnreleasedContent: Boolean = false
+    val hideUnreleasedContent: Boolean = false,
+    val modernLandscapePostersEnabled: Boolean = false,
+    val modernHeroFullScreenBackdropEnabled: Boolean = false,
+    val classicFocusGradientEnabled: Boolean = false,
+    val continueWatchingCardStyle: ContinueWatchingCardStyle = ContinueWatchingCardStyle.CARD,
+    val useEpisodeThumbnailsInCw: Boolean = true,
+    val blurContinueWatchingNextUp: Boolean = false
 )
 
 sealed class AnimeHomeEvent {
