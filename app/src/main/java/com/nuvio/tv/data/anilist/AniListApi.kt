@@ -5,6 +5,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -43,6 +45,17 @@ fun buildAniListAuthorizeUrl(configuration: AniListApiConfiguration): String =
 data class AniListHttpResponse(
     val status: Int,
     val body: String
+)
+
+@Serializable
+internal data class AniListTokenResponse(
+    @SerialName("access_token") val accessToken: String = "",
+    @SerialName("expires_in") val expiresIn: Long? = null
+)
+
+data class AniListAuthorizePayload(
+    val accessToken: String,
+    val expiresInSeconds: Long? = null
 )
 
 class AniListApiException(
@@ -94,6 +107,42 @@ class AniListApi(
     fun authorizeUrl(): String = buildAniListAuthorizeUrl(configuration)
 
     fun hasRequiredCredentials(): Boolean = configuration.clientId.isNotBlank()
+
+    /**
+     * Returns the [AniListAuthorizePayload] parsed from whatever the user pasted or the QR login
+     * relay delivered. Accepts the raw JSON token response, an implicit access-token URL
+     * (`...#access_token=...&expires_in=...`), or a bare access token.
+     */
+    fun parseAuthorizePayload(rawToken: String): AniListAuthorizePayload {
+        val trimmed = rawToken.trim()
+        val parsedJson = runCatching { json.decodeFromString<AniListTokenResponse>(trimmed) }.getOrNull()
+        if (parsedJson != null && parsedJson.accessToken.isNotBlank()) {
+            return AniListAuthorizePayload(
+                accessToken = parsedJson.accessToken,
+                expiresInSeconds = parsedJson.expiresIn
+            )
+        }
+        val implicitToken = extractQueryValue(trimmed, "access_token")
+        if (!implicitToken.isNullOrBlank()) {
+            return AniListAuthorizePayload(
+                accessToken = implicitToken,
+                expiresInSeconds = extractQueryValue(trimmed, "expires_in")?.toLongOrNull()
+            )
+        }
+        return AniListAuthorizePayload(accessToken = trimmed)
+    }
+
+    private fun extractQueryValue(raw: String, key: String): String? {
+        val tokenMarker = "${key}="
+        val index = raw.indexOf(tokenMarker)
+        if (index < 0) return null
+        var end = raw.indexOf('&', index)
+        val fragment = raw.indexOf('#')
+        if (end < 0 || (fragment in index..end)) end = fragment
+        if (end < 0) end = raw.length
+        return raw.substring(index + tokenMarker.length, end).trim()
+            .takeIf(String::isNotEmpty)
+    }
 
     suspend fun fetchViewer(token: String): AniListViewer? {
         val query = """

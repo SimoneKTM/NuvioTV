@@ -37,7 +37,8 @@ class AniListAuthRepository @Inject constructor(
      * valid, persisted together with the identified profile.
      */
     suspend fun connectToken(rawToken: String): AniListConnectResult = mutex.withLock {
-        val token = rawToken.trim().takeIf(String::isNotBlank)
+        val payload = apiClient.parseAuthorizePayload(rawToken)
+        val token = payload.accessToken.takeIf(String::isNotBlank)
             ?: return@withLock AniListConnectResult.Failed(AniListAuthError.INVALID_TOKEN)
         if (!hasRequiredCredentials()) {
             return@withLock AniListConnectResult.Failed(AniListAuthError.MISSING_CLIENT_ID)
@@ -61,6 +62,8 @@ class AniListAuthRepository @Inject constructor(
             storage.saveIdentity(
                 username = viewer.name,
                 userId = viewer.id,
+                tokenExpiresAtEpochMs = payload.expiresInSeconds
+                    ?.let { expiresIn -> System.currentTimeMillis() + expiresIn * 1_000L },
                 scope = authScope
             )
             AniListConnectResult.Connected
