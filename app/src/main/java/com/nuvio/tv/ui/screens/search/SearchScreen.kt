@@ -71,6 +71,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -101,9 +102,9 @@ import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.ErrorState
 import com.nuvio.tv.ui.components.GridContentCard
-import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.components.PosterCardDefaults
 import com.nuvio.tv.ui.components.PosterCardStyle
+import com.nuvio.tv.ui.components.rememberShimmerBrush
 import com.nuvio.tv.ui.screens.home.HeroBackdropState
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.RtlKeyUtils
@@ -549,13 +550,56 @@ fun SearchScreen(
         }
     }
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .recompositionHighlighter()
     ) {
-        // Left: search field + WuPlay-style virtual keyboard, always laid out even when the
-        // keyboard is collapsed so the field keeps a stable home for focus restoration.
+        // Full-width search banner: always visible, spanning the whole page, with the clear
+        // (X) button at the far end. Only the keyboard + recents panel below collapses.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = NuvioTheme.spacing.xxxl,
+                    end = NuvioTheme.spacing.xxxl,
+                    top = NuvioTheme.spacing.lg
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            SearchInputField(
+                query = uiState.query,
+                canMoveToResults = canMoveToResults,
+                voiceFocusRequester = if (isVoiceSearchAvailable) voiceFocusRequester else null,
+                searchFocusRequester = searchFocusRequester,
+                onSearchFieldFocusChanged = { focused ->
+                    isSearchFieldFocused = focused
+                    if (focused) inputAreaActive = true
+                },
+                onQueryChanged = handleQueryChanged,
+                onSubmit = {
+                    submitCurrentQuery(uiState.query.trim())
+                },
+                showVoiceSearch = isVoiceSearchAvailable,
+                isVoiceListening = isVoiceListening,
+                voiceRmsLevel = voiceRmsLevel,
+                onVoiceSearch = launchVoiceSearch,
+                onMoveToResults = { focusResults = true },
+                onMoveToKeyboard = requestKeyboardFocus,
+                onOpenDiscover = onOpenDiscover,
+                showDiscoverButton = uiState.discoverLocation == DiscoverLocation.IN_SEARCH,
+                clearHistoryFocusRequester = if (panelRecentSearches.isNotEmpty()) recentClearHistoryFocusRequester else null,
+                isScreenActive = isScreenActive
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+        // Left: WuPlay-style virtual keyboard panel, always laid out even when it is collapsed
+        // so the field keeps a stable home for focus restoration.
         AnimatedVisibility(
             visible = inputAreaActive,
             enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
@@ -567,33 +611,6 @@ fun SearchScreen(
                     .fillMaxHeight()
                     .padding(start = NuvioTheme.spacing.xxxl, top = NuvioTheme.spacing.lg)
             ) {
-                SearchInputField(
-                    query = uiState.query,
-                    canMoveToResults = canMoveToResults,
-                    voiceFocusRequester = if (isVoiceSearchAvailable) voiceFocusRequester else null,
-                    searchFocusRequester = searchFocusRequester,
-                    onSearchFieldFocusChanged = { focused ->
-                        isSearchFieldFocused = focused
-                        if (focused) inputAreaActive = true
-                    },
-                    onQueryChanged = handleQueryChanged,
-                    onSubmit = {
-                        submitCurrentQuery(uiState.query.trim())
-                    },
-                    showVoiceSearch = isVoiceSearchAvailable,
-                    isVoiceListening = isVoiceListening,
-                    voiceRmsLevel = voiceRmsLevel,
-                    onVoiceSearch = launchVoiceSearch,
-                    onMoveToResults = { focusResults = true },
-                    onMoveToKeyboard = requestKeyboardFocus,
-                    onOpenDiscover = onOpenDiscover,
-                    showDiscoverButton = uiState.discoverLocation == DiscoverLocation.IN_SEARCH,
-                    clearHistoryFocusRequester = if (panelRecentSearches.isNotEmpty()) recentClearHistoryFocusRequester else null,
-                    isScreenActive = isScreenActive
-                )
-
-                Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
-
                 SearchVirtualKeyboard(
                     onKey = { key -> handleQueryChanged(uiState.query + key) },
                     onSpace = { handleQueryChanged(uiState.query + " ") },
@@ -787,6 +804,7 @@ fun SearchScreen(
                     )
                 }
             }
+        }
         }
     }
 
@@ -1060,18 +1078,21 @@ private fun RecentSearchesPanel(
             )
             Button(
                 onClick = onClearHistory,
-                modifier = Modifier.focusRequester(clearHistoryFocusRequester),
+                modifier = Modifier
+                    .focusRequester(clearHistoryFocusRequester)
+                    .height(30.dp),
                 colors = ButtonDefaults.colors(
                     containerColor = NuvioTheme.colors.BackgroundCard,
-                    contentColor = NuvioTheme.colors.TextPrimary,
+                    contentColor = NuvioTheme.colors.TextSecondary,
                     focusedContainerColor = NuvioTheme.colors.FocusBackground,
                     focusedContentColor = NuvioTheme.colors.Primary
                 ),
-                shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.sm))
+                shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.sm)),
+                contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.md, vertical = 0.dp)
             ) {
                 Text(
                     text = stringResource(R.string.search_recent_clear),
-                    style = androidx.tv.material3.MaterialTheme.typography.labelMedium
+                    style = androidx.tv.material3.MaterialTheme.typography.labelSmall
                 )
             }
         }
@@ -1280,13 +1301,32 @@ private fun SingleSearchResultsGrid(
 
             if (showLoadingFooter) {
                 item(key = "search_loading_more") {
-                    LoadingIndicator(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = NuvioTheme.spacing.lg)
-                    )
+                            .padding(vertical = NuvioTheme.spacing.lg),
+                        horizontalArrangement = Arrangement.spacedBy(horizontalSpacing)
+                    ) {
+                        repeat(4) {
+                            GhostPosterCard(
+                                posterCardStyle = posterCardStyle,
+                                shimmerBrush = rememberShimmerBrush()
+                            )
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+/** Non-focusable ghost poster shown while more search results are on the way. */
+@Composable
+private fun GhostPosterCard(posterCardStyle: PosterCardStyle, shimmerBrush: Brush) {
+    Box(
+        modifier = Modifier
+            .width(posterCardStyle.width)
+            .height(posterCardStyle.height)
+            .background(shimmerBrush, shape = RoundedCornerShape(posterCardStyle.cornerRadius))
+    )
 }

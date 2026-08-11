@@ -339,6 +339,7 @@ async function handleCallback(_req: Request, provider: string): Promise<Response
   const accessToken = url.searchParams.get("access_token");
   const authError = url.searchParams.get("error");
   let session: RelaySession | null = null;
+  let exchangeError: string | null = null;
   try {
     session = state ? await store.get(state) : null;
   } catch (error) {
@@ -353,15 +354,29 @@ async function handleCallback(_req: Request, provider: string): Promise<Response
     // AniList / Kitsu / MAL (auth-code): il codice arriva come query param.
     // Facciamo qui lo scambio con le credenziali del relay.
     if (code) {
-      const payload = await exchangeCode(provider, session, code, resolveBaseUrl(_req));
-      if (payload) {
+      const result = await exchangeCode(provider, session, code, resolveBaseUrl(_req));
+      if (result.error) {
+        // Lo scambio è fallito: il problema è quasi sempre la config del relay
+        // (client_id/secret/redirect non allineati al provider). Chiudiamo la
+        // sessione così il TV propone "riprova" e mostriamo l'errore vero.
+        exchangeError = result.error;
+        console.error(`[${provider}] token exchange failed:`, exchangeError);
+        try {
+          await store.update(session.userCode, {
+            status: "expired",
+            pollIntervalSeconds: 2,
+          });
+        } catch (error) {
+          console.error("callback update error", error);
+        }
+      } else if (result.payload) {
         await store.update(session.userCode, {
           status: "approved",
-          payload,
+          payload: result.payload,
           pollIntervalSeconds: 1,
         });
         session.status = "approved";
-        session.payload = payload;
+        session.payload = result.payload;
       }
     } else if (accessToken) {
       // Fallback: client AniList registrati come implicit restituiscono il
@@ -381,13 +396,22 @@ async function handleCallback(_req: Request, provider: string): Promise<Response
     ? "Puoi chiudere questa finestra e tornare sul TV."
     : authError
       ? "Hai annullato l'autorizzazione o il provider l'ha rifiutata. Puoi chiudere questa finestra e riprovare dal TV."
-      : "Nessuna autorizzazione ricevuta. Puoi chiudere questa finestra.";
+      : exchangeError
+        ? `Autorizzazione ok, ma lo scambio del token è fallito: ${exchangeError}`
+        : "Nessuna autorizzazione ricevuta. Puoi chiudere questa finestra.";
   return html(`<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:sans-serif;background:#0b0b0f;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
-  <div style="text-align:center">
+  <div style="text-align:center;max-width:520px;padding:0 24px">
     <h2 style="font-weight:normal">${approved ? "✓" : "✕"}</h2>
-    <h3 style="font-weight:normal">${message}</h3>
+    <h3 style="font-weight:normal">${escHtml(message)}</h3>
+    ${
+      exchangeError
+        ? `<p style="color:#9aa0aa;font-size:13px">Controlla che le credenziali del relay (client id/secret e redirect URI ${escHtml(
+            `${resolveBaseUrl(_req)}/callback/${provider}`,
+          )}) corrispondano a quelle registrate sul provider, poi riprova dal TV.</p>`
+        : ""
+    }
   </div>
 </body></html>`);
 }
@@ -395,12 +419,26 @@ async function handleCallback(_req: Request, provider: string): Promise<Response
 // ============================================================
 // Scambio codice -> token per i provider auth-code
 // ============================================================
+type ExchangeOutcome =
+  | { ok: true; data: Record<string, unknown> }
+  | { ok: false; error: string };
+
+interface ExchangeResult {
+  payload: string | null;
+  error: string | null;
+}
+
+function describeError(resp: Response, bodyText: string): string {
+  const trimmed = bodyText.trim().replace(/\s+/g, " ").slice(0, 300);
+  return trimmed || `HTTP ${resp.status} ${resp.statusText}`;
+}
+
 async function exchangeCode(
   provider: string,
   session: RelaySession,
   code: string,
   requestBaseUrl: string,
-): Promise<string | null> {
+): Promise<ExchangeResult> {
   // Il redirect_uri dello scambio deve essere IDENTICO a quello usato
   // nell'authorize URL, altrimenti i provider rispondono con un errore
   // "mismatched redirect_uri".
@@ -410,8 +448,10 @@ async function exchangeCode(
     if (provider === "mal") {
       const clientId = PROVIDERS.mal;
       const verifier = session.state.codeVerifier as string | undefined;
-      if (!clientId || !verifier) return null;
-      const tokens = await tokenExchange(MAL_TOKEN_URL, {
+      if (!clientId || !verifier) {
+        return { payload: null, error: "MAL non configurato sul relay (manca MAL_CLIENT_ID o il verifier PKCE)" };
+      }
+      const outcome = await tokenExchange(MAL_TOKEN_URL, {
         grant_type: "authorization_code",
         client_id: clientId,
         code,
@@ -419,11 +459,13 @@ async function exchangeCode(
         redirect_uri: redirectUri,
         ...(MAL_CLIENT_SECRET ? { client_secret: MAL_CLIENT_SECRET } : {}),
       });
-      return tokensJson(tokens);
+      return tokensResult(outcome, "MAL");
     }
     if (provider === "kitsu") {
       const clientId = PROVIDERS.kitsu;
-      if (!clientId) return null;
+      if (!clientId) {
+        return { payload: null, error: "Kitsu non configurato sul relay (manca KITSU_CLIENT_ID)" };
+      }
       const form: Record<string, string> = {
         grant_type: "authorization_code",
         client_id: clientId,
@@ -431,8 +473,8 @@ async function exchangeCode(
         redirect_uri: redirectUri,
       };
       if (KITSU_CLIENT_SECRET) form.client_secret = KITSU_CLIENT_SECRET;
-      const tokens = await tokenExchange(KITSU_TOKEN_URL, form);
-      return tokensJson(tokens);
+      const outcome = await tokenExchange(KITSU_TOKEN_URL, form);
+      return tokensResult(outcome, "Kitsu");
     }
     if (provider === "anilist") {
       // AniList accetta solo il grant "authorization_code" (Authorization
@@ -440,7 +482,9 @@ async function exchangeCode(
       // "confidential": i client pubblici falliscono se il secret è
       // presente, perciò l'env è opzionale.
       const clientId = PROVIDERS.anilist;
-      if (!clientId) return null;
+      if (!clientId) {
+        return { payload: null, error: "AniList non configurato sul relay (manca ANILIST_CLIENT_ID)" };
+      }
       const body: Record<string, string> = {
         grant_type: "authorization_code",
         client_id: clientId,
@@ -448,34 +492,50 @@ async function exchangeCode(
         redirect_uri: redirectUri,
       };
       if (ANILIST_CLIENT_SECRET) body.client_secret = ANILIST_CLIENT_SECRET;
-      const tokens = await jsonTokenExchange(ANILIST_TOKEN_URL, body);
-      return tokensJson(tokens);
+      const outcome = await jsonTokenExchange(ANILIST_TOKEN_URL, body);
+      return tokensResult(outcome, "AniList");
     }
-    return null;
+    return { payload: null, error: `provider sconosciuto: ${provider}` };
   } catch (err) {
     console.error("exchangeCode failed", err);
-    return null;
+    return { payload: null, error: `errore di rete nello scambio: ${String(err)}` };
   }
+}
+
+function tokensResult(outcome: ExchangeOutcome, providerLabel: string): ExchangeResult {
+  if (!outcome.ok) {
+    return { payload: null, error: `${providerLabel} ha rifiutato lo scambio: ${outcome.error}` };
+  }
+  const payload = tokensJson(outcome.data);
+  if (!payload) {
+    return { payload: null, error: `${providerLabel} ha risposto senza access_token` };
+  }
+  return { payload, error: null };
 }
 
 // AniList vuole il body in JSON (non form-encoded).
 async function jsonTokenExchange(
   url: string,
   payload: Record<string, string>,
-): Promise<Record<string, unknown> | null> {
+): Promise<ExchangeOutcome> {
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!resp.ok) return null;
-  return (await resp.json()).catch(() => null) as Record<string, unknown> | null;
+  const bodyText = await resp.text();
+  if (!resp.ok) return { ok: false, error: describeError(resp, bodyText) };
+  try {
+    return { ok: true, data: JSON.parse(bodyText) as Record<string, unknown> };
+  } catch {
+    return { ok: false, error: `risposta non-JSON del provider (HTTP ${resp.status})` };
+  }
 }
 
 async function tokenExchange(
   url: string,
   form: Record<string, string>,
-): Promise<Record<string, unknown> | null> {
+): Promise<ExchangeOutcome> {
   const body = new URLSearchParams();
   for (const [k, v] of Object.entries(form)) body.set(k, v);
   const resp = await fetch(url, {
@@ -483,8 +543,13 @@ async function tokenExchange(
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
   });
-  if (!resp.ok) return null;
-  return (await resp.json()).catch(() => null) as Record<string, unknown> | null;
+  const bodyText = await resp.text();
+  if (!resp.ok) return { ok: false, error: describeError(resp, bodyText) };
+  try {
+    return { ok: true, data: JSON.parse(bodyText) as Record<string, unknown> };
+  } catch {
+    return { ok: false, error: `risposta non-JSON del provider (HTTP ${resp.status})` };
+  }
 }
 
 // Il payload da consegnare alla TV. Per MAL e Kitsu chiudiamo il JSON
@@ -520,6 +585,15 @@ function html(markup: string): Response {
     status: 200,
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
+}
+
+function escHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function generateUserCode(): string {

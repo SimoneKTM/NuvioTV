@@ -3,14 +3,9 @@
 package com.nuvio.tv.ui.screens.settings
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -166,28 +161,12 @@ private fun AniListConnectContent(
 
 @Composable
 private fun AniListWordmarkHeader() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Image(
-            painter = painterResource(R.drawable.anilist_icon),
-            contentDescription = stringResource(R.string.cd_anilist_logo),
-            modifier = Modifier.size(34.dp),
-            contentScale = ContentScale.Fit
-        )
-        Spacer(modifier = Modifier.width(NuvioTheme.spacing.md))
-        AniListWordmark()
-    }
-}
-
-@Composable
-private fun AniListWordmark() {
     Image(
         painter = painterResource(R.drawable.anilist_wordmark),
         contentDescription = null,
-        modifier = Modifier.height(38.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(38.dp),
         contentScale = ContentScale.Fit
     )
 }
