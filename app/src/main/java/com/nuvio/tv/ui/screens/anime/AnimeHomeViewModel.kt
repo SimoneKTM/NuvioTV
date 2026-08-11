@@ -5,10 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.core.network.NetworkResult
 import com.nuvio.tv.core.sync.homeCatalogKey
+import com.nuvio.tv.core.util.filterReleasedItems
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
+import com.nuvio.tv.domain.model.HomeLayout
+import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.mergeCatalogPage
 import com.nuvio.tv.domain.model.nextCatalogSkip
 import com.nuvio.tv.domain.model.skipStep
@@ -57,6 +60,9 @@ class AnimeHomeViewModel @Inject constructor(
     private val layoutDisabledKeys = mutableSetOf<String>()
     private val heroCatalogKeys = mutableListOf<String>()
     private var heroSectionEnabled = true
+    private var homeLayout = HomeLayout.MODERN
+    private var catalogTypeSuffixEnabled = true
+    private var hideUnreleasedContent = false
 
     init {
         observeLayoutPreferences()
@@ -65,13 +71,30 @@ class AnimeHomeViewModel @Inject constructor(
 
     private fun observeLayoutPreferences() {
         viewModelScope.launch {
-            combine(
+            val coreSnapshotFlow = combine(
                 layoutPreferenceDataStore.homeCatalogOrderKeys,
                 layoutPreferenceDataStore.disabledHomeCatalogKeys,
                 layoutPreferenceDataStore.heroCatalogSelections,
-                layoutPreferenceDataStore.heroSectionEnabled
-            ) { orderKeys, disabledKeys, heroKeys, heroEnabled ->
-                LayoutSnapshot(orderKeys, disabledKeys.toSet(), heroKeys, heroEnabled)
+                layoutPreferenceDataStore.heroSectionEnabled,
+                layoutPreferenceDataStore.selectedLayout
+            ) { orderKeys, disabledKeys, heroKeys, heroEnabled, layout ->
+                LayoutSnapshot(
+                    orderKeys = orderKeys,
+                    disabledKeys = disabledKeys.toSet(),
+                    heroKeys = heroKeys,
+                    heroEnabled = heroEnabled,
+                    layout = layout
+                )
+            }
+            combine(
+                coreSnapshotFlow,
+                layoutPreferenceDataStore.catalogTypeSuffixEnabled,
+                layoutPreferenceDataStore.hideUnreleasedContent
+            ) { snapshot, typeSuffix, hideUnreleased ->
+                snapshot.copy(
+                    catalogTypeSuffixEnabled = typeSuffix,
+                    hideUnreleasedContent = hideUnreleased
+                )
             }.distinctUntilChanged().collectLatest { snapshot ->
                 layoutOrderKeys.clear()
                 layoutOrderKeys.addAll(snapshot.orderKeys)
@@ -80,6 +103,9 @@ class AnimeHomeViewModel @Inject constructor(
                 heroCatalogKeys.clear()
                 heroCatalogKeys.addAll(snapshot.heroKeys)
                 heroSectionEnabled = snapshot.heroEnabled
+                homeLayout = snapshot.layout
+                catalogTypeSuffixEnabled = snapshot.catalogTypeSuffixEnabled
+                hideUnreleasedContent = snapshot.hideUnreleasedContent
                 publishRows()
             }
         }
@@ -89,7 +115,10 @@ class AnimeHomeViewModel @Inject constructor(
         val orderKeys: List<String>,
         val disabledKeys: Set<String>,
         val heroKeys: List<String>,
-        val heroEnabled: Boolean
+        val heroEnabled: Boolean,
+        val layout: HomeLayout,
+        val catalogTypeSuffixEnabled: Boolean = true,
+        val hideUnreleasedContent: Boolean = false
     )
 
     private fun observeAnimeAddons() {
@@ -281,13 +310,24 @@ class AnimeHomeViewModel @Inject constructor(
             _fullCatalogRows.value = snapshot
         }
         val ordered = orderRows(snapshot)
-        val filtered = ordered.filter { it.items.isNotEmpty() }
+        val today = java.time.LocalDate.now()
+        val released = if (hideUnreleasedContent) {
+            ordered.map { it.filterReleasedItems(today) }
+        } else {
+            ordered
+        }
+        val filtered = released.filter { it.items.isNotEmpty() }
         val heroRow = computeHeroRow(filtered)
+        val heroItems = heroRow?.items.orEmpty()
         _uiState.update { state ->
             val updated = state.copy(
                 rows = filtered,
                 heroItem = heroRow?.items?.firstOrNull(),
-                heroAddonBaseUrl = heroRow?.addonBaseUrl
+                heroItems = heroItems,
+                heroAddonBaseUrl = heroRow?.addonBaseUrl,
+                homeLayout = homeLayout,
+                catalogTypeSuffixEnabled = catalogTypeSuffixEnabled,
+                hideUnreleasedContent = hideUnreleasedContent
             )
             if (updated == state) state else updated
         }

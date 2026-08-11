@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,20 +21,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
+import com.nuvio.tv.domain.model.CatalogRow
+import com.nuvio.tv.domain.model.HomeLayout
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.legacyKey
 import com.nuvio.tv.ui.components.CatalogRowSection
+import com.nuvio.tv.ui.components.ContentCard
 import com.nuvio.tv.ui.components.EmptyScreenState
+import com.nuvio.tv.ui.components.HeroCarousel
 import com.nuvio.tv.ui.components.LoadingIndicator
+import com.nuvio.tv.ui.components.PosterCardDefaults
 import com.nuvio.tv.ui.screens.home.HeroPreview
 import com.nuvio.tv.ui.screens.home.HeroTitleBlock
 import com.nuvio.tv.ui.screens.home.ModernHeroScene
@@ -45,6 +54,7 @@ import com.nuvio.tv.ui.screens.home.isSeriesType
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.asStable
 import com.nuvio.tv.ui.util.dpadRepeatThrottle
+import com.nuvio.tv.ui.util.localizedContentType
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -92,41 +102,250 @@ fun AnimeHomeScreen(
             }
 
             else -> {
-                val heroItem = uiState.heroItem
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .dpadRepeatThrottle(),
-                    contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
-                ) {
-                    if (uiState.heroEnabled && heroItem != null) {
-                        item(key = "anime_hero") {
-                            AnimeHomeModernHero(
-                                item = heroItem,
-                                onOpen = {
-                                    onNavigateToDetail(
-                                        heroItem.id,
-                                        heroItem.rawType,
-                                        uiState.heroAddonBaseUrl.orEmpty()
-                                    )
-                                },
-                                modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)
-                            )
-                        }
-                    }
+                when (uiState.homeLayout) {
+                    HomeLayout.MODERN -> AnimeModernContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll)
+                    HomeLayout.CLASSIC -> AnimeClassicContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll)
+                    HomeLayout.GRID -> AnimeGridContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll)
+                }
+            }
+        }
+    }
+}
 
-                    items(
-                        items = rows,
-                        key = { row -> row.legacyKey() }
-                    ) { row ->
-                        CatalogRowSection(
-                            catalogRow = row,
-                            onItemClick = onNavigateToDetail,
-                            onSeeAll = {
-                                onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
-                            },
-                            showSeeAll = row.hasMore || row.items.size >= 15
+@Composable
+private fun AnimeHeroItem(
+    uiState: AnimeHomeUiState,
+    onOpen: (MetaPreview, String) -> Unit
+) {
+    if (!uiState.heroEnabled || uiState.heroItems.isEmpty()) return
+    HeroCarousel(
+        items = uiState.heroItems.asStable(),
+        onItemClick = { item ->
+            onOpen(item, uiState.heroAddonBaseUrl.orEmpty())
+        },
+        modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)
+    )
+}
+
+@Composable
+private fun AnimeModernContent(
+    uiState: AnimeHomeUiState,
+    onNavigateToDetail: (String, String, String) -> Unit,
+    onNavigateToSeeAll: (String, String, String) -> Unit
+) {
+    val heroItem = uiState.heroItem
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .dpadRepeatThrottle(),
+        contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
+    ) {
+        if (uiState.heroEnabled && heroItem != null) {
+            item(key = "anime_hero") {
+                AnimeHomeModernHero(
+                    item = heroItem,
+                    onOpen = {
+                        onNavigateToDetail(
+                            heroItem.id,
+                            heroItem.rawType,
+                            uiState.heroAddonBaseUrl.orEmpty()
                         )
+                    },
+                    modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)
+                )
+            }
+        }
+
+        items(
+            items = uiState.rows,
+            key = { row -> row.legacyKey() }
+        ) { row ->
+            CatalogRowSection(
+                catalogRow = row,
+                onItemClick = onNavigateToDetail,
+                onSeeAll = {
+                    onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
+                },
+                showSeeAll = row.hasMore || row.items.size >= 15,
+                showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled
+            )
+        }
+    }
+}
+
+@Composable
+private fun AnimeClassicContent(
+    uiState: AnimeHomeUiState,
+    onNavigateToDetail: (String, String, String) -> Unit,
+    onNavigateToSeeAll: (String, String, String) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .dpadRepeatThrottle(),
+        contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
+    ) {
+        if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
+            item(key = "anime_hero") {
+                AnimeHeroItem(
+                    uiState = uiState,
+                    onOpen = { item, addonBaseUrl ->
+                        onNavigateToDetail(item.id, item.rawType, addonBaseUrl)
+                    }
+                )
+            }
+        }
+
+        items(
+            items = uiState.rows,
+            key = { row -> row.legacyKey() }
+        ) { row ->
+            CatalogRowSection(
+                catalogRow = row,
+                onItemClick = onNavigateToDetail,
+                onSeeAll = {
+                    onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
+                },
+                showSeeAll = row.hasMore || row.items.size >= 15,
+                showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled
+            )
+        }
+    }
+}
+
+@Composable
+private fun AnimeGridContent(
+    uiState: AnimeHomeUiState,
+    onNavigateToDetail: (String, String, String) -> Unit,
+    onNavigateToSeeAll: (String, String, String) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .dpadRepeatThrottle(),
+        contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
+    ) {
+        if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
+            item(key = "anime_hero") {
+                AnimeHeroItem(
+                    uiState = uiState,
+                    onOpen = { item, addonBaseUrl ->
+                        onNavigateToDetail(item.id, item.rawType, addonBaseUrl)
+                    }
+                )
+            }
+        }
+
+        items(
+            items = uiState.rows,
+            key = { row -> row.legacyKey() }
+        ) { row ->
+            AnimeGridCatalogSection(
+                catalogRow = row,
+                columns = animeGridColumnCount(),
+                onItemClick = onNavigateToDetail,
+                onSeeAll = {
+                    onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
+                },
+                showSeeAll = row.hasMore || row.items.size >= 15,
+                showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled
+            )
+        }
+    }
+}
+
+@Composable
+private fun animeGridColumnCount(): Int {
+    val configuration = LocalConfiguration.current
+    val cardWidth = PosterCardDefaults.Style.width
+    val horizontalPadding = NuvioTheme.spacing.xxxl * 2
+    val spacing = NuvioTheme.spacing.md
+    val available = (configuration.screenWidthDp - horizontalPadding.value).coerceAtLeast(0f)
+    val cols = ((available + spacing.value) / (cardWidth.value + spacing.value)).toInt()
+    return cols.coerceAtLeast(1)
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun AnimeGridCatalogSection(
+    catalogRow: CatalogRow,
+    columns: Int,
+    onItemClick: (String, String, String) -> Unit,
+    onSeeAll: () -> Unit,
+    showSeeAll: Boolean,
+    showCatalogTypeSuffix: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val catalogContext = LocalContext.current
+    val typeLabel = remember(catalogRow.rawType, catalogRow.apiType, catalogContext) {
+        val raw = catalogRow.rawType.takeIf { it.isNotBlank() } ?: catalogRow.apiType
+        localizedContentType(catalogContext, raw)
+    }
+    val catalogTitle = remember(catalogRow.catalogName, typeLabel, showCatalogTypeSuffix) {
+        val formattedName = catalogRow.catalogName.replaceFirstChar { it.uppercase() }
+        if (formattedName.isBlank()) ""
+        else if (showCatalogTypeSuffix && typeLabel.isNotEmpty()) "$formattedName - $typeLabel" else formattedName
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, bottom = NuvioTheme.spacing.md),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)) {
+                Text(
+                    text = catalogTitle.ifBlank { " " },
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = NuvioTheme.colors.TextPrimary,
+                    maxLines = 3,
+                    overflow = TextOverflow.Clip
+                )
+                if (catalogTitle.isNotBlank()) {
+                    Text(
+                        text = stringResource(R.string.catalog_from_addon, catalogRow.addonName),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = NuvioTheme.colors.TextTertiary
+                    )
+                }
+            }
+        }
+
+        val chunks = remember(catalogRow.items, columns) {
+            catalogRow.items.chunked(columns.coerceAtLeast(1))
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = NuvioTheme.spacing.xxxl),
+            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+        ) {
+            chunks.forEachIndexed { chunkIndex, chunk ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+                ) {
+                    chunk.forEach { item ->
+                        ContentCard(
+                            item = item,
+                            posterCardStyle = PosterCardDefaults.Style,
+                            showLabels = true,
+                            onClick = {
+                                onItemClick(item.id, item.apiType, catalogRow.addonBaseUrl)
+                            }
+                        )
+                    }
+                    if (showSeeAll && chunkIndex == chunks.lastIndex && chunk.size < columns) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+            if (showSeeAll) {
+                Box(modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)) {
+                    androidx.tv.material3.Button(onClick = onSeeAll) {
+                        Text(stringResource(R.string.action_see_all))
                     }
                 }
             }

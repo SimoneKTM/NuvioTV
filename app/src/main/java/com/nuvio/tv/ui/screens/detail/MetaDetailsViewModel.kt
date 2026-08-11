@@ -34,6 +34,7 @@ import com.nuvio.tv.domain.model.TmdbSettings
 import com.nuvio.tv.domain.model.TraktCommentReview
 import com.nuvio.tv.domain.model.Video
 import com.nuvio.tv.domain.model.WatchProgress
+import com.nuvio.tv.domain.repository.AnimeAddonRepository
 import com.nuvio.tv.domain.repository.LibraryRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.domain.repository.WatchProgressRepository
@@ -58,6 +59,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -72,6 +74,7 @@ import com.nuvio.tv.core.build.AppFeaturePolicy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Locale
 import javax.inject.Inject
+import javax.inject.Named
 
 private const val TAG = "MetaDetailsViewModel"
 
@@ -97,6 +100,8 @@ class MetaDetailsViewModel @Inject constructor(
     private val traktRelatedService: TraktRelatedService,
     private val traktSettingsDataStore: TraktSettingsDataStore,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
+    @Named("anime_layout") private val animeLayoutPreferenceDataStore: LayoutPreferenceDataStore,
+    private val animeAddonRepository: AnimeAddonRepository,
     private val playerSettingsDataStore: PlayerSettingsDataStore,
     private val watchedSeriesStateHolder: com.nuvio.tv.data.local.WatchedSeriesStateHolder,
     val posterOptions: com.nuvio.tv.ui.components.posteroptions.PosterOptionsController,
@@ -145,6 +150,21 @@ class MetaDetailsViewModel @Inject constructor(
     private var traktAuthenticated = false
     private var moreLikeThisSourcePreference = com.nuvio.tv.data.local.MoreLikeThisSourcePreference.TRAKT
 
+    /**
+     * True when the item originated from an anime addon: anime layout settings
+     * then override the global layout settings for this detail page.
+     */
+    private val animeLayoutActive = MutableStateFlow(false)
+
+    private val activeLayoutDataStore: LayoutPreferenceDataStore
+        get() = if (animeLayoutActive.value) animeLayoutPreferenceDataStore else layoutPreferenceDataStore
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private fun <T> layoutFlow(selector: (LayoutPreferenceDataStore) -> Flow<T>): Flow<T> =
+        animeLayoutActive.flatMapLatest { active ->
+            if (active) selector(animeLayoutPreferenceDataStore) else selector(layoutPreferenceDataStore)
+        }
+
     /** Content ID used for watch-progress and watched-items lookups.
      *  Starts as the navigation [itemId] (which may be "tmdb:123") and is
      *  updated to [Meta.id] once meta loads (typically an IMDB ID like "tt0396375").
@@ -155,6 +175,7 @@ class MetaDetailsViewModel @Inject constructor(
 
     init {
         posterOptions.bind(viewModelScope)
+        observeAnimeLayoutSource()
         observeMetaViewSettings()
         observeTrailerAutoplaySettings()
         observeTraktCommentsAvailability()
@@ -168,9 +189,25 @@ class MetaDetailsViewModel @Inject constructor(
         loadMeta()
     }
 
+    private fun observeAnimeLayoutSource() {
+        viewModelScope.launch {
+            val normalizedSource = preferredAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
+            animeAddonRepository.getInstalledAnimeAddons()
+                .map { addons ->
+                    normalizedSource.isNotEmpty() && addons.any { addon ->
+                        addon.baseUrl.trim().trimEnd('/').lowercase() == normalizedSource
+                    }
+                }
+                .distinctUntilChanged()
+                .collectLatest { active ->
+                    animeLayoutActive.value = active
+                }
+        }
+    }
+
     private fun observeHideUnreleasedContent() {
         viewModelScope.launch {
-            layoutPreferenceDataStore.hideUnreleasedContent
+            layoutFlow { it.hideUnreleasedContent }
                 .distinctUntilChanged()
                 .collectLatest { enabled ->
                     hideUnreleasedContent = enabled
@@ -180,7 +217,7 @@ class MetaDetailsViewModel @Inject constructor(
 
     private fun observeMetaViewSettings() {
         viewModelScope.launch {
-            layoutPreferenceDataStore.detailPageTrailerButtonEnabled
+            layoutFlow { it.detailPageTrailerButtonEnabled }
                 .distinctUntilChanged()
                 .collectLatest { enabled ->
                     _uiState.update { state ->
@@ -544,7 +581,7 @@ class MetaDetailsViewModel @Inject constructor(
         }
         // Re-calculate next-to-watch when "furthest episode" preference changes
         viewModelScope.launch {
-            layoutPreferenceDataStore.nextUpFromFurthestEpisode
+            layoutFlow { it.nextUpFromFurthestEpisode }
                 .distinctUntilChanged()
                 .collectLatest {
                     calculateNextToWatch()
@@ -574,7 +611,7 @@ class MetaDetailsViewModel @Inject constructor(
 
     private fun observeBlurUnwatchedEpisodes() {
         viewModelScope.launch {
-            layoutPreferenceDataStore.blurUnwatchedEpisodes
+            layoutFlow { it.blurUnwatchedEpisodes }
                 .distinctUntilChanged()
                 .collectLatest { enabled ->
                 _uiState.update { state ->
@@ -586,7 +623,7 @@ class MetaDetailsViewModel @Inject constructor(
 
     private fun observeShowFullReleaseDate() {
         viewModelScope.launch {
-            layoutPreferenceDataStore.showFullReleaseDate
+            layoutFlow { it.showFullReleaseDate }
                 .distinctUntilChanged()
                 .collectLatest { enabled ->
                 _uiState.update { state ->
@@ -639,7 +676,7 @@ class MetaDetailsViewModel @Inject constructor(
             if (metaLookupId != itemId) {
                 _effectiveContentId.value = metaLookupId
             }
-            val preferExternal = layoutPreferenceDataStore.preferExternalMetaAddonDetail.first()
+            val preferExternal = activeLayoutDataStore.preferExternalMetaAddonDetail.first()
 
             if (preferExternal) {
                 // 1) Try meta addons first
@@ -1709,7 +1746,7 @@ class MetaDetailsViewModel @Inject constructor(
 
         val nonSpecialEpisodes = allEpisodes.filter { (it.season ?: 0) > 0 }
         val episodePool = if (nonSpecialEpisodes.isNotEmpty()) nonSpecialEpisodes else allEpisodes
-        val useFurthestEpisode = layoutPreferenceDataStore.nextUpFromFurthestEpisode.first()
+        val useFurthestEpisode = activeLayoutDataStore.nextUpFromFurthestEpisode.first()
         val latestSeriesProgress = if (useFurthestEpisode) {
             // When using furthest episode mode, consider both progressMap entries
             // AND watchedEpisodes (batch marks) to find the furthest watched episode.
