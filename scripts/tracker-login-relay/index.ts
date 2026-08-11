@@ -477,22 +477,22 @@ async function exchangeCode(
       return tokensResult(outcome, "Kitsu");
     }
     if (provider === "anilist") {
-      // AniList accetta solo il grant "authorization_code" (Authorization
-      // Code Grant). Il client_secret va incluso SOLO per i client
-      // "confidential": i client pubblici falliscono se il secret è
-      // presente, perciò l'env è opzionale.
+      // AniList accetta SOLO body form-encoded sull'endpoint token (il JSON
+      // non viene letto: risponde "unsupported_grant_type"). Il client_secret
+      // va incluso SOLO per i client "confidential": i client pubblici
+      // falliscono se il secret è presente, perciò l'env è opzionale.
       const clientId = PROVIDERS.anilist;
       if (!clientId) {
         return { payload: null, error: "AniList non configurato sul relay (manca ANILIST_CLIENT_ID)" };
       }
-      const body: Record<string, string> = {
+      const form: Record<string, string> = {
         grant_type: "authorization_code",
         client_id: clientId,
         code,
         redirect_uri: redirectUri,
       };
-      if (ANILIST_CLIENT_SECRET) body.client_secret = ANILIST_CLIENT_SECRET;
-      const outcome = await jsonTokenExchange(ANILIST_TOKEN_URL, body);
+      if (ANILIST_CLIENT_SECRET) form.client_secret = ANILIST_CLIENT_SECRET;
+      const outcome = await tokenExchange(ANILIST_TOKEN_URL, form);
       return tokensResult(outcome, "AniList");
     }
     return { payload: null, error: `provider sconosciuto: ${provider}` };
@@ -511,25 +511,6 @@ function tokensResult(outcome: ExchangeOutcome, providerLabel: string): Exchange
     return { payload: null, error: `${providerLabel} ha risposto senza access_token` };
   }
   return { payload, error: null };
-}
-
-// AniList vuole il body in JSON (non form-encoded).
-async function jsonTokenExchange(
-  url: string,
-  payload: Record<string, string>,
-): Promise<ExchangeOutcome> {
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const bodyText = await resp.text();
-  if (!resp.ok) return { ok: false, error: describeError(resp, bodyText) };
-  try {
-    return { ok: true, data: JSON.parse(bodyText) as Record<string, unknown> };
-  } catch {
-    return { ok: false, error: `risposta non-JSON del provider (HTTP ${resp.status})` };
-  }
 }
 
 async function tokenExchange(
