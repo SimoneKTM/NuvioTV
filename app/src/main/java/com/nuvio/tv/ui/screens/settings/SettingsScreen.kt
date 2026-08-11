@@ -45,7 +45,6 @@ import androidx.compose.material.icons.filled.FilterDrama
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.People
@@ -1323,7 +1322,6 @@ private fun AnimeSettingsContent(
                                     title = stringResource(R.string.settings_connected_services_title),
                                     subtitle = stringResource(R.string.settings_connected_services_subtitle),
                                     onClick = { onSelectSection(AnimeSettingsSection.ConnectedServices) },
-                                    leadingIcon = Icons.Default.Link,
                                     modifier = Modifier.focusRequester(integrationsFocusRequester)
                                 )
                             }
@@ -1331,40 +1329,35 @@ private fun AnimeSettingsContent(
                                 SettingsActionRow(
                                     title = "TMDB",
                                     subtitle = stringResource(R.string.settings_tmdb_subtitle),
-                                    onClick = { onSelectSection(AnimeSettingsSection.Tmdb) },
-                                    leadingIcon = Icons.Default.Link
+                                    onClick = { onSelectSection(AnimeSettingsSection.Tmdb) }
                                 )
                             }
                             item(key = "anime_integration_mdblist") {
                                 SettingsActionRow(
                                     title = "MDBList",
                                     subtitle = stringResource(R.string.settings_mdblist_subtitle),
-                                    onClick = { onSelectSection(AnimeSettingsSection.MdbList) },
-                                    leadingIcon = Icons.Default.Link
+                                    onClick = { onSelectSection(AnimeSettingsSection.MdbList) }
                                 )
                             }
                             item(key = "anime_integration_tvdb") {
                                 SettingsActionRow(
                                     title = "TVDB",
                                     subtitle = stringResource(R.string.settings_tvdb_subtitle),
-                                    onClick = { onSelectSection(AnimeSettingsSection.Tvdb) },
-                                    leadingIcon = Icons.Default.Link
+                                    onClick = { onSelectSection(AnimeSettingsSection.Tvdb) }
                                 )
                             }
                             item(key = "anime_integration_animeskip") {
                                 SettingsActionRow(
                                     title = "Anime-Skip",
                                     subtitle = stringResource(R.string.settings_animeskip_subtitle),
-                                    onClick = { onSelectSection(AnimeSettingsSection.AnimeSkip) },
-                                    leadingIcon = Icons.Default.Link
+                                    onClick = { onSelectSection(AnimeSettingsSection.AnimeSkip) }
                                 )
                             }
                             item(key = "anime_integration_opensubtitles") {
                                 SettingsActionRow(
                                     title = "OpenSubtitles",
                                     subtitle = stringResource(R.string.settings_opensubtitles_subtitle),
-                                    onClick = { onSelectSection(AnimeSettingsSection.OpenSubtitles) },
-                                    leadingIcon = Icons.Default.Language
+                                    onClick = { onSelectSection(AnimeSettingsSection.OpenSubtitles) }
                                 )
                             }
                         }
