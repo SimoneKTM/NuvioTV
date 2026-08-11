@@ -5,12 +5,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.R
 import com.nuvio.tv.core.tracking.TrackingRefreshIntent
+import com.nuvio.tv.core.tracking.TrackingSourceController
 import com.nuvio.tv.data.mal.MalAuthError
 import com.nuvio.tv.data.mal.MalAuthRepository
 import com.nuvio.tv.data.mal.MalConnectResult
 import com.nuvio.tv.data.mal.MalConnectionMode
 import com.nuvio.tv.data.mal.MalSyncRepository
 import com.nuvio.tv.data.trackerqr.TrackerQrApi
+import com.nuvio.tv.domain.model.LibrarySourceMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -38,6 +40,7 @@ data class MalSettingsUiState(
 class MalSettingsViewModel @Inject constructor(
     private val authRepository: MalAuthRepository,
     private val syncRepository: MalSyncRepository,
+    private val sourceController: TrackingSourceController,
     trackerQrApi: TrackerQrApi,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -115,6 +118,7 @@ class MalSettingsViewModel @Inject constructor(
                 when (val result = authRepository.connectToken(rawToken)) {
                     MalConnectResult.Connected -> {
                         syncRepository.refresh(TrackingRefreshIntent.INVALIDATED)
+                        sourceController.autoSelectLibrarySource(LibrarySourceMode.MAL)
                         _uiState.update {
                             it.copy(statusMessage = context.getString(R.string.mal_status_connected))
                         }

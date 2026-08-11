@@ -5,12 +5,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.R
 import com.nuvio.tv.core.tracking.TrackingRefreshIntent
+import com.nuvio.tv.core.tracking.TrackingSourceController
 import com.nuvio.tv.data.anilist.AniListAuthError
 import com.nuvio.tv.data.anilist.AniListAuthRepository
 import com.nuvio.tv.data.anilist.AniListConnectResult
 import com.nuvio.tv.data.anilist.AniListConnectionMode
 import com.nuvio.tv.data.anilist.AniListSyncRepository
 import com.nuvio.tv.data.trackerqr.TrackerQrApi
+import com.nuvio.tv.domain.model.LibrarySourceMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -38,6 +40,7 @@ data class AniListSettingsUiState(
 class AniListSettingsViewModel @Inject constructor(
     private val authRepository: AniListAuthRepository,
     private val syncRepository: AniListSyncRepository,
+    private val sourceController: TrackingSourceController,
     trackerQrApi: TrackerQrApi,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -115,6 +118,7 @@ class AniListSettingsViewModel @Inject constructor(
                 when (val result = authRepository.connectToken(rawToken)) {
                     AniListConnectResult.Connected -> {
                         syncRepository.refresh(TrackingRefreshIntent.INVALIDATED)
+                        sourceController.autoSelectLibrarySource(LibrarySourceMode.ANILIST)
                         _uiState.update {
                             it.copy(statusMessage = context.getString(R.string.anilist_status_connected))
                         }

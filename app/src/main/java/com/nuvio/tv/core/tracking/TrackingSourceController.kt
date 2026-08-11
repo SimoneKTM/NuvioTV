@@ -49,6 +49,21 @@ class TrackingSourceController @Inject constructor(
         }
     }
 
+    /**
+     * Promotes the given provider as the library source right after it is connected, but only
+     * while the user has not explicitly selected another source (i.e. the stored source is still
+     * [LibrarySourceMode.LOCAL]). This way the tracker's library sections (completed, planning,
+     * watching, ...) appear automatically without overwriting a manual choice.
+     */
+    suspend fun autoSelectLibrarySource(mode: LibrarySourceMode) {
+        mutationMutex.withLock {
+            if (mode == LibrarySourceMode.LOCAL) return
+            val stored = settingsDataStore.librarySourceMode.first()
+            if (stored != LibrarySourceMode.LOCAL) return
+            applyLibrarySourceMode(mode)
+        }
+    }
+
     suspend fun reconcileConnectedProviders(
         connectedProviderIds: Set<TrackingProviderId>
     ): TrackingSourceSelection = mutationMutex.withLock {

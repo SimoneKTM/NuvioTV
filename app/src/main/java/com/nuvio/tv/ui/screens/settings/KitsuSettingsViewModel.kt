@@ -5,12 +5,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.R
 import com.nuvio.tv.core.tracking.TrackingRefreshIntent
+import com.nuvio.tv.core.tracking.TrackingSourceController
 import com.nuvio.tv.data.kitsu.KitsuAuthError
 import com.nuvio.tv.data.kitsu.KitsuAuthRepository
 import com.nuvio.tv.data.kitsu.KitsuConnectResult
 import com.nuvio.tv.data.kitsu.KitsuConnectionMode
 import com.nuvio.tv.data.kitsu.KitsuSyncRepository
 import com.nuvio.tv.data.trackerqr.TrackerQrApi
+import com.nuvio.tv.domain.model.LibrarySourceMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -38,6 +40,7 @@ data class KitsuSettingsUiState(
 class KitsuSettingsViewModel @Inject constructor(
     private val authRepository: KitsuAuthRepository,
     private val syncRepository: KitsuSyncRepository,
+    private val sourceController: TrackingSourceController,
     trackerQrApi: TrackerQrApi,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -115,6 +118,7 @@ class KitsuSettingsViewModel @Inject constructor(
                 when (val result = authRepository.connectToken(rawToken)) {
                     KitsuConnectResult.Connected -> {
                         syncRepository.refresh(TrackingRefreshIntent.INVALIDATED)
+                        sourceController.autoSelectLibrarySource(LibrarySourceMode.KITSU)
                         _uiState.update {
                             it.copy(statusMessage = context.getString(R.string.kitsu_status_connected))
                         }
