@@ -39,7 +39,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -97,6 +96,7 @@ import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.CardDepthSurface
 import com.nuvio.tv.domain.model.DiscoverLocation
 import com.nuvio.tv.domain.model.MetaPreview
+import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.ui.components.EmptyScreenState
@@ -715,6 +715,26 @@ fun SearchScreen(
             initialFirstVisibleItemIndex = savedResultsScroll?.first ?: 0,
             initialFirstVisibleItemScrollOffset = savedResultsScroll?.second ?: 0
         )
+        val skeletonEntries = remember {
+            (0 until 18).map { i ->
+                SearchGridEntry(
+                    item = MetaPreview(
+                        id = "__placeholder_skeleton_$i",
+                        type = ContentType.MOVIE,
+                        name = " ",
+                        poster = PLACEHOLDER_IMAGE_URL,
+                        posterShape = PosterShape.POSTER,
+                        background = null,
+                        logo = null,
+                        description = null,
+                        releaseInfo = " ",
+                        imdbRating = null,
+                        genres = emptyList()
+                    ),
+                    addonBaseUrl = ""
+                )
+            }
+        }
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -793,8 +813,24 @@ fun SearchScreen(
                 }
 
                 (hasPendingUnsubmittedQuery || uiState.isSearching) -> {
-                    SearchResultsSkeletonGrid(
+                    SingleSearchResultsGrid(
+                        entries = skeletonEntries,
+                        gridState = rememberLazyGridState(),
                         posterCardStyle = posterCardStyle,
+                        showPosterLabels = uiState.posterLabelsEnabled,
+                        isItemWatched = { false },
+                        entryFocusRequester = null,
+                        restorerFocusedIndex = -1,
+                        focusedItemIndex = -1,
+                        onItemFocused = {},
+                        onItemClick = { _, _, _ -> },
+                        onItemLongPress = { _, _ -> },
+                        onFirstColumnLeftPress = {
+                            inputAreaActive = true
+                            pendingKeyboardFocus = true
+                        },
+                        showLoadingFooter = false,
+                        interactive = false,
                         modifier = Modifier
                     )
                 }
@@ -1336,39 +1372,4 @@ private fun GhostPosterCard(posterCardStyle: PosterCardStyle, shimmerBrush: Brus
             .height(posterCardStyle.height)
             .background(shimmerBrush, shape = RoundedCornerShape(posterCardStyle.cornerRadius))
     )
-}
-
-/** Loading skeleton for the search results area: a couple of rows of shimmer ghost posters. */
-@Composable
-private fun SearchResultsSkeletonGrid(
-    posterCardStyle: PosterCardStyle,
-    modifier: Modifier = Modifier
-) {
-    BoxWithConstraints(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl)
-    ) {
-        val horizontalSpacing = NuvioTheme.spacing.md
-        val columns = run {
-            val cols = (maxWidth + horizontalSpacing) /
-                (posterCardStyle.width + horizontalSpacing)
-            cols.toInt().coerceAtLeast(1)
-        }
-
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(columns),
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = NuvioTheme.spacing.xxl, bottom = NuvioTheme.spacing.xxl),
-            horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
-            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-        ) {
-            items(columns * 2) {
-                GhostPosterCard(
-                    posterCardStyle = posterCardStyle,
-                    shimmerBrush = rememberShimmerBrush()
-                )
-            }
-        }
-    }
 }
