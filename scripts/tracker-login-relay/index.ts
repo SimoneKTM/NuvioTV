@@ -48,9 +48,18 @@ const REDIRECT_URI_BASE = env("REDIRECT_URI_BASE");
 function resolveBaseUrl(req: Request): string {
   const configured = PUBLIC_BASE_URL || REDIRECT_URI_BASE;
   if (configured) return configured;
-  const host = req.headers.get("host");
-  if (host) return `${req.url.startsWith("https://") ? "https" : "http"}://${host}`;
-  return "http://localhost:8000";
+  // Su Supabase / Deno Deploy l'URL pubblico della function ha un prefisso
+  // nel path (es. /functions/v1/tracker-login o /tracker-login). Tutti gli
+  // URL costruiti qui (kitsu-login, mock, callback) devono includerlo,
+  // altrimenti il telefono apre un path "nudo" (es. /kitsu-login) -> 404
+  // e non compare mai il form username+password.
+  const fullUrl = new URL(req.url);
+  const pathname = fullUrl.pathname;
+  let prefix = "";
+  const fnMatch = pathname.match(/^\/(functions\/v1\/tracker-login|tracker-login)/);
+  if (fnMatch) prefix = `/${fnMatch[1]}`;
+  const host = req.headers.get("host") ?? fullUrl.host;
+  return `${fullUrl.protocol}//${host}${prefix}`;
 }
 
 // Client ID dei provider. Ogni ID deve essere registrato sul provider con
