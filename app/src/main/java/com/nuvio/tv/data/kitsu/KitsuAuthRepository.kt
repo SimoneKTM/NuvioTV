@@ -38,15 +38,15 @@ class KitsuAuthRepository @Inject constructor(
      * together with the identified profile.
      */
     suspend fun connectToken(rawToken: String): KitsuConnectResult = mutex.withLock {
-        if (!hasRequiredCredentials()) {
-            return@withLock KitsuConnectResult.Failed(KitsuAuthError.MISSING_CLIENT_ID)
-        }
         val payload = runCatching { apiClient.parseAuthorizePayload(rawToken) }.getOrNull()
             ?: return@withLock KitsuConnectResult.Failed(KitsuAuthError.INVALID_TOKEN)
         val code = payload.code?.trim()?.takeIf(String::isNotBlank)
         val pastedToken = payload.accessToken?.trim()?.takeIf(String::isNotBlank)
         if (code == null && pastedToken == null) {
             return@withLock KitsuConnectResult.Failed(KitsuAuthError.INVALID_TOKEN)
+        }
+        if (code != null && !hasRequiredCredentials()) {
+            return@withLock KitsuConnectResult.Failed(KitsuAuthError.MISSING_CLIENT_ID)
         }
         storage.beginLoading()
         var currentAccessToken: String? = null

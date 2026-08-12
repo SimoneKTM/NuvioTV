@@ -233,6 +233,7 @@ class CollectionsDataStore @Inject constructor(
         val type: String? = null,
         val catalogId: String? = null,
         val genre: String? = null,
+        val animeAddon: Boolean = false,
         val tmdbSourceType: String? = null,
         val title: String? = null,
         val tmdbId: Int? = null,
@@ -266,7 +267,8 @@ class CollectionsDataStore @Inject constructor(
         val addonId: String,
         val type: String,
         val catalogId: String,
-        val genre: String? = null
+        val genre: String? = null,
+        val animeAddon: Boolean = false
     )
 
     private fun Collection.toSerializable() = SerializableCollection(
@@ -296,7 +298,8 @@ class CollectionsDataStore @Inject constructor(
                         addonId = source.addonId,
                         type = source.type,
                         catalogId = source.catalogId,
-                        genre = source.genre
+                        genre = source.genre,
+                        animeAddon = source.animeAddon
                     )
                 }
             )
@@ -310,7 +313,8 @@ class CollectionsDataStore @Inject constructor(
                 addonId = addonId,
                 type = type,
                 catalogId = catalogId,
-                genre = genre
+                genre = genre,
+                animeAddon = animeAddon
             )
             is TmdbCollectionSource -> SerializableSource(
                 provider = "tmdb",
@@ -381,7 +385,8 @@ class CollectionsDataStore @Inject constructor(
                             addonId = source.addonId,
                             type = source.type,
                             catalogId = source.catalogId,
-                            genre = source.genre
+                            genre = source.genre,
+                            animeAddon = source.animeAddon
                         )
                     }
             )
@@ -442,7 +447,8 @@ class CollectionsDataStore @Inject constructor(
                     addonId = sourceAddonId,
                     type = sourceType,
                     catalogId = sourceCatalogId,
-                    genre = genre
+                    genre = genre,
+                    animeAddon = animeAddon
                 )
             }
         }

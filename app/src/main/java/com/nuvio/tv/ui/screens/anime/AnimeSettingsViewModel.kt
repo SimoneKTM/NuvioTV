@@ -11,10 +11,20 @@ import com.nuvio.tv.core.qr.QrCodeGenerator
 import com.nuvio.tv.core.server.AddonConfigServer
 import com.nuvio.tv.core.server.AddonInfo
 import com.nuvio.tv.core.server.AddonWebConfigMode
+import com.nuvio.tv.core.server.CatalogInfo
 import com.nuvio.tv.core.server.DeviceIpAddress
 import com.nuvio.tv.core.server.PageState
 import com.nuvio.tv.core.server.PendingAddonChange
+import com.nuvio.tv.core.server.collectionsToServerFormat
+import com.nuvio.tv.core.sync.CollectionSyncService
+import com.nuvio.tv.core.sync.HomeCatalogSettingsSyncService
+import com.nuvio.tv.core.sync.homeCatalogKey
+import com.nuvio.tv.data.local.CollectionsDataStore
+import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.domain.model.Addon
+import com.nuvio.tv.domain.model.CatalogDescriptor
+import com.nuvio.tv.domain.model.Collection
+import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AnimeAddonRepository
 import com.nuvio.tv.ui.screens.addon.PendingChangeInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,12 +35,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import javax.inject.Named
 
 data class AnimeSettingsUiState(
     val addons: List<Addon> = emptyList(),
@@ -50,6 +62,11 @@ data class AnimeSettingsUiState(
 @HiltViewModel
 class AnimeSettingsViewModel @Inject constructor(
     private val animeAddonRepository: AnimeAddonRepository,
+    @Named("anime_layout") private val animeLayoutPreferenceDataStore: LayoutPreferenceDataStore,
+    private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
+    private val collectionsDataStore: CollectionsDataStore,
+    private val collectionSyncService: CollectionSyncService,
+    private val homeCatalogSettingsSyncService: HomeCatalogSettingsSyncService,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -58,6 +75,11 @@ class AnimeSettingsViewModel @Inject constructor(
 
     private var server: AddonConfigServer? = null
     private var logoBytes: ByteArray? = null
+    private var animeCatalogOrderKeys: List<String> = emptyList()
+    private var animeDisabledCatalogKeys: Set<String> = emptySet()
+    private var animeFollowAddonsOrder: Boolean = false
+    private var currentCollections: List<Collection> = emptyList()
+    private var homeDisabledCatalogKeys: Set<String> = emptySet()
 
     init {
         viewModelScope.launch {
@@ -69,8 +91,47 @@ class AnimeSettingsViewModel @Inject constructor(
                     }
                 }
         }
+        observeCatalogPreferences()
         loadLogoBytes()
     }
+
+    private fun observeCatalogPreferences() {
+        viewModelScope.launch {
+            combine(
+                animeLayoutPreferenceDataStore.homeCatalogOrderKeys,
+                animeLayoutPreferenceDataStore.disabledHomeCatalogKeys,
+                animeLayoutPreferenceDataStore.followAddonsOrder,
+                collectionsDataStore.collections,
+                layoutPreferenceDataStore.disabledHomeCatalogKeys
+            ) { values ->
+                @Suppress("UNCHECKED_CAST")
+                val orderKeys = values[0] as List<String>
+                @Suppress("UNCHECKED_CAST")
+                val disabledKeys = (values[1] as List<String>).toSet()
+                @Suppress("UNCHECKED_CAST")
+                val followAddonsOrder = values[2] as Boolean
+                @Suppress("UNCHECKED_CAST")
+                val collections = values[3] as List<Collection>
+                @Suppress("UNCHECKED_CAST")
+                val homeDisabled = (values[4] as List<String>).toSet()
+                List5(orderKeys, disabledKeys, followAddonsOrder, collections, homeDisabled)
+            }.collectLatest { state ->
+                animeCatalogOrderKeys = state.orderKeys
+                animeDisabledCatalogKeys = state.disabledKeys
+                animeFollowAddonsOrder = state.followAddonsOrder
+                currentCollections = state.collections
+                homeDisabledCatalogKeys = state.homeDisabled
+            }
+        }
+    }
+
+    private data class List5(
+        val orderKeys: List<String>,
+        val disabledKeys: Set<String>,
+        val followAddonsOrder: Boolean,
+        val collections: List<Collection>,
+        val homeDisabled: Set<String>
+    )
 
     private fun loadLogoBytes() {
         try {
@@ -207,16 +268,94 @@ class AnimeSettingsViewModel @Inject constructor(
     }
 
     private fun buildPageState(): PageState {
-        val addons = _uiState.value.addons.map { addon ->
-            AddonInfo(
-                url = addon.baseUrl,
-                name = addon.displayName.ifBlank { addon.baseUrl },
-                description = addon.description
+        val addons = _uiState.value.addons
+        val orderedCatalogs = buildAnimeCatalogEntries(
+            addons = addons.enabledAddons(),
+            savedOrderKeys = animeCatalogOrderKeys,
+            disabledKeys = animeDisabledCatalogKeys
+        )
+        val catalogInfos = orderedCatalogs.map { catalog ->
+            CatalogInfo(
+                key = catalog.key,
+                disableKey = catalog.key,
+                catalogName = catalog.catalogName,
+                addonName = catalog.addonName,
+                type = catalog.typeLabel,
+                isDisabled = catalog.isDisabled,
+                animeAddon = true
             )
         }
+        val collectionInfos = currentCollections.map { col ->
+            val colKey = "collection_${col.id}"
+            CatalogInfo(
+                key = colKey,
+                disableKey = colKey,
+                catalogName = col.title,
+                addonName = "${col.folders.size} folder${if (col.folders.size != 1) "s" else ""}",
+                type = "collection",
+                isDisabled = colKey in homeDisabledCatalogKeys
+            )
+        }
+
+        val unifiedCatalogs: List<CatalogInfo>
+        if (animeFollowAddonsOrder) {
+            // In follow mode: addon catalogs in manifest order, collections placed by saved position
+            val addonKeys = catalogInfos.map { it.key }
+            val collectionKeysSet = collectionInfos.map { it.key }.toSet()
+            val catalogByKey = (catalogInfos + collectionInfos).associateBy { it.key }
+            val savedValid = animeCatalogOrderKeys.filter { it in catalogByKey }.distinct()
+
+            if (savedValid.isNotEmpty()) {
+                val result = mutableListOf<String>()
+                var addonPointer = 0
+                for (savedKey in savedValid) {
+                    if (savedKey in collectionKeysSet) {
+                        result.add(savedKey)
+                    } else {
+                        val targetIdx = addonKeys.indexOf(savedKey)
+                        if (targetIdx >= 0) {
+                            while (addonPointer <= targetIdx) {
+                                val ak = addonKeys[addonPointer]
+                                if (ak !in result) result.add(ak)
+                                addonPointer++
+                            }
+                        }
+                    }
+                }
+                while (addonPointer < addonKeys.size) {
+                    val ak = addonKeys[addonPointer]
+                    if (ak !in result) result.add(ak)
+                    addonPointer++
+                }
+                for (ck in collectionKeysSet) {
+                    if (ck !in result) result.add(ck)
+                }
+                unifiedCatalogs = result.mapNotNull { catalogByKey[it] }
+            } else {
+                unifiedCatalogs = catalogInfos + collectionInfos
+            }
+        } else {
+            // Interleave based on saved order
+            val catalogByKey = (catalogInfos + collectionInfos).associateBy { it.key }
+            val savedOrder = animeCatalogOrderKeys
+            val orderedKeys = savedOrder.filter { it in catalogByKey }
+            val unseenKeys = catalogByKey.keys - orderedKeys.toSet()
+            unifiedCatalogs = (orderedKeys + unseenKeys).mapNotNull { catalogByKey[it] }
+        }
+
         return PageState(
-            addons = addons,
-            catalogs = emptyList()
+            addons = addons.map { addon ->
+                AddonInfo(
+                    url = addon.baseUrl,
+                    name = addon.displayName.ifBlank { addon.baseUrl },
+                    description = addon.description
+                )
+            },
+            catalogs = unifiedCatalogs,
+            collections = collectionsToServerFormat(currentCollections),
+            disabledCollectionKeys = homeDisabledCatalogKeys
+                .filter { it.startsWith("collection_") },
+            followAddonsOrder = animeFollowAddonsOrder
         )
     }
 
@@ -236,15 +375,71 @@ class AnimeSettingsViewModel @Inject constructor(
             currentNameMap[normalizeUrlForComparison(url)] ?: url
         }
 
+        val currentCatalogEntries = buildAnimeCatalogEntries(
+            addons = _uiState.value.addons.enabledAddons(),
+            savedOrderKeys = animeCatalogOrderKeys,
+            disabledKeys = animeDisabledCatalogKeys
+        )
+        val availableCatalogKeys = currentCatalogEntries.map { it.key }.toSet()
+        val collectionKeysSet = currentCollections.map { "collection_${it.id}" }.toSet()
+        val allValidOrderKeys = availableCatalogKeys + collectionKeysSet
+        val availableDisableKeyToName = currentCatalogEntries.associate { entry ->
+            entry.key to "${entry.catalogName} • ${entry.addonName}"
+        }
+
+        val resolvedProposedCatalogOrderKeys = if (change.proposedCatalogOrderKeys.isEmpty()) {
+            currentCatalogEntries.map { it.key }
+        } else {
+            change.proposedCatalogOrderKeys
+                .asSequence()
+                .filter { it in allValidOrderKeys }
+                .distinct()
+                .toList()
+        }
+        val currentDisabledCatalogKeys = currentCatalogEntries
+            .filter { it.isDisabled }
+            .map { it.key }
+            .toSet()
+        val resolvedProposedDisabledCatalogKeys = if (change.proposedDisabledCatalogKeys.isEmpty()) {
+            currentDisabledCatalogKeys.toList()
+        } else {
+            change.proposedDisabledCatalogKeys
+                .asSequence()
+                .filter { it in availableDisableKeyToName }
+                .distinct()
+                .toList()
+        }
+        val proposedDisabledSet = resolvedProposedDisabledCatalogKeys.toSet()
+        val newlyDisabledCatalogs = (proposedDisabledSet - currentDisabledCatalogKeys)
+            .mapNotNull { availableDisableKeyToName[it] }
+        val newlyEnabledCatalogs = (currentDisabledCatalogKeys - proposedDisabledSet)
+            .mapNotNull { availableDisableKeyToName[it] }
+        val catalogsReordered = resolvedProposedCatalogOrderKeys != currentCatalogEntries.map { it.key }
+
+        val proposedCollectionsJson = change.proposedCollectionsJson
+        val collectionsChanged = proposedCollectionsJson != null
+        val proposedCollectionCount = if (proposedCollectionsJson != null) {
+            try { parseCollectionsFromJson(proposedCollectionsJson).size } catch (_: Exception) { 0 }
+        } else 0
+
         _uiState.update {
             it.copy(
                 pendingChange = PendingChangeInfo(
                     changeId = change.id,
                     proposedUrls = change.proposedUrls,
+                    proposedCatalogOrderKeys = resolvedProposedCatalogOrderKeys,
+                    proposedDisabledCatalogKeys = resolvedProposedDisabledCatalogKeys,
                     addedUrls = added,
                     removedUrls = removed,
+                    catalogsReordered = catalogsReordered,
+                    disabledCatalogNames = newlyDisabledCatalogs,
+                    enabledCatalogNames = newlyEnabledCatalogs,
                     removedNames = removedNames,
-                    proposedCatalogOrderKeys = emptyList()
+                    collectionsChanged = collectionsChanged,
+                    proposedCollectionsJson = proposedCollectionsJson,
+                    proposedCollectionCount = proposedCollectionCount,
+                    proposedDisabledCollectionKeys = change.proposedDisabledCollectionKeys,
+                    proposedFollowAddonsOrder = change.proposedFollowAddonsOrder
                 )
             )
         }
@@ -298,6 +493,27 @@ class AnimeSettingsViewModel @Inject constructor(
                 .forEach { animeAddonRepository.addAnimeAddon(it) }
             animeAddonRepository.setAnimeAddonOrder(pending.proposedUrls)
 
+            applyAnimeCatalogPreferencesFromPending(pending, pending.proposedUrls)
+
+            if (pending.collectionsChanged && pending.proposedCollectionsJson != null) {
+                try {
+                    val newCollections = parseCollectionsFromJson(pending.proposedCollectionsJson)
+                    collectionsDataStore.setCollections(newCollections)
+                    collectionSyncService.triggerPush()
+                } catch (_: Exception) { }
+            }
+            // Apply disabled collection key changes
+            if (pending.proposedDisabledCollectionKeys.isNotEmpty() || homeDisabledCatalogKeys.any { it.startsWith("collection_") }) {
+                val nonCollectionDisabledKeys = homeDisabledCatalogKeys.filter { !it.startsWith("collection_") }
+                val mergedDisabledKeys = nonCollectionDisabledKeys + pending.proposedDisabledCollectionKeys
+                layoutPreferenceDataStore.setDisabledHomeCatalogKeys(mergedDisabledKeys)
+                homeCatalogSettingsSyncService.triggerPush()
+            }
+            // Apply follow addons order change
+            if (pending.proposedFollowAddonsOrder != null) {
+                animeLayoutPreferenceDataStore.setFollowAddonsOrder(pending.proposedFollowAddonsOrder)
+            }
+
             server?.confirmChange(pending.changeId)
 
             _uiState.update { it.copy(pendingChange = null) }
@@ -314,6 +530,106 @@ class AnimeSettingsViewModel @Inject constructor(
             }
         }
     }
+
+    private suspend fun applyAnimeCatalogPreferencesFromPending(
+        pending: PendingChangeInfo,
+        validUrls: List<String>
+    ) {
+        val validUrlSet = validUrls.map { normalizeUrlForComparison(it) }.toSet()
+        val targetAddons = _uiState.value.addons.filter { addon ->
+            addon.enabled && normalizeUrlForComparison(addon.baseUrl) in validUrlSet
+        }
+        val availableCatalogEntries = buildAnimeCatalogEntries(
+            addons = targetAddons,
+            savedOrderKeys = animeCatalogOrderKeys,
+            disabledKeys = animeDisabledCatalogKeys
+        )
+        val availableCatalogKeys = availableCatalogEntries.map { it.key }.toSet()
+        val collectionKeys = currentCollections.map { "collection_${it.id}" }.toSet()
+        val allValidOrderKeys = availableCatalogKeys + collectionKeys
+
+        val validCatalogOrder = pending.proposedCatalogOrderKeys
+            .asSequence()
+            .filter { it in allValidOrderKeys }
+            .distinct()
+            .toList()
+        val validDisabledCatalogs = pending.proposedDisabledCatalogKeys
+            .asSequence()
+            .filter { it in availableCatalogKeys }
+            .distinct()
+            .toList()
+
+        animeLayoutPreferenceDataStore.setHomeCatalogOrderKeys(validCatalogOrder)
+        animeLayoutPreferenceDataStore.setDisabledHomeCatalogKeys(validDisabledCatalogs)
+    }
+
+    private fun buildAnimeCatalogEntries(
+        addons: List<Addon>,
+        savedOrderKeys: List<String>,
+        disabledKeys: Set<String>
+    ): List<AnimeQrCatalogEntry> {
+        val defaultEntries = buildDefaultAnimeCatalogEntries(addons)
+        val entryByKey = defaultEntries.associateBy { it.key }
+        val defaultOrderKeys = defaultEntries.map { it.key }
+        val savedValid = savedOrderKeys
+            .asSequence()
+            .filter { it in entryByKey }
+            .distinct()
+            .toList()
+        val savedSet = savedValid.toSet()
+        val effectiveOrder = savedValid + defaultOrderKeys.filterNot { it in savedSet }
+
+        return effectiveOrder.mapNotNull { key ->
+            val entry = entryByKey[key] ?: return@mapNotNull null
+            entry.copy(
+                isDisabled = entry.key in disabledKeys
+            )
+        }
+    }
+
+    private fun buildDefaultAnimeCatalogEntries(addons: List<Addon>): List<AnimeQrCatalogEntry> {
+        val entries = mutableListOf<AnimeQrCatalogEntry>()
+        val seenKeys = mutableSetOf<String>()
+
+        addons.forEach { addon ->
+            addon.catalogs
+                .filterNot { it.isSearchOnlyCatalog() }
+                .forEach { catalog ->
+                    val key = homeCatalogKey(
+                        addonId = addon.id,
+                        type = catalog.apiType,
+                        catalogId = catalog.id
+                    )
+                    if (seenKeys.add(key)) {
+                        entries.add(
+                            AnimeQrCatalogEntry(
+                                key = key,
+                                catalogName = catalog.name,
+                                addonName = addon.displayName,
+                                typeLabel = catalog.apiType
+                            )
+                        )
+                    }
+                }
+        }
+        return entries
+    }
+
+    private fun CatalogDescriptor.isSearchOnlyCatalog(): Boolean {
+        return extra.any { extra -> extra.name.equals("search", ignoreCase = true) && extra.isRequired }
+    }
+
+    private fun parseCollectionsFromJson(json: String): List<Collection> {
+        return collectionsDataStore.importFromJson(json)
+    }
+
+    private data class AnimeQrCatalogEntry(
+        val key: String,
+        val catalogName: String,
+        val addonName: String,
+        val typeLabel: String,
+        val isDisabled: Boolean = false
+    )
 
     fun rejectPendingChange() {
         val pending = _uiState.value.pendingChange ?: return

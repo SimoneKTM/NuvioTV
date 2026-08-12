@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -338,58 +339,44 @@ fun AnimeAddonManagerScreen(
             }
 
             item(key = "installed") {
-                SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = NuvioTheme.spacing.lg, end = NuvioTheme.spacing.lg, top = NuvioTheme.spacing.lg),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.addon_installed_section),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
-                            color = NuvioTheme.colors.TextPrimary
-                        )
-                        Spacer(modifier = Modifier.width(NuvioTheme.spacing.md))
-                        if (uiState.isLoading && uiState.addons.isEmpty()) {
-                            LoadingIndicator(modifier = Modifier.height(NuvioTheme.spacing.xl))
-                        }
-                    }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.addon_installed_section),
+                        style = MaterialTheme.typography.titleLarge,
+                        color = NuvioTheme.colors.TextPrimary
+                    )
+                    Spacer(modifier = Modifier.width(NuvioTheme.spacing.md))
                     if (uiState.isLoading && uiState.addons.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxWidth().padding(NuvioTheme.spacing.lg),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            LoadingIndicator(modifier = Modifier.height(NuvioTheme.spacing.xl))
-                        }
-                    } else if (uiState.addons.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.anime_addons_empty),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = NuvioTheme.colors.TextSecondary,
-                            modifier = Modifier.padding(NuvioTheme.spacing.lg)
-                        )
-                    } else {
-                        Column(
-                            modifier = Modifier.padding(start = NuvioTheme.spacing.lg, end = NuvioTheme.spacing.lg, bottom = NuvioTheme.spacing.lg),
-                            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-                        ) {
-                            uiState.addons.forEachIndexed { index, addon ->
-                                AnimeAddonSettingsCard(
-                                    addon = addon,
-                                    canMoveUp = index > 0,
-                                    canMoveDown = index < uiState.addons.lastIndex,
-                                    onMoveUp = { viewModel.moveAddonUp(addon.baseUrl) },
-                                    onMoveDown = { viewModel.moveAddonDown(addon.baseUrl) },
-                                    onRemove = { viewModel.removeAddon(addon.baseUrl) },
-                                    onEnabledChange = { enabled -> viewModel.setAddonEnabled(addon.baseUrl, enabled) }
-                                )
-                                if (index < uiState.addons.lastIndex) {
-                                    Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
-                                }
-                            }
-                        }
+                        LoadingIndicator(modifier = Modifier.height(NuvioTheme.spacing.xl))
                     }
+                }
+            }
+
+            if (uiState.addons.isEmpty() && !uiState.isLoading) {
+                item(key = "installed_empty") {
+                    Text(
+                        text = stringResource(R.string.anime_addons_empty),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = NuvioTheme.colors.TextSecondary
+                    )
+                }
+            } else {
+                itemsIndexed(
+                    items = uiState.addons,
+                    key = { _, addon -> addon.baseUrl }
+                ) { index, addon ->
+                    AnimeAddonSettingsCard(
+                        addon = addon,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < uiState.addons.lastIndex,
+                        onMoveUp = { viewModel.moveAddonUp(addon.baseUrl) },
+                        onMoveDown = { viewModel.moveAddonDown(addon.baseUrl) },
+                        onRemove = { viewModel.removeAddon(addon.baseUrl) },
+                        onEnabledChange = { enabled -> viewModel.setAddonEnabled(addon.baseUrl, enabled) }
+                    )
                 }
             }
         }

@@ -27,7 +27,12 @@ data class AnimeHomeUiState(
     val classicFocusGradientEnabled: Boolean = false,
     val continueWatchingCardStyle: ContinueWatchingCardStyle = ContinueWatchingCardStyle.CARD,
     val useEpisodeThumbnailsInCw: Boolean = true,
-    val blurContinueWatchingNextUp: Boolean = false
+    val blurContinueWatchingNextUp: Boolean = false,
+    val posterCardWidthDp: Int = 126,
+    val posterCardHeightDp: Int = 189,
+    val posterCardCornerRadiusDp: Int = 12,
+    val posterLabelsEnabled: Boolean = true,
+    val catalogAddonNameEnabled: Boolean = true
 )
 
 sealed class AnimeHomeEvent {

@@ -97,6 +97,11 @@ class AnimeHomeViewModel @Inject constructor(
     private var continueWatchingCardStyle = ContinueWatchingCardStyle.CARD
     private var useEpisodeThumbnailsInCw = true
     private var blurContinueWatchingNextUp = false
+    private var posterCardWidthDp = 126
+    private var posterCardHeightDp = 189
+    private var posterCardCornerRadiusDp = 12
+    private var posterLabelsEnabled = true
+    private var catalogAddonNameEnabled = true
 
     init {
         observeLayoutPreferences()
@@ -147,8 +152,28 @@ class AnimeHomeViewModel @Inject constructor(
                     continueWatchingCardStyle = cardStyle
                 )
             }
-            combine(
+            val cardStyleSnapshotFlow = combine(
                 viewSnapshotFlow,
+                layoutPreferenceDataStore.posterCardWidthDp,
+                layoutPreferenceDataStore.posterCardHeightDp,
+                layoutPreferenceDataStore.posterCardCornerRadiusDp,
+                layoutPreferenceDataStore.posterLabelsEnabled
+            ) { snapshot, width, height, cornerRadius, posterLabels ->
+                snapshot.copy(
+                    posterCardWidthDp = width,
+                    posterCardHeightDp = height,
+                    posterCardCornerRadiusDp = cornerRadius,
+                    posterLabelsEnabled = posterLabels
+                )
+            }
+            val cardStyleWithAddonNameFlow = combine(
+                cardStyleSnapshotFlow,
+                layoutPreferenceDataStore.catalogAddonNameEnabled
+            ) { snapshot, addonName ->
+                snapshot.copy(catalogAddonNameEnabled = addonName)
+            }
+            combine(
+                cardStyleWithAddonNameFlow,
                 layoutPreferenceDataStore.useEpisodeThumbnailsInCw,
                 layoutPreferenceDataStore.blurContinueWatchingNextUp
             ) { snapshot, thumbnails, blurNextUp ->
@@ -174,6 +199,11 @@ class AnimeHomeViewModel @Inject constructor(
                 continueWatchingCardStyle = snapshot.continueWatchingCardStyle
                 useEpisodeThumbnailsInCw = snapshot.useEpisodeThumbnailsInCw
                 blurContinueWatchingNextUp = snapshot.blurContinueWatchingNextUp
+                posterCardWidthDp = snapshot.posterCardWidthDp
+                posterCardHeightDp = snapshot.posterCardHeightDp
+                posterCardCornerRadiusDp = snapshot.posterCardCornerRadiusDp
+                posterLabelsEnabled = snapshot.posterLabelsEnabled
+                catalogAddonNameEnabled = snapshot.catalogAddonNameEnabled
                 publishRows()
             }
         }
@@ -193,7 +223,12 @@ class AnimeHomeViewModel @Inject constructor(
         val classicFocusGradientEnabled: Boolean = false,
         val continueWatchingCardStyle: ContinueWatchingCardStyle = ContinueWatchingCardStyle.CARD,
         val useEpisodeThumbnailsInCw: Boolean = true,
-        val blurContinueWatchingNextUp: Boolean = false
+        val blurContinueWatchingNextUp: Boolean = false,
+        val posterCardWidthDp: Int = 126,
+        val posterCardHeightDp: Int = 189,
+        val posterCardCornerRadiusDp: Int = 12,
+        val posterLabelsEnabled: Boolean = true,
+        val catalogAddonNameEnabled: Boolean = true
     )
 
     private fun observeAnimeAddons() {
@@ -408,7 +443,12 @@ class AnimeHomeViewModel @Inject constructor(
                 classicFocusGradientEnabled = classicFocusGradientEnabled,
                 continueWatchingCardStyle = continueWatchingCardStyle,
                 useEpisodeThumbnailsInCw = useEpisodeThumbnailsInCw,
-                blurContinueWatchingNextUp = blurContinueWatchingNextUp
+                blurContinueWatchingNextUp = blurContinueWatchingNextUp,
+                posterCardWidthDp = posterCardWidthDp,
+                posterCardHeightDp = posterCardHeightDp,
+                posterCardCornerRadiusDp = posterCardCornerRadiusDp,
+                posterLabelsEnabled = posterLabelsEnabled,
+                catalogAddonNameEnabled = catalogAddonNameEnabled
             )
             if (updated == state) state else updated
         }

@@ -101,12 +101,19 @@ class KitsuApi(
     fun hasRequiredCredentials(): Boolean = configuration.clientId.isNotBlank()
 
     /**
-     * Returns the [KitsuAuthorizePayload] parsed from whatever the user pasted. Accepts either a
-     * completed auth-code URL (`.../callback?code=...`), an implicit access-token URL
-     * (`...#access_token=...`), or a bare access token.
+     * Returns the [KitsuAuthorizePayload] parsed from whatever the user pasted. Accepts a completed
+     * auth-code URL (`.../callback?code=...`), an implicit access-token URL
+     * (`...#access_token=...`), the raw JSON token response, or a bare access token.
      */
     fun parseAuthorizePayload(rawToken: String): KitsuAuthorizePayload {
         val trimmed = rawToken.trim()
+        val parsedJson = runCatching { json.decodeFromString<KitsuOAuthTokenResponse>(trimmed) }.getOrNull()
+        if (parsedJson != null && parsedJson.accessToken.isNotBlank()) {
+            return KitsuAuthorizePayload(
+                accessToken = parsedJson.accessToken,
+                expiresInSeconds = parsedJson.expiresIn
+            )
+        }
         val accessToken = extractQueryValue(trimmed, "access_token")
         if (!accessToken.isNullOrBlank()) {
             return KitsuAuthorizePayload(

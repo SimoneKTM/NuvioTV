@@ -45,6 +45,13 @@ object AddonWebPage {
         val allowAddonManagement = webConfigMode.allowAddonManagement
         val allowCatalogManagement = webConfigMode.allowCatalogManagement
         val allowCollectionManagement = webConfigMode.allowCollectionManagement
+        // In anime mode the home-layout tab manages the anime home, so it is labelled
+        // "Layout Anime" instead of the generic "Home Layout".
+        val homeLayoutTabLabel = if (isAnimeMode) {
+            context.getString(R.string.anime_layout_title)
+        } else {
+            context.getString(R.string.web_tab_home_layout)
+        }
         val defaultTab = when {
             allowAddonManagement -> "addons"
             allowCatalogManagement -> "catalogs"
@@ -58,7 +65,7 @@ object AddonWebPage {
                 null
             },
             if (allowCatalogManagement) {
-                """    <button class="tab${if (defaultTab == "catalogs") " active" else ""}" type="button" onclick="switchTab('catalogs')">${context.getString(R.string.web_tab_home_layout)}</button>"""
+                """    <button class="tab${if (defaultTab == "catalogs") " active" else ""}" type="button" onclick="switchTab('catalogs')">$homeLayoutTabLabel</button>"""
             } else {
                 null
             },
@@ -1024,6 +1031,10 @@ ${tabButtons}
     padding: 0.08rem 0.35rem;
     flex-shrink: 0;
   }
+  .source-provider-anime {
+    color: rgba(210, 130, 200, 0.95);
+    border-color: rgba(210, 130, 200, 0.3);
+  }
 
   /* ── Shared small buttons ── */
   .btn-icon {
@@ -1369,7 +1380,8 @@ function addonSourceFromCatalog(src) {
     addonId: src.addonId,
     type: src.type,
     catalogId: src.catalogId,
-    genre: src.genre || null
+    genre: src.genre || null,
+    animeAddon: !!src.animeAddon
   };
 }
 
@@ -1388,7 +1400,8 @@ function getFolderSources(folder) {
         addonId: src.addonId,
         type: src.type,
         catalogId: src.catalogId,
-        genre: src.genre || null
+        genre: src.genre || null,
+        animeAddon: !!src.animeAddon
       };
     });
   return folder.sources;
@@ -1626,7 +1639,8 @@ async function loadState() {
     originalDisabledCollectionKeys = disabledCollectionKeys.slice();
     availableCatalogs = catalogs.map(function(c) {
       return { key: c.key, addonName: c.addonName, catalogName: c.catalogName, type: c.type,
-        addonId: c.key.split('_')[0] || '', catalogId: c.key.split('_').slice(2).join('_') || '' };
+        addonId: c.key.split('_')[0] || '', catalogId: c.key.split('_').slice(2).join('_') || '',
+        animeAddon: !!c.animeAddon };
     });
     buildUnifiedCatalogList();
     setConnectionLost(false);
@@ -2309,7 +2323,9 @@ function addCatalogSource(ci, fi) {
 function addCatalogSourceByVal(ci, fi, val) {
   var parts = val.split('::');
   if (parts.length < 3) return;
-  var src = { addonId: parts[0], type: parts[1], catalogId: parts[2] };
+  var key = parts[0] + '_' + parts[1] + '_' + parts[2];
+  var match = availableCatalogs.find(function(c) { return c.key === key; });
+  var src = { addonId: parts[0], type: parts[1], catalogId: parts[2], animeAddon: !!(match && match.animeAddon) };
   var folder = collections[ci].folders[fi];
   var existing = getFolderSources(folder);
   var dup = existing.some(function(s) { return s.addonId === src.addonId && s.type === src.type && s.catalogId === src.catalogId; });
@@ -3010,7 +3026,7 @@ function renderCollections() {
         var isFirstSrc = (si === 0);
         var isLastSrc = (si === activeSources.length - 1);
         var provider = String(src.provider || 'addon').toLowerCase();
-        var providerLabel = provider === 'tmdb' ? '<span class="source-provider">TMDB</span>' : (provider === 'trakt' ? '<span class="source-provider">TRAKT</span>' : '');
+        var providerLabel = provider === 'tmdb' ? '<span class="source-provider">TMDB</span>' : (provider === 'trakt' ? '<span class="source-provider">TRAKT</span>' : (src.animeAddon ? '<span class="source-provider source-provider-anime">ANIME</span>' : ''));
         sourcesHtml +=
           '<div class="source-item">' +
             '<button class="btn-icon" onclick="moveCatalogSource(' + ci + ',' + fi + ',' + si + ',-1)"' + (isFirstSrc ? ' disabled' : '') + '>' +
@@ -3044,14 +3060,15 @@ function renderCollections() {
         var parts = val.split('::');
         var alreadyAdded = existingSources.some(function(s) { return s.addonId === parts[0] && s.type === parts[1] && s.catalogId === parts[2]; });
         var label = c.catalogName + ' - ' + localizedCatalogType(c.type) + ' (' + c.addonName + ')';
+        var animeBadge = c.animeAddon ? '<span class="source-provider source-provider-anime" style="flex-shrink:0">ANIME</span>' : '';
         if (alreadyAdded) {
           sourceListHtml += '<div class="source-item" data-label="' + escapeAttr(label) + '" style="padding:0.4rem 0.75rem;opacity:0.4">' +
-            '<span class="source-label">' + escapeHtml(label) + '</span>' +
+            '<span class="source-label">' + escapeHtml(label) + '</span>' + animeBadge +
             '<span style="font-size:0.7rem;color:rgba(130,200,130,0.85);flex-shrink:0">' + escapeHtml(i18n.added) + '</span>' +
           '</div>';
         } else {
           sourceListHtml += '<div class="source-item" data-label="' + escapeAttr(label) + '" style="cursor:pointer;padding:0.4rem 0.75rem" onclick="addCatalogSourceByVal(' + ci + ',' + fi + ',\'' + escapeAttr(val) + '\')">' +
-            '<span class="source-label" style="color:rgba(255,255,255,0.45)">' + escapeHtml(label) + '</span>' +
+            '<span class="source-label" style="color:rgba(255,255,255,0.45)">' + escapeHtml(label) + '</span>' + animeBadge +
             '<span style="font-size:0.7rem;color:rgba(255,255,255,0.2);flex-shrink:0">' + escapeHtml(i18n.add) + '</span>' +
           '</div>';
         }

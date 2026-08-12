@@ -1,4 +1,4 @@
-package com.nuvio.tv.ui.screens.search
+﻿package com.nuvio.tv.ui.screens.search
 
 import android.Manifest
 import android.content.Intent
@@ -307,8 +307,8 @@ fun SearchScreen(
     val trimmedQuery = remember(uiState.query) { uiState.query.trim() }
     val trimmedSubmittedQuery = remember(uiState.submittedQuery) { uiState.submittedQuery.trim() }
 
-    // Focus restore bookkeeping for the results grid — mirrors ClassicHomeContent pattern so
-    // the grid keeps focus when placeholder→real data transitions.
+    // Focus restore bookkeeping for the results grid â€” mirrors ClassicHomeContent pattern so
+    // the grid keeps focus when placeholderâ†’real data transitions.
     var lastFocusedGridItemIndex by remember { mutableIntStateOf(-1) }
     val keyboardFirstKeyFocusRequester = remember { FocusRequester() }
     val resultsFirstItemFocusRequester = remember { FocusRequester() }
@@ -319,6 +319,40 @@ fun SearchScreen(
     val focusManager = LocalFocusManager.current
     var inputAreaActive by remember { mutableStateOf(true) }
     var pendingKeyboardFocus by remember { mutableStateOf(false) }
+    // Netflix-style search bar: collapsed to a small pill on the left until the user starts
+    // searching (types, focuses the field, or has results), then it expands to full width.
+    // The left keyboard/recents panel follows the same expanded state so it closes when idle.
+    val hasAnySearchResults = remember(uiState.catalogRows, uiState.discoverResults) {
+        uiState.catalogRows.any { it.items.isNotEmpty() } || uiState.discoverResults.isNotEmpty()
+    }
+    val searchBarExpanded = remember(
+        inputAreaActive, isSearchFieldFocused, isKeyboardFocusActive,
+        isRecentSearchSectionFocused, trimmedQuery, trimmedSubmittedQuery,
+        uiState.isSearching, isVoiceListening, hasAnySearchResults
+    ) {
+        inputAreaActive || isSearchFieldFocused || isKeyboardFocusActive ||
+            isRecentSearchSectionFocused || hasAnySearchResults ||
+            trimmedQuery.isNotEmpty() || trimmedSubmittedQuery.isNotEmpty() ||
+            uiState.isSearching || isVoiceListening
+    }
+    var pendingSearchFieldFocus by remember { mutableStateOf(false) }
+    val expandSearchBar: () -> Unit = {
+        inputAreaActive = true
+        pendingSearchFieldFocus = true
+    }
+    LaunchedEffect(searchBarExpanded, pendingSearchFieldFocus) {
+        if (searchBarExpanded && pendingSearchFieldFocus) {
+            var attempt = 0
+            while (attempt < MAX_INITIAL_FOCUS_ATTEMPTS) {
+                repeat(2) { withFrameNanos { } }
+                val focused = runCatching { searchFocusRequester.requestFocus() }.getOrDefault(false)
+                if (focused) break
+                attempt++
+                delay(50)
+            }
+            pendingSearchFieldFocus = false
+        }
+    }
     LaunchedEffect(inputAreaActive, pendingKeyboardFocus) {
         if (inputAreaActive && pendingKeyboardFocus) {
             delay(50)
@@ -528,7 +562,7 @@ fun SearchScreen(
                     restoreDiscoverFocus = true
                     pendingDiscoverRestoreOnResume = false
                 } else if (viewModel.hasSavedSearchFocus || didRestoreSearchFocus.value) {
-                    // Returning from details — don't steal focus, the results grid already
+                    // Returning from details â€” don't steal focus, the results grid already
                     // restored it or will restore it via its focused item index.
                     didRestoreSearchFocus.value = false
                 } else if (!latestShouldKeepSearchFocus) {
@@ -553,9 +587,10 @@ fun SearchScreen(
             .fillMaxSize()
             .recompositionHighlighter()
     ) {
-        // Full-width search banner: always visible, spanning the whole page, with the clear
-        // (X) button at the far end. Only the keyboard + recents panel below collapses.
-        Box(
+        // Netflix-style search banner: collapsed to a small pill on the left while idle, and
+        // expanding to full width while searching. Only the keyboard + recents panel below
+        // collapses independently (it follows searchBarExpanded too).
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
@@ -563,31 +598,49 @@ fun SearchScreen(
                     end = NuvioTheme.spacing.xxxl,
                     top = NuvioTheme.spacing.lg
                 ),
-            contentAlignment = Alignment.Center
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            SearchInputField(
-                query = uiState.query,
-                canMoveToResults = canMoveToResults,
-                voiceFocusRequester = if (isVoiceSearchAvailable) voiceFocusRequester else null,
-                searchFocusRequester = searchFocusRequester,
-                onSearchFieldFocusChanged = { focused ->
-                    isSearchFieldFocused = focused
-                    if (focused) inputAreaActive = true
-                },
-                onQueryChanged = handleQueryChanged,
-                onSubmit = {
-                    submitCurrentQuery(uiState.query.trim())
-                },
-                showVoiceSearch = isVoiceSearchAvailable,
-                isVoiceListening = isVoiceListening,
-                voiceRmsLevel = voiceRmsLevel,
-                onVoiceSearch = launchVoiceSearch,
-                onMoveToResults = { focusResults = true },
-                onMoveToKeyboard = requestKeyboardFocus,
-                onOpenDiscover = onOpenDiscover,
-                showDiscoverButton = uiState.discoverLocation == DiscoverLocation.IN_SEARCH,
-                isScreenActive = isScreenActive
-            )
+            AnimatedVisibility(
+                visible = searchBarExpanded,
+                enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
+                exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut()
+            ) {
+                SearchInputField(
+                    query = uiState.query,
+                    canMoveToResults = canMoveToResults,
+                    voiceFocusRequester = if (isVoiceSearchAvailable) voiceFocusRequester else null,
+                    searchFocusRequester = searchFocusRequester,
+                    onSearchFieldFocusChanged = { focused ->
+                        isSearchFieldFocused = focused
+                        if (focused) inputAreaActive = true
+                    },
+                    onQueryChanged = handleQueryChanged,
+                    onSubmit = {
+                        submitCurrentQuery(uiState.query.trim())
+                    },
+                    showVoiceSearch = isVoiceSearchAvailable,
+                    isVoiceListening = isVoiceListening,
+                    voiceRmsLevel = voiceRmsLevel,
+                    onVoiceSearch = launchVoiceSearch,
+                    onMoveToResults = { focusResults = true },
+                    onMoveToKeyboard = requestKeyboardFocus,
+                    onOpenDiscover = onOpenDiscover,
+                    showDiscoverButton = uiState.discoverLocation == DiscoverLocation.IN_SEARCH,
+                    isScreenActive = isScreenActive
+                )
+            }
+
+            androidx.compose.animation.AnimatedVisibility(
+                visible = !searchBarExpanded,
+                enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
+                exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut()
+            ) {
+                CollapsedSearchBar(
+                    onExpand = expandSearchBar,
+                    onMoveToKeyboard = requestKeyboardFocus,
+                    isScreenActive = isScreenActive
+                )
+            }
         }
 
         Row(
@@ -595,10 +648,10 @@ fun SearchScreen(
                 .weight(1f)
                 .fillMaxWidth()
         ) {
-        // Left: WuPlay-style virtual keyboard panel, always laid out even when it is collapsed
-        // so the field keeps a stable home for focus restoration.
+        // Left: WuPlay-style virtual keyboard panel. It collapses together with the search bar
+        // (searchBarExpanded) so the little keyboard closes while the user is not searching.
         AnimatedVisibility(
-            visible = inputAreaActive,
+            visible = searchBarExpanded,
             enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
             exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut()
         ) {
@@ -708,7 +761,7 @@ fun SearchScreen(
                                 didRestoreSearchFocus.value = true
                                 viewModel.hasSavedSearchFocus = false
                             }
-                            // User manually navigated to a result — cancel any
+                            // User manually navigated to a result â€” cancel any
                             // pending auto-focus so it doesn't steal focus later.
                             pendingFocusMoveToResultsQuery = null
                             lastFocusedGridItemIndex = itemIndex
@@ -978,13 +1031,60 @@ private fun SearchInputField(
                         shape = fieldShape
                     )
             ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = stringResource(R.string.cd_clear_search),
-                    tint = NuvioTheme.colors.TextPrimary
-                )
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.cd_clear_search),
+                        tint = NuvioTheme.colors.TextPrimary
+                    )
             }
         }
+    }
+}
+
+/** Small Netflix-style pill shown on the far-left while the search is idle. Clicking it (or
+ *  pressing OK / DOWN) expands the bar to full width and opens the virtual keyboard. */
+@Composable
+private fun CollapsedSearchBar(
+    onExpand: () -> Unit,
+    onMoveToKeyboard: () -> Unit,
+    isScreenActive: Boolean
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    val fieldShape = RoundedCornerShape(NuvioTheme.radii.md)
+    IconButton(
+        onClick = onExpand,
+        modifier = Modifier
+            .size(NuvioTheme.spacing.huge)
+            .focusProperties {
+                canFocus = isScreenActive
+            }
+            .onFocusChanged { isFocused = it.isFocused }
+            .onPreviewKeyEvent { keyEvent ->
+                if (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN &&
+                    keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN
+                ) {
+                    onExpand()
+                    onMoveToKeyboard()
+                    true
+                } else {
+                    false
+                }
+            }
+            .border(
+                width = if (isFocused) NuvioTheme.spacing.xxs else NuvioTheme.spacing.hairline,
+                color = if (isFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.Border,
+                shape = fieldShape
+            )
+            .background(
+                color = NuvioTheme.colors.BackgroundCard,
+                shape = fieldShape
+            )
+    ) {
+        Icon(
+            imageVector = Icons.Default.Search,
+            contentDescription = stringResource(R.string.search_placeholder),
+            tint = NuvioTheme.colors.TextPrimary
+        )
     }
 }
 
@@ -1143,7 +1243,7 @@ private fun SingleSearchResultsGrid(
                             ?: FocusRequester.Default
                     }
                 },
-            contentPadding = PaddingValues(top = NuvioTheme.spacing.lg, bottom = NuvioTheme.spacing.xxl),
+            contentPadding = PaddingValues(top = NuvioTheme.spacing.xxl, bottom = NuvioTheme.spacing.xxl),
             horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
             verticalArrangement = Arrangement.spacedBy(verticalSpacing)
         ) {
@@ -1259,7 +1359,7 @@ private fun SearchResultsSkeletonGrid(
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = NuvioTheme.spacing.lg, bottom = NuvioTheme.spacing.xxl),
+            contentPadding = PaddingValues(top = NuvioTheme.spacing.xxl, bottom = NuvioTheme.spacing.xxl),
             horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
             verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
         ) {

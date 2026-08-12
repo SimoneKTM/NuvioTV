@@ -24,8 +24,8 @@ enum class AddonWebConfigMode(
     ),
     ANIME_ADDONS(
         allowAddonManagement = true,
-        allowCatalogManagement = false,
-        allowCollectionManagement = false
+        allowCatalogManagement = true,
+        allowCollectionManagement = true
     )
 }
 
@@ -41,7 +41,8 @@ data class CatalogInfo(
     val catalogName: String,
     val addonName: String,
     val type: String,
-    val isDisabled: Boolean
+    val isDisabled: Boolean,
+    val animeAddon: Boolean = false
 )
 
 data class CollectionInfo(
@@ -75,7 +76,8 @@ data class CatalogSourceInfo(
     val addonId: String,
     val type: String,
     val catalogId: String,
-    val genre: String? = null
+    val genre: String? = null,
+    val animeAddon: Boolean = false
 )
 
 data class CollectionSourceInfo(
@@ -84,6 +86,7 @@ data class CollectionSourceInfo(
     val type: String? = null,
     val catalogId: String? = null,
     val genre: String? = null,
+    val animeAddon: Boolean = false,
     val tmdbSourceType: String? = null,
     val title: String? = null,
     val tmdbId: Int? = null,

@@ -97,15 +97,6 @@ class KitsuSettingsViewModel @Inject constructor(
     fun connect(token: String) {
         if (connectJob?.isActive == true || _uiState.value.isLoading) return
         val rawToken = token.trim()
-        if (!authRepository.hasRequiredCredentials()) {
-            _uiState.update {
-                it.copy(
-                    credentialsConfigured = false,
-                    errorMessage = context.getString(R.string.kitsu_missing_credentials)
-                )
-            }
-            return
-        }
         if (rawToken.isEmpty()) {
             _uiState.update {
                 it.copy(errorMessage = context.getString(R.string.kitsu_error_invalid_token))

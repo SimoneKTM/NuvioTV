@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -62,12 +63,14 @@ import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.GridContinueWatchingSection
 import com.nuvio.tv.ui.components.HeroCarousel
 import com.nuvio.tv.ui.components.LoadingIndicator
-import com.nuvio.tv.ui.components.PosterCardDefaults
+import com.nuvio.tv.ui.components.PosterCardStyle
 import com.nuvio.tv.ui.screens.home.ClassicFocusArtwork
 import com.nuvio.tv.ui.screens.home.ClassicFocusGradientBackdrop
 import com.nuvio.tv.ui.screens.home.ContinueWatchingItem
 import com.nuvio.tv.ui.screens.home.HeroPreview
 import com.nuvio.tv.ui.screens.home.HeroTitleBlock
+import com.nuvio.tv.ui.screens.home.MODERN_HERO_MEDIA_WIDTH_FRACTION
+import com.nuvio.tv.ui.screens.home.MODERN_HERO_TEXT_WIDTH_FRACTION
 import com.nuvio.tv.ui.screens.home.ModernHeroScene
 import com.nuvio.tv.ui.screens.home.ModernHeroSceneState
 import com.nuvio.tv.ui.screens.home.extractYearText
@@ -161,65 +164,184 @@ private fun AnimeModernContent(
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
 ) {
     val heroItem = uiState.heroItem
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .dpadRepeatThrottle(),
-        contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
+    val heroEnabled = uiState.heroEnabled && heroItem != null
+    val fullScreenBackdrop = uiState.modernHeroFullScreenBackdropEnabled
+    val useLandscapePosters = uiState.modernLandscapePostersEnabled
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val screenWidth = configuration.screenWidthDp.dp
+    val screenHeight = configuration.screenHeightDp.dp
+
+    val rowsViewportHeight = screenHeight * if (useLandscapePosters) 0.49f else 0.52f
+    val rowTitleLineHeight = MaterialTheme.typography.titleMedium.lineHeight
+    val rowTitleHeight = with(density) {
+        runCatching { rowTitleLineHeight.toDp() }
+            .getOrDefault(NuvioTheme.spacing.xl)
+    }
+    val heroBackdropHeight =
+        (screenHeight - rowsViewportHeight + rowTitleHeight + 14.dp).coerceAtMost(screenHeight)
+
+    val posterCardStyle = animePosterCardStyle(uiState)
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (heroEnabled && heroItem != null) {
+            AnimeModernHero(
+                item = heroItem,
+                fullScreenBackdrop = fullScreenBackdrop,
+                useLandscapePosters = useLandscapePosters,
+                screenWidth = screenWidth,
+                screenHeight = screenHeight,
+                heroBackdropHeight = heroBackdropHeight,
+                rowsViewportHeight = rowsViewportHeight,
+                onOpen = {
+                    onNavigateToDetail(heroItem.id, heroItem.rawType, uiState.heroAddonBaseUrl.orEmpty())
+                }
+            )
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .then(if (heroEnabled) Modifier.height(rowsViewportHeight) else Modifier.fillMaxSize())
+                .dpadRepeatThrottle(),
+            contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
+        ) {
+            if (uiState.continueWatchingItems.isNotEmpty() || uiState.upcomingItems.isNotEmpty()) {
+                item(key = "anime_continue_watching") {
+                    AnimeContinueWatchingRow(
+                        uiState = uiState,
+                        onNavigateToDetail = onNavigateToDetail,
+                        onRemoveItem = onRemoveContinueWatching
+                    )
+                }
+            }
+
+            items(
+                items = uiState.rows,
+                key = { row -> row.legacyKey() }
+            ) { row ->
+                if (useLandscapePosters) {
+                    AnimeWidePosterRowSection(
+                        catalogRow = row,
+                        posterCardStyle = posterCardStyle,
+                        onItemClick = onNavigateToDetail,
+                        onSeeAll = {
+                            onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
+                        },
+                        showSeeAll = row.hasMore || row.items.size >= 15,
+                        showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled
+                    )
+                } else {
+                    CatalogRowSection(
+                        catalogRow = row,
+                        onItemClick = onNavigateToDetail,
+                        onSeeAll = {
+                            onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
+                        },
+                        showSeeAll = row.hasMore || row.items.size >= 15,
+                        posterCardStyle = posterCardStyle,
+                        showPosterLabels = uiState.posterLabelsEnabled,
+                        showAddonName = uiState.catalogAddonNameEnabled,
+                        showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnimeModernHero(
+    item: MetaPreview,
+    fullScreenBackdrop: Boolean,
+    useLandscapePosters: Boolean,
+    screenWidth: Dp,
+    screenHeight: Dp,
+    heroBackdropHeight: Dp,
+    rowsViewportHeight: Dp,
+    onOpen: () -> Unit
+) {
+    val density = LocalDensity.current
+    val heroPreview = remember(item) { buildAnimeHeroPreview(item) }
+    val heroSceneState = remember(item, fullScreenBackdrop) {
+        {
+            ModernHeroSceneState(
+                heroBackdrop = firstNonBlank(
+                    item.backdropUrl,
+                    item.background,
+                    item.landscapePoster,
+                    item.poster
+                ),
+                preview = heroPreview,
+                enrichmentActive = false,
+                shouldPlayTrailer = false,
+                trailerFirstFrameRendered = false,
+                trailerUrl = null,
+                trailerAudioUrl = null,
+                trailerPlaybackKey = null,
+                trailerMuted = true,
+                fullScreenBackdrop = fullScreenBackdrop
+            )
+        }
+    }
+    val heroMediaWidthPx = with(density) {
+        (screenWidth * if (fullScreenBackdrop) 1f else MODERN_HERO_MEDIA_WIDTH_FRACTION).roundToPx()
+    }
+    val heroMediaHeightPx = with(density) {
+        (if (fullScreenBackdrop) screenHeight else heroBackdropHeight).roundToPx()
+    }
+    Box(modifier = Modifier.fillMaxSize().clickable { onOpen() }) {
+        val heroMediaModifier = if (fullScreenBackdrop) {
+            Modifier
+                .align(Alignment.TopStart)
+                .fillMaxWidth()
+                .height(screenHeight)
+        } else {
+            Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = NuvioTheme.spacing.huge)
+                .fillMaxWidth(MODERN_HERO_MEDIA_WIDTH_FRACTION)
+                .height(heroBackdropHeight)
+        }
+
+        ModernHeroScene(
+            state = heroSceneState,
+            isFullScreen = { fullScreenBackdrop },
+            bgColor = NuvioTheme.colors.Background,
+            modifier = heroMediaModifier,
+            requestWidthPx = heroMediaWidthPx,
+            requestHeightPx = heroMediaHeightPx,
+            onTrailerEnded = {},
+            onFirstFrameRendered = {}
+        )
+        HeroTitleBlock(
+            previewProvider = { heroPreview },
+            portraitMode = !useLandscapePosters,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(
+                    start = 52.dp,
+                    end = NuvioTheme.spacing.xxxl,
+                    bottom = rowsViewportHeight + NuvioTheme.spacing.lg
+                )
+                .fillMaxWidth(MODERN_HERO_TEXT_WIDTH_FRACTION)
+        )
+    }
+}
+
+@Composable
+private fun animePosterCardStyle(uiState: AnimeHomeUiState): PosterCardStyle {
+    return remember(
+        uiState.posterCardWidthDp,
+        uiState.posterCardHeightDp,
+        uiState.posterCardCornerRadiusDp
     ) {
-        if (uiState.heroEnabled && heroItem != null) {
-            item(key = "anime_hero") {
-                AnimeHomeModernHero(
-                    item = heroItem,
-                    fullScreenBackdrop = uiState.modernHeroFullScreenBackdropEnabled,
-                    onOpen = {
-                        onNavigateToDetail(
-                            heroItem.id,
-                            heroItem.rawType,
-                            uiState.heroAddonBaseUrl.orEmpty()
-                        )
-                    },
-                    modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)
-                )
-            }
-        }
-
-        if (uiState.continueWatchingItems.isNotEmpty() || uiState.upcomingItems.isNotEmpty()) {
-            item(key = "anime_continue_watching") {
-                AnimeContinueWatchingRow(
-                    uiState = uiState,
-                    onNavigateToDetail = onNavigateToDetail,
-                    onRemoveItem = onRemoveContinueWatching
-                )
-            }
-        }
-
-        items(
-            items = uiState.rows,
-            key = { row -> row.legacyKey() }
-        ) { row ->
-            if (uiState.modernLandscapePostersEnabled) {
-                AnimeWidePosterRowSection(
-                    catalogRow = row,
-                    onItemClick = onNavigateToDetail,
-                    onSeeAll = {
-                        onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
-                    },
-                    showSeeAll = row.hasMore || row.items.size >= 15,
-                    showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled
-                )
-            } else {
-                CatalogRowSection(
-                    catalogRow = row,
-                    onItemClick = onNavigateToDetail,
-                    onSeeAll = {
-                        onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
-                    },
-                    showSeeAll = row.hasMore || row.items.size >= 15,
-                    showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled
-                )
-            }
-        }
+        PosterCardStyle(
+            width = uiState.posterCardWidthDp.dp,
+            height = uiState.posterCardHeightDp.dp,
+            cornerRadius = uiState.posterCardCornerRadiusDp.dp
+        )
     }
 }
 
@@ -287,6 +409,9 @@ private fun AnimeClassicContent(
                         onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
                     },
                     showSeeAll = row.hasMore || row.items.size >= 15,
+                    posterCardStyle = animePosterCardStyle(uiState),
+                    showPosterLabels = uiState.posterLabelsEnabled,
+                    showAddonName = uiState.catalogAddonNameEnabled,
                     showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
                     onItemFocus = handleMetaFocus
                 )
@@ -335,7 +460,9 @@ private fun AnimeGridContent(
         ) { row ->
             AnimeGridCatalogSection(
                 catalogRow = row,
-                columns = animeGridColumnCount(),
+                columns = animeGridColumnCount(uiState.posterCardWidthDp),
+                posterCardStyle = animePosterCardStyle(uiState),
+                showLabels = uiState.posterLabelsEnabled,
                 onItemClick = onNavigateToDetail,
                 onSeeAll = {
                     onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
@@ -348,9 +475,9 @@ private fun AnimeGridContent(
 }
 
 @Composable
-private fun animeGridColumnCount(): Int {
+private fun animeGridColumnCount(posterCardWidthDp: Int): Int {
     val configuration = LocalConfiguration.current
-    val cardWidth = PosterCardDefaults.Style.width
+    val cardWidth = posterCardWidthDp.dp
     val horizontalPadding = NuvioTheme.spacing.xxxl * 2
     val spacing = NuvioTheme.spacing.md
     val available = (configuration.screenWidthDp - horizontalPadding.value).coerceAtLeast(0f)
@@ -363,6 +490,8 @@ private fun animeGridColumnCount(): Int {
 private fun AnimeGridCatalogSection(
     catalogRow: CatalogRow,
     columns: Int,
+    posterCardStyle: PosterCardStyle,
+    showLabels: Boolean,
     onItemClick: (String, String, String) -> Unit,
     onSeeAll: () -> Unit,
     showSeeAll: Boolean,
@@ -423,8 +552,8 @@ private fun AnimeGridCatalogSection(
                     chunk.forEach { item ->
                         ContentCard(
                             item = item,
-                            posterCardStyle = PosterCardDefaults.Style,
-                            showLabels = true,
+                            posterCardStyle = posterCardStyle,
+                            showLabels = showLabels,
                             onClick = {
                                 onItemClick(item.id, item.apiType, catalogRow.addonBaseUrl)
                             }
@@ -443,73 +572,6 @@ private fun AnimeGridCatalogSection(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun AnimeHomeModernHero(
-    item: MetaPreview,
-    fullScreenBackdrop: Boolean,
-    onOpen: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val configuration = LocalConfiguration.current
-    val density = LocalDensity.current
-    val heroHeightPx = with(density) {
-        (configuration.screenHeightDp * 0.60f).dp.roundToPx()
-    }
-    val requestWidthPx = with(density) { configuration.screenWidthDp.dp.roundToPx() }
-    val heroPreview = remember(item) { buildAnimeHeroPreview(item) }
-    val heroSceneState = remember(item, fullScreenBackdrop) {
-        {
-            ModernHeroSceneState(
-                heroBackdrop = firstNonBlank(
-                    item.backdropUrl,
-                    item.background,
-                    item.landscapePoster,
-                    item.poster
-                ),
-                preview = heroPreview,
-                enrichmentActive = false,
-                shouldPlayTrailer = false,
-                trailerFirstFrameRendered = false,
-                trailerUrl = null,
-                trailerAudioUrl = null,
-                trailerPlaybackKey = null,
-                trailerMuted = true,
-                fullScreenBackdrop = fullScreenBackdrop
-            )
-        }
-    }
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(with(density) { heroHeightPx.toDp() })
-            .clickable { onOpen() }
-    ) {
-        ModernHeroScene(
-            state = heroSceneState,
-            isFullScreen = { fullScreenBackdrop },
-            bgColor = NuvioTheme.colors.Background,
-            modifier = Modifier.fillMaxSize(),
-            requestWidthPx = requestWidthPx,
-            requestHeightPx = heroHeightPx,
-            onTrailerEnded = {},
-            onFirstFrameRendered = {}
-        )
-        HeroTitleBlock(
-            previewProvider = { heroPreview },
-            portraitMode = true,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(
-                    start = NuvioTheme.spacing.xxxl,
-                    end = NuvioTheme.spacing.xxxl,
-                    bottom = NuvioTheme.spacing.xxxl
-                )
-                .fillMaxWidth(0.72f)
-        )
     }
 }
 
@@ -548,11 +610,11 @@ private fun AnimeContinueWatchingRow(
     onRemoveItem: (ContinueWatchingItem) -> Unit
 ) {
     if (uiState.continueWatchingItems.isEmpty() && uiState.upcomingItems.isEmpty()) return
-    val (cardWidth, imageHeight) = animeCwCardSize(uiState.continueWatchingCardStyle)
+    val (cardWidth, imageHeight) = animeCwCardSize(uiState)
     val onItemClick: (ContinueWatchingItem) -> Unit = { item ->
         handleAnimeCwClick(item, onNavigateToDetail)
     }
-    val cornerRadius = PosterCardDefaults.Style.cornerRadius
+    val cornerRadius = uiState.posterCardCornerRadiusDp.dp
     Column(modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)) {
         ContinueWatchingSection(
             items = uiState.continueWatchingItems.asStable(),
@@ -612,7 +674,7 @@ private fun AnimeGridContinueWatchingRow(
             blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
             useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
             cardStyle = uiState.continueWatchingCardStyle,
-            cornerRadius = PosterCardDefaults.Style.cornerRadius
+            cornerRadius = uiState.posterCardCornerRadiusDp.dp
         )
         if (uiState.upcomingItems.isNotEmpty()) {
             GridContinueWatchingSection(
@@ -626,18 +688,19 @@ private fun AnimeGridContinueWatchingRow(
                 blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
                 useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
                 cardStyle = uiState.continueWatchingCardStyle,
-                cornerRadius = PosterCardDefaults.Style.cornerRadius
+                cornerRadius = uiState.posterCardCornerRadiusDp.dp
             )
         }
     }
 }
 
-private fun animeCwCardSize(style: ContinueWatchingCardStyle): Pair<Dp, Dp> {
-    val base = PosterCardDefaults.Style
-    return when (style) {
-        ContinueWatchingCardStyle.POSTER -> base.width to base.height
-        ContinueWatchingCardStyle.WIDE -> base.width * 2.5f to base.width * 2.5f * 0.4f
-        ContinueWatchingCardStyle.CARD -> base.width * (16f / 9f) to base.width
+private fun animeCwCardSize(uiState: AnimeHomeUiState): Pair<Dp, Dp> {
+    val baseWidth = uiState.posterCardWidthDp.dp
+    val baseHeight = uiState.posterCardHeightDp.dp
+    return when (uiState.continueWatchingCardStyle) {
+        ContinueWatchingCardStyle.POSTER -> baseWidth to baseHeight
+        ContinueWatchingCardStyle.WIDE -> baseWidth * 2.5f to baseWidth * 2.5f * 0.4f
+        ContinueWatchingCardStyle.CARD -> baseWidth * (16f / 9f) to baseWidth
     }
 }
 
@@ -667,6 +730,7 @@ private fun MetaPreview.toAnimeClassicFocusArtwork(): ClassicFocusArtwork =
 @Composable
 private fun AnimeWidePosterRowSection(
     catalogRow: CatalogRow,
+    posterCardStyle: PosterCardStyle,
     onItemClick: (String, String, String) -> Unit,
     onSeeAll: () -> Unit,
     showSeeAll: Boolean,
@@ -716,6 +780,7 @@ private fun AnimeWidePosterRowSection(
             items(catalogRow.items, key = { it.id }) { item ->
                 AnimeWideCard(
                     item = item,
+                    posterCardStyle = posterCardStyle,
                     onClick = { onItemClick(item.id, item.apiType, catalogRow.addonBaseUrl) }
                 )
             }
@@ -734,16 +799,19 @@ private fun AnimeWidePosterRowSection(
 @Composable
 private fun AnimeWideCard(
     item: MetaPreview,
+    posterCardStyle: PosterCardStyle,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(PosterCardDefaults.Style.cornerRadius)
+    val shape = RoundedCornerShape(posterCardStyle.cornerRadius)
     val context = LocalContext.current
     var isFocused by remember { mutableStateOf(false) }
     val imageUrl = firstNonBlank(item.backdropUrl, item.background, item.landscapePoster, item.poster)
+    val wideWidth = posterCardStyle.width * 1.24f * 1.34f
+    val wideHeight = wideWidth / 1.77f
     Box(
         modifier = Modifier
-            .width(260.dp)
-            .height(148.dp)
+            .width(wideWidth)
+            .height(wideHeight)
             .clip(shape)
             .background(NuvioTheme.colors.BackgroundCard)
             .onFocusChanged { isFocused = it.isFocused }

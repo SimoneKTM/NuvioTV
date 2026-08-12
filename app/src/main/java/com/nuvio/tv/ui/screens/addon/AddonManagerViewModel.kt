@@ -15,14 +15,10 @@ import com.nuvio.tv.core.server.AddonConfigServer
 import com.nuvio.tv.core.server.AddonInfo
 import com.nuvio.tv.core.server.AddonWebConfigMode
 import com.nuvio.tv.core.server.CatalogInfo
-import com.nuvio.tv.core.server.CatalogSourceInfo
-import com.nuvio.tv.core.server.CollectionInfo
-import com.nuvio.tv.core.server.CollectionSourceInfo
 import com.nuvio.tv.core.server.DeviceIpAddress
-import com.nuvio.tv.core.server.FolderInfo
+import com.nuvio.tv.core.server.collectionsToServerFormat
 import com.nuvio.tv.core.server.PageState
 import com.nuvio.tv.core.server.PendingAddonChange
-import com.nuvio.tv.core.server.TmdbFiltersInfo
 import com.nuvio.tv.core.server.TmdbSourceMetadataInfo
 import com.nuvio.tv.core.server.TmdbSourceMetadataRequest
 import com.nuvio.tv.core.server.TmdbSourceSearchRequest
@@ -40,12 +36,8 @@ import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.Collection
 import com.nuvio.tv.domain.model.CatalogDescriptor
-import com.nuvio.tv.domain.model.AddonCatalogCollectionSource
 import com.nuvio.tv.domain.model.ExperienceMode
-import com.nuvio.tv.domain.model.TmdbCollectionSource
 import com.nuvio.tv.domain.model.TmdbCollectionSourceType
-import com.nuvio.tv.domain.model.TraktCollectionSource
-import com.nuvio.tv.domain.model.LiveTvCollectionSource
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -705,91 +697,6 @@ class AddonManagerViewModel @Inject constructor(
             collectionsDataStore.collections.collect { cols ->
                 currentCollections = cols
             }
-        }
-    }
-
-    private fun collectionsToServerFormat(cols: List<Collection>): List<CollectionInfo> {
-        return cols.map { col ->
-            CollectionInfo(
-                id = col.id,
-                title = col.title,
-                backdropImageUrl = col.backdropImageUrl,
-                pinToTop = col.pinToTop,
-                focusGlowEnabled = col.focusGlowEnabled,
-                viewMode = col.viewMode.name,
-                showAllTab = col.showAllTab,
-                folders = col.folders.map { folder ->
-                    FolderInfo(
-                        id = folder.id,
-                        title = folder.title,
-                        coverImageUrl = folder.coverImageUrl,
-                        focusGifUrl = folder.focusGifUrl,
-                        focusGifEnabled = folder.focusGifEnabled,
-                        coverEmoji = folder.coverEmoji,
-                        tileShape = folder.tileShape.name,
-                        hideTitle = folder.hideTitle,
-                        heroBackdropUrl = folder.heroBackdropUrl,
-                        heroVideoUrl = folder.heroVideoUrl,
-                        titleLogoUrl = folder.titleLogoUrl,
-                        catalogSources = folder.catalogSources.map { src ->
-                            CatalogSourceInfo(
-                                addonId = src.addonId,
-                                type = src.type,
-                                catalogId = src.catalogId,
-                                genre = src.genre
-                            )
-                        },
-                        sources = folder.sources.map { source ->
-                            when (source) {
-                                is AddonCatalogCollectionSource -> CollectionSourceInfo(
-                                    provider = "addon",
-                                    addonId = source.addonId,
-                                    type = source.type,
-                                    catalogId = source.catalogId,
-                                    genre = source.genre
-                                )
-                                is TmdbCollectionSource -> CollectionSourceInfo(
-                                    provider = "tmdb",
-                                    tmdbSourceType = source.sourceType.name,
-                                    title = source.title,
-                                    tmdbId = source.tmdbId,
-                                    mediaType = source.mediaType.name,
-                                    sortBy = source.sortBy,
-                                    filters = TmdbFiltersInfo(
-                                        withGenres = source.filters.withGenres,
-                                        releaseDateGte = source.filters.releaseDateGte,
-                                        releaseDateLte = source.filters.releaseDateLte,
-                                        voteAverageGte = source.filters.voteAverageGte,
-                                        voteAverageLte = source.filters.voteAverageLte,
-                                        voteCountGte = source.filters.voteCountGte,
-                                        withOriginalLanguage = source.filters.withOriginalLanguage,
-                                        withOriginCountry = source.filters.withOriginCountry,
-                                        withKeywords = source.filters.withKeywords,
-                                        withCompanies = source.filters.withCompanies,
-                                        withNetworks = source.filters.withNetworks,
-                                        year = source.filters.year,
-                                        watchRegion = source.filters.watchRegion,
-                                        withWatchProviders = source.filters.withWatchProviders
-                                    )
-                                )
-                                is TraktCollectionSource -> CollectionSourceInfo(
-                                    provider = "trakt",
-                                    title = source.title,
-                                    traktListId = source.traktListId,
-                                    mediaType = source.mediaType.name,
-                                    sortBy = source.sortBy,
-                                    sortHow = source.sortHow
-                                )
-                                is LiveTvCollectionSource -> CollectionSourceInfo(
-                                    provider = "livetv",
-                                    catalogId = source.playlistId,
-                                    title = source.playlistName
-                                )
-                            }
-                        }
-                    )
-                }
-            )
         }
     }
 

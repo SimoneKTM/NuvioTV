@@ -146,7 +146,7 @@ open class LayoutSettingsViewModel @Inject constructor(
     private val metaRepository: com.nuvio.tv.domain.repository.MetaRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(LayoutSettingsUiState())
+    protected val _uiState = MutableStateFlow(LayoutSettingsUiState())
     val uiState: StateFlow<LayoutSettingsUiState> = _uiState.asStateFlow()
     private var streamBadgeServer: StreamBadgeConfigServer? = null
     private var logoBytes: ByteArray? = null
@@ -156,7 +156,7 @@ open class LayoutSettingsViewModel @Inject constructor(
 
     open val homeOnlyLayout: Boolean = false
 
-    private inline fun updateUiStateIfChanged(
+    protected inline fun updateUiStateIfChanged(
         update: (LayoutSettingsUiState) -> LayoutSettingsUiState
     ) {
         _uiState.update { current ->
@@ -800,7 +800,7 @@ open class LayoutSettingsViewModel @Inject constructor(
         }
     }
 
-    private fun loadAvailableCatalogs() {
+    protected open fun loadAvailableCatalogs() {
         viewModelScope.launch {
             addonRepository.getInstalledAddons().collectLatest { installedAddons ->
                 val addons = installedAddons.enabledAddons()
