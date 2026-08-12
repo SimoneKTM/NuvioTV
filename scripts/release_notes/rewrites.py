@@ -344,4 +344,12 @@ SPECIAL_RULES = [
         r"single\s+anilist\s+wordmark;\s+fix\(relay\):\s+surface\s+real\s+oauth\s+errors",
         "Added a full-width sticky search bar with ghost poster loading and compact clear history, and improved tracker login error reporting",
     ),
+    (
+        r"anilist\s+banner\s+gradient\s+header\s+in\s+provider\s+dialogs",
+        "Added an AniList banner gradient header in provider dialogs",
+    ),
+    (
+        r"align\s+home\s+structure\s*-\s*focused\s+poster\s+backdrop\s+expansion\s+and\s+loading\s+shimmer\s+rows",
+        "Improved anime Home alignment with focused poster backdrop expansion and loading shimmer rows",
+    ),
 ]
