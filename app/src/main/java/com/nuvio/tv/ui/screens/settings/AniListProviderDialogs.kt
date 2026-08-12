@@ -2,23 +2,19 @@
 
 package com.nuvio.tv.ui.screens.settings
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -165,34 +161,12 @@ private fun AniListConnectContent(
 
 @Composable
 private fun AniListBannerHeader() {
-    val shape = RoundedCornerShape(NuvioTheme.radii.lg)
-    Box(
+    Image(
+        painter = painterResource(R.drawable.anilist_banner),
+        contentDescription = stringResource(R.string.cd_anilist_logo),
         modifier = Modifier
             .fillMaxWidth()
-            .height(64.dp)
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xFF2C4D6A),
-                        Color(0xFF1A2E42),
-                        Color(0xFF0E1A27)
-                    )
-                ),
-                shape
-            )
-            .border(1.dp, Color(0xFF57B9E8).copy(alpha = 0.4f), shape),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "anilist",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-0.5).sp
-            ),
-            color = Color.White,
-            maxLines = 1,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
+            .height(40.dp),
+        contentScale = ContentScale.Fit
+    )
 }

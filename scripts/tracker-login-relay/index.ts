@@ -442,17 +442,26 @@ async function handleKitsuLogin(req: Request): Promise<Response> {
     return html(`<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Accedi a Kitsu</title></head>
+<title>Accedi a Kitsu</title>
+<style>
+  input, button { box-sizing: border-box; width: 100%; }
+  input { padding: 14px 12px; border-radius: 8px; border: 2px solid #56565e;
+    background: #ffffff; color: #0b0b0f; font-size: 16px; }
+  input:focus { border-color: #e34b8f; outline: none; }
+  input::placeholder { color: #8a8f98; }
+  button { padding: 14px; border-radius: 8px; border: none; background: #e34b8f;
+    color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; }
+</style></head>
 <body style="font-family:sans-serif;background:#0b0b0f;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">
   <div style="max-width:380px;width:100%;padding:0 20px">
     <h2 style="font-weight:normal;margin:0 0 4px">Accedi a Kitsu</h2>
     <p style="color:#9aa0aa;font-size:14px;margin:0 0 20px">Inserisci le credenziali del tuo account Kitsu. La password viene usata solo per ottenere il token di accesso e non viene salvata.</p>
     <form method="post" action="?state=${encodeURIComponent(safeCode)}" style="display:flex;flex-direction:column;gap:12px">
-      <input type="text" name="username" placeholder="Email o username" required autocomplete="username"
-        style="padding:12px;border-radius:8px;border:1px solid #333;background:#17171c;color:#fff;font-size:16px">
-      <input type="password" name="password" placeholder="Password" required autocomplete="current-password"
-        style="padding:12px;border-radius:8px;border:1px solid #333;background:#17171c;color:#fff;font-size:16px">
-      <button type="submit" style="padding:12px;border-radius:8px;border:none;background:#e34b8f;color:#fff;font-size:16px;cursor:pointer">Accedi</button>
+      <label for="kitsu-username" style="font-size:14px;color:#9aa0aa">Email o username</label>
+      <input type="text" id="kitsu-username" name="username" placeholder="Il tuo indirizzo email o username" required autocomplete="username">
+      <label for="kitsu-password" style="font-size:14px;color:#9aa0aa">Password</label>
+      <input type="password" id="kitsu-password" name="password" placeholder="La tua password" required autocomplete="current-password">
+      <button type="submit">Accedi</button>
     </form>
   </div>
 </body></html>`);

@@ -26,6 +26,7 @@ import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -371,7 +372,10 @@ open class LayoutSettingsViewModel @Inject constructor(
                 updateUiStateIfChanged { it.copy(liveTvTabVisible = visible) }
             }
         }
-        loadAvailableCatalogs()
+        viewModelScope.launch {
+            delay(0)
+            loadAvailableCatalogs()
+        }
     }
 
     fun onEvent(event: LayoutSettingsEvent) {
