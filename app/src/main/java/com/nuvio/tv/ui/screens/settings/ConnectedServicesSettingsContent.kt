@@ -556,9 +556,7 @@ private fun ConnectedServicesOverview(
                             subtitle = anilistPresentation.subtitle,
                             value = anilistPresentation.value,
                             valueColor = anilistPresentation.color,
-                            leadingContent = {
-                                AniListBrandLogo(markHeight = 26.dp)
-                            },
+                            leadingDrawableRes = R.drawable.anilist_logo,
                             leadingArtworkSize = 40.dp,
                             onClick = onAniListClick,
                             modifier = Modifier
