@@ -79,6 +79,7 @@ internal fun SearchVirtualKeyboard(
     onEnter: () -> Unit,
     firstKeyFocusRequester: FocusRequester,
     resultsFocusRequester: FocusRequester? = null,
+    spaceKeyFocusRequester: FocusRequester? = null,
     onFocusChanged: ((Boolean) -> Unit)? = null,
     onMoveToRecents: (() -> Unit)? = null,
     onMoveToResults: (() -> Unit)? = null,
@@ -133,6 +134,17 @@ internal fun SearchVirtualKeyboard(
                                 event.nativeKeyEvent.action == AndroidKeyEvent.ACTION_DOWN &&
                                 KEYBOARD_ROWS.last().contains(label)
                             ) {
+                                // Move focus into the action row (space/backspace) first, so those
+                                // keys are reachable; the action row's own DPAD_DOWN handler then
+                                // continues to recents/results.
+                                val focused = if (spaceKeyFocusRequester != null) {
+                                    runCatching { spaceKeyFocusRequester.requestFocus() }.getOrDefault(false)
+                                } else {
+                                    false
+                                }
+                                if (focused) {
+                                    return@onPreviewKeyEvent true
+                                }
                                 if (onMoveToRecents != null) {
                                     onMoveToRecents()
                                 } else if (onMoveToResults != null) {
@@ -182,6 +194,13 @@ internal fun SearchVirtualKeyboard(
                 modifier = Modifier
                     .weight(1f)
                     .height(SearchVirtualKeyboardKeySize)
+                    .then(
+                        if (spaceKeyFocusRequester != null) {
+                            Modifier.focusRequester(spaceKeyFocusRequester)
+                        } else {
+                            Modifier
+                        }
+                    )
             ) {
                 onSpace()
             }

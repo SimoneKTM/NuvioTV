@@ -19,6 +19,7 @@ import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
@@ -313,6 +314,7 @@ fun SearchScreen(
     val keyboardFirstKeyFocusRequester = remember { FocusRequester() }
     val resultsFirstItemFocusRequester = remember { FocusRequester() }
     var isKeyboardFocusActive by remember { mutableStateOf(false) }
+    val keyboardSpaceKeyFocusRequester = remember { FocusRequester() }
 
     // The left input panel (search bar + virtual keyboard + recents) collapses while focus is
     // on the results grid, giving the posters the full width (4 -> 6 columns transition).
@@ -558,6 +560,7 @@ fun SearchScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .zIndex(1f)
                 .padding(
                     start = NuvioTheme.spacing.xxxl,
                     end = NuvioTheme.spacing.xxxl,
@@ -618,6 +621,7 @@ fun SearchScreen(
                     },
                     firstKeyFocusRequester = keyboardFirstKeyFocusRequester,
                     resultsFocusRequester = resultsFirstItemFocusRequester,
+                    spaceKeyFocusRequester = keyboardSpaceKeyFocusRequester,
                     onFocusChanged = { focused ->
                         isKeyboardFocusActive = focused
                         if (focused) inputAreaActive = true
@@ -666,6 +670,7 @@ fun SearchScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
+                .clipToBounds()
                 .recompositionHighlighter()
         ) {
             when {
