@@ -11,9 +11,12 @@ import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
+import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
 import com.nuvio.tv.domain.model.HomeLayout
 import com.nuvio.tv.domain.model.MetaPreview
+import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
+import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.model.mergeCatalogPage
 import com.nuvio.tv.domain.model.nextCatalogSkip
 import com.nuvio.tv.domain.model.skipStep
@@ -102,6 +105,10 @@ class AnimeHomeViewModel @Inject constructor(
     private var posterCardCornerRadiusDp = 12
     private var posterLabelsEnabled = true
     private var catalogAddonNameEnabled = true
+    private var focusedPosterBackdropExpandEnabled = false
+    private var focusedPosterBackdropExpandDelaySeconds = 3
+    private var focusedPosterBackdropTrailerEnabled = false
+    private var focusedPosterBackdropTrailerMuted = true
 
     init {
         observeLayoutPreferences()
@@ -152,8 +159,26 @@ class AnimeHomeViewModel @Inject constructor(
                     continueWatchingCardStyle = cardStyle
                 )
             }
-            val cardStyleSnapshotFlow = combine(
+            val focusedPosterSnapshotFlow = combine(
                 viewSnapshotFlow,
+                layoutPreferenceDataStore.focusedPosterBackdropExpandEnabled,
+                layoutPreferenceDataStore.focusedPosterBackdropExpandDelaySeconds,
+                layoutPreferenceDataStore.focusedPosterBackdropTrailerEnabled
+            ) { snapshot, backdropExpand, backdropExpandDelay, trailerEnabled ->
+                snapshot.copy(
+                    focusedPosterBackdropExpandEnabled = backdropExpand,
+                    focusedPosterBackdropExpandDelaySeconds = backdropExpandDelay,
+                    focusedPosterBackdropTrailerEnabled = trailerEnabled
+                )
+            }
+            val focusedPosterMutedFlow = combine(
+                focusedPosterSnapshotFlow,
+                layoutPreferenceDataStore.focusedPosterBackdropTrailerMuted
+            ) { snapshot, trailerMuted ->
+                snapshot.copy(focusedPosterBackdropTrailerMuted = trailerMuted)
+            }
+            val cardStyleSnapshotFlow = combine(
+                focusedPosterMutedFlow,
                 layoutPreferenceDataStore.posterCardWidthDp,
                 layoutPreferenceDataStore.posterCardHeightDp,
                 layoutPreferenceDataStore.posterCardCornerRadiusDp,
@@ -204,6 +229,10 @@ class AnimeHomeViewModel @Inject constructor(
                 posterCardCornerRadiusDp = snapshot.posterCardCornerRadiusDp
                 posterLabelsEnabled = snapshot.posterLabelsEnabled
                 catalogAddonNameEnabled = snapshot.catalogAddonNameEnabled
+                focusedPosterBackdropExpandEnabled = snapshot.focusedPosterBackdropExpandEnabled
+                focusedPosterBackdropExpandDelaySeconds = snapshot.focusedPosterBackdropExpandDelaySeconds
+                focusedPosterBackdropTrailerEnabled = snapshot.focusedPosterBackdropTrailerEnabled
+                focusedPosterBackdropTrailerMuted = snapshot.focusedPosterBackdropTrailerMuted
                 publishRows()
             }
         }
@@ -228,7 +257,11 @@ class AnimeHomeViewModel @Inject constructor(
         val posterCardHeightDp: Int = 189,
         val posterCardCornerRadiusDp: Int = 12,
         val posterLabelsEnabled: Boolean = true,
-        val catalogAddonNameEnabled: Boolean = true
+        val catalogAddonNameEnabled: Boolean = true,
+        val focusedPosterBackdropExpandEnabled: Boolean = false,
+        val focusedPosterBackdropExpandDelaySeconds: Int = 3,
+        val focusedPosterBackdropTrailerEnabled: Boolean = false,
+        val focusedPosterBackdropTrailerMuted: Boolean = true
     )
 
     private fun observeAnimeAddons() {
@@ -292,8 +325,24 @@ class AnimeHomeViewModel @Inject constructor(
         }
     }
 
-    private fun emptyRow(addon: Addon, catalog: CatalogDescriptor): CatalogRow =
-        CatalogRow(
+    private fun emptyRow(addon: Addon, catalog: CatalogDescriptor): CatalogRow {
+        val placeholderItems = (0 until 8).map { i ->
+            MetaPreview(
+                id = "__placeholder_${addon.id}_${catalog.apiType}_${catalog.id}_$i",
+                type = ContentType.fromString(catalog.apiType),
+                rawType = catalog.apiType,
+                name = " ",
+                poster = PLACEHOLDER_IMAGE_URL,
+                posterShape = PosterShape.POSTER,
+                background = null,
+                logo = null,
+                description = null,
+                releaseInfo = " ",
+                imdbRating = null,
+                genres = emptyList()
+            )
+        }
+        return CatalogRow(
             addonId = addon.id,
             addonName = addon.displayName,
             addonBaseUrl = addon.baseUrl,
@@ -301,12 +350,13 @@ class AnimeHomeViewModel @Inject constructor(
             catalogName = catalog.name,
             type = catalog.type,
             rawType = catalog.apiType,
-            items = emptyList(),
+            items = placeholderItems,
             isLoading = true,
             hasMore = false,
             supportsSkip = catalog.supportsExtra("skip"),
             skipStep = catalog.skipStep()
         )
+    }
 
     private suspend fun loadCatalog(addon: Addon, catalog: CatalogDescriptor) {
         val key = catalogKey(addon, catalog)
@@ -334,7 +384,7 @@ class AnimeHomeViewModel @Inject constructor(
                     }
                 }
                 is NetworkResult.Error -> {
-                    synchronized(rows) { rows[key] = emptyRow(addon, catalog).copy(isLoading = false) }
+                    synchronized(rows) { rows[key] = emptyRow(addon, catalog).copy(isLoading = false, items = emptyList()) }
                     pendingLoads = (pendingLoads - 1).coerceAtLeast(0)
                     publishRows()
                     if (pendingLoads == 0) {
@@ -399,7 +449,9 @@ class AnimeHomeViewModel @Inject constructor(
     fun ensureCatalogLoaded(catalogId: String, addonId: String, type: String) {
         val key = "${addonId}_${type}_${catalogId}"
         val existing = synchronized(rows) { rows[key] }
-        if (existing != null && existing.items.isNotEmpty()) return
+        val hasRealContent = existing != null &&
+            existing.items.firstOrNull()?.id?.startsWith("__placeholder_") != true
+        if (hasRealContent) return
 
         val addon = lastAddons.firstOrNull { it.id == addonId } ?: return
         val catalog = addon.catalogs.firstOrNull { it.apiType == type && it.id == catalogId } ?: return
@@ -408,7 +460,9 @@ class AnimeHomeViewModel @Inject constructor(
         viewModelScope.launch {
             catalogLoadMutex.withLock {
                 val current = synchronized(rows) { rows[key] }
-                if (current != null && current.items.isNotEmpty()) return@withLock
+                val currentHasRealContent = current != null &&
+                    current.items.firstOrNull()?.id?.startsWith("__placeholder_") != true
+                if (currentHasRealContent) return@withLock
                 loadCatalog(addon, catalog)
             }
         }
@@ -448,7 +502,11 @@ class AnimeHomeViewModel @Inject constructor(
                 posterCardHeightDp = posterCardHeightDp,
                 posterCardCornerRadiusDp = posterCardCornerRadiusDp,
                 posterLabelsEnabled = posterLabelsEnabled,
-                catalogAddonNameEnabled = catalogAddonNameEnabled
+                catalogAddonNameEnabled = catalogAddonNameEnabled,
+                focusedPosterBackdropExpandEnabled = focusedPosterBackdropExpandEnabled,
+                focusedPosterBackdropExpandDelaySeconds = focusedPosterBackdropExpandDelaySeconds,
+                focusedPosterBackdropTrailerEnabled = focusedPosterBackdropTrailerEnabled,
+                focusedPosterBackdropTrailerMuted = focusedPosterBackdropTrailerMuted
             )
             if (updated == state) state else updated
         }
@@ -494,11 +552,13 @@ class AnimeHomeViewModel @Inject constructor(
 
     private fun computeHeroRow(rows: List<CatalogRow>): CatalogRow? {
         if (!heroSectionEnabled || rows.isEmpty()) return null
+        fun isRealRow(row: CatalogRow): Boolean =
+            row.items.firstOrNull()?.id?.startsWith("__placeholder_") != true
         val byKey = rows.associateBy { homeCatalogKey(it.addonId, it.rawType, it.catalogId) }
         for (key in heroCatalogKeys) {
-            byKey[key]?.let { return it }
+            byKey[key]?.takeIf(::isRealRow)?.let { return it }
         }
-        return rows.firstOrNull()
+        return rows.firstOrNull(::isRealRow)
     }
 
     fun onEvent(event: AnimeHomeEvent) {

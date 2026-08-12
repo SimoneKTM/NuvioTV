@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -163,7 +164,11 @@ private fun AnimeModernContent(
     onNavigateToSeeAll: (String, String, String) -> Unit,
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
 ) {
-    val heroItem = uiState.heroItem
+    val defaultHeroItem = uiState.heroItem
+    var focusedHeroItem by remember(uiState.rows, defaultHeroItem) {
+        mutableStateOf(defaultHeroItem)
+    }
+    val heroItem = focusedHeroItem ?: defaultHeroItem
     val heroEnabled = uiState.heroEnabled && heroItem != null
     val fullScreenBackdrop = uiState.modernHeroFullScreenBackdropEnabled
     val useLandscapePosters = uiState.modernLandscapePostersEnabled
@@ -230,7 +235,8 @@ private fun AnimeModernContent(
                             onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
                         },
                         showSeeAll = row.hasMore || row.items.size >= 15,
-                        showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled
+                        showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
+                        onItemFocus = { focusedHeroItem = it }
                     )
                 } else {
                     CatalogRowSection(
@@ -243,7 +249,12 @@ private fun AnimeModernContent(
                         posterCardStyle = posterCardStyle,
                         showPosterLabels = uiState.posterLabelsEnabled,
                         showAddonName = uiState.catalogAddonNameEnabled,
-                        showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled
+                        showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
+                        focusedPosterBackdropExpandEnabled = uiState.focusedPosterBackdropExpandEnabled,
+                        focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,
+                        focusedPosterBackdropTrailerEnabled = uiState.focusedPosterBackdropTrailerEnabled,
+                        focusedPosterBackdropTrailerMuted = uiState.focusedPosterBackdropTrailerMuted,
+                        onItemFocus = { focusedHeroItem = it }
                     )
                 }
             }
@@ -291,7 +302,11 @@ private fun AnimeModernHero(
     val heroMediaHeightPx = with(density) {
         (if (fullScreenBackdrop) screenHeight else heroBackdropHeight).roundToPx()
     }
-    Box(modifier = Modifier.fillMaxSize().clickable { onOpen() }) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .focusProperties { canFocus = false }
+            .clickable { onOpen() }) {
         val heroMediaModifier = if (fullScreenBackdrop) {
             Modifier
                 .align(Alignment.TopStart)
@@ -413,6 +428,10 @@ private fun AnimeClassicContent(
                     showPosterLabels = uiState.posterLabelsEnabled,
                     showAddonName = uiState.catalogAddonNameEnabled,
                     showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
+                    focusedPosterBackdropExpandEnabled = uiState.focusedPosterBackdropExpandEnabled,
+                    focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,
+                    focusedPosterBackdropTrailerEnabled = uiState.focusedPosterBackdropTrailerEnabled,
+                    focusedPosterBackdropTrailerMuted = uiState.focusedPosterBackdropTrailerMuted,
                     onItemFocus = handleMetaFocus
                 )
             }
@@ -734,7 +753,8 @@ private fun AnimeWidePosterRowSection(
     onItemClick: (String, String, String) -> Unit,
     onSeeAll: () -> Unit,
     showSeeAll: Boolean,
-    showCatalogTypeSuffix: Boolean
+    showCatalogTypeSuffix: Boolean,
+    onItemFocus: (MetaPreview) -> Unit = {}
 ) {
     val catalogContext = LocalContext.current
     val typeLabel = remember(catalogRow.rawType, catalogRow.apiType, catalogContext) {
@@ -781,7 +801,8 @@ private fun AnimeWidePosterRowSection(
                 AnimeWideCard(
                     item = item,
                     posterCardStyle = posterCardStyle,
-                    onClick = { onItemClick(item.id, item.apiType, catalogRow.addonBaseUrl) }
+                    onClick = { onItemClick(item.id, item.apiType, catalogRow.addonBaseUrl) },
+                    onFocus = onItemFocus
                 )
             }
         }
@@ -800,7 +821,8 @@ private fun AnimeWidePosterRowSection(
 private fun AnimeWideCard(
     item: MetaPreview,
     posterCardStyle: PosterCardStyle,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onFocus: (MetaPreview) -> Unit = {}
 ) {
     val shape = RoundedCornerShape(posterCardStyle.cornerRadius)
     val context = LocalContext.current
@@ -814,7 +836,10 @@ private fun AnimeWideCard(
             .height(wideHeight)
             .clip(shape)
             .background(NuvioTheme.colors.BackgroundCard)
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                if (it.isFocused) onFocus(item)
+            }
             .border(
                 width = if (isFocused) NuvioTheme.spacing.xxs else 0.dp,
                 color = NuvioTheme.colors.FocusRing,
