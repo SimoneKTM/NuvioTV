@@ -3,17 +3,23 @@
 package com.nuvio.tv.ui.screens.settings
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
@@ -161,12 +167,45 @@ private fun AniListConnectContent(
 
 @Composable
 private fun AniListWordmarkHeader() {
-    Image(
-        painter = painterResource(R.drawable.anilist_wordmark),
-        contentDescription = null,
+    AniListBrandLogo(
+        markHeight = 30.dp,
+        textStyle = MaterialTheme.typography.headlineSmall,
         modifier = Modifier
             .fillMaxWidth()
-            .height(38.dp),
-        contentScale = ContentScale.Fit
+            .height(48.dp),
+        centered = true
     )
+}
+
+/**
+ * Logo brand AniList: monogramma "AL" + testo "AniList" (come la navbar del
+ * sito ufficiale). Usato nelle righe delle integrazioni e nei dialog di login.
+ */
+@Composable
+internal fun AniListBrandLogo(
+    modifier: Modifier = Modifier,
+    markHeight: Dp = 26.dp,
+    textStyle: TextStyle = MaterialTheme.typography.titleMedium,
+    centered: Boolean = false
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier,
+        horizontalArrangement = if (centered) Arrangement.Center else Arrangement.Start
+    ) {
+        Image(
+            painter = painterResource(R.drawable.anilist_wordmark),
+            contentDescription = null,
+            modifier = Modifier.height(markHeight),
+            contentScale = ContentScale.Fit
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = "AniList",
+            style = textStyle,
+            fontWeight = FontWeight.Bold,
+            color = NuvioTheme.colors.TextPrimary,
+            maxLines = 1
+        )
+    }
 }

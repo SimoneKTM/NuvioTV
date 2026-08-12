@@ -778,6 +778,7 @@ internal fun SettingsActionRow(
     @RawRes leadingRawIconRes: Int? = null,
     @androidx.annotation.DrawableRes leadingDrawableRes: Int? = null,
     leadingUrl: String? = null,
+    leadingContent: (@Composable () -> Unit)? = null,
     leadingArtworkSize: Dp = NuvioTheme.spacing.xl,
     valueColor: Color = NuvioTheme.colors.TextSecondary
 ) {
@@ -825,7 +826,15 @@ internal fun SettingsActionRow(
                 .padding(horizontal = 18.dp, vertical = NuvioTheme.spacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (leadingUrl != null) {
+            if (leadingContent != null) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.alpha(contentAlpha)
+                ) {
+                    leadingContent()
+                }
+                Spacer(modifier = Modifier.width(NuvioTheme.spacing.lg))
+            } else if (leadingUrl != null) {
                 Image(
                     painter = rememberRemoteLogoPainter(
                         url = leadingUrl,

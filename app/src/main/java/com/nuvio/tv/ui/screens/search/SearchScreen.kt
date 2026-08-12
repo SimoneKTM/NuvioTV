@@ -107,7 +107,6 @@ import com.nuvio.tv.ui.components.PosterCardStyle
 import com.nuvio.tv.ui.components.rememberShimmerBrush
 import com.nuvio.tv.ui.screens.home.HeroBackdropState
 import com.nuvio.tv.ui.theme.NuvioTheme
-import com.nuvio.tv.ui.util.RtlKeyUtils
 import com.nuvio.tv.ui.util.dpadRepeatThrottle
 import com.nuvio.tv.ui.util.recompositionHighlighter
 import kotlinx.coroutines.delay
@@ -152,7 +151,6 @@ fun SearchScreen(
     val voiceFocusRequester = remember { FocusRequester() }
     val searchFocusRequester = remember { FocusRequester() }
     val discoverFirstItemFocusRequester = remember { FocusRequester() }
-    val recentClearHistoryFocusRequester = remember { FocusRequester() }
     val recentFirstItemFocusRequester = remember { FocusRequester() }
     var isSearchFieldFocused by remember { mutableStateOf(false) }
     var isRecentSearchSectionFocused by remember { mutableStateOf(false) }
@@ -588,7 +586,6 @@ fun SearchScreen(
                 onMoveToKeyboard = requestKeyboardFocus,
                 onOpenDiscover = onOpenDiscover,
                 showDiscoverButton = uiState.discoverLocation == DiscoverLocation.IN_SEARCH,
-                clearHistoryFocusRequester = if (panelRecentSearches.isNotEmpty()) recentClearHistoryFocusRequester else null,
                 isScreenActive = isScreenActive
             )
         }
@@ -642,14 +639,10 @@ fun SearchScreen(
                     RecentSearchesPanel(
                         recentSearches = panelRecentSearches,
                         onSearchSelected = submitRecentSearch,
-                        onClearHistory = {
-                            viewModel.onEvent(SearchEvent.ClearRecentSearches)
-                        },
                         onSectionFocusChanged = { focused ->
                             isRecentSearchSectionFocused = focused
                             if (focused) inputAreaActive = true
                         },
-                        clearHistoryFocusRequester = recentClearHistoryFocusRequester,
                         firstItemFocusRequester = recentFirstItemFocusRequester,
                         onSubmit = {
                             submitCurrentQuery(uiState.query.trim())
@@ -841,13 +834,11 @@ private fun SearchInputField(
     onMoveToKeyboard: (() -> Unit)?,
     onOpenDiscover: () -> Unit,
     showDiscoverButton: Boolean,
-    clearHistoryFocusRequester: FocusRequester?,
     isScreenActive: Boolean = true
 ) {
     var isDiscoverButtonFocused by remember { mutableStateOf(false) }
     var isVoiceButtonFocused by remember { mutableStateOf(false) }
     var isClearButtonFocused by remember { mutableStateOf(false) }
-    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val fieldShape = RoundedCornerShape(NuvioTheme.radii.md)
 
     Row(
@@ -980,18 +971,6 @@ private fun SearchInputField(
                                 return@onPreviewKeyEvent true
                             }
                         }
-
-                        else -> {
-                            val clearHistoryKey = RtlKeyUtils.getClearHistoryDpadKey(isRtl)
-                            if (keyEvent.nativeKeyEvent.keyCode == clearHistoryKey) {
-                                if (clearHistoryFocusRequester != null) {
-                                    if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                                        runCatching { clearHistoryFocusRequester.requestFocus() }
-                                    }
-                                    return@onPreviewKeyEvent true
-                                }
-                            }
-                        }
                     }
                     false
                 }
@@ -1050,13 +1029,10 @@ private fun SearchInputField(
 private fun RecentSearchesPanel(
     recentSearches: List<String>,
     onSearchSelected: (String) -> Unit,
-    onClearHistory: () -> Unit,
     onSectionFocusChanged: (Boolean) -> Unit,
-    clearHistoryFocusRequester: FocusRequester,
     firstItemFocusRequester: FocusRequester,
     onSubmit: () -> Unit
 ) {
-    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1066,36 +1042,11 @@ private fun RecentSearchesPanel(
             },
         verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.search_recent_title),
-                style = androidx.tv.material3.MaterialTheme.typography.titleSmall,
-                color = NuvioTheme.colors.TextPrimary
-            )
-            Button(
-                onClick = onClearHistory,
-                modifier = Modifier
-                    .focusRequester(clearHistoryFocusRequester)
-                    .height(30.dp),
-                colors = ButtonDefaults.colors(
-                    containerColor = NuvioTheme.colors.BackgroundCard,
-                    contentColor = NuvioTheme.colors.TextSecondary,
-                    focusedContainerColor = NuvioTheme.colors.FocusBackground,
-                    focusedContentColor = NuvioTheme.colors.Primary
-                ),
-                shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.sm)),
-                contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.md, vertical = 0.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.search_recent_clear),
-                    style = androidx.tv.material3.MaterialTheme.typography.labelSmall
-                )
-            }
-        }
+        Text(
+            text = stringResource(R.string.search_recent_title),
+            style = androidx.tv.material3.MaterialTheme.typography.titleSmall,
+            color = NuvioTheme.colors.TextPrimary
+        )
 
         recentSearches.forEachIndexed { index, recentQuery ->
             val isLast = index == recentSearches.lastIndex
@@ -1112,21 +1063,13 @@ private fun RecentSearchesPanel(
                         }
                     )
                     .onPreviewKeyEvent { keyEvent ->
-                        val clearHistoryKey = RtlKeyUtils.getClearHistoryDpadKey(isRtl)
-                        when {
-                            keyEvent.nativeKeyEvent.keyCode == clearHistoryKey -> {
-                                if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                                    runCatching { clearHistoryFocusRequester.requestFocus() }
-                                }
-                                true
+                        if (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && isLast) {
+                            if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
+                                onSubmit()
                             }
-                            keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN && isLast -> {
-                                if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                                    onSubmit()
-                                }
-                                true
-                            }
-                            else -> false
+                            true
+                        } else {
+                            false
                         }
                     },
                 colors = ButtonDefaults.colors(
