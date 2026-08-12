@@ -417,6 +417,100 @@ async function handleCallback(_req: Request, provider: string): Promise<Response
 }
 
 // ============================================================
+// Kitsu login — Kitsu non supporta più l'authorization_code (500
+// sull'authorize, "unsupported_grant_type" sul token endpoint).
+// L'unico flusso esterno funzionante è il password grant. Il telefono
+// apre /kitsu-login?state=<user_code> e inserisce username+password;
+// il relay scambia subito il token e marca la sessione approved.
+// ============================================================
+async function handleKitsuLogin(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const userCode = url.searchParams.get("state") ?? "";
+  const safeCode = userCode.replace(/[^a-zA-Z0-9]/g, "");
+  if (!safeCode) return json({ error: "missing state" }, 400);
+
+  if (req.method === "GET") {
+    return html(`<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accedi a Kitsu</title></head>
+<body style="font-family:sans-serif;background:#0b0b0f;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">
+  <div style="max-width:380px;width:100%;padding:0 20px">
+    <h2 style="font-weight:normal;margin:0 0 4px">Accedi a Kitsu</h2>
+    <p style="color:#9aa0aa;font-size:14px;margin:0 0 20px">Inserisci le credenziali del tuo account Kitsu. La password viene usata solo per ottenere il token di accesso e non viene salvata.</p>
+    <form method="post" action="?state=${encodeURIComponent(safeCode)}" style="display:flex;flex-direction:column;gap:12px">
+      <input type="text" name="username" placeholder="Email o username" required autocomplete="username"
+        style="padding:12px;border-radius:8px;border:1px solid #333;background:#17171c;color:#fff;font-size:16px">
+      <input type="password" name="password" placeholder="Password" required autocomplete="current-password"
+        style="padding:12px;border-radius:8px;border:1px solid #333;background:#17171c;color:#fff;font-size:16px">
+      <button type="submit" style="padding:12px;border-radius:8px;border:none;background:#e34b8f;color:#fff;font-size:16px;cursor:pointer">Accedi</button>
+    </form>
+  </div>
+</body></html>`);
+  }
+
+  const params = new URLSearchParams(await req.text());
+  const username = params.get("username")?.trim() ?? "";
+  const password = params.get("password") ?? "";
+  if (!username || !password) return json({ error: "missing username or password" }, 400);
+
+  let session: RelaySession | null = null;
+  try {
+    session = await store.get(safeCode);
+  } catch (error) {
+    console.error("kitsu-login store error", error);
+  }
+  if (!session || session.provider !== "kitsu") {
+    return html(resultPage(false, "Sessione non trovata o scaduta. Torna sul TV e riprova."));
+  }
+  if (Date.now() > session.expiresAt) {
+    return html(resultPage(false, "Sessione scaduta. Torna sul TV e riprova."));
+  }
+
+  const clientId = PROVIDERS.kitsu;
+  if (!clientId) {
+    return html(resultPage(false, "Kitsu non configurato sul relay. Riprova più tardi."));
+  }
+  const form: Record<string, string> = {
+    grant_type: "password",
+    username,
+    password,
+    client_id: clientId,
+  };
+  if (KITSU_CLIENT_SECRET) form.client_secret = KITSU_CLIENT_SECRET;
+  const outcome = await tokenExchange(KITSU_TOKEN_URL, form);
+  if (!outcome.ok) {
+    return html(resultPage(false, `Credenziali non valide o errore Kitsu: ${outcome.error}`));
+  }
+  const payload = tokensJson(outcome.data);
+  if (!payload) {
+    return html(resultPage(false, "Kitsu ha risposto senza access_token. Riprova."));
+  }
+  try {
+    await store.update(session.userCode, {
+      status: "approved",
+      payload,
+      pollIntervalSeconds: 1,
+    });
+  } catch (error) {
+    console.error("kitsu-login update error", error);
+    return html(resultPage(false, "Errore di salvataggio. Riprova."));
+  }
+  return html(resultPage(true, "Accesso riuscito! Puoi chiudere questa finestra e tornare sul TV."));
+}
+
+function resultPage(ok: boolean, message: string): string {
+  return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+<body style="font-family:sans-serif;background:#0b0b0f;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">
+  <div style="text-align:center;max-width:480px;padding:0 20px">
+    <h2 style="font-weight:normal">${ok ? "✓" : "✕"}</h2>
+    <h3 style="font-weight:normal">${escHtml(message)}</h3>
+  </div>
+</body></html>`;
+}
+
+// ============================================================
 // Scambio codice -> token per i provider auth-code
 // ============================================================
 type ExchangeOutcome =
@@ -604,7 +698,12 @@ async function buildAuthorizeUrl(
   if (!clientId) return null;
   switch (provider) {
     case "mal": return malAuthorizeUrl(clientId, redirectUri, session);
-    case "kitsu": return `${KITSU_AUTHORIZE_URL}?response_type=code&client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${session.userCode}`;
+    // Kitsu NON supporta più il flusso authorization_code: l'endpoint di
+    // autorizzazione risponde HTTP 500 e il token endpoint rifiuta il grant
+    // con "unsupported_grant_type". Kitsu (per i client esterni) accetta
+    // SOLO il password grant con le credenziali dell'utente. Il telefono
+    // apre quindi una pagina del relay con un form username+password.
+    case "kitsu": return `${baseUrl}/kitsu-login?state=${session.userCode}`;
     // AniList: solo Authorization Code Grant (response_type=code). L'implicit
     // grant (response_type=token) non è supportato da AniList: il provider
     // risponde "unsupported_grant_type".
@@ -671,6 +770,8 @@ function router(req: Request): Promise<Response> {
       return handleApprove(req);
     case path === "/mock":
       return handleMock(req);
+    case path === "/kitsu-login" && (req.method === "GET" || req.method === "POST"):
+      return handleKitsuLogin(req);
     case path.startsWith("/callback/"):
       return handleCallback(req, path.split("/").pop() ?? "");
     case path === "/":
