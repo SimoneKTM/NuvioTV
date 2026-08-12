@@ -2,17 +2,23 @@
 
 package com.nuvio.tv.ui.screens.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -65,7 +71,7 @@ private fun AniListConnectedContent(
     onSync: () -> Unit,
     onDisconnect: () -> Unit
 ) {
-    AniListWordmarkHeader()
+    AniListBannerHeader()
     Text(
         text = stringResource(
             R.string.anilist_connected_as,
@@ -126,10 +132,10 @@ private fun AniListConnectContent(
             instruction = stringResource(R.string.anilist_connect_instruction),
             onStart = onStartQrLogin,
             onRetry = onRetryQrLogin,
-            logoContent = { AniListWordmarkHeader() }
+            logoContent = { AniListBannerHeader() }
         )
     } else {
-        AniListWordmarkHeader()
+        AniListBannerHeader()
         Text(
             text = stringResource(R.string.anilist_connect_instruction),
             style = MaterialTheme.typography.bodyMedium,
@@ -158,33 +164,35 @@ private fun AniListConnectContent(
 }
 
 @Composable
-private fun AniListWordmarkHeader() {
-    AniListBrandLogo(
-        textStyle = MaterialTheme.typography.headlineSmall,
+private fun AniListBannerHeader() {
+    val shape = RoundedCornerShape(NuvioTheme.radii.lg)
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(48.dp),
-        centered = true
-    )
-}
-
-/**
- * Logo brand AniList: wordmark "anilist" in minuscolo bold, nello stesso
- * stile del monogramma ufficiale. Usato come intestazione dei dialog di login.
- */
-@Composable
-internal fun AniListBrandLogo(
-    modifier: Modifier = Modifier,
-    textStyle: TextStyle = MaterialTheme.typography.titleMedium,
-    centered: Boolean = false
-) {
-    Text(
-        text = "anilist",
-        style = textStyle,
-        fontWeight = FontWeight.Bold,
-        color = NuvioTheme.colors.TextPrimary,
-        maxLines = 1,
-        textAlign = if (centered) TextAlign.Center else TextAlign.Start,
-        modifier = modifier
-    )
+            .height(64.dp)
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color(0xFF2C4D6A),
+                        Color(0xFF1A2E42),
+                        Color(0xFF0E1A27)
+                    )
+                ),
+                shape
+            )
+            .border(1.dp, Color(0xFF57B9E8).copy(alpha = 0.4f), shape),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "anilist",
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = (-0.5).sp
+            ),
+            color = Color.White,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
 }
