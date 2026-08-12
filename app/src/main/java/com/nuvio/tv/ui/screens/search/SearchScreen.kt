@@ -1,4 +1,4 @@
-﻿package com.nuvio.tv.ui.screens.search
+package com.nuvio.tv.ui.screens.search
 
 import android.Manifest
 import android.content.Intent
@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed as gridItemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -96,7 +97,6 @@ import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.CardDepthSurface
 import com.nuvio.tv.domain.model.DiscoverLocation
 import com.nuvio.tv.domain.model.MetaPreview
-import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.ui.components.EmptyScreenState
@@ -307,8 +307,8 @@ fun SearchScreen(
     val trimmedQuery = remember(uiState.query) { uiState.query.trim() }
     val trimmedSubmittedQuery = remember(uiState.submittedQuery) { uiState.submittedQuery.trim() }
 
-    // Focus restore bookkeeping for the results grid â€” mirrors ClassicHomeContent pattern so
-    // the grid keeps focus when placeholderâ†’real data transitions.
+    // Focus restore bookkeeping for the results grid — mirrors ClassicHomeContent pattern so
+    // the grid keeps focus when placeholder→real data transitions.
     var lastFocusedGridItemIndex by remember { mutableIntStateOf(-1) }
     val keyboardFirstKeyFocusRequester = remember { FocusRequester() }
     val resultsFirstItemFocusRequester = remember { FocusRequester() }
@@ -319,40 +319,6 @@ fun SearchScreen(
     val focusManager = LocalFocusManager.current
     var inputAreaActive by remember { mutableStateOf(true) }
     var pendingKeyboardFocus by remember { mutableStateOf(false) }
-    // Netflix-style search bar: collapsed to a small pill on the left until the user starts
-    // searching (types, focuses the field, or has results), then it expands to full width.
-    // The left keyboard/recents panel follows the same expanded state so it closes when idle.
-    val hasAnySearchResults = remember(uiState.catalogRows, uiState.discoverResults) {
-        uiState.catalogRows.any { it.items.isNotEmpty() } || uiState.discoverResults.isNotEmpty()
-    }
-    val searchBarExpanded = remember(
-        inputAreaActive, isSearchFieldFocused, isKeyboardFocusActive,
-        isRecentSearchSectionFocused, trimmedQuery, trimmedSubmittedQuery,
-        uiState.isSearching, isVoiceListening, hasAnySearchResults
-    ) {
-        inputAreaActive || isSearchFieldFocused || isKeyboardFocusActive ||
-            isRecentSearchSectionFocused || hasAnySearchResults ||
-            trimmedQuery.isNotEmpty() || trimmedSubmittedQuery.isNotEmpty() ||
-            uiState.isSearching || isVoiceListening
-    }
-    var pendingSearchFieldFocus by remember { mutableStateOf(false) }
-    val expandSearchBar: () -> Unit = {
-        inputAreaActive = true
-        pendingSearchFieldFocus = true
-    }
-    LaunchedEffect(searchBarExpanded, pendingSearchFieldFocus) {
-        if (searchBarExpanded && pendingSearchFieldFocus) {
-            var attempt = 0
-            while (attempt < MAX_INITIAL_FOCUS_ATTEMPTS) {
-                repeat(2) { withFrameNanos { } }
-                val focused = runCatching { searchFocusRequester.requestFocus() }.getOrDefault(false)
-                if (focused) break
-                attempt++
-                delay(50)
-            }
-            pendingSearchFieldFocus = false
-        }
-    }
     LaunchedEffect(inputAreaActive, pendingKeyboardFocus) {
         if (inputAreaActive && pendingKeyboardFocus) {
             delay(50)
@@ -562,7 +528,7 @@ fun SearchScreen(
                     restoreDiscoverFocus = true
                     pendingDiscoverRestoreOnResume = false
                 } else if (viewModel.hasSavedSearchFocus || didRestoreSearchFocus.value) {
-                    // Returning from details â€” don't steal focus, the results grid already
+                    // Returning from details — don't steal focus, the results grid already
                     // restored it or will restore it via its focused item index.
                     didRestoreSearchFocus.value = false
                 } else if (!latestShouldKeepSearchFocus) {
@@ -587,10 +553,9 @@ fun SearchScreen(
             .fillMaxSize()
             .recompositionHighlighter()
     ) {
-        // Netflix-style search banner: collapsed to a small pill on the left while idle, and
-        // expanding to full width while searching. Only the keyboard + recents panel below
-        // collapses independently (it follows searchBarExpanded too).
-        Row(
+        // Full-width search banner: always visible, spanning the whole page, with the clear
+        // (X) button at the far end. Only the keyboard + recents panel below collapses.
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
@@ -598,49 +563,31 @@ fun SearchScreen(
                     end = NuvioTheme.spacing.xxxl,
                     top = NuvioTheme.spacing.lg
                 ),
-            verticalAlignment = Alignment.CenterVertically
+            contentAlignment = Alignment.Center
         ) {
-            AnimatedVisibility(
-                visible = searchBarExpanded,
-                enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
-                exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut()
-            ) {
-                SearchInputField(
-                    query = uiState.query,
-                    canMoveToResults = canMoveToResults,
-                    voiceFocusRequester = if (isVoiceSearchAvailable) voiceFocusRequester else null,
-                    searchFocusRequester = searchFocusRequester,
-                    onSearchFieldFocusChanged = { focused ->
-                        isSearchFieldFocused = focused
-                        if (focused) inputAreaActive = true
-                    },
-                    onQueryChanged = handleQueryChanged,
-                    onSubmit = {
-                        submitCurrentQuery(uiState.query.trim())
-                    },
-                    showVoiceSearch = isVoiceSearchAvailable,
-                    isVoiceListening = isVoiceListening,
-                    voiceRmsLevel = voiceRmsLevel,
-                    onVoiceSearch = launchVoiceSearch,
-                    onMoveToResults = { focusResults = true },
-                    onMoveToKeyboard = requestKeyboardFocus,
-                    onOpenDiscover = onOpenDiscover,
-                    showDiscoverButton = uiState.discoverLocation == DiscoverLocation.IN_SEARCH,
-                    isScreenActive = isScreenActive
-                )
-            }
-
-            androidx.compose.animation.AnimatedVisibility(
-                visible = !searchBarExpanded,
-                enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
-                exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut()
-            ) {
-                CollapsedSearchBar(
-                    onExpand = expandSearchBar,
-                    onMoveToKeyboard = requestKeyboardFocus,
-                    isScreenActive = isScreenActive
-                )
-            }
+            SearchInputField(
+                query = uiState.query,
+                canMoveToResults = canMoveToResults,
+                voiceFocusRequester = if (isVoiceSearchAvailable) voiceFocusRequester else null,
+                searchFocusRequester = searchFocusRequester,
+                onSearchFieldFocusChanged = { focused ->
+                    isSearchFieldFocused = focused
+                    if (focused) inputAreaActive = true
+                },
+                onQueryChanged = handleQueryChanged,
+                onSubmit = {
+                    submitCurrentQuery(uiState.query.trim())
+                },
+                showVoiceSearch = isVoiceSearchAvailable,
+                isVoiceListening = isVoiceListening,
+                voiceRmsLevel = voiceRmsLevel,
+                onVoiceSearch = launchVoiceSearch,
+                onMoveToResults = { focusResults = true },
+                onMoveToKeyboard = requestKeyboardFocus,
+                onOpenDiscover = onOpenDiscover,
+                showDiscoverButton = uiState.discoverLocation == DiscoverLocation.IN_SEARCH,
+                isScreenActive = isScreenActive
+            )
         }
 
         Row(
@@ -648,10 +595,10 @@ fun SearchScreen(
                 .weight(1f)
                 .fillMaxWidth()
         ) {
-        // Left: WuPlay-style virtual keyboard panel. It collapses together with the search bar
-        // (searchBarExpanded) so the little keyboard closes while the user is not searching.
+        // Left: WuPlay-style virtual keyboard panel, always laid out even when it is collapsed
+        // so the field keeps a stable home for focus restoration.
         AnimatedVisibility(
-            visible = searchBarExpanded,
+            visible = inputAreaActive,
             enter = expandHorizontally(expandFrom = Alignment.Start) + fadeIn(),
             exit = shrinkHorizontally(shrinkTowards = Alignment.Start) + fadeOut()
         ) {
@@ -715,26 +662,6 @@ fun SearchScreen(
             initialFirstVisibleItemIndex = savedResultsScroll?.first ?: 0,
             initialFirstVisibleItemScrollOffset = savedResultsScroll?.second ?: 0
         )
-        val skeletonEntries = remember {
-            (0 until 18).map { i ->
-                SearchGridEntry(
-                    item = MetaPreview(
-                        id = "__placeholder_skeleton_$i",
-                        type = ContentType.MOVIE,
-                        name = " ",
-                        poster = PLACEHOLDER_IMAGE_URL,
-                        posterShape = PosterShape.POSTER,
-                        background = null,
-                        logo = null,
-                        description = null,
-                        releaseInfo = " ",
-                        imdbRating = null,
-                        genres = emptyList()
-                    ),
-                    addonBaseUrl = ""
-                )
-            }
-        }
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -781,7 +708,7 @@ fun SearchScreen(
                                 didRestoreSearchFocus.value = true
                                 viewModel.hasSavedSearchFocus = false
                             }
-                            // User manually navigated to a result â€” cancel any
+                            // User manually navigated to a result — cancel any
                             // pending auto-focus so it doesn't steal focus later.
                             pendingFocusMoveToResultsQuery = null
                             lastFocusedGridItemIndex = itemIndex
@@ -813,24 +740,8 @@ fun SearchScreen(
                 }
 
                 (hasPendingUnsubmittedQuery || uiState.isSearching) -> {
-                    SingleSearchResultsGrid(
-                        entries = skeletonEntries,
-                        gridState = rememberLazyGridState(),
+                    SearchResultsSkeletonGrid(
                         posterCardStyle = posterCardStyle,
-                        showPosterLabels = uiState.posterLabelsEnabled,
-                        isItemWatched = { false },
-                        entryFocusRequester = null,
-                        restorerFocusedIndex = -1,
-                        focusedItemIndex = -1,
-                        onItemFocused = {},
-                        onItemClick = { _, _, _ -> },
-                        onItemLongPress = { _, _ -> },
-                        onFirstColumnLeftPress = {
-                            inputAreaActive = true
-                            pendingKeyboardFocus = true
-                        },
-                        showLoadingFooter = false,
-                        interactive = false,
                         modifier = Modifier
                     )
                 }
@@ -1067,60 +978,13 @@ private fun SearchInputField(
                         shape = fieldShape
                     )
             ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(R.string.cd_clear_search),
-                        tint = NuvioTheme.colors.TextPrimary
-                    )
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = stringResource(R.string.cd_clear_search),
+                    tint = NuvioTheme.colors.TextPrimary
+                )
             }
         }
-    }
-}
-
-/** Small Netflix-style pill shown on the far-left while the search is idle. Clicking it (or
- *  pressing OK / DOWN) expands the bar to full width and opens the virtual keyboard. */
-@Composable
-private fun CollapsedSearchBar(
-    onExpand: () -> Unit,
-    onMoveToKeyboard: () -> Unit,
-    isScreenActive: Boolean
-) {
-    var isFocused by remember { mutableStateOf(false) }
-    val fieldShape = RoundedCornerShape(NuvioTheme.radii.md)
-    IconButton(
-        onClick = onExpand,
-        modifier = Modifier
-            .size(NuvioTheme.spacing.huge)
-            .focusProperties {
-                canFocus = isScreenActive
-            }
-            .onFocusChanged { isFocused = it.isFocused }
-            .onPreviewKeyEvent { keyEvent ->
-                if (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN &&
-                    keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN
-                ) {
-                    onExpand()
-                    onMoveToKeyboard()
-                    true
-                } else {
-                    false
-                }
-            }
-            .border(
-                width = if (isFocused) NuvioTheme.spacing.xxs else NuvioTheme.spacing.hairline,
-                color = if (isFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.Border,
-                shape = fieldShape
-            )
-            .background(
-                color = NuvioTheme.colors.BackgroundCard,
-                shape = fieldShape
-            )
-    ) {
-        Icon(
-            imageVector = Icons.Default.Search,
-            contentDescription = stringResource(R.string.search_placeholder),
-            tint = NuvioTheme.colors.TextPrimary
-        )
     }
 }
 
@@ -1279,7 +1143,7 @@ private fun SingleSearchResultsGrid(
                             ?: FocusRequester.Default
                     }
                 },
-            contentPadding = PaddingValues(top = NuvioTheme.spacing.xxl, bottom = NuvioTheme.spacing.xxl),
+            contentPadding = PaddingValues(top = NuvioTheme.spacing.lg, bottom = NuvioTheme.spacing.xxl),
             horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
             verticalArrangement = Arrangement.spacedBy(verticalSpacing)
         ) {
@@ -1372,4 +1236,39 @@ private fun GhostPosterCard(posterCardStyle: PosterCardStyle, shimmerBrush: Brus
             .height(posterCardStyle.height)
             .background(shimmerBrush, shape = RoundedCornerShape(posterCardStyle.cornerRadius))
     )
+}
+
+/** Loading skeleton for the search results area: a couple of rows of shimmer ghost posters. */
+@Composable
+private fun SearchResultsSkeletonGrid(
+    posterCardStyle: PosterCardStyle,
+    modifier: Modifier = Modifier
+) {
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl)
+    ) {
+        val horizontalSpacing = NuvioTheme.spacing.md
+        val columns = run {
+            val cols = (maxWidth + horizontalSpacing) /
+                (posterCardStyle.width + horizontalSpacing)
+            cols.toInt().coerceAtLeast(1)
+        }
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(columns),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = NuvioTheme.spacing.lg, bottom = NuvioTheme.spacing.xxl),
+            horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
+            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+        ) {
+            items(columns * 2) {
+                GhostPosterCard(
+                    posterCardStyle = posterCardStyle,
+                    shimmerBrush = rememberShimmerBrush()
+                )
+            }
+        }
+    }
 }
