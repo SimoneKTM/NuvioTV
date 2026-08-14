@@ -29,12 +29,21 @@ data class TrackerQrPollRequest(
 data class TrackerQrPollResponse(
     val status: String,
     val payload: String? = null,
-    @SerialName("username") val username: String? = null
+    @SerialName("username") val username: String? = null,
+    val error: String? = null
 ) {
     val isApproved: Boolean
         get() = status.equals("approved", ignoreCase = true)
+    val isRejected: Boolean
+        get() = status.equals("rejected", ignoreCase = true)
     val isExpired: Boolean
         get() = status.equals("expired", ignoreCase = true) ||
             status.equals("cancelled", ignoreCase = true) ||
             status.equals("used", ignoreCase = true)
 }
+
+@Serializable
+data class TrackerQrKitsuLoginResponse(
+    val ok: Boolean = false,
+    val error: String? = null
+)

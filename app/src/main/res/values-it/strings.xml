@@ -2881,6 +2881,11 @@
   <string name="kitsu_description">Collega Kitsu per sincronizzare liste e stati dei tuoi anime.</string>
   <string name="kitsu_connect">Collega Kitsu</string>
   <string name="kitsu_connect_instruction">Accedi alla pagina di autorizzazione Kitsu, poi incolla nel campo qui sotto il codice o il token di accesso ricevuto.</string>
+  <string name="kitsu_connect_credential_instruction">Inserisci le credenziali del tuo account Kitsu per accedere direttamente.</string>
+  <string name="kitsu_credential_username_placeholder">Email o nome utente</string>
+  <string name="kitsu_credential_password_placeholder">Password</string>
+  <string name="kitsu_credential_submitting">Accesso in corso…</string>
+  <string name="kitsu_credential_sign_in">Accedi</string>
   <string name="kitsu_open_authorize">Apri l\'autorizzazione Kitsu</string>
   <string name="kitsu_token_label">Codice o token di accesso</string>
   <string name="kitsu_connected_as">Connesso come %1$s</string>

@@ -512,6 +512,11 @@
     <string name="kitsu_description">Connect Kitsu to sync your anime lists and status.</string>
     <string name="kitsu_connect">Connect Kitsu</string>
     <string name="kitsu_connect_instruction">Sign in on the Kitsu authorization page, then paste the code or access token you receive into the field below.</string>
+    <string name="kitsu_connect_credential_instruction">Enter your Kitsu account credentials below to sign in directly.</string>
+    <string name="kitsu_credential_username_placeholder">Email or username</string>
+    <string name="kitsu_credential_password_placeholder">Password</string>
+    <string name="kitsu_credential_submitting">Signing in…</string>
+    <string name="kitsu_credential_sign_in">Sign in</string>
     <string name="kitsu_open_authorize">Open Kitsu authorization</string>
     <string name="kitsu_token_label">Code or access token</string>
     <string name="kitsu_connected_as">Connected as %1$s</string>

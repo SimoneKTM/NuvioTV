@@ -94,6 +94,11 @@ class KitsuSettingsViewModel @Inject constructor(
         qrLoginController.cancel()
     }
 
+    fun submitKitsuCredentials(username: String, password: String) {
+        if (_uiState.value.isLoading) return
+        qrLoginController.submitKitsuCredentials(username, password)
+    }
+
     fun connect(token: String) {
         if (connectJob?.isActive == true || _uiState.value.isLoading) return
         val rawToken = token.trim()

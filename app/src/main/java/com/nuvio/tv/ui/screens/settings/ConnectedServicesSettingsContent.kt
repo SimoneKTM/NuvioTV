@@ -283,6 +283,7 @@ fun ConnectedServicesSettingsContent(
                 onStartQrLogin = kitsuViewModel::startQrLogin,
                 onRetryQrLogin = kitsuViewModel::retryQrLogin,
                 onCancelQrLogin = kitsuViewModel::cancelQrLogin,
+                onSubmitCredentials = kitsuViewModel::submitKitsuCredentials,
                 onConnectToken = kitsuViewModel::connect,
                 onDismiss = {
                     kitsuViewModel.cancelQrLogin()

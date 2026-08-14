@@ -20,6 +20,7 @@ data class TrackerQrLoginState(
     val session: TrackerQrSession? = null,
     val isStarting: Boolean = false,
     val isPolling: Boolean = false,
+    val isSubmitting: Boolean = false,
     val statusMessage: String? = null,
     val errorMessage: String? = null
 )
@@ -43,6 +44,7 @@ class TrackerQrLoginController(
     val state: StateFlow<TrackerQrLoginState> = _state.asStateFlow()
 
     private var pollJob: Job? = null
+    private var pendingCredentials: Pair<String, String>? = null
 
     fun start() {
         if (_state.value.isStarting || _state.value.isPolling) return
@@ -68,13 +70,13 @@ class TrackerQrLoginController(
                     onSuccess = { session ->
                         Log.d(TAG, "QR login session started provider=$providerId code=${session.userCode}")
                         _state.update {
-                            it.copy(
-                                isStarting = false,
-                                session = session,
-                                statusMessage = "Scan the QR code or open the URL on your phone"
-                            )
+                            it.copy(isStarting = false, session = session)
                         }
                         startPolling(session)
+                        pendingCredentials?.let { (username, password) ->
+                            pendingCredentials = null
+                            submitCredentials(session.userCode, username, password)
+                        }
                     },
                     onFailure = { error ->
                         Log.w(TAG, "QR login start failed provider=$providerId error=${error.message}")
@@ -100,6 +102,67 @@ class TrackerQrLoginController(
         }
     }
 
+    /**
+     * Submits Kitsu username/password directly to the relay's login page.
+     * A session is started first if one is not already active, then the relay
+     * exchanges the credentials for tokens and marks the session approved.
+     */
+    fun submitKitsuCredentials(username: String, password: String) {
+        if (username.isBlank() || password.isBlank()) {
+            _state.update {
+                it.copy(errorMessage = "Enter both username and password")
+            }
+            return
+        }
+        val session = _state.value.session
+        if (session == null) {
+            pendingCredentials = username to password
+            start()
+            return
+        }
+        if (_state.value.isSubmitting) return
+        submitCredentials(session.userCode, username, password)
+    }
+
+    private fun submitCredentials(userCode: String, username: String, password: String) {
+        val session = _state.value.session
+        _state.update {
+            it.copy(
+                isSubmitting = true,
+                statusMessage = null,
+                errorMessage = null
+            )
+        }
+        scope.launch {
+            val result = runCatching { api.submitKitsuCredentials(userCode, username, password) }
+                .getOrElse { Result.failure(it) }
+            result.fold(
+                onSuccess = {
+                    Log.d(TAG, "Kitsu credentials accepted, waiting for approval")
+                    _state.update {
+                        it.copy(
+                            isSubmitting = false,
+                            statusMessage = "Credentials accepted, signing in..."
+                        )
+                    }
+                    if (session != null && !_state.value.isPolling) {
+                        cancelPolling()
+                        startPolling(session)
+                    }
+                },
+                onFailure = { error ->
+                    Log.w(TAG, "Kitsu credentials rejected error=${error.message}")
+                    _state.update {
+                        it.copy(
+                            isSubmitting = false,
+                            errorMessage = error.message ?: "Login failed. Try again."
+                        )
+                    }
+                }
+            )
+        }
+    }
+
     fun retryPolling() {
         val session = _state.value.session ?: return
         if (_state.value.isPolling) return
@@ -107,12 +170,14 @@ class TrackerQrLoginController(
     }
 
     fun cancel() {
+        pendingCredentials = null
         cancelPolling()
         _state.update {
             it.copy(
                 session = null,
                 isStarting = false,
                 isPolling = false,
+                isSubmitting = false,
                 statusMessage = null,
                 errorMessage = null
             )
@@ -132,7 +197,6 @@ class TrackerQrLoginController(
                 when (val result = api.pollSession(session.userCode, providerId)) {
                     TrackerQrPollResult.Pending -> {
                         Log.d(TAG, "QR login poll pending provider=$providerId attempt=$attempt")
-                        _state.update { it.copy(statusMessage = "Waiting for approval on your phone") }
                     }
                     is TrackerQrPollResult.Approved -> {
                         Log.d(TAG, "QR login approved provider=$providerId attempt=$attempt payload=${result.payload != null}")

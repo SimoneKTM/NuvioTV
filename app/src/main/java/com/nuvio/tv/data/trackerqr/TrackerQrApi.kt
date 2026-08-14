@@ -73,10 +73,52 @@ class TrackerQrApi @Inject constructor() {
             ) ?: return@withContext TrackerQrPollResult.Failed("Empty response from QR login relay")
             when {
                 response.isApproved -> TrackerQrPollResult.Approved(response.payload)
+                response.isRejected -> TrackerQrPollResult.Failed(
+                    response.error ?: "Login rejected by provider"
+                )
                 response.isExpired -> TrackerQrPollResult.Expired
                 else -> TrackerQrPollResult.Pending
             }
         }
+
+    suspend fun submitKitsuCredentials(
+        userCode: String,
+        username: String,
+        password: String
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val baseUrl = BuildConfig.TRACKER_LOGIN_RELAY_BASE_URL.trimEnd('/')
+        if (baseUrl.isBlank()) {
+            return@withContext Result.failure(IOException("QR login relay not configured"))
+        }
+        try {
+            val form = mapOf(
+                "username" to username,
+                "password" to password
+            ).entries.joinToString("&") { (key, value) ->
+                "$key=${java.net.URLEncoder.encode(value, "UTF-8")}"
+            }
+            val requestBody = form.toRequestBody(FORM_TYPE)
+            val call = Request.Builder()
+                .url("$baseUrl/kitsu-login?state=$userCode")
+                .header("Accept", "application/json")
+                .header("Content-Type", FORM_TYPE.toString())
+                .post(requestBody)
+                .build()
+            client.newCall(call).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(IOException("HTTP ${response.code}"))
+                }
+                val parsed = runCatching {
+                    json.decodeFromString(TrackerQrKitsuLoginResponse.serializer(), body)
+                }.getOrNull()
+                if (parsed?.ok == true) return@withContext Result.success(Unit)
+                return@withContext Result.failure(IOException(parsed?.error ?: "Unknown login error"))
+            }
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
 
     private suspend fun <T, R> post(
         path: String,
@@ -105,5 +147,6 @@ class TrackerQrApi @Inject constructor() {
 
     companion object {
         private val JSON_TYPE = "application/json".toMediaType()
+        private val FORM_TYPE = "application/x-www-form-urlencoded".toMediaType()
     }
 }

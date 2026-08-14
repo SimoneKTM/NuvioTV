@@ -24,7 +24,7 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.4
 interface RelaySession {
   userCode: string;
   provider: string;
-  status: "pending" | "approved" | "expired";
+  status: "pending" | "approved" | "rejected" | "expired";
   payload: string | null;
   expiresAt: number;
   pollIntervalSeconds: number;
@@ -86,7 +86,7 @@ interface SessionStore {
   get(userCode: string): Promise<RelaySession | null>;
   update(
     userCode: string,
-    fields: Partial<Pick<RelaySession, "status" | "payload" | "pollIntervalSeconds">>,
+    fields: Partial<Pick<RelaySession, "status" | "payload" | "pollIntervalSeconds" | "state">>,
   ): Promise<void>;
 }
 
@@ -103,7 +103,7 @@ class MemoryStore implements SessionStore {
 
   async update(
     userCode: string,
-    fields: Partial<Pick<RelaySession, "status" | "payload" | "pollIntervalSeconds">>,
+    fields: Partial<Pick<RelaySession, "status" | "payload" | "pollIntervalSeconds" | "state">>,
   ): Promise<void> {
     const existing = this.map.get(userCode);
     if (existing) {
@@ -161,7 +161,7 @@ class SupabaseStore implements SessionStore {
 
   async update(
     userCode: string,
-    fields: Partial<Pick<RelaySession, "status" | "payload" | "pollIntervalSeconds">>,
+    fields: Partial<Pick<RelaySession, "status" | "payload" | "pollIntervalSeconds" | "state">>,
   ): Promise<void> {
     const patch: Record<string, unknown> = {};
     if (fields.status !== undefined) patch.status = fields.status;
@@ -169,6 +169,7 @@ class SupabaseStore implements SessionStore {
     if (fields.pollIntervalSeconds !== undefined) {
       patch.poll_interval_seconds = fields.pollIntervalSeconds;
     }
+    if (fields.state !== undefined) patch.state = fields.state;
     const { error } = await this.client
       .from("relay_sessions")
       .update(patch)
@@ -261,6 +262,7 @@ async function handlePoll(req: Request): Promise<Response> {
     status: session.status,
     payload: session.payload,
     username: session.provider === "mock" ? "mock-user" : null,
+    error: typeof session.state.error === "string" ? session.state.error : null,
   });
 }
 
@@ -470,7 +472,17 @@ async function handleKitsuLogin(req: Request): Promise<Response> {
   const params = new URLSearchParams(await req.text());
   const username = params.get("username")?.trim() ?? "";
   const password = params.get("password") ?? "";
+  const wantsJson = (req.headers.get("accept") ?? "").includes("application/json");
   if (!username || !password) return json({ error: "missing username or password" }, 400);
+
+  const fail = (message: string): Response => {
+    // The TV polls for the outcome; a terminal rejected status with the reason
+    // lets it show "credenziali non valide" instead of spinning until expiry.
+    store
+      .update(safeCode, { status: "rejected", pollIntervalSeconds: 2, state: { error: message } })
+      .catch((error: unknown) => console.error("kitsu-login reject update error", error));
+    return wantsJson ? json({ ok: false, error: message }) : html(resultPage(false, message));
+  };
 
   let session: RelaySession | null = null;
   try {
@@ -479,15 +491,15 @@ async function handleKitsuLogin(req: Request): Promise<Response> {
     console.error("kitsu-login store error", error);
   }
   if (!session || session.provider !== "kitsu") {
-    return html(resultPage(false, "Sessione non trovata o scaduta. Torna sul TV e riprova."));
+    return fail("Sessione non trovata o scaduta. Torna sul TV e riprova.");
   }
   if (Date.now() > session.expiresAt) {
-    return html(resultPage(false, "Sessione scaduta. Torna sul TV e riprova."));
+    return fail("Sessione scaduta. Torna sul TV e riprova.");
   }
 
   const clientId = PROVIDERS.kitsu;
   if (!clientId) {
-    return html(resultPage(false, "Kitsu non configurato sul relay. Riprova più tardi."));
+    return fail("Kitsu non configurato sul relay. Riprova più tardi.");
   }
   const form: Record<string, string> = {
     grant_type: "password",
@@ -498,11 +510,11 @@ async function handleKitsuLogin(req: Request): Promise<Response> {
   if (KITSU_CLIENT_SECRET) form.client_secret = KITSU_CLIENT_SECRET;
   const outcome = await tokenExchange(KITSU_TOKEN_URL, form);
   if (!outcome.ok) {
-    return html(resultPage(false, `Credenziali non valide o errore Kitsu: ${outcome.error}`));
+    return fail(`Credenziali non valide o errore Kitsu: ${outcome.error}`);
   }
   const payload = tokensJson(outcome.data);
   if (!payload) {
-    return html(resultPage(false, "Kitsu ha risposto senza access_token. Riprova."));
+    return fail("Kitsu ha risposto senza access_token. Riprova.");
   }
   try {
     await store.update(session.userCode, {
@@ -512,9 +524,11 @@ async function handleKitsuLogin(req: Request): Promise<Response> {
     });
   } catch (error) {
     console.error("kitsu-login update error", error);
-    return html(resultPage(false, "Errore di salvataggio. Riprova."));
+    return fail("Errore di salvataggio. Riprova.");
   }
-  return html(resultPage(true, "Accesso riuscito! Puoi chiudere questa finestra e tornare sul TV."));
+  return wantsJson
+    ? json({ ok: true })
+    : html(resultPage(true, "Accesso riuscito! Puoi chiudere questa finestra e tornare sul TV."));
 }
 
 function resultPage(ok: boolean, message: string): string {
