@@ -20,6 +20,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
@@ -75,7 +76,9 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -666,6 +669,18 @@ fun SearchScreen(
             initialFirstVisibleItemIndex = savedResultsScroll?.first ?: 0,
             initialFirstVisibleItemScrollOffset = savedResultsScroll?.second ?: 0
         )
+        // Number of result columns in the full-width (keyboard collapsed) grid, used to keep the
+        // ghost skeleton up until roughly two rows of real results have arrived.
+        val maxGridWidth = LocalConfiguration.current.screenWidthDp.dp + NuvioTheme.spacing.md
+        val resultsColumns = remember(posterCardStyle) {
+            val cols = maxGridWidth / (posterCardStyle.width + NuvioTheme.spacing.md)
+            cols.toInt().coerceAtLeast(1)
+        }
+        // While a search is still in flight and only a handful of real results have trickled in,
+        // keep the full ghost-poster skeleton instead of showing a sparse grid with one poster.
+        val showGhostSkeleton = (hasPendingUnsubmittedQuery || uiState.isSearching) &&
+            mergedResults.size < resultsColumns * 2
+
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -683,6 +698,13 @@ fun SearchScreen(
                             stringResource(R.string.search_start_subtitle)
                         },
                         icon = Icons.Default.Search
+                    )
+                }
+
+                showGhostSkeleton -> {
+                    SearchResultsSkeletonGrid(
+                        posterCardStyle = posterCardStyle,
+                        modifier = Modifier
                     )
                 }
 
