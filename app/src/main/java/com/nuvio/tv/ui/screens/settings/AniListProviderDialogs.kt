@@ -3,18 +3,24 @@
 package com.nuvio.tv.ui.screens.settings
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -161,12 +167,27 @@ private fun AniListConnectContent(
 
 @Composable
 private fun AniListBannerHeader() {
-    Image(
-        painter = painterResource(R.drawable.anilist_banner),
-        contentDescription = stringResource(R.string.cd_anilist_logo),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(40.dp),
-        contentScale = ContentScale.Fit
-    )
+    // Wide icon + wordmark, same approach as the Kitsu logo, so it stays crisp
+    // instead of squishing the tall official banner PNG into a 40dp slot.
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Image(
+            painter = painterResource(R.drawable.anilist_icon),
+            contentDescription = stringResource(R.string.cd_anilist_logo),
+            modifier = Modifier.height(48.dp),
+            contentScale = ContentScale.Fit
+        )
+        Spacer(modifier = Modifier.width(NuvioTheme.spacing.sm))
+        Text(
+            text = stringResource(R.string.anilist_name),
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = (-0.4).sp
+            ),
+            color = Color(0xFF02A9FF)
+        )
+    }
 }
