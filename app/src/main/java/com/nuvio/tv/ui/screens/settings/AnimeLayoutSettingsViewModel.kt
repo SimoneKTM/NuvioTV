@@ -40,25 +40,29 @@ class AnimeLayoutSettingsViewModel @Inject constructor(
 
     override fun loadAvailableCatalogs() {
         viewModelScope.launch {
-            animeAddonRepository.getInstalledAnimeAddons()
-                .distinctUntilChanged()
-                .collectLatest { installedAddons ->
-                    val addons = installedAddons.enabledAddons()
-                    val catalogs = addons.flatMap { addon ->
-                        addon.catalogs
-                            .filter { catalog ->
-                                !catalog.extra.any { it.name.equals("search", ignoreCase = true) && it.isRequired }
-                            }
-                            .map { catalog ->
-                                CatalogInfo(
-                                    key = "${addon.id}_${catalog.apiType}_${catalog.id}",
-                                    name = catalog.name,
-                                    addonName = addon.displayName
-                                )
-                            }
+            try {
+                animeAddonRepository.getInstalledAnimeAddons()
+                    .distinctUntilChanged()
+                    .collectLatest { installedAddons ->
+                        val addons = installedAddons.enabledAddons()
+                        val catalogs = addons.flatMap { addon ->
+                            addon.catalogs
+                                .filter { catalog ->
+                                    !catalog.extra.any { it.name.equals("search", ignoreCase = true) && it.isRequired }
+                                }
+                                .map { catalog ->
+                                    CatalogInfo(
+                                        key = "${addon.id}_${catalog.apiType}_${catalog.id}",
+                                        name = catalog.name,
+                                        addonName = addon.displayName
+                                    )
+                                }
+                        }.distinctBy { it.key }
+                        updateUiStateIfChanged { it.copy(availableCatalogs = catalogs) }
                     }
-                    updateUiStateIfChanged { it.copy(availableCatalogs = catalogs) }
-                }
+            } catch (e: Exception) {
+                updateUiStateIfChanged { it.copy(availableCatalogs = emptyList()) }
+            }
         }
     }
 }
