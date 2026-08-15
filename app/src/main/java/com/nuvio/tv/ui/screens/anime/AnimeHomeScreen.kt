@@ -28,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -275,27 +276,28 @@ private fun AnimeModernHero(
 ) {
     val density = LocalDensity.current
     val heroPreview = remember(item) { buildAnimeHeroPreview(item) }
-    val heroSceneState = remember(item, fullScreenBackdrop) {
-        {
-            ModernHeroSceneState(
-                heroBackdrop = firstNonBlank(
-                    item.backdropUrl,
-                    item.background,
-                    item.landscapePoster,
-                    item.poster
-                ),
-                preview = heroPreview,
-                enrichmentActive = false,
-                shouldPlayTrailer = false,
-                trailerFirstFrameRendered = false,
-                trailerUrl = null,
-                trailerAudioUrl = null,
-                trailerPlaybackKey = null,
-                trailerMuted = true,
-                fullScreenBackdrop = fullScreenBackdrop
-            )
-        }
-    }
+    val liveHeroSceneState by rememberUpdatedState(
+        ModernHeroSceneState(
+            heroBackdrop = firstNonBlank(
+                item.backdropUrl,
+                item.background,
+                item.landscapePoster,
+                item.poster
+            ),
+            preview = heroPreview,
+            enrichmentActive = false,
+            shouldPlayTrailer = false,
+            trailerFirstFrameRendered = false,
+            trailerUrl = null,
+            trailerAudioUrl = null,
+            trailerPlaybackKey = null,
+            trailerMuted = true,
+            fullScreenBackdrop = fullScreenBackdrop
+        )
+    )
+    // Stable lambda reading snapshot state so ModernHeroMediaLayer's
+    // derivedStateOf picks up backdrop changes as the focused item moves.
+    val heroSceneState = remember { { liveHeroSceneState } }
     val heroMediaWidthPx = with(density) {
         (screenWidth * if (fullScreenBackdrop) 1f else MODERN_HERO_MEDIA_WIDTH_FRACTION).roundToPx()
     }
