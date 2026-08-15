@@ -368,19 +368,17 @@ fun LayoutSettingsContent(
                     focusRequester = animeContentHeaderFocus,
                     onFocused = { focusedSection = LayoutSettingsSection.ANIME_CONTENT }
                 ) {
-                    if (uiState.selectedLayout != HomeLayout.MODERN) {
-                        CompactToggleRow(
-                            title = stringResource(R.string.layout_poster_labels),
-                            subtitle = stringResource(R.string.layout_poster_labels_sub),
-                            checked = uiState.posterLabelsEnabled,
-                            onToggle = {
-                                viewModel.onEvent(
-                                    LayoutSettingsEvent.SetPosterLabelsEnabled(!uiState.posterLabelsEnabled)
-                                )
-                            },
-                            onFocused = { focusedSection = LayoutSettingsSection.ANIME_CONTENT }
-                        )
-                    }
+                    CompactToggleRow(
+                        title = stringResource(R.string.layout_poster_labels),
+                        subtitle = stringResource(R.string.layout_poster_labels_sub),
+                        checked = uiState.posterLabelsEnabled,
+                        onToggle = {
+                            viewModel.onEvent(
+                                LayoutSettingsEvent.SetPosterLabelsEnabled(!uiState.posterLabelsEnabled)
+                            )
+                        },
+                        onFocused = { focusedSection = LayoutSettingsSection.ANIME_CONTENT }
+                    )
                     if (uiState.selectedLayout != HomeLayout.MODERN) {
                         CompactToggleRow(
                             title = stringResource(R.string.layout_addon_name),
@@ -488,19 +486,17 @@ fun LayoutSettingsContent(
                             onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
                         )
                     }
-                    if (uiState.selectedLayout != HomeLayout.MODERN) {
-                        CompactToggleRow(
-                            title = stringResource(R.string.layout_poster_labels),
-                            subtitle = stringResource(R.string.layout_poster_labels_sub),
-                            checked = uiState.posterLabelsEnabled,
-                            onToggle = {
-                                viewModel.onEvent(
-                                    LayoutSettingsEvent.SetPosterLabelsEnabled(!uiState.posterLabelsEnabled)
-                                )
-                            },
-                            onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
-                        )
-                    }
+                    CompactToggleRow(
+                        title = stringResource(R.string.layout_poster_labels),
+                        subtitle = stringResource(R.string.layout_poster_labels_sub),
+                        checked = uiState.posterLabelsEnabled,
+                        onToggle = {
+                            viewModel.onEvent(
+                                LayoutSettingsEvent.SetPosterLabelsEnabled(!uiState.posterLabelsEnabled)
+                            )
+                        },
+                        onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
+                    )
                     if (uiState.selectedLayout != HomeLayout.MODERN) {
                         CompactToggleRow(
                             title = stringResource(R.string.layout_addon_name),

@@ -63,7 +63,7 @@ data class FolderDetailUiState(
     val viewMode: FolderViewMode = FolderViewMode.TABBED_GRID,
     val homeLayout: HomeLayout = HomeLayout.MODERN,
     val posterLabelsEnabled: Boolean = true,
-    val catalogAddonNameEnabled: Boolean = true,
+    val catalogAddonNameEnabled: Boolean = false,
     val catalogTypeSuffixEnabled: Boolean = true,
     val hideUnreleasedContent: Boolean = false,
     val showFullReleaseDate: Boolean = true,

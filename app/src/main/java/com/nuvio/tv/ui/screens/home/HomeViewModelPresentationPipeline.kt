@@ -171,11 +171,7 @@ internal fun HomeViewModel.observeLayoutPreferencesPipeline() {
             .distinctUntilChanged()
             .debounce(300)
             .collectLatest { prefs ->
-                val effectivePosterLabelsEnabled = if (prefs.layout == HomeLayout.MODERN) {
-                    false
-                } else {
-                    prefs.posterLabelsEnabled
-                }
+                val effectivePosterLabelsEnabled = prefs.posterLabelsEnabled
                 val previousState = _uiState.value
                 val heroKeysChanged = currentHeroCatalogKeys != prefs.heroCatalogKeys
                 val shouldRefreshCatalogPresentation =
