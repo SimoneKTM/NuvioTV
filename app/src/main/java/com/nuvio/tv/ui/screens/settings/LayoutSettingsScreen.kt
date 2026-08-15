@@ -811,7 +811,7 @@ fun LayoutSettingsContent(
                 }
             }
 
-            if (!animeMode && uiState.selectedLayout != HomeLayout.GRID) {
+            if (uiState.selectedLayout != HomeLayout.GRID) {
             item(key = "focused_poster_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_focused),
