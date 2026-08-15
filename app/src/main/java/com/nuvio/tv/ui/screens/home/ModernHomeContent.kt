@@ -79,6 +79,7 @@ import com.nuvio.tv.ui.components.ContinueWatchingOptionsDialog
 import com.nuvio.tv.LocalSidebarExpanded
 import com.nuvio.tv.LocalContentFocusRequester
 import com.nuvio.tv.ui.util.LocalRecompositionHighlighterEnabled
+import com.nuvio.tv.ui.util.localizedLanguageText
 import com.nuvio.tv.ui.util.StableRef
 import com.nuvio.tv.ui.util.asStable
 import com.nuvio.tv.ui.util.recompositionHighlighter
@@ -621,7 +622,7 @@ fun ModernHomeContent(
                             ageRatingText = enrichedItem.ageRating,
                             statusText = enrichedItem.status,
                             countryText = enrichedItem.country,
-                            languageText = enrichedItem.language?.uppercase(),
+                            languageText = localizedLanguageText(enrichedItem.language),
                             genres = enrichedItem.genres.take(3).asStable(),
                             poster = enrichedItem.poster,
                             backdrop = enrichedItem.backdropUrl,

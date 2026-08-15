@@ -82,6 +82,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.nuvio.tv.ui.util.rememberLongPressKeyTracker
+import com.nuvio.tv.ui.util.localizedLanguageText
 import java.util.Locale
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -715,7 +716,7 @@ private fun MetaInfoRow(
         buildList<String> {
             runtimeText?.takeIf { it.isNotBlank() }?.let { add(it) }
             meta.country?.trim()?.takeIf { it.isNotBlank() }?.let { add(normalizeCountryLabel(it)) }
-            meta.language?.trim()?.takeIf { it.isNotBlank() }?.let { add(it.uppercase()) }
+            localizedLanguageText(meta.language)?.let { add(it) }
         }
     }
 

@@ -2,6 +2,7 @@ package com.nuvio.tv.ui.util
 
 import android.content.Context
 import com.nuvio.tv.R
+import com.nuvio.tv.domain.model.normalizeLanguageCode
 import java.util.Locale
 
 private val EPISODE_PATTERN = Regex("^Episode (\\d+)$", RegexOption.IGNORE_CASE)
@@ -134,6 +135,21 @@ fun languageCodeToName(code: String): String {
     if (lowerCode == "und" || lowerCode == "unknown" || lowerCode == "unk") {
         return "Unknown"
     }
+    return languageCodeToNameUnchecked(code)
+}
+
+/** Localized variant of [languageCodeToName] for UI call sites that have a [Context]. */
+fun languageCodeToName(context: Context, code: String): String {
+    val lowerCode = code.lowercase()
+    if (lowerCode == "none") return context.getString(R.string.language_none)
+    if (lowerCode == "und" || lowerCode == "unknown" || lowerCode == "unk") {
+        return context.getString(R.string.language_unknown)
+    }
+    return languageCodeToNameUnchecked(code)
+}
+
+private fun languageCodeToNameUnchecked(code: String): String {
+    val lowerCode = code.lowercase()
     val bcp47 = LANGUAGE_OVERRIDES[lowerCode] ?: lowerCode
     return try {
         val locale = Locale.forLanguageTag(bcp47)
@@ -155,4 +171,11 @@ fun languageCodeToName(code: String): String {
     } catch (_: Exception) {
         code.uppercase()
     }
+}
+
+/** Localized display name for a language code or name, e.g. "en" or "English" -> "Inglese". */
+fun localizedLanguageText(language: String?): String? {
+    if (language.isNullOrBlank()) return null
+    val code = normalizeLanguageCode(language) ?: language.trim().lowercase()
+    return languageCodeToName(code)
 }

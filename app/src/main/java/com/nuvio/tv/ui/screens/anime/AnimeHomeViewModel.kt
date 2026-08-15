@@ -104,7 +104,7 @@ class AnimeHomeViewModel @Inject constructor(
     private var posterCardHeightDp = 189
     private var posterCardCornerRadiusDp = 12
     private var posterLabelsEnabled = true
-    private var catalogAddonNameEnabled = true
+    private var catalogAddonNameEnabled = false
     private var focusedPosterBackdropExpandEnabled = false
     private var focusedPosterBackdropExpandDelaySeconds = 3
     private var focusedPosterBackdropTrailerEnabled = false
@@ -257,7 +257,7 @@ class AnimeHomeViewModel @Inject constructor(
         val posterCardHeightDp: Int = 189,
         val posterCardCornerRadiusDp: Int = 12,
         val posterLabelsEnabled: Boolean = true,
-        val catalogAddonNameEnabled: Boolean = true,
+        val catalogAddonNameEnabled: Boolean = false,
         val focusedPosterBackdropExpandEnabled: Boolean = false,
         val focusedPosterBackdropExpandDelaySeconds: Int = 3,
         val focusedPosterBackdropTrailerEnabled: Boolean = false,

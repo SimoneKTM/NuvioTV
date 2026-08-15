@@ -13,6 +13,7 @@ import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.model.stableKey
 import com.nuvio.tv.ui.util.localizeEpisodeTitle
 import com.nuvio.tv.ui.util.localizedContentType
+import com.nuvio.tv.ui.util.localizedLanguageText
 import com.nuvio.tv.ui.util.computeAirDateBadgeText
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.R
@@ -476,7 +477,7 @@ internal fun buildCatalogItem(
         ageRatingText = item.ageRating,
         statusText = item.status,
         countryText = item.country,
-        languageText = item.language?.uppercase(),
+        languageText = localizedLanguageText(item.language),
         genres = item.genres.take(3).asStable(),
         poster = item.poster,
         backdrop = item.backdropUrl,

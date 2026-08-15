@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.anime
 
+import android.content.Context
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -83,6 +84,7 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.asStable
 import com.nuvio.tv.ui.util.dpadRepeatThrottle
 import com.nuvio.tv.ui.util.localizedContentType
+import com.nuvio.tv.ui.util.localizedLanguageText
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -131,8 +133,9 @@ fun AnimeHomeScreen(
 
             else -> {
                 val onRemoveContinueWatching: (ContinueWatchingItem) -> Unit = viewModel::removeContinueWatching
+                val enrichHeroItem: suspend (MetaPreview) -> MetaPreview? = viewModel::enrichAnimeHeroItem
                 when (uiState.homeLayout) {
-                    HomeLayout.MODERN -> AnimeModernContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onRemoveContinueWatching = onRemoveContinueWatching)
+                    HomeLayout.MODERN -> AnimeModernContent(uiState = uiState, enrichHeroItem = enrichHeroItem, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onRemoveContinueWatching = onRemoveContinueWatching)
                     HomeLayout.CLASSIC -> AnimeClassicContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onRemoveContinueWatching = onRemoveContinueWatching)
                     HomeLayout.GRID -> AnimeGridContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onRemoveContinueWatching = onRemoveContinueWatching)
                 }
@@ -161,6 +164,7 @@ private fun AnimeHeroItem(
 @Composable
 private fun AnimeModernContent(
     uiState: AnimeHomeUiState,
+    enrichHeroItem: suspend (MetaPreview) -> MetaPreview?,
     onNavigateToDetail: (String, String, String) -> Unit,
     onNavigateToSeeAll: (String, String, String) -> Unit,
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
@@ -170,6 +174,12 @@ private fun AnimeModernContent(
         mutableStateOf(defaultHeroItem)
     }
     val heroItem = focusedHeroItem ?: defaultHeroItem
+    var enrichedHeroItem by remember(heroItem) { mutableStateOf(heroItem) }
+    LaunchedEffect(heroItem) {
+        val current = heroItem ?: return@LaunchedEffect
+        enrichedHeroItem = current
+        enrichHeroItem(current)?.let { enrichedHeroItem = it }
+    }
     val heroEnabled = uiState.heroEnabled && heroItem != null
     val fullScreenBackdrop = uiState.modernHeroFullScreenBackdropEnabled
     val useLandscapePosters = uiState.modernLandscapePostersEnabled
@@ -190,19 +200,21 @@ private fun AnimeModernContent(
     val posterCardStyle = animePosterCardStyle(uiState)
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (heroEnabled && heroItem != null) {
-            AnimeModernHero(
-                item = heroItem,
-                fullScreenBackdrop = fullScreenBackdrop,
-                useLandscapePosters = useLandscapePosters,
-                screenWidth = screenWidth,
-                screenHeight = screenHeight,
-                heroBackdropHeight = heroBackdropHeight,
-                rowsViewportHeight = rowsViewportHeight,
-                onOpen = {
-                    onNavigateToDetail(heroItem.id, heroItem.rawType, uiState.heroAddonBaseUrl.orEmpty())
-                }
-            )
+        heroItem?.let { currentHeroItem ->
+            if (heroEnabled) {
+                AnimeModernHero(
+                    item = enrichedHeroItem ?: currentHeroItem,
+                    fullScreenBackdrop = fullScreenBackdrop,
+                    useLandscapePosters = useLandscapePosters,
+                    screenWidth = screenWidth,
+                    screenHeight = screenHeight,
+                    heroBackdropHeight = heroBackdropHeight,
+                    rowsViewportHeight = rowsViewportHeight,
+                    onOpen = {
+                        onNavigateToDetail(currentHeroItem.id, currentHeroItem.rawType, uiState.heroAddonBaseUrl.orEmpty())
+                    }
+                )
+            }
         }
 
         LazyColumn(
@@ -237,6 +249,7 @@ private fun AnimeModernContent(
                         },
                         showSeeAll = row.hasMore || row.items.size >= 15,
                         showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
+                        showAddonName = uiState.catalogAddonNameEnabled,
                         onItemFocus = { focusedHeroItem = it }
                     )
                 } else {
@@ -275,7 +288,8 @@ private fun AnimeModernHero(
     onOpen: () -> Unit
 ) {
     val density = LocalDensity.current
-    val heroPreview = remember(item) { buildAnimeHeroPreview(item) }
+    val context = LocalContext.current
+    val heroPreview = remember(item) { buildAnimeHeroPreview(context, item) }
     val liveHeroSceneState by rememberUpdatedState(
         ModernHeroSceneState(
             heroBackdrop = firstNonBlank(
@@ -489,7 +503,8 @@ private fun AnimeGridContent(
                     onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
                 },
                 showSeeAll = row.hasMore || row.items.size >= 15,
-                showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled
+                showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
+                showAddonName = uiState.catalogAddonNameEnabled
             )
         }
     }
@@ -517,6 +532,7 @@ private fun AnimeGridCatalogSection(
     onSeeAll: () -> Unit,
     showSeeAll: Boolean,
     showCatalogTypeSuffix: Boolean,
+    showAddonName: Boolean,
     modifier: Modifier = Modifier
 ) {
     val catalogContext = LocalContext.current
@@ -546,7 +562,7 @@ private fun AnimeGridCatalogSection(
                     maxLines = 3,
                     overflow = TextOverflow.Clip
                 )
-                if (catalogTitle.isNotBlank()) {
+                if (showAddonName && catalogTitle.isNotBlank()) {
                     Text(
                         text = stringResource(R.string.catalog_from_addon, catalogRow.addonName),
                         style = MaterialTheme.typography.labelMedium,
@@ -596,16 +612,12 @@ private fun AnimeGridCatalogSection(
     }
 }
 
-private fun buildAnimeHeroPreview(item: MetaPreview): HeroPreview {
+private fun buildAnimeHeroPreview(context: Context, item: MetaPreview): HeroPreview {
     val isSeries = isSeriesType(item.apiType)
-    val contentTypeText = when {
-        item.rawType.isNotBlank() -> item.rawType.replaceFirstChar { it.uppercase() }
-        isSeries -> "Series"
-        else -> "Movie"
-    }
+    val contentTypeText = localizedContentType(context, item.apiType)
     return HeroPreview(
         title = item.name,
-        logo = null,
+        logo = item.logo,
         description = item.description,
         contentTypeText = contentTypeText,
         isSeries = isSeries,
@@ -613,9 +625,9 @@ private fun buildAnimeHeroPreview(item: MetaPreview): HeroPreview {
         runtimeText = formatHeroRuntime(item.runtime),
         imdbText = item.imdbRating?.let { String.format(java.util.Locale.US, "%.1f", it) },
         ageRatingText = item.ageRating,
-        statusText = item.status,
+        statusText = normalizeAnimeStatus(item.status),
         countryText = item.country,
-        languageText = item.language?.uppercase(),
+        languageText = localizedLanguageText(item.language),
         genres = item.genres.take(3).asStable(),
         poster = item.poster,
         backdrop = item.backdropUrl,
@@ -756,6 +768,7 @@ private fun AnimeWidePosterRowSection(
     onSeeAll: () -> Unit,
     showSeeAll: Boolean,
     showCatalogTypeSuffix: Boolean,
+    showAddonName: Boolean,
     onItemFocus: (MetaPreview) -> Unit = {}
 ) {
     val catalogContext = LocalContext.current
@@ -785,7 +798,7 @@ private fun AnimeWidePosterRowSection(
                     maxLines = 3,
                     overflow = TextOverflow.Clip
                 )
-                if (catalogTitle.isNotBlank()) {
+                if (showAddonName && catalogTitle.isNotBlank()) {
                     Text(
                         text = stringResource(R.string.catalog_from_addon, catalogRow.addonName),
                         style = MaterialTheme.typography.labelMedium,
