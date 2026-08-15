@@ -567,7 +567,8 @@ fun SearchScreen(
                 .padding(
                     start = NuvioTheme.spacing.xxxl,
                     end = NuvioTheme.spacing.xxxl,
-                    top = NuvioTheme.spacing.lg
+                    top = NuvioTheme.spacing.lg,
+                    bottom = NuvioTheme.spacing.lg
                 ),
             contentAlignment = Alignment.Center
         ) {
@@ -830,6 +831,7 @@ private fun SearchInputField(
     var isDiscoverButtonFocused by remember { mutableStateOf(false) }
     var isVoiceButtonFocused by remember { mutableStateOf(false) }
     var isClearButtonFocused by remember { mutableStateOf(false) }
+    var isSearchFieldFocused by remember { mutableStateOf(false) }
     val fieldShape = RoundedCornerShape(NuvioTheme.radii.md)
 
     Row(
@@ -926,6 +928,7 @@ private fun SearchInputField(
                     canFocus = isScreenActive
                 }
                 .onFocusChanged { focusState ->
+                    isSearchFieldFocused = focusState.isFocused
                     onSearchFieldFocusChanged(focusState.isFocused)
                 }
                 .onPreviewKeyEvent { keyEvent ->
@@ -970,8 +973,8 @@ private fun SearchInputField(
                     shape = fieldShape
                 )
                 .border(
-                    width = NuvioTheme.spacing.hairline,
-                    color = NuvioTheme.colors.Border,
+                    width = if (isSearchFieldFocused) NuvioTheme.spacing.xxs else NuvioTheme.spacing.hairline,
+                    color = if (isSearchFieldFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.Border,
                     shape = fieldShape
                 )
         ) {
@@ -1170,7 +1173,7 @@ private fun SingleSearchResultsGrid(
                             ?: FocusRequester.Default
                     }
                 },
-            contentPadding = PaddingValues(top = NuvioTheme.spacing.lg, bottom = NuvioTheme.spacing.xxl),
+            contentPadding = PaddingValues(top = NuvioTheme.spacing.xxl, bottom = NuvioTheme.spacing.xxl),
             horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
             verticalArrangement = Arrangement.spacedBy(verticalSpacing)
         ) {
@@ -1286,7 +1289,7 @@ private fun SearchResultsSkeletonGrid(
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = NuvioTheme.spacing.lg, bottom = NuvioTheme.spacing.xxl),
+            contentPadding = PaddingValues(top = NuvioTheme.spacing.xxl, bottom = NuvioTheme.spacing.xxl),
             horizontalArrangement = Arrangement.spacedBy(horizontalSpacing),
             verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
         ) {
