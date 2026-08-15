@@ -159,7 +159,7 @@ class AnimeSettingsViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isInstalling = false,
-                            error = result.message ?: "Failed to install addon (code ${result.code})"
+                            error = result.message ?: context.getString(R.string.addon_install_error, result.code.toString())
                         )
                     }
                 }

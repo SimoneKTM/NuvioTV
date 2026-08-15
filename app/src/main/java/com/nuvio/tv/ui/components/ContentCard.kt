@@ -70,6 +70,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.CachePolicy
 import coil3.request.crossfade
+import com.nuvio.tv.ui.util.localizedContentType
 import com.nuvio.tv.ui.util.recompositionHighlighter
 import com.nuvio.tv.ui.screens.home.LocalFastScrollActive
 import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
@@ -127,6 +128,7 @@ fun ContentCard(
     var isBackdropExpanded by remember { mutableStateOf(false) }
     var trailerFirstFrameRendered by remember(trailerPreviewUrl) { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val context = LocalContext.current
 
     LaunchedEffect(isBackdropExpanded) {
         onBackdropExpandedChanged?.invoke(isBackdropExpanded)
@@ -185,15 +187,12 @@ fun ContentCard(
     val metaTokens = if (isBackdropExpanded) {
         remember(item.type, item.rawType, item.genres, item.releaseInfo, item.imdbRating, item.seasonCount) {
             buildList {
-                add(
-                    item.apiType
-                        .replaceFirstChar { ch -> ch.uppercase() }
-                )
+                add(localizedContentType(context, item.apiType))
                 item.genres.firstOrNull()?.let { add(it) }
                 if ((item.type == ContentType.SERIES || item.apiType.equals("series", ignoreCase = true)) &&
                     item.seasonCount != null
                 ) {
-                    add("${item.seasonCount} ${if (item.seasonCount == 1) "season" else "seasons"}")
+                    add(context.resources.getQuantityString(R.plurals.content_card_season_count, item.seasonCount, item.seasonCount))
                 }
                 item.releaseInfo
                     ?.let { info ->
@@ -220,7 +219,6 @@ fun ContentCard(
             .width(animatedCardWidth)
             .recompositionHighlighter()
     ) {
-        val context = LocalContext.current
         val density = LocalDensity.current
         // Keep decode size stable during width animation to avoid recreating requests/painters every frame.
         val maxRequestCardWidth = if (focusedPosterBackdropExpandEnabled) {

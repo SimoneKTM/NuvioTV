@@ -58,6 +58,7 @@ fun StreamInfoOverlay(
 
 @Composable
 private fun StreamInfoContent(data: StreamInfoData) {
+    val context = LocalContext.current
     // SOURCE section
     val hasSourceInfo = data.addonName != null || data.streamName != null
     if (hasSourceInfo) {
@@ -168,7 +169,7 @@ private fun StreamInfoContent(data: StreamInfoData) {
             )
             InfoItem(
                 label = stringResource(R.string.stream_info_language),
-                value = data.audioLanguage?.let { languageCodeToName(it) }
+                value = data.audioLanguage?.let { languageCodeToName(context, it) }
             )
         }
         Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
@@ -184,7 +185,7 @@ private fun StreamInfoContent(data: StreamInfoData) {
             InfoItem(label = stringResource(R.string.stream_info_codec), value = data.subtitleCodec)
             InfoItem(
                 label = stringResource(R.string.stream_info_language),
-                value = data.subtitleLanguage?.let { languageCodeToName(it) }
+                value = data.subtitleLanguage?.let { languageCodeToName(context, it) }
             )
             InfoItem(label = stringResource(R.string.stream_info_source), value = data.subtitleSource)
         }

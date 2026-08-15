@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.screens.settings
 
 import android.util.Log
+import com.nuvio.tv.R
 import com.nuvio.tv.data.trackerqr.TrackerQrApi
 import com.nuvio.tv.data.trackerqr.TrackerQrPollResult
 import com.nuvio.tv.data.trackerqr.TrackerQrSession
@@ -38,6 +39,7 @@ class TrackerQrLoginController(
     private val api: TrackerQrApi,
     private val scope: CoroutineScope,
     private val providerId: String,
+    private val getString: (Int) -> String,
     private val onApproved: (String?) -> Unit
 ) {
     private val _state = MutableStateFlow(TrackerQrLoginState(isConfigured = api.isConfigured))
@@ -50,7 +52,7 @@ class TrackerQrLoginController(
         if (_state.value.isStarting || _state.value.isPolling) return
         if (!api.isConfigured) {
             _state.update {
-                it.copy(errorMessage = "QR login relay is not configured on this build")
+                it.copy(errorMessage = getString(R.string.qr_login_relay_not_configured))
             }
             return
         }
@@ -83,7 +85,7 @@ class TrackerQrLoginController(
                         _state.update {
                             it.copy(
                                 isStarting = false,
-                                errorMessage = error.message ?: "Failed to start QR login"
+                                errorMessage = error.message ?: getString(R.string.qr_login_start_failed)
                             )
                         }
                     }
@@ -95,7 +97,7 @@ class TrackerQrLoginController(
                 _state.update {
                     it.copy(
                         isStarting = false,
-                        errorMessage = error.message ?: "Failed to start QR login"
+                        errorMessage = error.message ?: getString(R.string.qr_login_start_failed)
                     )
                 }
             }
@@ -110,7 +112,7 @@ class TrackerQrLoginController(
     fun submitKitsuCredentials(username: String, password: String) {
         if (username.isBlank() || password.isBlank()) {
             _state.update {
-                it.copy(errorMessage = "Enter both username and password")
+                it.copy(errorMessage = getString(R.string.qr_login_enter_credentials))
             }
             return
         }
@@ -142,7 +144,7 @@ class TrackerQrLoginController(
                     _state.update {
                         it.copy(
                             isSubmitting = false,
-                            statusMessage = "Credentials accepted, signing in..."
+                            statusMessage = getString(R.string.qr_login_signing_in)
                         )
                     }
                     if (session != null && !_state.value.isPolling) {
@@ -155,7 +157,7 @@ class TrackerQrLoginController(
                     _state.update {
                         it.copy(
                             isSubmitting = false,
-                            errorMessage = error.message ?: "Login failed. Try again."
+                            errorMessage = error.message ?: getString(R.string.qr_login_failed_retry)
                         )
                     }
                 }
@@ -209,7 +211,7 @@ class TrackerQrLoginController(
                         _state.update {
                             it.copy(
                                 isPolling = false,
-                                errorMessage = "QR login session expired. Try again."
+                                errorMessage = getString(R.string.qr_login_expired)
                             )
                         }
                     }

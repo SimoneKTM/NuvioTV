@@ -363,7 +363,7 @@ private fun TmdbBasicSourceForm(
             value = uiState.tmdbInput,
             onValueChange = onInputChange,
             placeholder = when (uiState.tmdbBuilderMode) {
-                TmdbBuilderMode.LIST -> "https://www.themoviedb.org/list/8504994 or 8504994"
+                TmdbBuilderMode.LIST -> stringResource(R.string.collections_editor_tmdb_list_placeholder_example)
                 TmdbBuilderMode.NETWORK -> stringResource(R.string.collections_editor_tmdb_network_placeholder_example)
                 TmdbBuilderMode.COLLECTION -> stringResource(R.string.collections_editor_tmdb_collection_placeholder_example)
                 TmdbBuilderMode.PRODUCTION -> stringResource(R.string.collections_editor_tmdb_company_placeholder_example)
@@ -612,9 +612,9 @@ private fun TmdbDiscoverForm(
             chips = listOf(
                 stringResource(R.string.collections_editor_country_us) to "US",
                 stringResource(R.string.collections_editor_country_uk) to "GB",
-                "Canada" to "CA",
-                "Australia" to "AU",
-                "Germany" to "DE"
+                stringResource(R.string.collections_editor_country_canada) to "CA",
+                stringResource(R.string.collections_editor_country_australia) to "AU",
+                stringResource(R.string.collections_editor_country_germany) to "DE"
             ),
             onSelect = { onFiltersChange(filters.copy(watchRegion = it)) }
         )

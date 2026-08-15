@@ -37,6 +37,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
@@ -278,6 +279,7 @@ private fun AudioTrackCard(
     rightFocusRequester: FocusRequester,
     focusRequester: FocusRequester?
 ) {
+    val context = LocalContext.current
     val metadata = listOfNotNull(
         track.codec,
         track.channelCount?.let { "$it ch" },
@@ -338,7 +340,7 @@ private fun AudioTrackCard(
                 )
                 if (!track.language.isNullOrBlank() && track.language != "und") {
                     Text(
-                        text = languageCodeToName(track.language),
+                        text = languageCodeToName(context, track.language),
                         style = MaterialTheme.typography.bodySmall,
                         color = secondaryTextColor
                     )

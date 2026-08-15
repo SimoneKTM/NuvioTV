@@ -11,6 +11,7 @@ import androidx.media3.exoplayer.ScrubbingModeParameters
 import androidx.media3.exoplayer.upstream.DefaultAllocator
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import com.nuvio.tv.data.local.PlayerSettings
+import com.nuvio.tv.R
 
 /**
  * Centralizes all Nuvio ExoPlayer performance enhancements behind a single toggle.
@@ -201,7 +202,7 @@ object NuvioExoPlayerPerformanceHelper {
         val totalMem = getDevicePhysicalRamBytes(context)
         val gb = 1024L * 1024L * 1024L
         return when {
-            totalMem <= 0L -> "Unknown"
+            totalMem <= 0L -> context.getString(R.string.language_unknown)
             totalMem < 1.15 * gb -> "1 GB"
             totalMem < 1.45 * gb -> "1.5 GB"
             totalMem < 2.3 * gb -> "2 GB"

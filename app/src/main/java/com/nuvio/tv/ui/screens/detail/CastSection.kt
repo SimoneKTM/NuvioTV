@@ -64,7 +64,7 @@ import com.nuvio.tv.domain.model.MetaCastMember
 fun CastSection(
     cast: List<MetaCastMember>,
     modifier: Modifier = Modifier,
-    title: String = "Cast",
+    title: String? = null,
     leadingCast: List<MetaCastMember> = emptyList(),
     upFocusRequester: FocusRequester? = null,
     downFocusRequester: FocusRequester? = null,
@@ -118,7 +118,8 @@ fun CastSection(
 
     val itemWidth = 150.dp
     val cardSize = 100.dp
-    val hasTitle = title.isNotBlank()
+    val resolvedTitle = title ?: stringResource(R.string.detail_tab_cast)
+    val hasTitle = resolvedTitle.isNotBlank()
     val currentUpFocusRequester by rememberUpdatedState(upFocusRequester)
     val currentDownFocusRequester by rememberUpdatedState(downFocusRequester)
 
@@ -138,7 +139,7 @@ fun CastSection(
     ) {
         if (hasTitle) {
             Text(
-                text = title,
+                text = resolvedTitle,
                 style = MaterialTheme.typography.titleLarge,
                 color = NuvioTheme.colors.TextPrimary,
                 modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl)

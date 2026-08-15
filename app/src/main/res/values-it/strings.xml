@@ -792,6 +792,9 @@
 <string name="qr_login_signing_in">Accesso in corso…</string>
 <string name="qr_login_success">Accesso effettuato con successo</string>
 <string name="qr_login_exchange_failed">Impossibile completare l\'accesso tramite QR</string>
+<string name="qr_login_relay_not_configured">Il relay di login tramite QR non è configurato su questa build</string>
+<string name="qr_login_enter_credentials">Inserisci sia nome utente che password</string>
+<string name="qr_login_failed_retry">Accesso fallito. Riprova.</string>
 <string name="trakt_code_expires">Il codice scade in %1$s</string>
 <string name="trakt_token_refreshes">Il token di accesso Trakt si rinnoverà tra %1$s</string>
 <string name="trakt_login_instruction">Premi Accedi per avviare l\'autenticazione del dispositivo Trakt. Un codice QR apparirà qui.</string>
@@ -955,6 +958,7 @@
 <string name="addon_installing">Installazione in corso</string>
 <string name="addon_install_btn">Installa</string>
 <string name="addon_install_success">Installato %1$s</string>
+<string name="addon_install_error">Impossibile installare l\'addon (codice %1$s)</string>
 <string name="addon_error_invalid_url">Inserisci un URL addon valido</string>
 <string name="addon_error_invalid_scheme">L\'URL dell\'addon deve iniziare con http o https</string>
 <string name="addon_installed_section">Installati</string>
@@ -1159,6 +1163,7 @@
 <string name="subtitle_style_off">Spento</string>
 <string name="panel_failed_load_streams">Errore nel caricamento degli stream</string>
 <string name="panel_failed_load_episodes">Errore nel caricamento degli episodi</string>
+<string name="meta_load_error_default">Errore nel caricamento dei metadati</string>
 
     <!-- PauseOverlay -->
 <string name="pause_you_are_watching">Stai guardando</string>
@@ -1796,6 +1801,12 @@
   <string name="tv_channel_continue_watching">Continua a guardare</string>
   <string name="type_movies">Film</string>
   <string name="type_series_plural">Serie TV</string>
+  <plurals name="content_card_season_count">
+    <item quantity="one">%1$d stagione</item>
+    <item quantity="other">%1$d stagioni</item>
+  </plurals>
+  <string name="language_none">Nessuno</string>
+  <string name="language_unknown">Sconosciuto</string>
   <string name="web_manage_addons_only_subtitle">Installa o rimuovi add-on</string>
   <string name="web_import_paste_placeholder">Incolla qui il JSON delle collezioni...</string>
   <string name="web_import_file_select">Tocca per selezionare un file .json</string>
@@ -2152,8 +2163,12 @@
   <string name="collections_editor_emoji_category_flags">Bandiere</string>
   <string name="collections_editor_emoji_category_symbols">Simboli</string>
   <string name="collections_editor_tmdb_network_placeholder_example">213 per Netflix, 49 per HBO, 2739 per Disney+</string>
+  <string name="collections_editor_tmdb_list_placeholder_example">https://www.themoviedb.org/list/8504994 oppure 8504994</string>
   <string name="collections_editor_tmdb_collection_placeholder_example">10 per Star Wars Collection</string>
   <string name="collections_editor_tmdb_company_placeholder_example">Marvel Studios, 420 o URL società</string>
+  <string name="collections_editor_country_canada">Canada</string>
+  <string name="collections_editor_country_australia">Australia</string>
+  <string name="collections_editor_country_germany">Germania</string>
   <string name="collections_editor_tmdb_genre_action">Azione</string>
   <string name="collections_editor_tmdb_genre_adventure">Avventura</string>
   <string name="collections_editor_tmdb_genre_animation">Animazione</string>

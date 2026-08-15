@@ -58,6 +58,7 @@ class MalSettingsViewModel @Inject constructor(
         api = trackerQrApi,
         scope = viewModelScope,
         providerId = PROVIDER_ID,
+        getString = context::getString,
         onApproved = { payload -> connect(payload.orEmpty()) }
     )
 

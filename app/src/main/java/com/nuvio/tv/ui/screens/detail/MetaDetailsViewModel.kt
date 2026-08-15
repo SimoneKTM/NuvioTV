@@ -823,7 +823,7 @@ class MetaDetailsViewModel @Inject constructor(
     }
 
     private fun buildMetaLoadErrorMessage(originalMessage: String?, lookupId: String): String {
-        val base = originalMessage ?: "Failed to load metadata"
+        val base = originalMessage ?: context.getString(R.string.meta_load_error_default)
         return "$base\n\nID: $lookupId"
     }
 

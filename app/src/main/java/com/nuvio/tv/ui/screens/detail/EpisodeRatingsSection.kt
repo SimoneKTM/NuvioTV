@@ -48,7 +48,7 @@ fun EpisodeRatingsSection(
     isLoading: Boolean,
     error: String?,
     modifier: Modifier = Modifier,
-    title: String = "Ratings",
+    title: String? = null,
     upFocusRequester: FocusRequester? = null,
     downFocusRequester: FocusRequester? = null,
     firstItemFocusRequester: FocusRequester? = null,
@@ -106,7 +106,8 @@ fun EpisodeRatingsSection(
             )
         }
     }
-    val hasTitle = title.isNotBlank()
+    val resolvedTitle = title ?: stringResource(R.string.detail_tab_ratings)
+    val hasTitle = resolvedTitle.isNotBlank()
     val upFocusModifier = if (upFocusRequester != null) {
         Modifier.focusProperties {
             up = upFocusRequester
@@ -129,7 +130,7 @@ fun EpisodeRatingsSection(
     ) {
         if (hasTitle) {
             Text(
-                text = title,
+                text = resolvedTitle,
                 style = MaterialTheme.typography.titleMedium,
                 color = NuvioTheme.colors.TextPrimary,
                 modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl)
