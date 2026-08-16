@@ -1524,7 +1524,9 @@ private fun resolveAnimeVideoForProgress(progress: WatchProgress, meta: CwMetaSu
 private suspend fun AnimeHomeViewModel.enrichAnimeInProgressItem(
     item: ContinueWatchingItem.InProgress
 ): ContinueWatchingItem.InProgress {
-    val meta = resolveAnimeMetaForProgress(item.progress) ?: return item
+    val meta = resolveAnimeMetaForProgress(item.progress)
+        ?.let { applyAnimeExternalEnrichmentToCwMeta(it, item.progress.contentType) }
+        ?: return item
     val video = resolveAnimeVideoForProgress(item.progress, meta)
     return item.copy(
         progress = item.progress.copy(
@@ -1547,7 +1549,9 @@ private suspend fun AnimeHomeViewModel.enrichAnimeNextUpItem(
     item: ContinueWatchingItem.NextUp
 ): ContinueWatchingItem.NextUp {
     val progressSeed = item.info.toAnimeProgressSeed()
-    val meta = resolveAnimeMetaForProgress(progressSeed) ?: return item
+    val meta = resolveAnimeMetaForProgress(progressSeed)
+        ?.let { applyAnimeExternalEnrichmentToCwMeta(it, progressSeed.contentType) }
+        ?: return item
     val video = resolveAnimeNextUpVideoFromMeta(progressSeed, meta, showUnairedNextUp = true)
 
     val released = video?.released ?: item.info.released

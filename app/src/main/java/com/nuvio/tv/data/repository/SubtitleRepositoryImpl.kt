@@ -74,8 +74,26 @@ class SubtitleRepositoryImpl @Inject constructor(
         
         Log.d(TAG, "Found ${subtitleAddons.size} subtitle addons: ${subtitleAddons.map { it.name }}")
 
+        // When the direct OpenSubtitles API is configured, fetch from it too
+        // and merge the results (one subtitle per preferred language). This
+        // runs even when no subtitle addons are installed.
+        val directSubtitles = if (openSubtitlesDirectRepository.isConfigured()) {
+            try {
+                openSubtitlesDirectRepository.searchAndPrepareSubtitles(type, id, videoId)
+            } catch (e: Exception) {
+                Log.e(TAG, "Direct OpenSubtitles fetch failed", e)
+                emptyList()
+            }
+        } else {
+            emptyList()
+        }
+
         if (subtitleAddons.isEmpty()) {
-            return@withContext emptyList()
+            Log.d(
+                TAG,
+                "Subtitle fetch completed total=${directSubtitles.size} (addons=0 direct=${directSubtitles.size}) in ${System.currentTimeMillis() - startedAtMs}ms"
+            )
+            return@withContext directSubtitles
         }
 
         val total = subtitleAddons.size
@@ -108,18 +126,6 @@ class SubtitleRepositoryImpl @Inject constructor(
             }.awaitAll().flatten()
         }
 
-        // When the direct OpenSubtitles API is configured, fetch from it too
-        // and merge the results (one subtitle per preferred language).
-        val directSubtitles = if (openSubtitlesDirectRepository.isConfigured()) {
-            try {
-                openSubtitlesDirectRepository.searchAndPrepareSubtitles(type, id, videoId)
-            } catch (e: Exception) {
-                Log.e(TAG, "Direct OpenSubtitles fetch failed", e)
-                emptyList()
-            }
-        } else {
-            emptyList()
-        }
         val merged = (result + directSubtitles).distinctBy { it.id }
 
         Log.d(

@@ -24,6 +24,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -76,6 +77,7 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -336,10 +338,14 @@ fun SearchScreen(
     }
 
     // Moves focus from the top input row down into the virtual keyboard, falling back to
-    // native traversal if the explicit request fails (e.g. key not composed yet).
+    // native traversal if the explicit request fails (e.g. key not composed yet). Also used
+    // by the search field's click handler, so it first brings the collapsed keyboard panel
+    // back (inputAreaActive = true) before requesting focus on its first key.
     val requestKeyboardFocus: () -> Unit = {
+        inputAreaActive = true
         coroutineScope.launch {
             repeat(2) { withFrameNanos { } }
+            delay(50)
             val focused = runCatching { keyboardFirstKeyFocusRequester.requestFocus() }.getOrDefault(false)
             if (!focused) {
                 focusManager.moveFocus(FocusDirection.Down)
@@ -930,6 +936,11 @@ private fun SearchInputField(
                 .onFocusChanged { focusState ->
                     isSearchFieldFocused = focusState.isFocused
                     onSearchFieldFocusChanged(focusState.isFocused)
+                }
+                // Pointer clicks (mouse / air-mouse / touch) on the field open the in-app
+                // virtual keyboard, instead of being ignored like a non-interactive Box.
+                .pointerInput(onMoveToKeyboard) {
+                    detectTapGestures { onMoveToKeyboard?.invoke() }
                 }
                 .onPreviewKeyEvent { keyEvent ->
                     when (keyEvent.nativeKeyEvent.keyCode) {

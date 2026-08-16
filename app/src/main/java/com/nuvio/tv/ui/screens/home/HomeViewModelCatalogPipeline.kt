@@ -109,12 +109,13 @@ internal fun HomeViewModel.observeTmdbSettingsPipeline() {
             .collectLatest { settings ->
                 val languageChanged = currentTmdbSettings.language != settings.language
                 val releaseDatesChanged = currentTmdbSettings.useReleaseDates != settings.useReleaseDates
+                val enabledChanged = currentTmdbSettings.enabled != settings.enabled
                 currentTmdbSettings = settings
                 val tmdbEnabledForLayout = settings.enabled &&
                     (_uiState.value.homeLayout != HomeLayout.MODERN || settings.modernHomeEnabled)
                 val enrichEnabled = tmdbEnabledForLayout || externalMetaPrefetchEnabled
                 _uiState.update { it.copy(heroEnrichmentEnabled = enrichEnabled) }
-                if (languageChanged || releaseDatesChanged) {
+                if (languageChanged || releaseDatesChanged || enabledChanged) {
                     // Allow re-enrichment with the updated TMDB metadata selection on next focus.
                     prefetchedTmdbIds.clear()
                     prefetchedExternalMetaIds.clear()
@@ -185,6 +186,7 @@ internal suspend fun HomeViewModel.loadAllCatalogsPipeline(
     externalMetaPrefetchJob?.cancel()
     pendingExternalMetaPrefetchItemId = null
     prefetchedTmdbIds.clear()
+    mdbListRatingFetchedIds.clear()
     tmdbEnrichFocusJob?.cancel()
     pendingTmdbEnrichItemId = null
     lastHeroEnrichmentSignature = null
@@ -879,8 +881,11 @@ internal suspend fun HomeViewModel.updateCatalogRowsPipeline() {
     val tmdbSettings = currentTmdbSettings
     val tmdbEnabledForCurrentLayout = tmdbSettings.enabled &&
         (currentLayout != HomeLayout.MODERN || tmdbSettings.modernHomeEnabled)
-    val shouldUseEnrichedHeroItems = tmdbEnabledForCurrentLayout &&
-        (tmdbSettings.useArtwork || tmdbSettings.useBasicInfo || tmdbSettings.useDetails || tmdbSettings.useReleaseDates)
+    val mdbEnabledForCurrentLayout = currentMdbListSettings.enabled &&
+        currentMdbListSettings.apiKey.isNotBlank()
+    val shouldUseEnrichedHeroItems = mdbEnabledForCurrentLayout ||
+        (tmdbEnabledForCurrentLayout &&
+            (tmdbSettings.useArtwork || tmdbSettings.useBasicInfo || tmdbSettings.useDetails || tmdbSettings.useReleaseDates))
 
     if (shouldUseEnrichedHeroItems && baseHeroItems.isNotEmpty()) {
         heroEnrichmentJob?.cancel()

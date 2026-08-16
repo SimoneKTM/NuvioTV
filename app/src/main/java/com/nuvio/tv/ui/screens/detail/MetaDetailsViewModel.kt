@@ -760,6 +760,7 @@ class MetaDetailsViewModel @Inject constructor(
             ?: return false
         val type = ContentType.fromString(itemType)
         val settings = tmdbSettingsDataStore.settings.first()
+        if (!settings.enabled) return false
         val enrichment = tmdbMetadataService.fetchEnrichment(
             tmdbId = tmdbId.toString(),
             contentType = type,
@@ -1347,7 +1348,10 @@ class MetaDetailsViewModel @Inject constructor(
 
     private suspend fun enrichMeta(meta: Meta): Meta {
         val settings = tmdbSettingsDataStore.settings.first()
-        if (!settings.enabled) return meta
+        if (!settings.enabled) {
+            // TVDB enrichment is independent of TMDB and must still run when TMDB is off.
+            return enrichSeriesWithTvdb(meta)
+        }
 
         val tmdbContentType = resolveTmdbContentType(meta)
         val tmdbLookupType = tmdbContentType.toApiString()
@@ -1486,35 +1490,38 @@ class MetaDetailsViewModel @Inject constructor(
             loadCollectionAsync(enrichment.collectionId, enrichment.collectionName, settings)
         }
 
-        if (isSeries) {
-            val tvdbSettings = resolveTvdbEnrichmentSettings()
-            if (tvdbSettings.enabled && tvdbSettings.hasApiKey) {
-                val tvdbResult = withContext(Dispatchers.IO) {
-                    tvdbMetadataService.enrichSeries(
-                        meta = updated,
-                        fallbackItemId = itemId,
-                        settings = tvdbSettings
-                    )
-                }
-                updated = tvdbResult.meta
-                if (tvdbResult.rating != null) {
-                    _uiState.update { it.copy(tvdbRating = tvdbResult.rating) }
-                }
-                if (tvdbResult.trailers.isNotEmpty()) {
-                    val mergedTrailers = mergeTrailers(
-                        existing = updated.trailers,
-                        incoming = tvdbResult.trailers
-                    )
-                    if (mergedTrailers.isNotEmpty()) {
-                        updated = updated.copy(
-                            trailers = mergedTrailers,
-                            trailerYtIds = mergedTrailers.mapNotNull { it.ytId }.distinct()
-                        )
-                    }
-                }
+        return enrichSeriesWithTvdb(updated)
+    }
+
+    private suspend fun enrichSeriesWithTvdb(meta: Meta): Meta {
+        if (meta.apiType !in listOf("series", "tv")) return meta
+
+        val tvdbSettings = resolveTvdbEnrichmentSettings()
+        if (!tvdbSettings.enabled || !tvdbSettings.hasApiKey) return meta
+
+        val tvdbResult = withContext(Dispatchers.IO) {
+            tvdbMetadataService.enrichSeries(
+                meta = meta,
+                fallbackItemId = itemId,
+                settings = tvdbSettings
+            )
+        }
+        var updated = tvdbResult.meta
+        if (tvdbResult.rating != null) {
+            _uiState.update { it.copy(tvdbRating = tvdbResult.rating) }
+        }
+        if (tvdbResult.trailers.isNotEmpty()) {
+            val mergedTrailers = mergeTrailers(
+                existing = updated.trailers,
+                incoming = tvdbResult.trailers
+            )
+            if (mergedTrailers.isNotEmpty()) {
+                updated = updated.copy(
+                    trailers = mergedTrailers,
+                    trailerYtIds = mergedTrailers.mapNotNull { it.ytId }.distinct()
+                )
             }
         }
-
         return updated
     }
 

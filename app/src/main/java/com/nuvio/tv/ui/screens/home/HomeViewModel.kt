@@ -223,6 +223,10 @@ class HomeViewModel @Inject constructor(
     internal val fullyWatchedSeriesIds get() = watchedSeriesStateHolder
     internal var tmdbEnrichFocusJob: Job? = null
     internal var pendingTmdbEnrichItemId: String? = null
+    /** Dedup + job state for fetching MDBList ratings for the focused home hero. */
+    internal val mdbListRatingFetchedIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    internal var mdbListRatingFocusJob: Job? = null
+    internal var pendingMdbListRatingItemId: String? = null
     /** Item that was focused during startup grace period — will be enriched once grace ends. */
     internal var deferredEnrichItem: MetaPreview? = null
     internal var adjacentItemPrefetchJob: Job? = null

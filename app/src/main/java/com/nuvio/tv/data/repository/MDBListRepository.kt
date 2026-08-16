@@ -58,7 +58,30 @@ class MDBListRepository @Inject constructor(
         if (!settings.enabled) return null
         val apiKey = settings.apiKey.trim()
         if (apiKey.isBlank()) return null
+        return getImdbRatingForItemWithApiKey(itemId, itemType, apiKey)
+    }
 
+    /**
+     * Settings-aware variant used by surfaces that keep their own settings
+     * (e.g. the Anime tab uses the anime-scoped MDBList settings instead of
+     * the general ones this repository is bound to).
+     */
+    suspend fun getImdbRatingForItemWithSettings(
+        itemId: String,
+        itemType: String,
+        settings: MDBListSettings
+    ): Double? {
+        if (!settings.enabled) return null
+        val apiKey = settings.apiKey.trim()
+        if (apiKey.isBlank()) return null
+        return getImdbRatingForItemWithApiKey(itemId, itemType, apiKey)
+    }
+
+    private suspend fun getImdbRatingForItemWithApiKey(
+        itemId: String,
+        itemType: String,
+        apiKey: String
+    ): Double? {
         val mediaType = normalizeMediaType(itemType)
         val imdbId = resolveImdbId(
             meta = Meta(

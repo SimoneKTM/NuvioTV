@@ -1317,14 +1317,6 @@ private fun AnimeSettingsContent(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                             contentPadding = PaddingValues(8.dp)
                         ) {
-                            item(key = "anime_integration_connected_services") {
-                                SettingsActionRow(
-                                    title = stringResource(R.string.settings_connected_services_title),
-                                    subtitle = stringResource(R.string.settings_connected_services_subtitle),
-                                    onClick = { onSelectSection(AnimeSettingsSection.ConnectedServices) },
-                                    modifier = Modifier.focusRequester(integrationsFocusRequester)
-                                )
-                            }
                             item(key = "anime_integration_tmdb") {
                                 SettingsActionRow(
                                     title = "TMDB",
