@@ -12,6 +12,11 @@ import com.nuvio.tv.domain.model.MetaReleaseDate
 import com.nuvio.tv.domain.model.MetaReleaseDateCountry
 import com.nuvio.tv.domain.model.MetaTrailer
 
+private fun buildTmdbImageUrl(path: String?, size: String = "w500"): String? {
+    val clean = path?.trim()?.takeIf { it.isNotBlank() } ?: return null
+    return if (clean.startsWith("http")) clean else "https://image.tmdb.org/t/p/$size$clean"
+}
+
 internal fun coerceStringList(value: Any?): List<String> {
     return when (value) {
         null -> emptyList()
@@ -42,7 +47,7 @@ internal fun mapPeople(
         MetaCastMember(
             name = name,
             character = if (forceRole) roleFallback else person.character?.takeIf { it.isNotBlank() } ?: roleFallback,
-            photo = person.photo?.takeIf { it.isNotBlank() },
+            photo = buildTmdbImageUrl(person.photo),
             tmdbId = person.tmdbId
         )
     }
@@ -109,4 +114,3 @@ private fun mapReleaseDateCountry(dto: MetaReleaseDateCountryDto): MetaReleaseDa
             )
         }
     )
-}
