@@ -317,7 +317,11 @@ class MetaRepositoryImpl @Inject constructor(
     }
 
     private fun Addon.supportsMetaType(type: String): Boolean {
-        val target = type.trim()
+        val normalizedType = when (type.lowercase()) {
+            "series", "tv", "show", "anime" -> "tv"
+            else -> type.lowercase()
+        }
+        val target = normalizedType
         if (target.isBlank()) return false
         return resources.any { resource ->
             resource.name == "meta" && resource.supportsType(target)
