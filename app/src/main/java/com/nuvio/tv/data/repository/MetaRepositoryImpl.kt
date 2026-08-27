@@ -3,14 +3,13 @@ package com.nuvio.tv.data.repository
 import android.content.Context
 import android.util.Log
 import com.nuvio.tv.core.network.NetworkResult
+import com.nuvio.tv.core.network.safeApiCall
 import com.nuvio.tv.data.mapper.toDomain
 import com.nuvio.tv.data.remote.api.AddonApi
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.AddonResource
-import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
-import com.nuvio.tv.domain.repository.AnimeAddonRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.R
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -22,7 +21,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
-import okhttp3.CacheControl
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -32,27 +30,10 @@ import javax.inject.Singleton
 class MetaRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val api: AddonApi,
-    private val addonRepository: AddonRepository,
-    private val animeAddonRepository: AnimeAddonRepository
+    private val addonRepository: AddonRepository
 ) : MetaRepository {
     companion object {
         private const val TAG = "MetaRepository"
-        /** Default TTL when addon response has no Cache-Control header (6 hours). */
-        private const val DEFAULT_TTL_MS = 6L * 60 * 60 * 1000
-        /** Minimum TTL for meta responses even when server says no-cache/no-store (5 minutes).
-         *  Prevents excessive re-fetching on every details screen visit for addons
-         *  that don't set meaningful Cache-Control headers. */
-        private const val MIN_META_TTL_MS = 5L * 60 * 1000
-    }
-
-    /** Internal result type for the deferred meta lookup to distinguish
-     *  "fetched meta", "nothing found", and "source addon already provides this data". */
-    private sealed class MetaLookupResult {
-        data class Found(val meta: Meta) : MetaLookupResult()
-        data object NotFound : MetaLookupResult()
-        /** The first viable candidate is the same addon that served the catalog,
-         *  so the item already has its meta — no request needed. */
-        data object SourceSufficient : MetaLookupResult()
     }
 
     private enum class MetaFailureKind {
@@ -66,26 +47,17 @@ class MetaRepositoryImpl @Inject constructor(
         val detail: String
     )
 
-    /** Wrapper for cached meta with an expiration timestamp. */
-    private data class CachedMeta(
-        val meta: Meta,
-        val expiresAtMs: Long
-    ) {
-        fun isExpired(): Boolean = System.currentTimeMillis() >= expiresAtMs
-    }
-
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // In-memory cache: "addonBaseUrl|type:id" -> CachedMeta with TTL.
-    // Respects Cache-Control max-age from addon responses.
-    private val metaCache = ConcurrentHashMap<String, CachedMeta>()
+    // In-memory cache: "type:id" -> Meta
+    private val metaCache = ConcurrentHashMap<String, Meta>()
     // Separate cache for full meta fetched from addons (bypasses catalog-level cache)
-    private val addonMetaCache = ConcurrentHashMap<String, CachedMeta>()
-    private val primaryAddonMetaCache = ConcurrentHashMap<String, CachedMeta>()
+    private val addonMetaCache = ConcurrentHashMap<String, Meta>()
+    private val primaryAddonMetaCache = ConcurrentHashMap<String, Meta>()
 
     // In-flight deduplication: prevents concurrent coroutines from firing duplicate requests
     private val inFlightMeta = ConcurrentHashMap<String, Deferred<Meta?>>()
-    private val inFlightAddonMeta = ConcurrentHashMap<String, Deferred<MetaLookupResult>>()
+    private val inFlightAddonMeta = ConcurrentHashMap<String, Deferred<Meta?>>()
     private val inFlightPrimaryMeta = ConcurrentHashMap<String, Deferred<Meta?>>()
 
     override fun getMeta(
@@ -93,13 +65,10 @@ class MetaRepositoryImpl @Inject constructor(
         type: String,
         id: String
     ): Flow<NetworkResult<Meta>> = flow {
-        val cacheKey = addonMetaCacheKey(addonBaseUrl, type, id)
+        val cacheKey = "$type:$id"
         metaCache[cacheKey]?.let { cached ->
-            if (!cached.isExpired()) {
-                emit(NetworkResult.Success(cached.meta))
-                return@flow
-            }
-            metaCache.remove(cacheKey)
+            emit(NetworkResult.Success(cached))
+            return@flow
         }
 
         emit(NetworkResult.Loading)
@@ -108,21 +77,15 @@ class MetaRepositoryImpl @Inject constructor(
         val deferred = inFlightMeta.getOrPut(cacheKey) {
             repositoryScope.async {
                 try {
-                    val response = api.getMeta(url)
-                    if (response.isSuccessful) {
-                        val metaDto = response.body()?.meta ?: return@async null
-                        val meta = metaDto.toDomain(context.getString(R.string.episodes_episode))
-                        val ttlMs = parseMaxAgeMs(response.headers()["Cache-Control"])
-                        metaCache[cacheKey] = CachedMeta(meta, System.currentTimeMillis() + ttlMs)
-                        meta
-                    } else {
-                        null
+                    when (val result = safeApiCall { api.getMeta(url) }) {
+                        is NetworkResult.Success -> {
+                            val metaDto = result.data.meta ?: return@async null
+                            val meta = metaDto.toDomain(context.getString(R.string.episodes_episode))
+                            metaCache[cacheKey] = meta
+                            meta
+                        }
+                        else -> null
                     }
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Log.w(TAG, "getMeta failed for $url: ${e.message}")
-                    null
                 } finally {
                     inFlightMeta.remove(cacheKey)
                 }
@@ -139,21 +102,17 @@ class MetaRepositoryImpl @Inject constructor(
 
     override fun getMetaFromAllAddons(
         type: String,
-        id: String,
-        sourceAddonBaseUrl: String?
+        id: String
     ): Flow<NetworkResult<Meta>> = flow {
         val cacheKey = "$type:$id"
         addonMetaCache[cacheKey]?.let { cached ->
-            if (!cached.isExpired()) {
-                emit(NetworkResult.Success(cached.meta))
-                return@flow
-            }
-            addonMetaCache.remove(cacheKey)
+            emit(NetworkResult.Success(cached))
+            return@flow
         }
 
         emit(NetworkResult.Loading)
 
-        val addons = resolveAddonGroup(sourceAddonBaseUrl)
+        val addons = addonRepository.getInstalledAddons().first()
 
         val requestedType = type.trim()
         val inferredType = inferCanonicalType(requestedType, id)
@@ -164,47 +123,29 @@ class MetaRepositoryImpl @Inject constructor(
         }
 
         // Priority order:
-        // 1) addons that explicitly support requested type AND support the ID prefix
-        // 2) addons that support inferred canonical type AND support the ID prefix
-        // 3) addons that support the type but have no idPrefixes (accept all IDs)
-        // 4) top addon in installed order that exposes meta resource
+        // 1) addons that explicitly support requested type
+        // 2) addons that support inferred canonical type (for custom catalog types)
+        // 3) top addon in installed order that exposes meta resource
         val prioritizedCandidates = linkedSetOf<Pair<Addon, String>>()
-        // First pass: addons that explicitly match type AND id prefix
         addons.forEach { addon ->
-            if (addon.supportsMetaType(requestedType) && addon.supportsMetaId(id)) {
+            if (addon.supportsMetaType(requestedType)) {
                 prioritizedCandidates.add(addon to requestedType)
             }
         }
         if (!inferredType.equals(requestedType, ignoreCase = true)) {
             addons.forEach { addon ->
-                if (addon.supportsMetaType(inferredType) && addon.supportsMetaId(id)) {
+                if (addon.supportsMetaType(inferredType)) {
                     prioritizedCandidates.add(addon to inferredType)
                 }
             }
         }
-        metaResourceAddons.firstOrNull { it.supportsMetaId(id) }?.let { topMetaAddon ->
+        metaResourceAddons.firstOrNull()?.let { topMetaAddon ->
             val fallbackType = when {
                 topMetaAddon.supportsMetaType(requestedType) -> requestedType
                 topMetaAddon.supportsMetaType(inferredType) -> inferredType
                 else -> inferredType.ifBlank { requestedType }
             }
             prioritizedCandidates.add(topMetaAddon to fallbackType)
-        }
-        // Fallback: if no ID-matching addons found, include addons without idPrefixes
-        if (prioritizedCandidates.isEmpty()) {
-            addons.forEach { addon ->
-                if (addon.supportsMetaType(requestedType) && addon.idPrefixes.isEmpty()) {
-                    prioritizedCandidates.add(addon to requestedType)
-                }
-            }
-            metaResourceAddons.firstOrNull { it.idPrefixes.isEmpty() }?.let { topMetaAddon ->
-                val fallbackType = when {
-                    topMetaAddon.supportsMetaType(requestedType) -> requestedType
-                    topMetaAddon.supportsMetaType(inferredType) -> inferredType
-                    else -> inferredType.ifBlank { requestedType }
-                }
-                prioritizedCandidates.add(topMetaAddon to fallbackType)
-            }
         }
 
         if (prioritizedCandidates.isEmpty()) {
@@ -217,37 +158,24 @@ class MetaRepositoryImpl @Inject constructor(
             for (addon in fallbackAddons) {
                 attemptedAddonNames += addon.displayName
                 val url = buildMetaUrl(addon.baseUrl, requestedType, id)
-                try {
-                    val response = api.getMeta(url)
-                    if (response.isSuccessful) {
-                        val metaDto = response.body()?.meta
+                when (val result = safeApiCall { api.getMeta(url) }) {
+                    is NetworkResult.Success -> {
+                        val metaDto = result.data.meta
                         if (metaDto != null) {
                             val episodeLabel = context.getString(R.string.episodes_episode)
                             val meta = metaDto.toDomain(episodeLabel)
-                            val ttlMs = parseMaxAgeMs(response.headers()["Cache-Control"])
-                            val cached = CachedMeta(meta, System.currentTimeMillis() + ttlMs)
-                            addonMetaCache[cacheKey] = cached
-                            metaCache[addonMetaCacheKey(addon.baseUrl, requestedType, id)] = cached
+                            addonMetaCache[cacheKey] = meta
+                            metaCache[cacheKey] = meta
                             emit(NetworkResult.Success(meta))
                             return@flow
                         } else {
                             attemptedFailures += buildMissingMetaFailure(addon)
                         }
-                    } else {
-                        attemptedFailures += MetaAttemptFailure(
-                            addonName = addon.displayName,
-                            kind = if (response.code() == 404) MetaFailureKind.MISSING else MetaFailureKind.REQUEST_FAILED,
-                            detail = response.message() ?: "HTTP ${response.code()}"
-                        )
                     }
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    attemptedFailures += MetaAttemptFailure(
-                        addonName = addon.displayName,
-                        kind = MetaFailureKind.REQUEST_FAILED,
-                        detail = e.message ?: context.getString(R.string.network_error_unknown)
-                    )
+                    is NetworkResult.Error -> {
+                        attemptedFailures += buildAddonFailure(addon, result)
+                    }
+                    NetworkResult.Loading -> { /* Try next addon */ }
                 }
             }
 
@@ -268,75 +196,48 @@ class MetaRepositoryImpl @Inject constructor(
         val deferred = inFlightAddonMeta.getOrPut(cacheKey) {
             repositoryScope.async {
                 try {
-                    // Normalize source addon URL for comparison so we can detect
-                    // when the candidate is the same addon that served the catalog.
-                    val normalizedSourceUrl = sourceAddonBaseUrl
-                        ?.let { splitAddonBaseUrl(it).let { (p, q) -> "$p$q" } }
-
                     for ((addon, candidateType) in prioritizedCandidates) {
-                        // If this candidate is the same addon that provided the catalog
-                        // data for this item, the item already carries its meta —
-                        // return immediately without making a request and without
-                        // trying further addons.
-                        if (normalizedSourceUrl != null) {
-                            val normalizedCandidateUrl = splitAddonBaseUrl(addon.baseUrl)
-                                .let { (p, q) -> "$p$q" }
-                            if (normalizedCandidateUrl == normalizedSourceUrl) {
-                                Log.d(TAG, "Source addon matched, catalog meta is sufficient addon=${addon.name} type=$candidateType id=$id")
-                                return@async MetaLookupResult.SourceSufficient
-                            }
-                        }
-
                         val url = buildMetaUrl(addon.baseUrl, candidateType, id)
                         Log.d(TAG, "Trying meta addonId=${addon.id} addonName=${addon.name} type=$candidateType id=$id url=$url")
-                        try {
-                            val response = api.getMeta(url)
-                            if (response.isSuccessful) {
-                                val metaDto = response.body()?.meta
+                        when (val result = safeApiCall { api.getMeta(url) }) {
+                            is NetworkResult.Success -> {
+                                val metaDto = result.data.meta
                                 if (metaDto != null) {
                                     val meta = metaDto.toDomain(context.getString(R.string.episodes_episode))
-                                    val ttlMs = parseMaxAgeMs(response.headers()["Cache-Control"])
-                                    val cached = CachedMeta(meta, System.currentTimeMillis() + ttlMs)
-                                    addonMetaCache[cacheKey] = cached
-                                    metaCache[addonMetaCacheKey(addon.baseUrl, candidateType, id)] = cached
-                                    Log.d(TAG, "Meta fetch success addonId=${addon.id} type=$candidateType id=$id ttl=${ttlMs}ms")
-                                    return@async MetaLookupResult.Found(meta)
+                                    addonMetaCache[cacheKey] = meta
+                                    metaCache[cacheKey] = meta
+                                    Log.d(TAG, "Meta fetch success addonId=${addon.id} type=$candidateType id=$id")
+                                    return@async meta
                                 }
                                 Log.d(TAG, "Meta response was null addonId=${addon.id} type=$candidateType id=$id")
                             }
-                        } catch (e: kotlinx.coroutines.CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            Log.d(TAG, "Meta fetch failed addonId=${addon.id} type=$candidateType id=$id: ${e.message}")
-                            /* try next */
+                            is NetworkResult.Error -> {
+                                /* try next */
+                            }
+                            NetworkResult.Loading -> { /* try next */ }
                         }
                     }
-                    MetaLookupResult.NotFound
+                    null
                 } finally {
                     inFlightAddonMeta.remove(cacheKey)
                 }
             }
         }
 
-        when (val lookupResult = deferred.await()) {
-            is MetaLookupResult.Found -> {
-                emit(NetworkResult.Success(lookupResult.meta))
-            }
-            is MetaLookupResult.SourceSufficient -> {
-                emit(NetworkResult.Error("Source addon sufficient", NetworkResult.SOURCE_SUFFICIENT_CODE))
-            }
-            is MetaLookupResult.NotFound -> {
-                emit(
-                    NetworkResult.Error(
-                        buildAggregateFailureMessage(
-                            type = requestedType,
-                            id = id,
-                            attemptedAddonNames = attemptedAddonNames.toList(),
-                            failures = attemptedFailures
-                        )
+        val meta = deferred.await()
+        if (meta != null) {
+            emit(NetworkResult.Success(meta))
+        } else {
+            emit(
+                NetworkResult.Error(
+                    buildAggregateFailureMessage(
+                        type = requestedType,
+                        id = id,
+                        attemptedAddonNames = attemptedAddonNames.toList(),
+                        failures = attemptedFailures
                     )
                 )
-            }
+            )
         }
     }
 
@@ -346,16 +247,13 @@ class MetaRepositoryImpl @Inject constructor(
     ): Flow<NetworkResult<Meta>> = flow {
         val cacheKey = "$type:$id"
         primaryAddonMetaCache[cacheKey]?.let { cached ->
-            if (!cached.isExpired()) {
-                emit(NetworkResult.Success(cached.meta))
-                return@flow
-            }
-            primaryAddonMetaCache.remove(cacheKey)
+            emit(NetworkResult.Success(cached))
+            return@flow
         }
 
         emit(NetworkResult.Loading)
 
-        val addons = addonRepository.getInstalledAddons().first().enabledAddons()
+        val addons = addonRepository.getInstalledAddons().first()
         val requestedType = type.trim()
         val inferredType = inferCanonicalType(requestedType, id)
         val candidate = selectPrimaryMetaCandidate(
@@ -379,23 +277,16 @@ class MetaRepositoryImpl @Inject constructor(
         val deferred = inFlightPrimaryMeta.getOrPut(cacheKey) {
             repositoryScope.async {
                 try {
-                    val response = api.getMeta(url)
-                    if (response.isSuccessful) {
-                        val metaDto = response.body()?.meta ?: return@async null
-                        val meta = metaDto.toDomain(context.getString(R.string.episodes_episode))
-                        val ttlMs = parseMaxAgeMs(response.headers()["Cache-Control"])
-                        val cached = CachedMeta(meta, System.currentTimeMillis() + ttlMs)
-                        primaryAddonMetaCache[cacheKey] = cached
-                        metaCache[addonMetaCacheKey(addon.baseUrl, candidateType, id)] = cached
-                        meta
-                    } else {
-                        null
+                    when (val result = safeApiCall { api.getMeta(url) }) {
+                        is NetworkResult.Success -> {
+                            val metaDto = result.data.meta ?: return@async null
+                            val meta = metaDto.toDomain(context.getString(R.string.episodes_episode))
+                            primaryAddonMetaCache[cacheKey] = meta
+                            metaCache[cacheKey] = meta
+                            meta
+                        }
+                        else -> null
                     }
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    Log.w(TAG, "Primary meta fetch failed for $url: ${e.message}")
-                    null
                 } finally {
                     inFlightPrimaryMeta.remove(cacheKey)
                 }
@@ -415,75 +306,26 @@ class MetaRepositoryImpl @Inject constructor(
         }
     }
 
-    /**
-     * Splits an addon base URL into its path (trailing slashes trimmed) and
-     * query portions. Shared by URL construction and cache keying so the two
-     * always normalize equivalent base URLs identically.
-     */
-    private fun splitAddonBaseUrl(baseUrl: String): Pair<String, String> {
+    private fun buildMetaUrl(baseUrl: String, type: String, id: String): String {
         val cleanBaseUrl = baseUrl.trimEnd('/')
         val queryStart = cleanBaseUrl.indexOf('?')
         val basePath = if (queryStart >= 0) cleanBaseUrl.substring(0, queryStart).trimEnd('/') else cleanBaseUrl
         val baseQuery = if (queryStart >= 0) cleanBaseUrl.substring(queryStart) else ""
-        return basePath to baseQuery
-    }
-
-    private fun addonMetaCacheKey(addonBaseUrl: String, type: String, id: String): String {
-        val (basePath, baseQuery) = splitAddonBaseUrl(addonBaseUrl)
-        return "$basePath$baseQuery|$type:$id"
-    }
-
-    /**
-     * Resolves the addon group for a lookup: when the item originated from an
-     * anime addon, only anime addons are queried; otherwise only Home addons.
-     */
-    private suspend fun resolveAddonGroup(sourceAddonBaseUrl: String?): List<Addon> {
-        val normalizedSource = sourceAddonBaseUrl?.let {
-            val (basePath, baseQuery) = splitAddonBaseUrl(it)
-            (basePath + baseQuery).lowercase()
-        }
-        val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
-        val isAnimeSource = normalizedSource != null && animeAddons.any { addon ->
-            val (basePath, baseQuery) = splitAddonBaseUrl(addon.baseUrl)
-            (basePath + baseQuery).lowercase() == normalizedSource
-        }
-        return if (isAnimeSource) animeAddons else addonRepository.getInstalledAddons().first().enabledAddons()
-    }
-
-    private fun buildMetaUrl(baseUrl: String, type: String, id: String): String {
-        val (basePath, baseQuery) = splitAddonBaseUrl(baseUrl)
         val encodedType = encodePathSegment(type)
         val encodedId = encodePathSegment(id)
         return "$basePath/meta/$encodedType/$encodedId.json$baseQuery"
     }
 
     private fun Addon.supportsMetaType(type: String): Boolean {
-        val target = type.trim()
+        val normalizedType = when (type.lowercase()) {
+            "series", "tv", "show", "anime" -> "tv"
+            else -> type.lowercase()
+        }
+        val target = normalizedType
         if (target.isBlank()) return false
         return resources.any { resource ->
             resource.name == "meta" && resource.supportsType(target)
         }
-    }
-
-    /**
-     * Check if an addon can handle a specific ID based on idPrefixes.
-     * Returns true if:
-     * - The addon has no idPrefixes (accepts all IDs)
-     * - The resource-level idPrefixes match the ID
-     * - The addon-level idPrefixes match the ID
-     */
-    private fun Addon.supportsMetaId(id: String): Boolean {
-        // Check resource-level idPrefixes first
-        val metaResource = resources.firstOrNull { it.name == "meta" }
-        if (metaResource?.idPrefixes != null && metaResource.idPrefixes.isNotEmpty()) {
-            return metaResource.idPrefixes.any { prefix -> id.startsWith(prefix, ignoreCase = true) }
-        }
-        // Fall back to addon-level idPrefixes
-        if (idPrefixes.isNotEmpty()) {
-            return idPrefixes.any { prefix -> id.startsWith(prefix, ignoreCase = true) }
-        }
-        // No idPrefixes declared — addon accepts all IDs
-        return true
     }
 
     private fun AddonResource.supportsType(type: String): Boolean {
@@ -546,6 +388,33 @@ class MetaRepositoryImpl @Inject constructor(
         )
     }
 
+    private fun buildAddonFailure(addon: Addon, error: NetworkResult.Error): MetaAttemptFailure {
+        if (error.code == 404 || error.message.equals("Not Found", ignoreCase = true)) {
+            return buildMissingMetaFailure(addon)
+        }
+        val normalizedReason = when {
+            error.message.contains("Unable to resolve host", ignoreCase = true) ->
+                context.getString(com.nuvio.tv.R.string.meta_error_detail_addon_unreachable)
+            error.message.contains("Failed to connect", ignoreCase = true) ->
+                context.getString(com.nuvio.tv.R.string.meta_error_detail_addon_connection_failed)
+            error.message.contains("timeout", ignoreCase = true) ->
+                context.getString(com.nuvio.tv.R.string.meta_error_detail_addon_timeout)
+            error.message.contains("CLEARTEXT communication", ignoreCase = true) ->
+                context.getString(com.nuvio.tv.R.string.meta_error_detail_addon_cleartext_blocked)
+            error.message.isBlank() ->
+                context.getString(com.nuvio.tv.R.string.meta_error_detail_addon_request_failed)
+            else -> error.message.replaceFirstChar { char ->
+                if (char.isLowerCase()) char.titlecase() else char.toString()
+            }
+        }
+        val httpSuffix = error.code?.let { " (HTTP $it)" } ?: ""
+        return MetaAttemptFailure(
+            addonName = addon.displayName,
+            kind = MetaFailureKind.REQUEST_FAILED,
+            detail = "$normalizedReason$httpSuffix"
+        )
+    }
+
     private fun buildAggregateFailureMessage(
         type: String,
         id: String,
@@ -575,22 +444,6 @@ class MetaRepositoryImpl @Inject constructor(
         }
     }
     
-    /**
-     * Parses the max-age directive from a Cache-Control header value.
-     * Returns the TTL in milliseconds, or [DEFAULT_TTL_MS] if the header is
-     * missing or malformed. Applies [MIN_META_TTL_MS] as a floor so that
-     * addons responding with no-cache/no-store/max-age=0 still get a short
-     * grace period, preventing re-fetches on every details screen visit.
-     */
-    private fun parseMaxAgeMs(cacheControl: String?): Long {
-        if (cacheControl == null) return DEFAULT_TTL_MS
-        val parsed = CacheControl.parse(okhttp3.Headers.headersOf("Cache-Control", cacheControl))
-        if (parsed.noStore || parsed.noCache) return MIN_META_TTL_MS
-        val maxAgeSec = parsed.maxAgeSeconds
-        val ttlMs = if (maxAgeSec >= 0) maxAgeSec * 1000L else DEFAULT_TTL_MS
-        return maxOf(ttlMs, MIN_META_TTL_MS)
-    }
-
     override fun clearCache() {
         metaCache.clear()
         addonMetaCache.clear()
