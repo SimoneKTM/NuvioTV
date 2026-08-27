@@ -70,7 +70,7 @@ class TrailerService(
         // so when the toggle is off we return no trailer at all rather than
         // silently falling through to TMDB's /videos endpoint. See #1647.
         val tmdbSettings = runCatching { tmdbSettingsDataStore.settings.first() }.getOrNull()
-        if (tmdbSettings?.useTrailers != true) {
+        if (tmdbSettings?.enabled != true || tmdbSettings?.useTrailers != true) {
             Log.d(TAG, "Trailers disabled in TMDB enrichment settings; skipping lookup")
             return@withContext null
         }
@@ -140,7 +140,7 @@ class TrailerService(
         // Read settings once and use for both the "Disable Trailers" gate and
         // the trailer language. See #1647 for the gate rationale.
         val tmdbSettings = runCatching { tmdbSettingsDataStore.settings.first() }.getOrNull()
-        if (tmdbSettings?.useTrailers != true) {
+        if (tmdbSettings?.enabled != true || tmdbSettings?.useTrailers != true) {
             return@withContext null
         }
         val mediaType = normalizeTmdbMediaType(type)

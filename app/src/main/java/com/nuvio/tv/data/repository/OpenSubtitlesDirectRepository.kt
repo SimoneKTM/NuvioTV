@@ -1,7 +1,10 @@
 package com.nuvio.tv.data.repository
 
+import android.content.Context
 import android.util.Log
+import com.nuvio.tv.core.tmdb.TmdbService
 import com.nuvio.tv.data.local.OpenSubtitlesDirectDataStore
+import com.nuvio.tv.data.remote.api.ArmApi
 import com.nuvio.tv.data.remote.api.OpenSubtitlesApi
 import com.nuvio.tv.domain.model.OpenSubtitlesManualSubtitle
 import com.nuvio.tv.domain.model.Subtitle
@@ -11,7 +14,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
-import android.content.Context
 
 /**
  * Direct OpenSubtitles API integration (api.opensubtitles.com), mirroring the
@@ -22,7 +24,9 @@ import android.content.Context
 class OpenSubtitlesDirectRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val dataStore: OpenSubtitlesDirectDataStore,
-    private val api: OpenSubtitlesApi
+    private val api: OpenSubtitlesApi,
+    private val armApi: ArmApi,
+    private val tmdbService: TmdbService
 ) {
 
     companion object {
@@ -30,6 +34,7 @@ class OpenSubtitlesDirectRepository @Inject constructor(
         private const val LOGIN_TIMEOUT_MS = 15_000L
         private const val SEARCH_TIMEOUT_MS = 20_000L
         private const val DOWNLOAD_TIMEOUT_MS = 20_000L
+        private val SOURCE_PREFIXES = setOf("mal", "kitsu", "tmdb")
     }
 
     suspend fun isConfigured(): Boolean = withContext(Dispatchers.IO) {
@@ -38,29 +43,60 @@ class OpenSubtitlesDirectRepository @Inject constructor(
     }
 
     /**
-     * Parses the Stremio-style id (e.g. "tt1234567" or "tt1234567:1:2") into
-     * the imdbId and optional season/episode used by the OpenSubtitles API.
+     * Parses the Stremio-style id (e.g. "tt1234567:1:2") into the imdbId and
+     * optional season/episode used by the OpenSubtitles API. Also recognizes
+     * anime id prefixes (mal:/kitsu:/tmdb:) so the source id can be resolved
+     * to an IMDb id via [resolveImdbId].
      */
     data class MediaRef(
         val imdbId: String?,
         val seasonNumber: Int?,
-        val episodeNumber: Int?
+        val episodeNumber: Int?,
+        val source: String? = null,
+        val sourceId: String? = null
     )
 
     fun parseMediaRef(type: String, id: String, videoId: String?): MediaRef {
         val raw = videoId?.takeIf { it.isNotBlank() } ?: id
         val parts = raw.split(":")
         val base = parts.firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
-        if (base == null || !base.startsWith("tt")) return MediaRef(null, null, null)
+            ?: return MediaRef(null, null, null)
 
-        val isSeries = type.equals("tv", ignoreCase = true) ||
-            type.equals("series", ignoreCase = true)
-        if (!isSeries || parts.size < 3) {
-            return MediaRef(base, null, null)
+        if (base.startsWith("tt")) {
+            val season = parts.getOrNull(1)?.toIntOrNull()
+            val episode = parts.getOrNull(2)?.toIntOrNull()
+            return MediaRef(base, season, episode)
         }
-        val season = parts.getOrNull(1)?.toIntOrNull()
-        val episode = parts.getOrNull(2)?.toIntOrNull()
-        return MediaRef(base, season, episode)
+
+        val source = base.lowercase()
+        if (source !in SOURCE_PREFIXES) return MediaRef(null, null, null)
+        val sourceId = parts.getOrNull(1)?.trim()?.takeIf { it.isNotEmpty() }
+            ?: return MediaRef(null, null, null)
+        val season = parts.getOrNull(2)?.toIntOrNull()
+        val episode = parts.getOrNull(3)?.toIntOrNull()
+        return MediaRef(null, season, episode, source, sourceId)
+    }
+
+    private suspend fun resolveImdbId(ref: MediaRef): String? {
+        ref.imdbId?.let { return it }
+        val sourceId = ref.sourceId ?: return null
+        return try {
+            when (ref.source) {
+                "mal" -> armApi.resolveMalToImdb(malId = sourceId)
+                    .takeIf { it.isSuccessful }?.body()?.imdb
+                "kitsu" -> armApi.resolveKitsuToImdb(kitsuId = sourceId)
+                    .takeIf { it.isSuccessful }?.body()?.imdb
+                "tmdb" -> {
+                    val numericId = sourceId.toIntOrNull() ?: return null
+                    val mediaType = if (ref.seasonNumber != null) "tv" else "movie"
+                    tmdbService.tmdbToImdb(numericId, mediaType)
+                }
+                else -> null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "IMDb resolution failed for source=${ref.source}: ${e.message}")
+            null
+        }
     }
 
     suspend fun searchAndPrepareSubtitles(
@@ -73,21 +109,13 @@ class OpenSubtitlesDirectRepository @Inject constructor(
         if (settings.languages.isEmpty()) return emptyList()
 
         val ref = parseMediaRef(type, id, videoId)
-        val imdbId = ref.imdbId ?: return emptyList()
+        val imdbId = resolveImdbId(ref)
+            ?: run {
+                Log.w(TAG, "No IMDb id resolvable for id=$id videoId=$videoId")
+                return emptyList()
+            }
 
         Log.d(TAG, "Searching subtitles: imdb=$imdbId S${ref.seasonNumber ?: "-"}E${ref.episodeNumber ?: "-"} languages=${settings.languages}")
-
-        val loginError = ensureLoggedIn(settings)
-        if (loginError != null) {
-            Log.w(TAG, "Login failed: $loginError")
-            return emptyList()
-        }
-
-        val token = dataStore.settings.first().userToken
-        if (token.isBlank()) {
-            Log.w(TAG, "No user token available")
-            return emptyList()
-        }
 
         val apiType = if (
             type.equals("tv", ignoreCase = true) ||
@@ -118,6 +146,21 @@ class OpenSubtitlesDirectRepository @Inject constructor(
         }
         if (searchBody.data.isEmpty()) {
             Log.d(TAG, "No subtitles found in search")
+            return emptyList()
+        }
+
+        // Login is only required to download; search itself needs just the API key.
+        var token = settings.userToken
+        if (token.isBlank()) {
+            val loginError = ensureLoggedIn(settings)
+            if (loginError != null) {
+                Log.w(TAG, "Login failed: $loginError")
+                return emptyList()
+            }
+            token = dataStore.settings.first().userToken
+        }
+        if (token.isBlank()) {
+            Log.w(TAG, "No user token available")
             return emptyList()
         }
 
@@ -196,7 +239,11 @@ class OpenSubtitlesDirectRepository @Inject constructor(
         if (settings.languages.isEmpty()) return emptyList()
 
         val ref = parseMediaRef(type, id, videoId)
-        val imdbId = ref.imdbId ?: return emptyList()
+        val imdbId = resolveImdbId(ref)
+            ?: run {
+                Log.w(TAG, "Manual search: no IMDb id resolvable for id=$id videoId=$videoId")
+                return emptyList()
+            }
 
         Log.d(TAG, "Manual search: imdb=$imdbId S${ref.seasonNumber ?: "-"}E${ref.episodeNumber ?: "-"} languages=${settings.languages}")
 

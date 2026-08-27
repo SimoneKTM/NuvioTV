@@ -428,6 +428,7 @@ internal fun HomeViewModel.onItemFocusPipeline(item: MetaPreview) {
         deferredEnrichItem = item
         return
     }
+    maybeFetchMdbListRatingForItem(item)
     if (item.id in prefetchedTmdbIds || item.id in prefetchedExternalMetaIds) {
         // Even if TMDB enriched, re-enter when artwork is still missing and external addon can help.
         val artworkStillNeeded = item.id !in prefetchedExternalMetaIds &&
@@ -553,6 +554,25 @@ internal fun HomeViewModel.onItemFocusPipeline(item: MetaPreview) {
                     _failedEnrichmentIds.value = _failedEnrichmentIds.value + item.id
                 }
             }
+        }
+    }
+}
+
+internal fun HomeViewModel.maybeFetchMdbListRatingForItem(item: MetaPreview) {
+    val mdbEnabled = currentMdbListSettings.enabled && currentMdbListSettings.apiKey.isNotBlank()
+    if (!mdbEnabled) return
+    if (item.id in mdbListRatingFetchedIds) return
+
+    pendingMdbListRatingItemId = item.id
+    mdbListRatingFocusJob?.cancel()
+    mdbListRatingFocusJob = viewModelScope.launch(Dispatchers.IO) {
+        delay(HomeViewModel.EXTERNAL_META_PREFETCH_FOCUS_DEBOUNCE_MS)
+        if (pendingMdbListRatingItemId != item.id) return@launch
+        if (item.id in mdbListRatingFetchedIds) return@launch
+        val rating = runCatching { mdbListRepository.getImdbRatingForItem(item.id, item.apiType) }.getOrNull()
+        if (rating != null) {
+            updateCatalogItemImdbRating(item.id, rating.toFloat())
+            mdbListRatingFetchedIds.add(item.id)
         }
     }
 }
@@ -715,6 +735,12 @@ internal fun HomeViewModel.updateCatalogItemImdbRating(itemId: String, rating: F
         }
         if (changed) state.copy(catalogRows = updatedRows) else state
     }
+    // The modern layout reads enrichment via enrichedPreviews / lastEnrichedPreview,
+    // so keep them in sync when the MDBList rating arrives.
+    findCatalogItemById(itemId)?.let { enriched ->
+        _lastEnrichedPreview.value = enriched
+        _enrichedPreviews.update { it + (itemId to enriched) }
+    }
 }
 
 private fun HomeViewModel.updateCatalogItemWithMeta(itemId: String, meta: Meta) {
@@ -828,7 +854,7 @@ internal suspend fun HomeViewModel.enrichHeroItemsPipeline(
         items.map { item ->
             async(Dispatchers.IO) {
                 try {
-                    val tmdbDeferred = async {
+                    val tmdbDeferred = if (settings.enabled) async {
                         val tmdbId = tmdbService.ensureTmdbId(item.id, item.apiType) ?: return@async null
                         tmdbId.toIntOrNull()?.let { numericId ->
                             runCatching { tmdbService.tmdbToImdb(numericId, item.apiType) }
@@ -838,47 +864,53 @@ internal suspend fun HomeViewModel.enrichHeroItemsPipeline(
                             contentType = item.type,
                             language = settings.language
                         )
-                    }
+                    } else null
                     val mdbDeferred = if (mdbEnabled) async {
                         runCatching { mdbListRepository.getImdbRatingForItem(item.id, item.apiType) }.getOrNull()
                     } else null
 
-                    val enrichment = tmdbDeferred.await() ?: return@async item
+                    val enrichment = tmdbDeferred?.await()
                     val mdbImdbRating = mdbDeferred?.await()
 
                     var enriched = item
 
-                    if (settings.useArtwork) {
-                        enriched = enriched.copy(
-                            background = enrichment.backdrop ?: enriched.background,
-                            logo = enrichment.logo ?: enriched.logo,
-                            poster = enrichment.poster ?: enriched.poster
-                        )
+                    if (enrichment != null) {
+                        if (settings.useArtwork) {
+                            enriched = enriched.copy(
+                                background = enrichment.backdrop ?: enriched.background,
+                                logo = enrichment.logo ?: enriched.logo,
+                                poster = enrichment.poster ?: enriched.poster
+                            )
+                        }
+
+                        if (settings.useBasicInfo) {
+                            enriched = enriched.copy(
+                                name = enrichment.localizedTitle ?: enriched.name,
+                                description = enrichment.description ?: enriched.description,
+                                genres = if (enrichment.genres.isNotEmpty()) enrichment.genres else enriched.genres
+                            )
+                        }
+
+                        if (settings.useDetails) {
+                            enriched = enriched.copy(
+                                runtime = enrichment.runtimeMinutes?.toString() ?: enriched.runtime,
+                                status = enrichment.status ?: enriched.status,
+                                ageRating = enrichment.ageRating ?: enriched.ageRating,
+                                country = enrichment.countries?.joinToString(", ") ?: enriched.country,
+                                language = enrichment.language ?: enriched.language
+                            )
+                        }
+
+                        if (settings.useReleaseDates) {
+                            enriched = enriched.copy(
+                                releaseInfo = enrichment.releaseInfo ?: enriched.releaseInfo
+                            )
+                        }
                     }
 
-                    if (settings.useBasicInfo) {
-                        enriched = enriched.copy(
-                            name = enrichment.localizedTitle ?: enriched.name,
-                            description = enrichment.description ?: enriched.description,
-                            genres = if (enrichment.genres.isNotEmpty()) enrichment.genres else enriched.genres,
-                            imdbRating = mdbImdbRating?.toFloat() ?: enriched.imdbRating
-                        )
-                    }
-
-                    if (settings.useDetails) {
-                        enriched = enriched.copy(
-                            runtime = enrichment.runtimeMinutes?.toString() ?: enriched.runtime,
-                            status = enrichment.status ?: enriched.status,
-                            ageRating = enrichment.ageRating ?: enriched.ageRating,
-                            country = enrichment.countries?.joinToString(", ") ?: enriched.country,
-                            language = enrichment.language ?: enriched.language
-                        )
-                    }
-
-                    if (settings.useReleaseDates) {
-                        enriched = enriched.copy(
-                            releaseInfo = enrichment.releaseInfo ?: enriched.releaseInfo
-                        )
+                    // MDBList rating applies independently of TMDB enrichment.
+                    if (mdbImdbRating != null) {
+                        enriched = enriched.copy(imdbRating = mdbImdbRating.toFloat())
                     }
 
                     enriched
@@ -922,6 +954,8 @@ internal fun HomeViewModel.heroEnrichmentSignaturePipeline(
         append(settings.useBasicInfo)
         append(':')
         append(settings.useDetails)
+        append(':')
+        append(currentMdbListSettings.enabled && currentMdbListSettings.apiKey.isNotBlank())
         append("::")
         append(itemSignature)
     }

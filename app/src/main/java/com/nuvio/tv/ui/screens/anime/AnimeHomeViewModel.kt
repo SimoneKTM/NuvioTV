@@ -5,18 +5,25 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.core.network.NetworkResult
 import com.nuvio.tv.core.sync.homeCatalogKey
+import com.nuvio.tv.core.tmdb.TmdbMetadataService
+import com.nuvio.tv.core.tmdb.TmdbService
 import com.nuvio.tv.core.util.filterReleasedItems
 import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
+import com.nuvio.tv.data.local.MDBListSettingsDataStore
+import com.nuvio.tv.data.local.TmdbSettingsDataStore
+import com.nuvio.tv.data.repository.MDBListRepository
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
 import com.nuvio.tv.domain.model.HomeLayout
+import com.nuvio.tv.domain.model.MDBListSettings
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
 import com.nuvio.tv.domain.model.PosterShape
+import com.nuvio.tv.domain.model.TmdbSettings
 import com.nuvio.tv.domain.model.mergeCatalogPage
 import com.nuvio.tv.domain.model.nextCatalogSkip
 import com.nuvio.tv.domain.model.skipStep
@@ -54,7 +61,12 @@ class AnimeHomeViewModel @Inject constructor(
     internal val watchProgressRepository: WatchProgressRepository,
     internal val metaRepository: MetaRepository,
     @Named("anime_layout") internal val layoutPreferenceDataStore: LayoutPreferenceDataStore,
-    @Named("anime_cw_cache") internal val animeCwEnrichmentCache: ContinueWatchingEnrichmentCache
+    @Named("anime_cw_cache") internal val animeCwEnrichmentCache: ContinueWatchingEnrichmentCache,
+    @Named("anime_tmdb") internal val animeTmdbSettingsDataStore: TmdbSettingsDataStore,
+    @Named("anime_mdblist") internal val animeMdbListSettingsDataStore: MDBListSettingsDataStore,
+    internal val tmdbService: TmdbService,
+    internal val tmdbMetadataService: TmdbMetadataService,
+    internal val mdbListRepository: MDBListRepository
 ) : ViewModel() {
 
     companion object {
@@ -76,6 +88,10 @@ class AnimeHomeViewModel @Inject constructor(
     internal val animeCwEnrichedInProgressOverlay =
         ConcurrentHashMap<String, ContinueWatchingItem.InProgress>()
     internal var animeCwPipelineJob: Job? = null
+    internal var currentAnimeTmdbSettings: TmdbSettings = TmdbSettings()
+    internal var currentAnimeMdbListSettings: MDBListSettings = MDBListSettings()
+    internal var animeHeroEnrichmentJob: Job? = null
+    internal var lastAnimeHeroEnrichmentSignature: String? = null
     val uiState: StateFlow<AnimeHomeUiState> = _uiState.asStateFlow()
 
     private val _fullCatalogRows = MutableStateFlow<List<CatalogRow>>(emptyList())
@@ -114,6 +130,53 @@ class AnimeHomeViewModel @Inject constructor(
         observeLayoutPreferences()
         observeAnimeAddons()
         observeAnimeContinueWatching()
+        observeAnimeEnrichmentSettings()
+    }
+
+    private fun observeAnimeEnrichmentSettings() {
+        viewModelScope.launch {
+            combine(
+                animeTmdbSettingsDataStore.settings,
+                animeMdbListSettingsDataStore.settings
+            ) { tmdb, mdb ->
+                tmdb to mdb
+            }
+                .distinctUntilChanged()
+                .collectLatest { (tmdb, mdb) ->
+                    currentAnimeTmdbSettings = tmdb
+                    currentAnimeMdbListSettings = mdb
+                    // Settings changed — allow hero items to re-enrich with the new selection.
+                    lastAnimeHeroEnrichmentSignature = null
+                    enrichAnimeHeroItemsIfNeeded(_uiState.value.heroItems)
+                }
+        }
+    }
+
+    private fun enrichAnimeHeroItemsIfNeeded(heroItems: List<MetaPreview>) {
+        val tmdbEnabled = currentAnimeTmdbSettings.enabled
+        val mdbEnabled = currentAnimeMdbListSettings.enabled &&
+            currentAnimeMdbListSettings.apiKey.isNotBlank()
+        if (heroItems.isEmpty() || (!tmdbEnabled && !mdbEnabled)) {
+            lastAnimeHeroEnrichmentSignature = null
+            return
+        }
+        val signature = animeHeroEnrichmentSignature(heroItems)
+        if (lastAnimeHeroEnrichmentSignature == signature) return
+        animeHeroEnrichmentJob?.cancel()
+        animeHeroEnrichmentJob = viewModelScope.launch {
+            val enrichedItems = enrichAnimeHeroItemsBatch(heroItems)
+            lastAnimeHeroEnrichmentSignature = signature
+            _uiState.update { state ->
+                if (state.heroItems == enrichedItems) {
+                    state
+                } else {
+                    state.copy(
+                        heroItems = enrichedItems,
+                        heroItem = enrichedItems.firstOrNull() ?: state.heroItem
+                    )
+                }
+            }
+        }
     }
 
     private fun observeLayoutPreferences() {
@@ -483,6 +546,7 @@ class AnimeHomeViewModel @Inject constructor(
         val filtered = released.filter { it.items.isNotEmpty() }
         val heroRow = computeHeroRow(filtered)
         val heroItems = heroRow?.items.orEmpty()
+        enrichAnimeHeroItemsIfNeeded(heroItems)
         _uiState.update { state ->
             val updated = state.copy(
                 rows = filtered,
