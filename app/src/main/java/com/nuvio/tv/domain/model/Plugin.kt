@@ -85,11 +85,15 @@ data class ScraperInfo(
     val type: RepositoryType = RepositoryType.NUVIO_JS
 ) {
     fun supportsType(type: String): Boolean {
-        val targetTypes = when (type.lowercase()) {
-            "series" -> listOf("series", "tv", "anime")
-            "anime" -> listOf("anime", "tv", "series")
-            "other" -> listOf("other", "tv")
-            else -> listOf(type.lowercase())
+        val t = type.lowercase()
+        val targetTypes = when (t) {
+            "movie", "film" -> listOf("movie", "film", "animemovie", "documentary", "torrent")
+            "series", "tv", "show", "tvseries" ->
+                listOf("series", "tv", "show", "tvseries", "anime", "ova", "cartoon", "asiandrama", "drama")
+            "anime" ->
+                listOf("anime", "ova", "cartoon", "asiandrama", "tvseries", "series", "tv", "show")
+            "other" -> listOf("other", "tv", "tvseries", "series")
+            else -> listOf(t)
         }
         return supportedTypes.map { it.lowercase() }.any { it in targetTypes }
     }
