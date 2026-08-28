@@ -465,7 +465,7 @@ class PluginRuntime @Inject constructor() {
                     var module = { exports: {} };
                     var exports = module.exports;
                     (function() {
-                        $code
+                        ${injectTmdbKey(code)}
                     })();
                 """.trimIndent()
                 evaluate<Any?>(wrappedCode)
@@ -1326,6 +1326,23 @@ class PluginRuntime @Inject constructor() {
                 };
             }
         """.trimIndent()
+    }
+
+    /**
+     * Providers (e.g. yoruix/nuvio-providers) often hardcode their own TMDB API
+     * key, which can be rate-limited or blocked. Prefer the app's own
+     * [BuildConfig.TMDB_API_KEY] (exposed as `globalThis.TMDB_API_KEY` in the
+     * polyfill) when present, falling back to the provider's hardcoded value.
+     * This is a no-op for providers that don't declare a TMDB_API_KEY.
+     */
+    private fun injectTmdbKey(code: String): String {
+        return code.replace(
+            Regex("""((?:var|let|const)\s+TMDB_API_KEY\s*=\s*)(["'][^"']*["'])""")
+        ) { match ->
+            val declaration = match.groupValues[1]
+            val original = match.groupValues[2]
+            "${declaration}globalThis.TMDB_API_KEY || $original"
+        }
     }
 
     private fun parseJsonResults(json: String): List<LocalScraperResult> {

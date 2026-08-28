@@ -51,6 +51,7 @@ jobs:
           printf 'NUVIO_SUPABASE_URL=%s\n' "${{ secrets.NUVIO_SUPABASE_URL }}" >> local.properties
           printf 'NUVIO_SUPABASE_ANON_KEY=%s\n' "${{ secrets.NUVIO_SUPABASE_ANON_KEY }}" >> local.properties
           printf 'NUVIO_SUPABASE_FALLBACK_URL=%s\n' "${{ secrets.NUVIO_SUPABASE_FALLBACK_URL }}" >> local.properties
+          printf 'TMDB_API_KEY=%s\n' "${{ secrets.TMDB_API_KEY }}" >> local.properties
 
       - name: Build signed fullRelease APK
         env:
