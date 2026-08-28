@@ -56,11 +56,12 @@ class StreamRepositoryImpl @Inject constructor(
         val detail: String
     )
 
-    override fun getStreamsFromAllAddons(
+override fun getStreamsFromAllAddons(
         type: String,
         videoId: String,
-        season: Int? = null,
-        episode: Int? = null
+        season: Int?,
+        episode: Int?,
+        sourceAddonBaseUrl: String?
     ): Flow<NetworkResult<List<AddonStreams>>> = flow {
         emit(NetworkResult.Loading)
 
@@ -384,6 +385,7 @@ class StreamRepositoryImpl @Inject constructor(
         type: String,
         videoId: String
     ): NetworkResult<List<Stream>> {
+        val ctx = context
         val cleanBaseUrl = baseUrl.trimEnd('/')
         val queryStart = cleanBaseUrl.indexOf('?')
         val basePath = if (queryStart >= 0) cleanBaseUrl.substring(0, queryStart).trimEnd('/') else cleanBaseUrl
@@ -397,7 +399,7 @@ class StreamRepositoryImpl @Inject constructor(
         val addonResult = addonRepository.fetchAddon(baseUrl)
         val addonName = when (addonResult) {
             is NetworkResult.Success -> addonResult.data.displayName
-            else -> context.getString(com.nuvio.tv.R.string.stream_addon_unknown)
+            else -> ctx.getString(com.nuvio.tv.R.string.stream_addon_unknown)
         }
         val addonLogo = when (addonResult) {
             is NetworkResult.Success -> addonResult.data.logo

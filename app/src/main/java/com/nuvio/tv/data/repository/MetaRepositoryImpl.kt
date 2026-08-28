@@ -75,12 +75,13 @@ class MetaRepositoryImpl @Inject constructor(
 
         val url = buildMetaUrl(addonBaseUrl, type, id)
         val deferred = inFlightMeta.getOrPut(cacheKey) {
+            val ctx = context
             repositoryScope.async {
                 try {
                     when (val result = safeApiCall { api.getMeta(url) }) {
                         is NetworkResult.Success -> {
                             val metaDto = result.data.meta ?: return@async null
-                            val meta = metaDto.toDomain(context.getString(R.string.episodes_episode))
+                            val meta = metaDto.toDomain(ctx.getString(R.string.episodes_episode))
                             metaCache[cacheKey] = meta
                             meta
                         }
@@ -102,7 +103,8 @@ class MetaRepositoryImpl @Inject constructor(
 
     override fun getMetaFromAllAddons(
         type: String,
-        id: String
+        id: String,
+        sourceAddonBaseUrl: String?
     ): Flow<NetworkResult<Meta>> = flow {
         val cacheKey = "$type:$id"
         addonMetaCache[cacheKey]?.let { cached ->
@@ -194,6 +196,7 @@ class MetaRepositoryImpl @Inject constructor(
         }
 
         val deferred = inFlightAddonMeta.getOrPut(cacheKey) {
+            val ctx = context
             repositoryScope.async {
                 try {
                     for ((addon, candidateType) in prioritizedCandidates) {
@@ -203,7 +206,7 @@ class MetaRepositoryImpl @Inject constructor(
                             is NetworkResult.Success -> {
                                 val metaDto = result.data.meta
                                 if (metaDto != null) {
-                                    val meta = metaDto.toDomain(context.getString(R.string.episodes_episode))
+                                    val meta = metaDto.toDomain(ctx.getString(R.string.episodes_episode))
                                     addonMetaCache[cacheKey] = meta
                                     metaCache[cacheKey] = meta
                                     Log.d(TAG, "Meta fetch success addonId=${addon.id} type=$candidateType id=$id")
@@ -275,12 +278,13 @@ class MetaRepositoryImpl @Inject constructor(
         )
 
         val deferred = inFlightPrimaryMeta.getOrPut(cacheKey) {
+            val ctx = context
             repositoryScope.async {
                 try {
                     when (val result = safeApiCall { api.getMeta(url) }) {
                         is NetworkResult.Success -> {
                             val metaDto = result.data.meta ?: return@async null
-                            val meta = metaDto.toDomain(context.getString(R.string.episodes_episode))
+                            val meta = metaDto.toDomain(ctx.getString(R.string.episodes_episode))
                             primaryAddonMetaCache[cacheKey] = meta
                             metaCache[cacheKey] = meta
                             meta
