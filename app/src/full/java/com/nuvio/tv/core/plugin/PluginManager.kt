@@ -324,11 +324,21 @@ class PluginManager @Inject constructor(
 
             // If the URL points to a specific .json file (not manifest.json),
             // try external format first to avoid a wasted 404 on the NuvioTV path.
-            if (isExplicitJsonFile) {
-                Log.d(TAG, "URL ends in .json — trying external format first: $sanitizedUrl")
+            // Also try external format first for manifest.json URLs that look like GitHub raw URLs
+            // since they often contain external repo format.
+            val looksLikeExternalRepo = sanitizedUrl.startsWith("https://raw.githubusercontent.com/") ||
+                    sanitizedUrl.startsWith("https://github.com/") && sanitizedUrl.contains(".json")
+
+            if (isExplicitJsonFile || looksLikeExternalRepo) {
+                Log.d(TAG, "URL appears to be external repo format — trying external format first: $sanitizedUrl")
                 val externalResult = externalRepoParser.tryParse(sanitizedUrl)
                 if (externalResult != null) {
                     return@withContext addExternalRepository(sanitizedUrl, externalResult)
+                }
+                // If external parsing failed but it looks like an external repo, don't fall back to NuvioTV
+                if (looksLikeExternalRepo) {
+                    Log.w(TAG, "External repo parsing failed for GitHub raw URL, not trying NuvioTV format: $sanitizedUrl")
+                    return@withContext Result.failure(Exception("Failed to parse external repository format"))
                 }
             }
 
@@ -531,6 +541,11 @@ class PluginManager @Inject constructor(
         if (existingRepo != null) {
             Log.d(TAG, "External repository already exists: ${existingRepo.name} (${existingRepo.url})")
             return Result.success(existingRepo)
+        }
+
+        Log.d(TAG, "Adding external repository: ${parseResult.name} (${parseResult.plugins.size} plugins)")
+        parseResult.plugins.forEach { plugin ->
+            Log.d(TAG, "  Plugin: ${plugin.name} (internalName: ${plugin.internalName}, tvTypes: ${plugin.tvTypes}, status: ${plugin.status})")
         }
 
         val repo = PluginRepository(
@@ -755,17 +770,28 @@ class PluginManager @Inject constructor(
         episode: Int? = null
     ): List<LocalScraperResult> = coroutineScope {
         if (!dataStore.pluginsEnabled.first()) {
+            Log.w(TAG, "Plugins are disabled, skipping scraper execution")
             return@coroutineScope emptyList()
+        }
+        
+        val allScrapers = dataStore.scrapers.first()
+        Log.d(TAG, "Total scrapers available: ${allScrapers.size}, enabled: ${allScrapers.count { it.enabled && it.manifestEnabled }}")
+        allScrapers.forEach { s ->
+            Log.d(TAG, "  Scraper: ${s.name} (id: ${s.id}, type: ${s.type}, enabled: ${s.enabled}, manifestEnabled: ${s.manifestEnabled}, supportedTypes: ${s.supportedTypes})")
         }
         
         val enabledScraperList = enabledScrapers.first()
             .filter { it.supportsType(mediaType) }
         
         if (enabledScraperList.isEmpty()) {
+            Log.w(TAG, "No enabled scrapers support mediaType: $mediaType")
             return@coroutineScope emptyList()
         }
         
         Log.d(TAG, "Executing ${enabledScraperList.size} scrapers for $mediaType:$tmdbId")
+        enabledScraperList.forEach { s ->
+            Log.d(TAG, "  Will execute: ${s.name} (id: ${s.id}, type: ${s.type})")
+        }
 
         // Preload all extractors from EXTERNAL_DEX repos before any scraper runs
         val dexScraperIds = enabledScraperList
@@ -903,7 +929,7 @@ class PluginManager @Inject constructor(
         }
     }
 
-    private suspend fun executeJsScraper(
+private suspend fun executeJsScraper(
         scraper: ScraperInfo,
         tmdbId: String,
         mediaType: String,
@@ -922,7 +948,7 @@ class PluginManager @Inject constructor(
                 val sha = sha256Hex(code)
                 val bytes = code.toByteArray(Charsets.UTF_8).size
                 val hasHrefliLogs = code.contains("[UHDMovies][Hrefli]", ignoreCase = false) ||
-                    code.contains("[Hrefli]", ignoreCase = false)
+                        code.contains("[Hrefli]", ignoreCase = false)
                 Log.d(
                     TAG,
                     "Scraper code loaded: ${scraper.name}(${scraper.id}) bytes=$bytes sha256=${sha.take(12)} hrefliLogs=$hasHrefliLogs"
@@ -933,7 +959,7 @@ class PluginManager @Inject constructor(
 
             val settings = dataStore.getScraperSettings(scraper.id)
             
-            Log.d(TAG, "Executing scraper: ${scraper.name}")
+            Log.d(TAG, "Executing JS scraper: ${scraper.name} (id: ${scraper.id}, tmdbId: $tmdbId, mediaType: $mediaType, season: $season, episode: $episode)")
             val results = withTimeoutOrNull(SCRAPER_TIMEOUT_MS) {
                 // Run plugin JS on the dedicated low-priority pool so a buggy
                 // scraper can't burn cores at the expense of ExoPlayer / UI.
@@ -951,15 +977,20 @@ class PluginManager @Inject constructor(
             }
 
             if (results == null) {
-                Log.w(TAG, "Scraper ${scraper.name} timed out after ${SCRAPER_TIMEOUT_MS}ms")
+                Log.w(TAG, "JS scraper ${scraper.name} timed out after ${SCRAPER_TIMEOUT_MS}ms")
                 return emptyList()
             }
 
-            Log.d(TAG, "Scraper ${scraper.name} returned ${results.size} results")
+            Log.d(TAG, "JS scraper ${scraper.name} returned ${results.size} results")
+            if (results.isNotEmpty()) {
+                results.forEach { r ->
+                    Log.d(TAG, "  Result: title=${r.title}, url=${r.url}, quality=${r.quality}, provider=${r.provider}")
+                }
+            }
             results.map { it.copy(provider = scraper.name) }
 
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to execute scraper ${scraper.name}: ${e.message}", e)
+            Log.e(TAG, "Failed to execute JS scraper ${scraper.name}: ${e.message}", e)
             emptyList()
         }
     }
@@ -972,7 +1003,7 @@ class PluginManager @Inject constructor(
         episode: Int?
     ): List<LocalScraperResult> {
         return try {
-            Log.d(TAG, "Executing DEX scraper: ${scraper.name}")
+            Log.d(TAG, "Executing DEX scraper: ${scraper.name} (id: ${scraper.id}, tmdbId: $tmdbId, mediaType: $mediaType, season: $season, episode: $episode)")
             val results = withTimeoutOrNull(SCRAPER_TIMEOUT_MS) {
                 // DEX (.cs3) scrapers run arbitrary Kotlin from external repos.
                 // Wrap on the low-priority pool for the same reason as the JS
@@ -986,6 +1017,11 @@ class PluginManager @Inject constructor(
                 return emptyList()
             }
             Log.d(TAG, "DEX scraper ${scraper.name} returned ${results.size} results")
+            if (results.isNotEmpty()) {
+                results.forEach { r ->
+                    Log.d(TAG, "  Result: title=${r.title}, url=${r.url}, quality=${r.quality}, provider=${r.provider}")
+                }
+            }
             results.map { it.copy(provider = scraper.name) }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to execute DEX scraper ${scraper.name}: ${e.message}", e)
@@ -1188,7 +1224,7 @@ class PluginManager @Inject constructor(
 
                         val file = externalExtensionLoader.downloadExtension(scraperId, plugin.url)
                         if (file == null) {
-                            Log.e(TAG, "Failed to download extension: ${plugin.name}")
+                            Log.e(TAG, "Failed to download extension: ${plugin.name} (url: ${plugin.url})")
                             return@withPermit
                         }
 
@@ -1216,7 +1252,7 @@ class PluginManager @Inject constructor(
                         )
 
                         newScrapers.add(scraper)
-                        Log.d(TAG, "Downloaded DEX extension: ${plugin.name} (${file.length()} bytes)")
+                        Log.d(TAG, "Downloaded DEX extension: ${plugin.name} (id: $scraperId, types: $supportedTypes, size: ${file.length()} bytes)")
                     } catch (e: Exception) {
                         Log.e(TAG, "Error downloading extension ${plugin.name}: ${e.message}", e)
                     }
@@ -1233,6 +1269,9 @@ class PluginManager @Inject constructor(
         dataStore.saveScrapers(existingScrapers)
 
         Log.d(TAG, "Downloaded ${newScrapers.size}/${plugins.size} extensions for repo $repoId")
+        if (newScrapers.isEmpty()) {
+            Log.w(TAG, "No extensions were successfully downloaded for repo $repoId. Check if the .cs3 URLs are accessible.")
+        }
     }
 
     companion object {
