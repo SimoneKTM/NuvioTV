@@ -65,6 +65,7 @@ class MetaRepositoryImpl @Inject constructor(
         type: String,
         id: String
     ): Flow<NetworkResult<Meta>> = flow {
+        val ctx = context
         val cacheKey = "$type:$id"
         metaCache[cacheKey]?.let { cached ->
             emit(NetworkResult.Success(cached))
@@ -75,7 +76,6 @@ class MetaRepositoryImpl @Inject constructor(
 
         val url = buildMetaUrl(addonBaseUrl, type, id)
         val deferred = inFlightMeta.getOrPut(cacheKey) {
-            val ctx = context
             repositoryScope.async {
                 try {
                     when (val result = safeApiCall { api.getMeta(url) }) {
@@ -106,6 +106,7 @@ class MetaRepositoryImpl @Inject constructor(
         id: String,
         sourceAddonBaseUrl: String?
     ): Flow<NetworkResult<Meta>> = flow {
+        val ctx = context
         val cacheKey = "$type:$id"
         addonMetaCache[cacheKey]?.let { cached ->
             emit(NetworkResult.Success(cached))
@@ -196,7 +197,6 @@ class MetaRepositoryImpl @Inject constructor(
         }
 
         val deferred = inFlightAddonMeta.getOrPut(cacheKey) {
-            val ctx = context
             repositoryScope.async {
                 try {
                     for ((addon, candidateType) in prioritizedCandidates) {
@@ -248,6 +248,7 @@ class MetaRepositoryImpl @Inject constructor(
         type: String,
         id: String
     ): Flow<NetworkResult<Meta>> = flow {
+        val ctx = context
         val cacheKey = "$type:$id"
         primaryAddonMetaCache[cacheKey]?.let { cached ->
             emit(NetworkResult.Success(cached))
@@ -278,7 +279,6 @@ class MetaRepositoryImpl @Inject constructor(
         )
 
         val deferred = inFlightPrimaryMeta.getOrPut(cacheKey) {
-            val ctx = context
             repositoryScope.async {
                 try {
                     when (val result = safeApiCall { api.getMeta(url) }) {
