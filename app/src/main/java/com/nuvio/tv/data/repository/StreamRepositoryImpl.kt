@@ -59,8 +59,9 @@ class StreamRepositoryImpl @Inject constructor(
     override fun getStreamsFromAllAddons(
         type: String,
         videoId: String,
-        season: Int?,
-        episode: Int?
+        season: Int? = null,
+        episode: Int? = null,
+        sourceAddonBaseUrl: String? = null
     ): Flow<NetworkResult<List<AddonStreams>>> = flow {
         emit(NetworkResult.Loading)
 

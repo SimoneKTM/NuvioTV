@@ -102,7 +102,8 @@ class MetaRepositoryImpl @Inject constructor(
 
     override fun getMetaFromAllAddons(
         type: String,
-        id: String
+        id: String,
+        sourceAddonBaseUrl: String? = null
     ): Flow<NetworkResult<Meta>> = flow {
         val cacheKey = "$type:$id"
         addonMetaCache[cacheKey]?.let { cached ->
