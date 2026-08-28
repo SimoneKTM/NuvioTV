@@ -2273,7 +2273,6 @@
     <string name="trakt_library_error_add_to_list_failed">No se pudo añadir a la lista</string>
     <string name="trakt_library_error_add_watchlist_failed">No se pudo añadir a la lista de deseos</string>
     <string name="trakt_library_error_auth_expired">La autenticación de Trakt ha caducado</string>
-    <string name="tmdb_entity_rail_top_rated">Mejor valorados</string>
     <string name="tmdb_error_collection_not_found">No se encontró la colección de TMDB</string>
     <string name="tmdb_error_company_not_found">No se encontró la compañía de TMDB</string>
     <string name="tmdb_error_discover_no_data">TMDB Discover no devolvió datos</string>
