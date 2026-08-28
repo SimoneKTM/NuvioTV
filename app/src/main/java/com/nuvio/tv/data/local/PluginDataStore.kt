@@ -6,17 +6,17 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.domain.model.PluginRepository
-import com.nuvio.tv.domain.model.ScraperInfo
+import com.nuvio.tv.domain.model.RepositoryType
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.combine
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -85,6 +85,21 @@ class PluginDataStore @Inject constructor(
                     emptyList()
                 }
             } ?: emptyList()
+        }.map { repos ->
+            if (repos.isEmpty()) {
+                listOf(
+                    PluginRepository(
+                        id = "cloudstream-official",
+                        name = "CloudStream Official",
+                        url = "https://raw.githubusercontent.com/cloudstream/cloudstream-plugins/main/manifest.json",
+                        description = "Official CloudStream plugins repository",
+                        enabled = true,
+                        type = RepositoryType.NUVIO_JS
+                    )
+                )
+            } else {
+                repos
+            }
         }
     }
 
