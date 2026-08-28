@@ -62,7 +62,8 @@ jobs:
 
       - name: Verify APK signature
         run: |
-          apksigner verify --print-certs app/build/outputs/apk/full/release/*.apk
+          APKSIGNER=$(ls "${ANDROID_HOME:-/usr/local/lib/android/sdk}"/build-tools/*/apksigner | sort | tail -1)
+          "$APKSIGNER" verify --print-certs app/build/outputs/apk/full/release/*.apk
 
       - name: Upload signed fullRelease APK
         uses: actions/upload-artifact@v6
