@@ -95,6 +95,4 @@ jobs:
           gh release create "$RELEASE_TAG" app/build/outputs/apk/full/release/*.apk \
             --repo "${{ github.repository }}" \
             --title "$RELEASE_TITLE" \
-            --notes "APK signed (release keystore) built automatically from branch \`app/enhanced\` at commit \`${{ github.sha }}\`.
-
-Version: v1.0.24.${{ github.run_number }}"
+            --notes "APK signed (release keystore) built automatically from branch \`app/enhanced\` at commit \`${{ github.sha }}\`. Version: v1.0.24.${{ github.run_number }}"
