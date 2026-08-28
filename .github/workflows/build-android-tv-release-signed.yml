@@ -1,0 +1,88 @@
+name: Build Android TV Release (signed)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "app/enhanced"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-android-tv-release-signed-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build signed fullRelease APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Decode release keystore
+        run: |
+          echo "${{ secrets.NUVIO_RELEASE_KEYSTORE_BASE64 }}" | base64 -d > "${{ github.workspace }}/nuviotv.jks"
+
+      - name: Prepare local properties
+        run: |
+          touch local.properties
+          touch local.dev.properties
+          printf 'ANILIST_CLIENT_ID=%s\n' "${{ secrets.ANILIST_CLIENT_ID }}" >> local.properties
+          printf 'MAL_CLIENT_ID=%s\n' "${{ secrets.MAL_CLIENT_ID }}" >> local.properties
+          printf 'KITSU_CLIENT_ID=%s\n' "${{ secrets.KITSU_CLIENT_ID }}" >> local.properties
+          printf 'KITSU_CLIENT_SECRET=%s\n' "${{ secrets.KITSU_CLIENT_SECRET }}" >> local.properties
+          printf 'TRAKT_CLIENT_ID=%s\n' "${{ secrets.TRAKT_CLIENT_ID }}" >> local.properties
+          printf 'TRAKT_CLIENT_SECRET=%s\n' "${{ secrets.TRAKT_CLIENT_SECRET }}" >> local.properties
+          printf 'TRAKT_REDIRECT_URI=%s\n' "${{ secrets.TRAKT_REDIRECT_URI }}" >> local.properties
+          printf 'TRACKER_LOGIN_RELAY_BASE_URL=%s\n' "${{ secrets.TRACKER_LOGIN_RELAY_BASE_URL }}" >> local.properties
+          printf 'NUVIO_SUPABASE_URL=%s\n' "${{ secrets.NUVIO_SUPABASE_URL }}" >> local.properties
+          printf 'NUVIO_SUPABASE_ANON_KEY=%s\n' "${{ secrets.NUVIO_SUPABASE_ANON_KEY }}" >> local.properties
+          printf 'NUVIO_SUPABASE_FALLBACK_URL=%s\n' "${{ secrets.NUVIO_SUPABASE_FALLBACK_URL }}" >> local.properties
+
+      - name: Build signed fullRelease APK
+        env:
+          NUVIO_RELEASE_STORE_FILE: "${{ github.workspace }}/nuviotv.jks"
+          NUVIO_RELEASE_KEY_ALIAS: "${{ secrets.NUVIO_RELEASE_KEY_ALIAS }}"
+          NUVIO_RELEASE_KEY_PASSWORD: "${{ secrets.NUVIO_RELEASE_KEY_PASSWORD }}"
+          NUVIO_RELEASE_STORE_PASSWORD: "${{ secrets.NUVIO_RELEASE_STORE_PASSWORD }}"
+        run: ./gradlew :app:assembleFullRelease --stacktrace
+
+      - name: Verify APK signature
+        run: |
+          apksigner verify --print-certs app/build/outputs/apk/full/release/*.apk
+
+      - name: Upload signed fullRelease APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: nuvio-tv-full-release-signed
+          path: app/build/outputs/apk/full/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish APK to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          RELEASE_TAG="app-enhanced-stable"
+          RELEASE_TITLE="NuvioTV Android TV (signed stable)"
+          if gh release view "$RELEASE_TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release delete "$RELEASE_TAG" --repo "${{ github.repository }}" --yes --cleanup-tag
+          fi
+          gh release create "$RELEASE_TAG" app/build/outputs/apk/full/release/*.apk \
+            --repo "${{ github.repository }}" \
+            --prerelease \
+            --title "$RELEASE_TITLE" \
+            --notes "APK signed (release keystore) built automatically from branch \`app/enhanced\` at commit \`${{ github.sha }}\`."
