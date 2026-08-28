@@ -75,6 +75,10 @@ fun CastSection(
     onCastMemberFocused: (MetaCastMember) -> Unit = {},
     onCastMemberClick: (MetaCastMember) -> Unit = {}
 ) {
+    // Only show cast members that actually have a profile image; hide the
+    // others entirely (no placeholder/initials) as requested.
+    val cast = cast.filter { it.photo.isNotBlank() }
+    val leadingCast = leadingCast.filter { it.photo.isNotBlank() }
     if (cast.isEmpty() && leadingCast.isEmpty()) return
 
     val firstItemFocusRequester = remember { FocusRequester() }
