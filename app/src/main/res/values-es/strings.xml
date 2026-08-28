@@ -1729,10 +1729,8 @@
     <string name="auto_skip_recap_sub">Salta automáticamente los segmentos de resumen.</string>
     <string name="auto_skip_outro">Outro / cierre</string>
     <string name="auto_skip_outro_sub">Salta automáticamente los outros y finales de anime.</string>
-
-    <string name="autoplay_prefer_binge_group">Preferir grupo maratón (siguiente episodio)</string>
+<string name="autoplay_prefer_binge_group">Preferir grupo maratón (siguiente episodio)</string>
     <string name="autoplay_prefer_binge_group_sub">Intenta primero el mismo perfil de fuente (mismo complemento/grupo de calidad) antes de las reglas normales de reproducción automática.</string>
-    <string name="audio_mix_value_db">%1$d dB</string>
 
     <string name="autoplay_regex_preset_1080p_standard">1080p estándar</string>
     <string name="autoplay_regex_preset_4k_remux">4K | Remux</string>
