@@ -13,8 +13,7 @@ interface MetaRepository {
     
     fun getMetaFromAllAddons(
         type: String,
-        id: String,
-        sourceAddonBaseUrl: String? = null
+        id: String
     ): Flow<NetworkResult<Meta>>
 
     fun getMetaFromPrimaryAddon(
