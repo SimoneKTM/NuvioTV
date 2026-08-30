@@ -1,0 +1,47 @@
+name: Supabase Keepalive
+
+on:
+  schedule:
+    - cron: "0 3 */3 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase primary
+        env:
+          SUPABASE_URL: ${{ secrets.NUVIO_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.NUVIO_SUPABASE_ANON_KEY }}
+          SUPABASE_FALLBACK_URL: ${{ secrets.NUVIO_SUPABASE_FALLBACK_URL }}
+        run: |
+          set -e
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Missing SUPABASE_URL or ANON_KEY secrets, skipping"
+            exit 0
+          fi
+          echo "Pinging primary Supabase: $SUPABASE_URL"
+          # Simple health check via PostgREST - list tables or auth health
+          # Use anon key to hit a lightweight endpoint; any 2xx/401 means project is up
+          STATUS=$(curl -s -o /tmp/resp.txt -w "%{http_code}" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            "$SUPABASE_URL/rest/v1/" || echo "000")
+          echo "Primary status: $STATUS"
+          cat /tmp/resp.txt | head -c 500
+          echo ""
+          if [ "$STATUS" = "000" ] || [ "$STATUS" -ge 500 ]; then
+            echo "Primary appears down, trying fallback if configured"
+            if [ -n "$SUPABASE_FALLBACK_URL" ]; then
+              STATUS2=$(curl -s -o /tmp/resp2.txt -w "%{http_code}" \
+                -H "apikey: $SUPABASE_ANON_KEY" \
+                -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+                "$SUPABASE_FALLBACK_URL/rest/v1/" || echo "000")
+              echo "Fallback status: $STATUS2"
+              cat /tmp/resp2.txt | head -c 500
+            fi
+          fi
+          echo "Keepalive ping completed - project stays active"
