@@ -497,12 +497,24 @@ object NetworkModule {
     @Provides
     @Singleton
     @Named("introDb")
-    fun provideIntroDbRetrofit(okHttpClient: OkHttpClient, moshi: Moshi): Retrofit =
-        Retrofit.Builder()
+    fun provideIntroDbRetrofit(okHttpClient: OkHttpClient, moshi: Moshi): Retrofit {
+        val client = if (BuildConfig.INTRODB_API_KEY.isNotBlank()) {
+            okHttpClient.newBuilder()
+                .addInterceptor { chain ->
+                    chain.proceed(
+                        chain.request().newBuilder()
+                            .header("X-API-Key", BuildConfig.INTRODB_API_KEY)
+                            .build()
+                    )
+                }
+                .build()
+        } else okHttpClient
+        return Retrofit.Builder()
             .baseUrl(BuildConfig.INTRODB_API_URL.ifEmpty { "https://localhost/" })
-            .client(okHttpClient)
+            .client(client)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
+    }
 
     @Provides
     @Singleton

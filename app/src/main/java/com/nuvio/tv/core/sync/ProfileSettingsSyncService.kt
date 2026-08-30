@@ -194,7 +194,8 @@ class ProfileSettingsSyncService @Inject constructor(
         "animeskip_settings",
         "tvdb_settings",
         "anime_tvdb_settings",
-        "track_preference"
+        "track_preference",
+        "live_tv_settings"
     )
 
     init {

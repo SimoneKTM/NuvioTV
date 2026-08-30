@@ -37,11 +37,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "ExtExtensionRunner"
-private const val EXECUTION_TIMEOUT_MS = 120_000L
+private const val EXECUTION_TIMEOUT_MS = 180_000L
 // Per-provider loadLinks cap. Mega-aggregators (Phisher StreamPlay, Ultima,
 // TorraStream) scrape many source sites in parallel and happily burn through
-// minutes — cap them at 60s and return the partial link set collected so far.
-private const val LOADLINKS_TIMEOUT_MS = 60_000L
+// minutes — cap them at 180s and return the partial link set collected so far.
+private const val LOADLINKS_TIMEOUT_MS = 180_000L
 private const val MIN_TITLE_SIMILARITY = 0.5
 private const val MAX_ALT_TITLES = 8
 

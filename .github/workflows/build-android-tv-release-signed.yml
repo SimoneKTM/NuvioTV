@@ -52,6 +52,8 @@ jobs:
           printf 'NUVIO_SUPABASE_ANON_KEY=%s\n' "${{ secrets.NUVIO_SUPABASE_ANON_KEY }}" >> local.properties
           printf 'NUVIO_SUPABASE_FALLBACK_URL=%s\n' "${{ secrets.NUVIO_SUPABASE_FALLBACK_URL }}" >> local.properties
           printf 'TMDB_API_KEY=%s\n' "${{ secrets.TMDB_API_KEY }}" >> local.properties
+          printf 'INTRODB_API_URL=%s\n' "${{ secrets.INTRODB_API_URL }}" >> local.properties
+          printf 'INTRODB_API_KEY=%s\n' "${{ secrets.INTRODB_API_KEY }}" >> local.properties
 
       - name: Bump version for release
         run: |

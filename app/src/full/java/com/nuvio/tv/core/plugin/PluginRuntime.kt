@@ -37,7 +37,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "PluginRuntime"
-private const val PLUGIN_TIMEOUT_MS = 60_000L
+private const val PLUGIN_TIMEOUT_MS = 180_000L
 private const val MAX_FETCH_RESPONSE_BYTES = 1024 * 1024
 private const val MAX_FETCH_BODY_CHARS = 1024 * 1024
 @Singleton
@@ -47,9 +47,9 @@ class PluginRuntime @Inject constructor() {
 
     private val httpClient = OkHttpClient.Builder()
         .dns(com.nuvio.tv.core.network.IPv4FirstDns())
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(true)
         .proxy(java.net.Proxy.NO_PROXY)
