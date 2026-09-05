@@ -3249,4 +3249,13 @@
     <string name="stream_test_video_bitrate">Average Video Bitrate: %1$s</string>
     <string name="stream_test_error_connection">Connection failed. The last played stream link may have expired or is unreachable. Please play the video again and retry.</string>
 
+    <string name="collections_editor_tmdb_quick_providers">Quick Providers</string>
+    <string name="sub_startup_mode_title">Addon Subtitles Startup</string>
+    <string name="sub_startup_mode_fast">Fast Start</string>
+    <string name="sub_startup_mode_preferred">Preferred Languages</string>
+    <string name="sub_startup_mode_all">All Addon Subtitles</string>
+    <string name="sub_startup_mode_fast_desc">Start playback immediately. Selecting addon subtitles may reload the player once.</string>
+    <string name="sub_startup_mode_preferred_desc">Preload addon subtitles before playback and attach preferred/secondary language tracks.</string>
+    <string name="sub_startup_mode_all_desc">Preload and attach all addon subtitles before playback. Slowest startup.</string>
+
 </resources>

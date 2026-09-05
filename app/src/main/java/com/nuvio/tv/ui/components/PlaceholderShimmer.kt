@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.nuvio.tv.ui.theme.NuvioMotion
 
 private const val PLACEHOLDER_SHIMMER_DISTANCE_PX = 1000f
 private const val PLACEHOLDER_SHIMMER_WIDTH_FRACTION = 0.6f
