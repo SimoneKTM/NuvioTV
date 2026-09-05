@@ -939,6 +939,8 @@ private fun SearchInputField(
                 }
                 // Pointer clicks (mouse / air-mouse / touch) on the field open the in-app
                 // virtual keyboard, instead of being ignored like a non-interactive Box.
+                .fillMaxSize()
+                .clickable { onMoveToKeyboard?.invoke() }
                 .pointerInput(onMoveToKeyboard) {
                     detectTapGestures { onMoveToKeyboard?.invoke() }
                 }
