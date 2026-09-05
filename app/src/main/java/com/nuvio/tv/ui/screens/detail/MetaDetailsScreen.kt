@@ -2373,12 +2373,12 @@ private fun BackdropLayer(
     }
     val backdropAlphaState = animateFloatAsState(
         targetValue = if (isTrailerPlaying) 0f else if (isScrolledPastHero) 0.15f else 1f,
-        animationSpec = tween(durationMillis = if (isScrolledPastHero) 300 else 800),
+        animationSpec = tween(durationMillis = if (isScrolledPastHero) NuvioMotion.tokens.durations.fast else NuvioMotion.tokens.durations.medium),
         label = "backdropFade"
     )
     val gradientAlphaState = animateFloatAsState(
         targetValue = if (isTrailerPlaying || isScrolledPastHero) 0f else 1f,
-        animationSpec = tween(durationMillis = if (isScrolledPastHero) 300 else 800),
+        animationSpec = tween(durationMillis = if (isScrolledPastHero) NuvioMotion.tokens.durations.fast else NuvioMotion.tokens.durations.medium),
         label = "gradientFade"
     )
     Box(modifier = Modifier.fillMaxSize()) {

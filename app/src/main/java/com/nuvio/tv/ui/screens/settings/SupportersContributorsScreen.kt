@@ -269,7 +269,7 @@ private fun SupportersBrandColumn(
     }
     val rotation by animateFloatAsState(
         targetValue = if (showDonateQr) 180f else 0f,
-        animationSpec = tween(durationMillis = 480),
+        animationSpec = tween(durationMillis = NuvioMotion.tokens.durations.slow),
         label = "supportersDonateFlip"
     )
 

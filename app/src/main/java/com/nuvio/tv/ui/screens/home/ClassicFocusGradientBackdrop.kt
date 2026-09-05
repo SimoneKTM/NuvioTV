@@ -55,7 +55,7 @@ internal fun ClassicFocusGradientBackdrop(
     var targetColor by remember { mutableStateOf(Color.Transparent) }
     val animatedColor by animateColorAsState(
         targetValue = targetColor,
-        animationSpec = tween(durationMillis = 700),
+        animationSpec = tween(durationMillis = NuvioMotion.tokens.durations.medium),
         label = "classicFocusGradientColor"
     )
 

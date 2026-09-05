@@ -457,7 +457,7 @@ fun rememberShimmerBrush(backdropAware: Boolean = false): Brush {
         initialValue = 0f,
         targetValue = 1000f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1400, easing = LinearEasing)
+            animation = tween(durationMillis = NuvioMotion.tokens.durations.shimmer, easing = LinearEasing)
         ),
         label = "shimmer_translate"
     )

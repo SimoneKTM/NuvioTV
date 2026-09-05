@@ -63,20 +63,20 @@ object NuvioMotion {
     val tokens = NuvioMotionTokens(
         durations = NuvioMotionDurations(
             instant = 0,
-            quick = 125,
-            fast = 180,
-            medium = 350,
-            slow = 450,
-            overlay = 400,
-            sidebarLabelIn = 125,
-            sidebarLabelOut = 145,
-            sidebarPanelIn = 345,
-            sidebarPanelOut = 385,
-            sidebarBloomOut = 395,
-            sidebarEnter = 385,
-            sidebarExit = 145,
-            hero = 450,
-            shimmer = 1200
+            quick = 80,
+            fast = 120,
+            medium = 220,
+            slow = 300,
+            overlay = 250,
+            sidebarLabelIn = 80,
+            sidebarLabelOut = 95,
+            sidebarPanelIn = 220,
+            sidebarPanelOut = 250,
+            sidebarBloomOut = 250,
+            sidebarEnter = 250,
+            sidebarExit = 95,
+            hero = 300,
+            shimmer = 800
         ),
         easings = NuvioMotionEasings(
             standard = FastOutSlowInEasing,
@@ -111,7 +111,7 @@ object NuvioFocus {
         pressedScale = 0.98f,
         disabledScale = 1f,
         scrollViewportTarget = 0.42f,
-        longPressInitialDelayMillis = 360L,
-        longPressRepeatMillis = 72L
+        longPressInitialDelayMillis = 250L,
+        longPressRepeatMillis = 50L
     )
 }

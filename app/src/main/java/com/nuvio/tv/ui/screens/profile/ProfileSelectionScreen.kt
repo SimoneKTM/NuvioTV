@@ -618,7 +618,7 @@ private fun ProfileSelectionBackground(
 ) {
     val animatedAvatarColor by animateColorAsState(
         targetValue = focusedAvatarColor,
-        animationSpec = tween(durationMillis = 520),
+        animationSpec = tween(durationMillis = NuvioMotion.tokens.durations.medium),
         label = "focusedAvatarColor"
     )
     val gradientTop = lerp(NuvioTheme.colors.BackgroundElevated, animatedAvatarColor, 0.3f)

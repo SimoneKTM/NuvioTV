@@ -74,7 +74,7 @@ fun LoadingOverlay(
         val context = LocalContext.current
         val logoAlpha by animateFloatAsState(
             targetValue = 1f,
-            animationSpec = tween(durationMillis = 700, delayMillis = 400, easing = LinearEasing),
+            animationSpec = tween(durationMillis = NuvioMotion.tokens.durations.medium, delayMillis = NuvioMotion.tokens.durations.quick, easing = LinearEasing),
             label = "loadingLogoAlpha"
         )
         val infiniteTransition = rememberInfiniteTransition(label = "loadingLogoPulse")
@@ -82,7 +82,7 @@ fun LoadingOverlay(
             initialValue = 1f,
             targetValue = 1.04f,
             animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 2000, easing = LinearEasing),
+                animation = tween(durationMillis = NuvioMotion.tokens.durations.shimmer, easing = LinearEasing),
                 repeatMode = RepeatMode.Reverse
             ),
             label = "loadingLogoScale"

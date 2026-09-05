@@ -122,7 +122,7 @@ internal fun ModernHeroMediaLayer(
     val trailerRendered by remember { derivedStateOf { heroTrailerFirstFrameRendered() } }
     val transitionProgressState = animateFloatAsState(
         targetValue = if (shouldPlay && trailerRendered) 1f else 0f,
-        animationSpec = tween(durationMillis = 480),
+        animationSpec = tween(durationMillis = NuvioMotion.tokens.durations.slow),
         label = "heroBackdropTrailerCrossfadeProgress"
     )
     val localContext = LocalContext.current
@@ -358,7 +358,7 @@ private fun HeroTitleContent(
     val trailerPlayingValue = trailerPlaying()
     val metaAlpha by animateFloatAsState(
         targetValue = if (trailerPlayingValue) 0f else 1f,
-        animationSpec = tween(durationMillis = 480),
+        animationSpec = tween(durationMillis = NuvioMotion.tokens.durations.slow),
         label = "heroMetaFade"
     )
     val scaledTitleStyle = remember(headlineLarge, titleScale) {

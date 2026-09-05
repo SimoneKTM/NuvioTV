@@ -31,7 +31,7 @@ fun rememberPlaceholderShimmerOffsetState(label: String): State<Float> {
         initialValue = -1f,
         targetValue = 2f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1600, easing = LinearEasing),
+            animation = tween(durationMillis = NuvioMotion.tokens.durations.shimmer, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "shimmerOffset"
