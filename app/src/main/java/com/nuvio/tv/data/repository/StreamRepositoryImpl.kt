@@ -8,7 +8,6 @@ import com.nuvio.tv.core.network.safeApiCall
 import com.nuvio.tv.core.debrid.DebridStreamPresentation
 import com.nuvio.tv.core.debrid.LocalDebridAvailabilityService
 import com.nuvio.tv.core.plugin.PluginManager
-import com.nuvio.tv.core.plugin.resolvePluginSeasonEpisode
 import com.nuvio.tv.core.tmdb.TmdbService
 import com.nuvio.tv.data.mapper.toDomain
 import com.nuvio.tv.data.remote.api.AddonApi
@@ -22,7 +21,6 @@ import com.nuvio.tv.domain.model.Stream
 import com.nuvio.tv.domain.model.StreamBehaviorHints
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
-import com.nuvio.tv.domain.repository.AnimeAddonRepository
 import com.nuvio.tv.domain.repository.StreamRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -42,7 +40,6 @@ class StreamRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val api: AddonApi,
     private val addonRepository: AddonRepository,
-    private val animeAddonRepository: AnimeAddonRepository,
     private val pluginManager: PluginManager,
     private val tmdbService: TmdbService,
     private val debridStreamPresentation: DebridStreamPresentation,
@@ -59,7 +56,7 @@ class StreamRepositoryImpl @Inject constructor(
         val detail: String
     )
 
-    override fun getStreamsFromAllAddons(
+override fun getStreamsFromAllAddons(
         type: String,
         videoId: String,
         season: Int?,
@@ -69,13 +66,16 @@ class StreamRepositoryImpl @Inject constructor(
         emit(NetworkResult.Loading)
 
         try {
-            val addons = resolveAddonGroup(sourceAddonBaseUrl)
+            val addons = addonRepository.getInstalledAddons().first().enabledAddons()
             
             // Filter addons that support streams for this type and id
             val streamAddons = addons.filter { addon ->
                 addon.supportsStreamResource(type, videoId)
             }
 
+            // Convert IMDB ID to TMDB ID if needed for plugins
+            val tmdbId = tmdbService.ensureTmdbId(videoId, type)
+            Log.d(TAG, "Video ID: $videoId -> TMDB ID: $tmdbId (type: $type)")
             val attemptedAddonNames = streamAddons.map { it.displayName }
             val attemptedFailures = java.util.Collections.synchronizedList(
                 mutableListOf<StreamAttemptFailure>()
@@ -89,8 +89,9 @@ class StreamRepositoryImpl @Inject constructor(
                 val resultChannel = Channel<AddonStreams>(Channel.UNLIMITED)
                 
                 // Track number of pending jobs
-                val totalJobs = streamAddons.size + 1
-                val completedJobs = java.util.concurrent.atomic.AtomicInteger(0)
+                val totalJobs = streamAddons.size +
+                    (if (tmdbId != null) 1 else 0)
+                var completedJobs = 0
 
                 // Launch addon jobs
                 streamAddons.forEach { addon ->
@@ -143,53 +144,54 @@ class StreamRepositoryImpl @Inject constructor(
                                 detail = e.message ?: context.getString(com.nuvio.tv.R.string.stream_error_detail_addon_request_failed)
                             )
                         } finally {
-                            if (completedJobs.incrementAndGet() >= totalJobs) {
+                            completedJobs++
+                            if (completedJobs >= totalJobs) {
                                 resultChannel.close()
                             }
                         }
                     }
                 }
 
-                launch {
-                    try {
-                        val hasCompatiblePlugins = pluginManager.enabledScrapers.first()
-                            .any { scraper -> scraper.supportsType(type) }
-                        if (!hasCompatiblePlugins) return@launch
-
-                        val tmdbId = tmdbService.ensureTmdbId(videoId, type)
-                        Log.d(TAG, "Video ID: $videoId -> TMDB ID: $tmdbId (type: $type)")
-                        val pluginRequest = buildPluginRequest(tmdbId, type, videoId)
-                            ?: return@launch
-                        val (pluginSeason, pluginEpisode) = resolvePluginSeasonEpisode(
-                            videoId = videoId,
-                            season = season,
-                            episode = episode
-                        )
-                        streamLocalPlugins(
-                            pluginId = pluginRequest.id,
-                            mediaType = pluginRequest.mediaType,
-                            pluginSource = pluginRequest.source,
-                            season = pluginSeason,
-                            episode = pluginEpisode,
-                            resultChannel = resultChannel
-                        )
-                    } catch (e: Exception) {
-                        if (e is CancellationException) throw e
-                        Log.e(TAG, "Plugin execution failed: ${e.message}")
-                    } finally {
-                        if (completedJobs.incrementAndGet() >= totalJobs) {
-                            resultChannel.close()
+                // Launch plugin jobs if we have TMDB ID - each scraper sends its own result
+                if (tmdbId != null) {
+                    launch {
+                        try {
+                            // Stream plugins individually
+                            streamLocalPlugins(tmdbId, type, season, episode, resultChannel) {
+                                completedJobs++
+                                if (completedJobs >= totalJobs) {
+                                    resultChannel.close()
+                                }
+                            }
+                        } catch (e: Exception) {
+                            if (e is CancellationException) throw e
+                            Log.e(TAG, "Plugin execution failed: ${e.message}")
+                            completedJobs++
+                            if (completedJobs >= totalJobs) {
+                                resultChannel.close()
+                            }
                         }
                     }
+                }
+
+                // Handle case where there are no jobs
+                if (totalJobs == 0) {
+                    resultChannel.close()
                 }
 
                 // Emit results as they arrive
                 for (result in resultChannel) {
                     val checkingResult = localDebridAvailabilityService.markChecking(listOf(result)).firstOrNull() ?: result
-                    val checkedResult = localDebridAvailabilityService.annotateCachedAvailability(listOf(checkingResult)).firstOrNull() ?: checkingResult
-                    mergePresentedResult(accumulatedResults, checkedResult)
+                    mergePresentedResult(accumulatedResults, checkingResult)
                     emit(NetworkResult.Success(accumulatedResults.toList()))
-                    Log.d(TAG, "Emitted ${accumulatedResults.size} addon(s), latest: ${checkedResult.addonName} with ${checkedResult.streams.size} streams")
+                    Log.d(TAG, "Emitted ${accumulatedResults.size} addon(s), latest: ${checkingResult.addonName} with ${checkingResult.streams.size} streams")
+
+                    val checkedResult = localDebridAvailabilityService.annotateCachedAvailability(listOf(checkingResult)).firstOrNull() ?: checkingResult
+                    if (checkedResult != checkingResult) {
+                        mergePresentedResult(accumulatedResults, checkedResult)
+                        emit(NetworkResult.Success(accumulatedResults.toList()))
+                        Log.d(TAG, "Emitted debrid cache status for ${checkedResult.addonName} with ${checkedResult.streams.size} streams")
+                    }
                 }
             }
 
@@ -214,50 +216,6 @@ class StreamRepositoryImpl @Inject constructor(
         }
     }
 
-    private data class PluginRequest(
-        val id: String,
-        val mediaType: String,
-        val source: String
-    )
-
-    private fun buildPluginRequest(tmdbId: String?, type: String, videoId: String): PluginRequest? {
-        if (tmdbId != null) {
-            return PluginRequest(
-                id = tmdbId,
-                mediaType = normalizeTmdbPluginType(type),
-                source = "TMDB"
-            )
-        }
-
-        if (!videoId.canRunLocalPlugins()) return null
-
-        return PluginRequest(
-            id = if (videoId.startsWith("kitsu:", ignoreCase = true)) {
-                cleanKitsuPluginId(videoId)
-            } else {
-                videoId
-            },
-            mediaType = type.lowercase(),
-            source = videoId.substringBefore(":").uppercase()
-        )
-    }
-
-    private fun normalizeTmdbPluginType(type: String): String {
-        return when (type.lowercase()) {
-            "series", "tv", "show" -> "tv"
-            else -> type.lowercase()
-        }
-    }
-
-    private fun cleanKitsuPluginId(videoId: String): String {
-        val parts = videoId.split(":")
-        return if (parts.size > 2 && parts.last().toIntOrNull() != null) {
-            parts.dropLast(1).joinToString(":")
-        } else {
-            videoId
-        }
-    }
-
     private suspend fun mergePresentedResult(
         accumulatedResults: MutableList<AddonStreams>,
         result: AddonStreams
@@ -268,17 +226,13 @@ class StreamRepositoryImpl @Inject constructor(
             val merged = existing.copy(
                 streams = mergeStreams(existing.streams, result.streams)
             )
-            accumulatedResults[existingIndex] = presentStreams(merged)
+            accumulatedResults[existingIndex] = debridStreamPresentation.apply(listOf(merged))
+                .firstOrNull() ?: merged
         } else {
-            accumulatedResults.add(presentStreams(result))
+            accumulatedResults.add(
+                debridStreamPresentation.apply(listOf(result)).firstOrNull() ?: result
+            )
         }
-    }
-
-    private suspend fun presentStreams(result: AddonStreams): AddonStreams {
-        return debridStreamPresentation.apply(
-            groups = listOf(result),
-            includeBadgeMatches = false
-        ).firstOrNull() ?: result
     }
 
     private fun mergeStreams(existing: List<Stream>, incoming: List<Stream>): List<Stream> {
@@ -291,27 +245,28 @@ class StreamRepositoryImpl @Inject constructor(
     /**
      * Stream local plugin results - each scraper sends results individually
      */
-    private fun String.canRunLocalPlugins(): Boolean {
-        return startsWith("kitsu:", ignoreCase = true) ||
-            startsWith("anilist:", ignoreCase = true) ||
-            startsWith("mal:", ignoreCase = true)
-    }
-
     private suspend fun streamLocalPlugins(
-        pluginId: String,
-        mediaType: String,
-        pluginSource: String,
+        tmdbId: String,
+        type: String,
         season: Int?,
         episode: Int?,
-        resultChannel: Channel<AddonStreams>
+        resultChannel: Channel<AddonStreams>,
+        onComplete: () -> Unit
     ) {
         // Check if plugins are enabled
         if (!pluginManager.pluginsEnabled.first()) {
             Log.d(TAG, "Plugins are disabled")
+            onComplete()
             return
         }
 
-        Log.d(TAG, "Streaming plugins for $pluginSource: $pluginId, type: $mediaType")
+        // Normalize media type for plugins
+        val mediaType = when (type.lowercase()) {
+            "series", "tv", "show" -> "tv"
+            else -> type.lowercase()
+        }
+
+        Log.d(TAG, "Streaming plugins for TMDB: $tmdbId, type: $mediaType")
 
         try {
             val groupByRepository = pluginManager.groupStreamsByRepository.first()
@@ -323,7 +278,7 @@ class StreamRepositoryImpl @Inject constructor(
 
             // Collect streaming results from each scraper
             pluginManager.executeScrapersStreaming(
-                tmdbId = pluginId,
+                tmdbId = tmdbId,
                 mediaType = mediaType,
                 season = season,
                 episode = episode
@@ -342,6 +297,8 @@ class StreamRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             Log.e(TAG, "Failed to stream plugins: ${e.message}", e)
+        } finally {
+            onComplete()
         }
     }
 
@@ -423,34 +380,12 @@ class StreamRepositoryImpl @Inject constructor(
         }
     }
 
-    /**
-     * Resolves the addon group for a lookup: when the item originated from an
-     * anime addon, only anime addons are queried; otherwise only Home addons.
-     */
-    private suspend fun resolveAddonGroup(sourceAddonBaseUrl: String?): List<Addon> {
-        val normalizedSource = sourceAddonBaseUrl?.let {
-            val clean = it.trimEnd('/')
-            val qs = clean.indexOf('?')
-            val basePath = if (qs >= 0) clean.substring(0, qs).trimEnd('/') else clean
-            val baseQuery = if (qs >= 0) clean.substring(qs) else ""
-            (basePath + baseQuery).lowercase()
-        }
-        val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
-        val isAnimeSource = normalizedSource != null && animeAddons.any { addon ->
-            val clean = addon.baseUrl.trimEnd('/')
-            val qs = clean.indexOf('?')
-            val basePath = if (qs >= 0) clean.substring(0, qs).trimEnd('/') else clean
-            val baseQuery = if (qs >= 0) clean.substring(qs) else ""
-            (basePath + baseQuery).lowercase() == normalizedSource
-        }
-        return if (isAnimeSource) animeAddons else addonRepository.getInstalledAddons().first().enabledAddons()
-    }
-
     override suspend fun getStreamsFromAddon(
         baseUrl: String,
         type: String,
         videoId: String
     ): NetworkResult<List<Stream>> {
+        val ctx = context
         val cleanBaseUrl = baseUrl.trimEnd('/')
         val queryStart = cleanBaseUrl.indexOf('?')
         val basePath = if (queryStart >= 0) cleanBaseUrl.substring(0, queryStart).trimEnd('/') else cleanBaseUrl
@@ -464,14 +399,14 @@ class StreamRepositoryImpl @Inject constructor(
         val addonResult = addonRepository.fetchAddon(baseUrl)
         val addonName = when (addonResult) {
             is NetworkResult.Success -> addonResult.data.displayName
-            else -> context.getString(com.nuvio.tv.R.string.stream_addon_unknown)
+            else -> ctx.getString(com.nuvio.tv.R.string.stream_addon_unknown)
         }
         val addonLogo = when (addonResult) {
             is NetworkResult.Success -> addonResult.data.logo
             else -> null
         }
 
-        return when (val result = safeApiCall(context) { api.getStreams(streamUrl) }) {
+        return when (val result = safeApiCall { api.getStreams(streamUrl) }) {
             is NetworkResult.Success -> {
                 val streams = result.data.streams?.map { 
                     it.toDomain(addonName, addonLogo) 
@@ -497,9 +432,13 @@ class StreamRepositoryImpl @Inject constructor(
      * declare its own.
      */
     private fun Addon.supportsStreamResource(type: String, videoId: String): Boolean {
+        val normalizedType = when (type.lowercase()) {
+            "series", "tv", "show", "anime" -> "tv"
+            else -> type.lowercase()
+        }
         return resources.any { resource ->
             resource.name == "stream" &&
-            (resource.types.isEmpty() || resource.types.contains(type)) &&
+            (resource.types.isEmpty() || resource.types.any { it.equals(normalizedType, ignoreCase = true) }) &&
             run {
                 val prefixes = resource.idPrefixes?.takeIf { it.isNotEmpty() }
                     ?: idPrefixes.takeIf { it.isNotEmpty() }
@@ -521,27 +460,16 @@ class StreamRepositoryImpl @Inject constructor(
         // For inline streams the meta is fetched using the content-level ID
         // (everything before the video-specific suffix).  For "other" type
         // the videoId IS the content ID; for series it is contentId:S:E.
-        // Video ID formats:
-        //   tt1234567:1:5      → metaId = tt1234567
-        //   mal:63375:1:5      → metaId = mal:63375
-        //   kitsu:12345:2      → metaId = kitsu:12345
-        // Strategy: drop up to 2 trailing numeric segments (season, episode)
-        // but never reduce below 2 segments for prefixed IDs (mal:X, kitsu:X).
+        val contentId = videoId.substringBefore(":")
+            .takeIf { it.isNotBlank() }
+            ?: videoId
+        // Reconstruct a content-level ID that keeps the addon-specific prefix.
+        // e.g. "realdebrid:ABC:3" → "realdebrid:ABC"
         val metaId = run {
             val parts = videoId.split(":")
-            if (parts.size <= 1) return@run videoId
-            // Count trailing numeric segments
-            val trailingNumericCount = parts.reversed().takeWhile { it.toIntOrNull() != null }.size
-            // Keep at least 2 segments for prefixed IDs (e.g. "mal:63375"),
-            // or 1 segment for IMDB-style IDs (e.g. "tt1234567")
-            val firstSegment = parts.first()
-            val minSegments = if (firstSegment.startsWith("tt") || firstSegment.toIntOrNull() != null) 1 else 2
-            val segmentsToDrop = trailingNumericCount.coerceAtMost((parts.size - minSegments).coerceAtLeast(0))
-            if (segmentsToDrop > 0) {
-                parts.dropLast(segmentsToDrop).joinToString(":")
-            } else {
-                videoId
-            }
+            // Drop trailing numeric segment(s) that represent video index
+            val contentParts = parts.dropLastWhile { it.toIntOrNull() != null }
+            if (contentParts.isNotEmpty()) contentParts.joinToString(":") else videoId
         }
         val cleanBaseUrl = addon.baseUrl.trimEnd('/')
         val queryStart = cleanBaseUrl.indexOf('?')
@@ -552,7 +480,7 @@ class StreamRepositoryImpl @Inject constructor(
         val metaUrl = "$basePath/meta/$encodedType/$encodedMetaId.json$baseQuery"
         Log.d(TAG, "Fetching inline streams via meta type=$type metaId=$metaId videoId=$videoId url=$metaUrl")
         return try {
-            when (val result = safeApiCall(context) { api.getMeta(metaUrl) }) {
+            when (val result = safeApiCall { api.getMeta(metaUrl) }) {
                 is NetworkResult.Success -> {
                     val metaDto = result.data.meta ?: return emptyList()
                     val matchingVideo = metaDto.videos?.firstOrNull { it.id == videoId }
