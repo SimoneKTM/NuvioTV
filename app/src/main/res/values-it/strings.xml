@@ -2821,8 +2821,8 @@
   <string name="diag_value_ready">Pronto</string>
   <string name="diag_value_not_ready">Non pronto</string>
   <string name="diag_value_decoder_hidden">%1$s (nascosto)</string>
-  <string name="diag_value_on">On</string>
-  <string name="diag_value_off">Off</string>
+<string name="diag_value_on">Attivo</string>
+<string name="diag_value_off">Disattivo</string>
   <string name="diag_value_conversions_fmt">%1$d di %2$d riuscite</string>
   <string name="diag_value_never_rendered">Mai renderizzato</string>
   <string name="player_error_play_stream_failed">Impossibile riprodurre il flusso selezionato</string>
