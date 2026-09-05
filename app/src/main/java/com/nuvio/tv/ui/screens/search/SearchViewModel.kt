@@ -747,6 +747,16 @@ class SearchViewModel @Inject constructor(
                     )
                 }
         }
+            .filter { catalog ->
+                // Filter out built-in TMDB discover catalogs
+                val addonIdLower = catalog.addonId.lowercase()
+                val addonNameLower = catalog.addonName.lowercase()
+                !(addonIdLower == "tmdb" ||
+                    addonIdLower.contains("tmdb") ||
+                    addonNameLower.contains("tmdb") ||
+                    addonNameLower.contains("the movie database"))
+            }
+            .distinctBy { it.catalogName to it.type }
 
         val availableTypes = discoverCatalogs.map { it.type }.distinct()
         val currentType = _uiState.value.selectedDiscoverType
