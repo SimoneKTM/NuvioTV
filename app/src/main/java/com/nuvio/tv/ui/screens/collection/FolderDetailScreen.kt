@@ -189,9 +189,8 @@ fun FolderDetailScreen(
                     },
                     onItemLongPress = itemLongPress
                 )
-                FolderViewMode.ROWS -> {
-                    FolderHeader(folder = folder)
-                    RowsContent(
+FolderViewMode.ROWS -> {
+                        RowsContent(
                         uiState = uiState,
                         focusState = rowsFocusState,
                         onNavigateToDetail = ::itemClick,
@@ -217,48 +216,6 @@ fun FolderDetailScreen(
     )
 }
 
-@Composable
-private fun FolderHeader(folder: com.nuvio.tv.domain.model.CollectionFolder) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.lg)
-    ) {
-        if (!folder.coverImageUrl.isNullOrBlank()) {
-            val iconWidth: androidx.compose.ui.unit.Dp
-            val iconHeight: androidx.compose.ui.unit.Dp
-            when (folder.tileShape) {
-                com.nuvio.tv.domain.model.PosterShape.POSTER -> { iconWidth = NuvioTheme.spacing.xxl; iconHeight = NuvioTheme.spacing.xxxl }
-                com.nuvio.tv.domain.model.PosterShape.LANDSCAPE -> { iconWidth = 64.dp; iconHeight = 36.dp }
-                com.nuvio.tv.domain.model.PosterShape.SQUARE -> { iconWidth = NuvioTheme.spacing.xxxl; iconHeight = NuvioTheme.spacing.xxxl }
-            }
-            AsyncImage(
-                model = folder.coverImageUrl,
-                contentDescription = folder.title,
-                modifier = Modifier
-                    .width(iconWidth)
-                    .height(iconHeight)
-                    .clip(RoundedCornerShape(NuvioTheme.radii.sm)),
-                contentScale = ContentScale.FillBounds
-            )
-        } else if (!folder.coverEmoji.isNullOrBlank()) {
-            Text(
-                text = folder.coverEmoji,
-                style = MaterialTheme.typography.headlineLarge
-            )
-        }
-        Text(
-            text = folder.title,
-            style = MaterialTheme.typography.headlineMedium,
-            color = NuvioTheme.colors.TextPrimary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
 @OptIn(ExperimentalTvMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun TabbedGridContent(
@@ -273,90 +230,6 @@ private fun TabbedGridContent(
     onItemLongPress: (MetaPreview, String) -> Unit = { _, _ -> }
 ) {
     val tabFocusRequesters = remember(uiState.tabs.size) { uiState.tabs.indices.map { FocusRequester() } }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, top = NuvioTheme.spacing.sm, bottom = NuvioTheme.spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-    ) {
-        if (!folder.coverImageUrl.isNullOrBlank()) {
-            val iconWidth: androidx.compose.ui.unit.Dp
-            val iconHeight: androidx.compose.ui.unit.Dp
-            when (folder.tileShape) {
-                com.nuvio.tv.domain.model.PosterShape.POSTER -> { iconWidth = NuvioTheme.spacing.xxl; iconHeight = NuvioTheme.spacing.xxxl }
-                com.nuvio.tv.domain.model.PosterShape.LANDSCAPE -> { iconWidth = 64.dp; iconHeight = 36.dp }
-                com.nuvio.tv.domain.model.PosterShape.SQUARE -> { iconWidth = NuvioTheme.spacing.xxxl; iconHeight = NuvioTheme.spacing.xxxl }
-            }
-            AsyncImage(
-                model = folder.coverImageUrl,
-                contentDescription = folder.title,
-                modifier = Modifier
-                    .width(iconWidth)
-                    .height(iconHeight)
-                    .clip(RoundedCornerShape(NuvioTheme.radii.sm)),
-                contentScale = ContentScale.FillBounds
-            )
-        } else if (!folder.coverEmoji.isNullOrBlank()) {
-            Text(
-                text = folder.coverEmoji,
-                style = MaterialTheme.typography.headlineLarge
-            )
-        }
-        Text(
-            text = folder.title,
-            style = MaterialTheme.typography.headlineMedium,
-            color = NuvioTheme.colors.TextPrimary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.widthIn(max = 300.dp)
-        )
-
-        if (uiState.tabs.size > 1) {
-            TabRow(
-                selectedTabIndex = uiState.selectedTabIndex,
-                modifier = Modifier
-                    .focusRestorer {
-                        tabFocusRequesters.getOrNull(uiState.selectedTabIndex) ?: FocusRequester.Default
-                    }
-            ) {
-                uiState.tabs.forEachIndexed { index, tab ->
-                    Tab(
-                        selected = index == uiState.selectedTabIndex,
-                        onFocus = { onSelectTab(index) },
-                        onClick = { onSelectTab(index) },
-                        modifier = if (index < tabFocusRequesters.size) {
-                            Modifier.focusRequester(tabFocusRequesters[index])
-                        } else Modifier
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(horizontal = NuvioTheme.spacing.lg, vertical = NuvioTheme.spacing.sm),
-                            horizontalAlignment = Alignment.Start
-                        ) {
-                            Text(
-                                text = if (tab.isAllTab) stringResource(R.string.collections_tab_all) else tab.label,
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                            if (uiState.catalogTypeSuffixEnabled && tab.typeLabel.isNotBlank()) {
-                                val localizedType = when {
-                                    tab.isAllTab -> stringResource(R.string.collections_tab_combined)
-                                    tab.rawType.lowercase() == "movie" -> stringResource(R.string.type_movie)
-                                    tab.rawType.lowercase() == "series" -> stringResource(R.string.type_series)
-                                    else -> tab.typeLabel
-                                }
-                                Text(
-                                    text = localizedType,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = NuvioTheme.colors.TextTertiary
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     val currentTab = uiState.tabs.getOrNull(uiState.selectedTabIndex)
     if (currentTab == null) return
