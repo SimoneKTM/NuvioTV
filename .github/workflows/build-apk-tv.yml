@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - "app/enhanced"
+      - "enhanced/tv"
 
 permissions:
   contents: write
