@@ -2,6 +2,8 @@
 <string name="app_name">Nuvio</string>
 <string name="type_movie">Film</string>
 <string name="type_series">Serie TV</string>
+<string name="type_anime">Anime</string>
+<string name="type_other">Altro</string>
 <string name="type_unknown">Sconosciuto</string>
 
     <!-- WebConfigServers -->
@@ -2868,7 +2870,7 @@
   <string name="anilist_name">AniList</string>
   <string name="anilist_description">Collega AniList per sincronizzare liste e stati dei tuoi anime.</string>
   <string name="anilist_connect">Collega AniList</string>
-  <string name="anilist_connect_instruction">Accedi alla pagina di autorizzazione AniList, poi incolla nel campo qui sotto il token di accesso ricevuto.</string>
+  <string name="anilist_connect_instruction">Scansiona il QR code per accedere alla pagina di autorizzazione AniList, poi incolla nel campo qui sotto il token di accesso ricevuto.</string>
   <string name="anilist_open_authorize">Apri l\'autorizzazione AniList</string>
   <string name="anilist_token_label">Token di accesso</string>
   <string name="anilist_connected_as">Connesso come %1$s</string>
@@ -2926,7 +2928,7 @@
   <string name="mal_name">MyAnimeList</string>
   <string name="mal_description">Collega MyAnimeList per sincronizzare liste e stati dei tuoi anime.</string>
   <string name="mal_connect">Collega MyAnimeList</string>
-  <string name="mal_connect_instruction">Accedi alla pagina di autorizzazione MyAnimeList, poi incolla nel campo qui sotto il token di accesso ricevuto.</string>
+  <string name="mal_connect_instruction">Scansiona il QR code per accedere alla pagina di autorizzazione MyAnimeList, poi incolla nel campo qui sotto il token di accesso ricevuto.</string>
   <string name="mal_open_authorize">Apri l\'autorizzazione MyAnimeList</string>
   <string name="mal_token_label">Token di accesso</string>
   <string name="mal_connected_as">Connesso come %1$s</string>

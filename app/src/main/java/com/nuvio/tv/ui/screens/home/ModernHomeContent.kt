@@ -724,11 +724,17 @@ fun ModernHomeContent(
                 isSidebarExpanded
             ) {
                 derivedStateOf {
-                    isScrollStoppedState.value &&
-                        !isSidebarExpanded.value &&
-                        !collectionHeroVideoUrl.isNullOrBlank() &&
-                        collectionHeroVideoPlaybackKey != null &&
-                        endedCollectionHeroVideoPlaybackKey != collectionHeroVideoPlaybackKey
+                    // Don't play hero video for collection folders (hero is hidden for them)
+                    val focusedSelection = focusedCatalogSelection.value
+                    val isCollectionFolder = focusedSelection?.payload is ModernPayload.CollectionFolder
+                    if (isCollectionFolder) false
+                    else {
+                        isScrollStoppedState.value &&
+                            !isSidebarExpanded.value &&
+                            !collectionHeroVideoUrl.isNullOrBlank() &&
+                            collectionHeroVideoPlaybackKey != null &&
+                            endedCollectionHeroVideoPlaybackKey != collectionHeroVideoPlaybackKey
+                    }
                 }
             }
             val heroMediaDataState = remember(shouldPlayCollectionHeroVideoState, collectionHeroVideoUrl, heroTrailerUrlsState, collectionHeroVideoPlaybackKey) {
@@ -851,12 +857,18 @@ fun ModernHomeContent(
                     val stable = stableHeroSceneStateRef.value
                     val stableHasPreview = stable?.preview?.title?.isNotBlank() == true
 
+                    // Check if focused item is a CollectionFolder - if so, hide hero
+                    val focusedSelection = focusedCatalogSelection.value
+                    val isCollectionFolder = focusedSelection?.payload is ModernPayload.CollectionFolder
+
                     when {
                         // During vertical scroll: freeze stable to avoid flashing
                         // transient addon data before enrichment completes
                         isScrolling && stableHasPreview -> stable!!
                         // During rapid horizontal nav: freeze to avoid backdrop flashing
                         isRapidNav && stable != null -> stable
+                        // Hide hero for collection folders
+                        isCollectionFolder -> currentLive.copy(heroBackdrop = null, preview = null)
                         // Normal: show live state
                         else -> currentLive
                     }

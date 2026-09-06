@@ -67,6 +67,15 @@ class SearchViewModel @Inject constructor(
 
     private val _watchedMovieIds = MutableStateFlow<Set<String>>(emptySet())
     val watchedMovieIds: StateFlow<Set<String>> = _watchedMovieIds.asStateFlow()
+
+    private fun normalizeDiscoverType(apiType: String): String {
+        return when (apiType.lowercase().trim()) {
+            "movie" -> "movie"
+            "series", "tv" -> "series"
+            "anime" -> "anime"
+            else -> "other"
+        }
+    }
     val watchedSeriesIds: StateFlow<Set<String>> = watchedSeriesStateHolder.fullyWatchedSeriesIds
 
     private val catalogsMap = linkedMapOf<String, CatalogRow>()
@@ -740,7 +749,7 @@ class SearchViewModel @Inject constructor(
                         addonBaseUrl = addon.baseUrl,
                         catalogId = catalog.id,
                         catalogName = catalog.name,
-                        type = catalog.apiType,
+                        type = normalizeDiscoverType(catalog.apiType),
                         genres = genres,
                         supportsSkip = catalog.supportsExtra("skip"),
                         skipStep = catalog.skipStep()
