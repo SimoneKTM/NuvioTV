@@ -1,4 +1,4 @@
-name: Build APK TV (unsigned)
+name: Build APK TV (signed)
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ on:
       - "enhanced/tv"
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: build-apk-tv-${{ github.ref }}
@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build fullRelease APK
+    name: Build signed fullRelease APK
     runs-on: ubuntu-latest
 
     steps:
@@ -32,6 +32,10 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Decode release keystore
+        run: |
+          echo "${{ secrets.NUVIO_RELEASE_KEYSTORE_BASE64 }}" | base64 -d > "${{ github.workspace }}/nuviotv.jks"
+
       - name: Prepare local properties
         run: |
           touch local.properties
@@ -44,16 +48,32 @@ jobs:
           printf 'TRAKT_CLIENT_SECRET=%s\n' "${{ secrets.TRAKT_CLIENT_SECRET }}" >> local.properties
           printf 'TRAKT_REDIRECT_URI=%s\n' "${{ secrets.TRAKT_REDIRECT_URI }}" >> local.properties
           printf 'TRACKER_LOGIN_RELAY_BASE_URL=%s\n' "${{ secrets.TRACKER_LOGIN_RELAY_BASE_URL }}" >> local.properties
+          printf 'SIMKL_CLIENT_ID=%s\n' "${{ secrets.SIMKL_CLIENT_ID }}" >> local.properties
+          printf 'SIMKL_CLIENT_SECRET=%s\n' "${{ secrets.SIMKL_CLIENT_SECRET }}" >> local.properties
+          printf 'NUVIO_SUPABASE_URL=%s\n' "${{ secrets.NUVIO_SUPABASE_URL }}" >> local.properties
+          printf 'NUVIO_SUPABASE_ANON_KEY=%s\n' "${{ secrets.NUVIO_SUPABASE_ANON_KEY }}" >> local.properties
+          printf 'NUVIO_SUPABASE_FALLBACK_URL=%s\n' "${{ secrets.NUVIO_SUPABASE_FALLBACK_URL }}" >> local.properties
 
-      - name: Build fullRelease APK (debug-signed)
+      - name: Build signed fullRelease APK
         env:
-          CI_USE_DEBUG_SIGNING: "true"
+          NUVIO_RELEASE_STORE_FILE: "${{ github.workspace }}/nuviotv.jks"
+          NUVIO_RELEASE_KEY_ALIAS: "${{ secrets.NUVIO_RELEASE_KEY_ALIAS }}"
+          NUVIO_RELEASE_KEY_PASSWORD: "${{ secrets.NUVIO_RELEASE_KEY_PASSWORD }}"
+          NUVIO_RELEASE_STORE_PASSWORD: "${{ secrets.NUVIO_RELEASE_STORE_PASSWORD }}"
         run: ./gradlew :app:assembleFullRelease --stacktrace
 
-      - name: Upload fullRelease APK
+      - name: Verify APK signature
+        run: |
+          APKSIGNER=$(ls "${ANDROID_HOME:-/usr/local/lib/android/sdk}"/build-tools/*/apksigner | sort | tail -1)
+          for apk in app/build/outputs/apk/full/release/*.apk; do
+            echo "Verifying $apk"
+            "$APKSIGNER" verify --print-certs "$apk"
+          done
+
+      - name: Upload signed fullRelease APK
         uses: actions/upload-artifact@v6
         with:
-          name: nuvio-tv-full-release
+          name: nuvio-tv-full-release-signed
           path: app/build/outputs/apk/full/release/*.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
