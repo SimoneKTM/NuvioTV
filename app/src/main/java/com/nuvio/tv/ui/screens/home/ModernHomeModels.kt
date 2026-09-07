@@ -528,6 +528,8 @@ internal fun buildCollectionFolderItem(
     // GIF URL is only used as an animated overlay on focus (when focusGifEnabled is true).
     // Don't use it as a static poster — it would still animate via Coil's GIF decoder.
     val imageUrl = firstNonBlank(folder.coverImageUrl, collection.backdropImageUrl)
+    // Use folder's heroBackdropUrl as backdrop, fallback to imageUrl
+    val heroBackdrop = folder.heroBackdropUrl?.takeIf { it.isNotBlank() } ?: imageUrl
 
     return ModernCarouselItem(
         key = "collection_${collection.id}_${folder.id}_$occurrence",
@@ -543,7 +545,7 @@ internal fun buildCollectionFolderItem(
             imdbText = null,
             genres = emptyList<String>().asStable(),
             poster = imageUrl,
-            backdrop = null,
+            backdrop = heroBackdrop,
             imageUrl = imageUrl
         ),
         payload = ModernPayload.CollectionFolder(
