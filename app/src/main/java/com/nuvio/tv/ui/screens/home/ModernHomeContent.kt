@@ -724,14 +724,14 @@ fun ModernHomeContent(
                 isSidebarExpanded
             ) {
                 derivedStateOf {
-                    // Don't play hero video for collection folders (hero is hidden for them)
                     val focusedSelection = focusedCatalogSelection.value
                     val isCollectionFolder = focusedSelection?.payload is ModernPayload.CollectionFolder
-                    if (isCollectionFolder) false
+                    // Allow hero video for collection folders if they have a heroVideoUrl configured
+                    if (!isCollectionFolder) false
+                    else if (collectionHeroVideoUrl.isNullOrBlank()) false
                     else {
                         isScrollStoppedState.value &&
                             !isSidebarExpanded.value &&
-                            !collectionHeroVideoUrl.isNullOrBlank() &&
                             collectionHeroVideoPlaybackKey != null &&
                             endedCollectionHeroVideoPlaybackKey != collectionHeroVideoPlaybackKey
                     }
@@ -867,8 +867,8 @@ fun ModernHomeContent(
                         isScrolling && stableHasPreview -> stable!!
                         // During rapid horizontal nav: freeze to avoid backdrop flashing
                         isRapidNav && stable != null -> stable
-                        // Hide hero for collection folders
-                        isCollectionFolder -> currentLive.copy(heroBackdrop = null, preview = null)
+                        // Hide hero metadata (logo, title, description) for collection folders, keep backdrop (photo/GIF)
+                        isCollectionFolder -> currentLive.copy(preview = null)
                         // Normal: show live state
                         else -> currentLive
                     }
