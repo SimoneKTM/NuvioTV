@@ -605,6 +605,9 @@ fun ModernHomeContent(
                     val activeItemId = activeCarouselItem?.metaPreview?.id
                     val enrichmentActive = enrichingItemId != null && enrichingItemId == activeItemId
                     
+                    // Check if the active item is a CollectionFolder
+                    val isCollectionFolder = activeCarouselItem?.payload is ModernPayload.CollectionFolder
+                    
                     val enrichedItem = activeItemId?.let { enrichedPreviews[it] }
                     val enrichedHero = if (enrichedItem != null) {
                         HeroPreview(
@@ -633,6 +636,7 @@ fun ModernHomeContent(
 
                     val resolvedHero = when {
                         activeCarouselItem == null -> null
+                        isCollectionFolder -> null // No hero preview for collection folders (show black background)
                         enrichmentActive -> activeCarouselItem.heroPreview
                         enrichedHero != null -> enrichedHero
                         else -> activeCarouselItem.heroPreview
@@ -654,12 +658,17 @@ fun ModernHomeContent(
                         item.heroPreview.backdrop?.takeIf { it.isNotBlank() }
                     }
                     
-                    val heroBackdrop = firstNonBlank(
-                        resolvedHero?.backdrop,
-                        resolvedHero?.imageUrl,
-                        resolvedHero?.poster,
-                        activeRowFallbackBackdrop
-                    )
+                    // For collection folders, use black backdrop; otherwise use normal logic
+                    val heroBackdrop = if (isCollectionFolder) {
+                        "#000000" // Black background for collection folders
+                    } else {
+                        firstNonBlank(
+                            resolvedHero?.backdrop,
+                            resolvedHero?.imageUrl,
+                            resolvedHero?.poster,
+                            activeRowFallbackBackdrop
+                        )
+                    }
                     
                     Triple(heroBackdrop, resolvedHero, effectiveEnrichmentActive)
                 }
@@ -722,11 +731,8 @@ fun ModernHomeContent(
                 isSidebarExpanded
             ) {
                 derivedStateOf {
-                    isScrollStoppedState.value &&
-                        !isSidebarExpanded.value &&
-                        !collectionHeroVideoUrl.isNullOrBlank() &&
-                        collectionHeroVideoPlaybackKey != null &&
-                        endedCollectionHeroVideoPlaybackKey != collectionHeroVideoPlaybackKey
+                    // Disable hero video for collection folders - show black background instead
+                    false
                 }
             }
             val heroMediaDataState = remember(shouldPlayCollectionHeroVideoState, collectionHeroVideoUrl, heroTrailerUrlsState, collectionHeroVideoPlaybackKey) {
