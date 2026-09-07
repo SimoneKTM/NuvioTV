@@ -5,6 +5,8 @@
     <string name="type_movies">Movies</string>
     <string name="type_series">Series</string>
     <string name="type_series_plural">Series</string>
+    <string name="type_anime">Anime</string>
+    <string name="type_other">Other</string>
     <string name="type_unknown">Unknown</string>
 
     <string name="web_manage_addons_title">Manage Addons</string>
@@ -460,7 +462,7 @@
     <string name="anilist_name">AniList</string>
     <string name="anilist_description">Connect AniList to sync your anime lists and status.</string>
     <string name="anilist_connect">Connect AniList</string>
-    <string name="anilist_connect_instruction">Sign in on the AniList authorization page, then paste the access token you receive into the field below.</string>
+    <string name="anilist_connect_instruction">Scan the QR code to sign in on the AniList authorization page, then paste the access token you receive into the field below.</string>
     <string name="anilist_open_authorize">Open AniList authorization</string>
     <string name="anilist_token_label">Access token</string>
     <string name="anilist_connected_as">Connected as %1$s</string>
@@ -513,7 +515,7 @@
     <string name="mal_name">MyAnimeList</string>
     <string name="mal_description">Connect MyAnimeList to sync your anime lists and status.</string>
     <string name="mal_connect">Connect MyAnimeList</string>
-    <string name="mal_connect_instruction">Sign in on the MyAnimeList authorization page, then paste the access token you receive into the field below.</string>
+    <string name="mal_connect_instruction">Scan the QR code to sign in on the MyAnimeList authorization page, then paste the access token you receive into the field below.</string>
     <string name="mal_open_authorize">Open MyAnimeList authorization</string>
     <string name="mal_token_label">Access token</string>
     <string name="mal_connected_as">Connected as %1$s</string>

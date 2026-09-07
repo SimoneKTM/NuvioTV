@@ -16,7 +16,8 @@ fun formatAddonTypeLabel(value: String): String {
 fun localizedContentType(context: Context, contentType: String?): String = when (contentType?.lowercase()?.trim()) {
     "movie" -> context.getString(R.string.type_movie)
     "series", "tv" -> context.getString(R.string.type_series)
-    else -> contentType?.let { formatAddonTypeLabel(it) } ?: ""
+    "anime" -> context.getString(R.string.type_anime)
+    else -> context.getString(R.string.type_other)
 }
 
 @Composable
