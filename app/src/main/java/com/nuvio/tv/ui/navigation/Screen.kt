@@ -10,6 +10,25 @@ sealed class Screen(val route: String) {
     data object AnimeAddonManager : Screen("anime_addon_manager")
     data object AnimeCatalogOrder : Screen("anime_catalog_order")
     data object AnimeLayoutSettings : Screen("anime_layout_settings")
+    data object CustomTab : Screen("custom_tab/{tabId}") {
+        private fun encode(value: String): String =
+            URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+
+        fun createRoute(tabId: String): String {
+            val encodedTabId = encode(tabId)
+            return "custom_tab/$encodedTabId"
+        }
+    }
+    data object CustomTabSettings : Screen("custom_tab_settings")
+    data object CustomTabEdit : Screen("custom_tab_edit/{tabId}") {
+        private fun encode(value: String): String =
+            URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+
+        fun createRoute(tabId: String): String {
+            val encodedTabId = encode(tabId)
+            return "custom_tab_edit/$encodedTabId"
+        }
+    }
     data object Detail : Screen("detail/{itemId}/{itemType}?addonBaseUrl={addonBaseUrl}&returnFocusSeason={returnFocusSeason}&returnFocusEpisode={returnFocusEpisode}&returnToHomeOnBack={returnToHomeOnBack}&heroBackdropUrl={heroBackdropUrl}") {
         private fun encode(value: String): String =
             URLEncoder.encode(value, "UTF-8").replace("+", "%20")

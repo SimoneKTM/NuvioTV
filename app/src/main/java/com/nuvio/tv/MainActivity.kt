@@ -45,10 +45,22 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChildFriendly
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterDrama
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Newspaper
+import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SentimentSatisfied
+import androidx.compose.material.icons.filled.SentimentVeryDissatisfied
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.TheaterComedy
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -139,6 +151,7 @@ import com.nuvio.tv.domain.model.AppFont
 import com.nuvio.tv.domain.model.AppTheme
 import com.nuvio.tv.domain.model.AuthState
 import com.nuvio.tv.domain.model.CardDepthStyle
+import com.nuvio.tv.domain.model.CustomTab
 import com.nuvio.tv.domain.model.DiscoverLocation
 import com.nuvio.tv.domain.model.ExperienceMode
 import com.nuvio.tv.domain.model.SettingsUiStyle
@@ -206,8 +219,30 @@ private data class MainUiPrefs(
     val settingsUiStyle: SettingsUiStyle = SettingsUiStyle.CLASSIC,
     val cardDepthStyle: CardDepthStyle = CardDepthStyle(),
     val animeTabVisible: Boolean = true,
-    val liveTvTabVisible: Boolean = true
+    val liveTvTabVisible: Boolean = true,
+    val customTabs: List<CustomTab> = emptyList()
 )
+
+private fun getCustomTabIcon(iconName: String): androidx.compose.ui.graphics.vector.ImageVector {
+    return when (iconName) {
+        "DEFAULT" -> Icons.Default.Movie
+        "MOVIE" -> Icons.Default.Movie
+        "SERIES" -> Icons.Default.LiveTv
+        "ANIME" -> Icons.Default.FilterDrama
+        "DOCUMENTARY" -> Icons.Default.VideoLibrary
+        "KIDS" -> Icons.Default.ChildFriendly
+        "SPORTS" -> Icons.Default.SportsEsports
+        "MUSIC" -> Icons.Default.MusicNote
+        "NEWS" -> Icons.Default.Newspaper
+        "SCIENCE_FI" -> Icons.Default.RocketLaunch
+        "HORROR" -> Icons.Default.SentimentVeryDissatisfied
+        "COMEDY" -> Icons.Default.SentimentSatisfied
+        "ACTION" -> Icons.Default.FlashOn
+        "DRAMA" -> Icons.Default.TheaterComedy
+        "CUSTOM" -> Icons.Default.Edit
+        else -> Icons.Default.Movie
+    }
+}
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -433,9 +468,10 @@ class MainActivity : ComponentActivity() {
                 }
                 val tabVisibilityFlow = combine(
                     layoutPreferenceDataStore.animeTabVisible,
-                    layoutPreferenceDataStore.liveTvTabVisible
-                ) { animeVisible, liveTvVisible ->
-                    Pair(animeVisible, liveTvVisible)
+                    layoutPreferenceDataStore.liveTvTabVisible,
+                    layoutPreferenceDataStore.customTabs
+                ) { animeVisible, liveTvVisible, customTabs ->
+                    Triple(animeVisible, liveTvVisible, customTabs)
                 }
                 val extraFeaturesBaseFlow = combine(
                     experienceModeDataStore.addonSetupSkipped,
@@ -455,7 +491,8 @@ class MainActivity : ComponentActivity() {
                 val extraFeaturesFlow = extraFeaturesBaseFlow.combine(tabVisibilityFlow) { prefs, tabVisibility ->
                     prefs.copy(
                         animeTabVisible = tabVisibility.first,
-                        liveTvTabVisible = tabVisibility.second
+                        liveTvTabVisible = tabVisibility.second,
+                        customTabs = tabVisibility.third
                     )
                 }
                 combine(
@@ -477,7 +514,8 @@ class MainActivity : ComponentActivity() {
                         settingsUiStyle = extraPrefs.settingsUiStyle,
                         cardDepthStyle = cardDepthStyle,
                         animeTabVisible = extraPrefs.animeTabVisible,
-                        liveTvTabVisible = extraPrefs.liveTvTabVisible
+                        liveTvTabVisible = extraPrefs.liveTvTabVisible,
+                        customTabs = extraPrefs.customTabs
                     )
                 }
             }
@@ -771,7 +809,8 @@ strNavLibrary,
                         strNavLiveTv,
                         strNavSettings,
                         mainUiPrefs.animeTabVisible,
-                        mainUiPrefs.liveTvTabVisible
+                        mainUiPrefs.liveTvTabVisible,
+                        mainUiPrefs.customTabs
                     ) {
                         buildList {
                             add(
@@ -789,6 +828,16 @@ strNavLibrary,
                                     icon = Icons.Default.FilterDrama
                                 )
                             )
+                            }
+                            // Custom tabs
+                            mainUiPrefs.customTabs.forEach { tab ->
+                                add(
+                                    DrawerItem(
+                                        route = Screen.CustomTab.createRoute(tab.id),
+                                        label = tab.name,
+                                        icon = getCustomTabIcon(tab.icon)
+                                    )
+                                )
                             }
                             add(
                                 DrawerItem(

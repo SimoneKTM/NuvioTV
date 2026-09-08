@@ -3260,4 +3260,37 @@
     <string name="sub_startup_mode_preferred_desc">Preload addon subtitles before playback and attach preferred/secondary language tracks.</string>
     <string name="sub_startup_mode_all_desc">Preload and attach all addon subtitles before playback. Slowest startup.</string>
 
+    <!-- Custom Tabs -->
+    <string name="custom_tabs_settings_title">Tab personalizzate</string>
+    <string name="custom_tabs_settings_subtitle">Crea fino a %1$d tab con i tuoi addon preferiti</string>
+    <string name="custom_tabs_empty_title">Nessuna tab personalizzata</string>
+    <string name="custom_tabs_empty_subtitle">Crea una nuova tab per organizzare i tuoi contenuti preferiti</string>
+    <string name="custom_tabs_add_new">+ Nuova tab</string>
+    <string name="custom_tabs_add_dialog_title">Crea nuova tab</string>
+    <string name="custom_tabs_name_label">Nome tab</string>
+    <string name="custom_tabs_name_placeholder">es. Film, Serie TV, Anime</string>
+    <string name="custom_tabs_icon_label">Icona</string>
+    <string name="custom_tabs_add">Aggiungi</string>
+    <string name="custom_tabs_sources">sorgenti</string>
+    <string name="custom_tabs_drag_to_reorder">Trascina per riordinare</string>
+    <string name="custom_tabs_move_up">Sposta su</string>
+    <string name="custom_tabs_move_down">Sposta giù</string>
+    <string name="custom_tabs_edit">Modifica</string>
+    <string name="custom_tabs_delete">Elimina</string>
+    <string name="custom_tabs_save">Salva</string>
+    <string name="custom_tabs_sources_title">Sorgenti addon</string>
+    <string name="custom_tabs_sources_subtitle">Seleziona i cataloghi da includere in questa tab</string>
+    <string name="custom_tabs_no_addons">Nessun addon anime installato</string>
+    <string name="custom_tab_empty_title">%1$s vuota</string>
+    <string name="custom_tab_empty_subtitle">Aggiungi sorgenti dalle impostazioni per vedere i contenuti</string>
+    <string name="custom_tab_empty_action">Apri impostazioni</string>
+    <string name="custom_tab_no_catalogs_title">Nessun catalogo</string>
+    <string name="custom_tab_no_catalogs_subtitle">Seleziona almeno un catalogo per %1$s</string>
+    <string name="custom_tab_edit_title">Modifica: %1$s</string>
+    <string name="custom_tab_not_found">Tab non trovata</string>
+    <string name="cancel">Annulla</string>
+    <string name="custom_tabs_source_selected">Sorgente selezionata</string>
+    <string name="custom_tabs_source_not_selected">Sorgente non selezionata</string>
+    <string name="back">Indietro</string>
+
 </resources>
