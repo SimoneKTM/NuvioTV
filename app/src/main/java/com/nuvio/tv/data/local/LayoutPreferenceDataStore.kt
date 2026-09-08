@@ -18,6 +18,7 @@ import com.nuvio.tv.domain.model.CardDepthStyle
 import com.nuvio.tv.domain.model.CardDepthSurface
 import com.nuvio.tv.domain.model.Collection
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
+import com.nuvio.tv.domain.model.CustomTab
 import com.nuvio.tv.domain.model.ContinueWatchingSortMode
 import com.nuvio.tv.domain.model.DEFAULT_CARD_DEPTH_EDGE_COVERAGE
 import com.nuvio.tv.domain.model.DEFAULT_CARD_DEPTH_EDGE_STRENGTH
@@ -116,6 +117,7 @@ class LayoutPreferenceDataStore @Inject constructor(
     private val composeHighlighterEnabledKey = booleanPreferencesKey("compose_highlighter_enabled")
     private val animeTabVisibleKey = booleanPreferencesKey("anime_tab_visible")
     private val liveTvTabVisibleKey = booleanPreferencesKey("live_tv_tab_visible")
+    private val customTabsKey = stringPreferencesKey("custom_tabs")
 
     private fun <T> profileFlow(extract: (prefs: androidx.datastore.preferences.core.Preferences) -> T): Flow<T> =
         profileManager.activeProfileId.flatMapLatest { pid ->
@@ -380,6 +382,15 @@ class LayoutPreferenceDataStore @Inject constructor(
 
     val liveTvTabVisible: Flow<Boolean> = profileFlow { prefs ->
         prefs[liveTvTabVisibleKey] ?: true
+    }
+
+    val customTabs: Flow<List<CustomTab>> = profileManager.activeProfileId.flatMapLatest { pid ->
+        val profile = profileManager.profiles.value.find { it.id == pid }
+        val usePrimary = profile != null && !profile.isPrimary && profile.usesPrimaryAddons
+        val effectivePid = if (usePrimary) 1 else pid
+        factory.get(effectivePid, featureName).data.map { prefs ->
+            parseCustomTabs(prefs[customTabsKey])
+        }
     }
 
     suspend fun setMemoryOnlyVerticalScroll(enabled: Boolean) {
@@ -768,6 +779,60 @@ class LayoutPreferenceDataStore @Inject constructor(
         } catch (_: Exception) {
             emptyMap()
         }
+    }
+
+    private fun parseCustomTabs(json: String?): List<CustomTab> {
+        if (json.isNullOrBlank()) return emptyList()
+        return try {
+            val type = object : TypeToken<List<CustomTab>>() {}.type
+            gson.fromJson<List<CustomTab>>(json, type).orEmpty()
+                .filter { it.enabled }
+                .sortedBy { it.order }
+                .take(CustomTab.getMaxTabs())
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    suspend fun setCustomTabs(tabs: List<CustomTab>) {
+        val limitedTabs = tabs.take(CustomTab.getMaxTabs())
+        store().edit { prefs ->
+            if (limitedTabs.isEmpty()) {
+                prefs.remove(customTabsKey)
+            } else {
+                prefs[customTabsKey] = gson.toJson(limitedTabs)
+            }
+        }
+    }
+
+    suspend fun addCustomTab(tab: CustomTab) {
+        val current = parseCustomTabs(store().data.first()[customTabsKey] ?: "")
+        if (current.size >= CustomTab.getMaxTabs()) return
+        val newTabs = current + tab.copy(order = current.size)
+        setCustomTabs(newTabs)
+    }
+
+    suspend fun updateCustomTab(tab: CustomTab) {
+        val current = parseCustomTabs(store().data.first()[customTabsKey] ?: "")
+        val updated = current.map { if (it.id == tab.id) tab else it }
+        setCustomTabs(updated)
+    }
+
+    suspend fun removeCustomTab(tabId: String) {
+        val current = parseCustomTabs(store().data.first()[customTabsKey] ?: "")
+        val updated = current.filter { it.id != tabId }
+            .mapIndexed { index, tab -> tab.copy(order = index) }
+        setCustomTabs(updated)
+    }
+
+    suspend fun reorderCustomTabs(fromIndex: Int, toIndex: Int) {
+        val current = parseCustomTabs(store().data.first()[customTabsKey] ?: "")
+        if (fromIndex < 0 || fromIndex >= current.size || toIndex < 0 || toIndex >= current.size) return
+        val updated = current.toMutableList()
+        val item = updated.removeAt(fromIndex)
+        updated.add(toIndex, item)
+        val reordered = updated.mapIndexed { index, tab -> tab.copy(order = index) }
+        setCustomTabs(reordered)
     }
 
     suspend fun setCustomCatalogTitles(titles: Map<String, String>) {
