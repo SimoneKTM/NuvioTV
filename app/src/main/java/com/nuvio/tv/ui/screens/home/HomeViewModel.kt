@@ -81,7 +81,7 @@ class HomeViewModel @Inject constructor(
     internal val cwEnrichmentCache: ContinueWatchingEnrichmentCache,
     internal val profileManager: com.nuvio.tv.core.profile.ProfileManager,
     internal val tvRecommendationManager: TvRecommendationManager
-) : ViewModel() {
+) : ViewModel(), HomeRouteViewModel {
     companion object {
         internal const val TAG = "HomeViewModel"
         internal const val STARTUP_GRACE_PERIOD_MS = 1_500L

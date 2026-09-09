@@ -225,4 +225,23 @@ sealed class Screen(val route: String) {
             return "tmdb_entity_browse/${encode(entityKind)}/$entityId/${encode(entityName)}?sourceType=${encode(sourceType)}"
         }
     }
+
+    data object CustomTab : Screen("custom_tab/{tabId}") {
+        private fun encode(value: String): String =
+            URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+
+        fun createRoute(tabId: String): String {
+            return "custom_tab/${encode(tabId)}"
+        }
+    }
+
+    data object CustomTabSettings : Screen("custom_tab_settings")
+    data object CustomTabEdit : Screen("custom_tab_edit/{tabId}") {
+        private fun encode(value: String): String =
+            URLEncoder.encode(value, "UTF-8").replace("+", "%20")
+
+        fun createRoute(tabId: String): String {
+            return "custom_tab_edit/${encode(tabId)}"
+        }
+    }
 }

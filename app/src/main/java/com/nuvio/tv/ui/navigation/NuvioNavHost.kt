@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -22,6 +23,10 @@ import com.nuvio.tv.domain.model.ExperienceMode
 import com.nuvio.tv.ui.screens.CatalogSeeAllScreen
 import com.nuvio.tv.ui.screens.ExperienceModeSelectionScreen
 import com.nuvio.tv.ui.screens.LayoutSelectionScreen
+import com.nuvio.tv.ui.screens.customtab.CustomTabHomeScreen
+import com.nuvio.tv.ui.screens.customtab.CustomTabSettingsScreen
+import com.nuvio.tv.ui.screens.customtab.CustomTabEditScreen
+import com.nuvio.tv.ui.screens.customtab.CustomTabHomeViewModel
 import com.nuvio.tv.ui.screens.detail.MetaDetailsScreen
 import com.nuvio.tv.ui.screens.home.HomeScreen
 import com.nuvio.tv.ui.screens.addon.AddonManagerScreen
@@ -1179,6 +1184,55 @@ fun NuvioNavHost(
 
         composable(Screen.AnimeCatalogOrder.route) {
             AnimeCatalogOrderScreen(
+                onBackPress = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.CustomTab.route,
+            arguments = listOf(navArgument("tabId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
+            val customTabViewModel: CustomTabHomeViewModel = hiltViewModel<CustomTabHomeViewModel>()
+            customTabViewModel.setTabId(tabId)
+            CustomTabHomeScreen(
+                viewModel = customTabViewModel,
+                onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
+                    val heroBackdrop = HeroBackdropState.consumeAndClear()
+                    navController.navigate(
+                        Screen.Detail.createRoute(
+                            itemId = itemId,
+                            itemType = itemType,
+                            addonBaseUrl = addonBaseUrl,
+                            heroBackdropUrl = heroBackdrop
+                        )
+                    )
+                },
+                onNavigateToCatalogSeeAll = { catalogId, addonId, type ->
+                    navController.navigate(
+                        Screen.CatalogSeeAll.createRoute(catalogId, addonId, type)
+                    )
+                },
+                onOpenSettings = { navController.navigate(Screen.CustomTabSettings.route) }
+            )
+        }
+
+        composable(Screen.CustomTabSettings.route) {
+            CustomTabSettingsScreen(
+                onBackPress = { navController.popBackStack() },
+                onNavigateToEdit = { tabId ->
+                    navController.navigate(Screen.CustomTabEdit.createRoute(tabId))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.CustomTabEdit.route,
+            arguments = listOf(navArgument("tabId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
+            CustomTabEditScreen(
+                tabId = tabId,
                 onBackPress = { navController.popBackStack() }
             )
         }

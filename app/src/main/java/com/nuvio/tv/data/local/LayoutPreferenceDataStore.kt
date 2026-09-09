@@ -19,12 +19,14 @@ import com.nuvio.tv.domain.model.CardDepthSurface
 import com.nuvio.tv.domain.model.Collection
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
 import com.nuvio.tv.domain.model.ContinueWatchingSortMode
+import com.nuvio.tv.domain.model.CustomTab
 import com.nuvio.tv.domain.model.DEFAULT_CARD_DEPTH_EDGE_COVERAGE
 import com.nuvio.tv.domain.model.DEFAULT_CARD_DEPTH_EDGE_STRENGTH
 import com.nuvio.tv.domain.model.DEFAULT_CARD_DEPTH_SHEEN_STRENGTH
 import com.nuvio.tv.domain.model.DiscoverLocation
 import com.nuvio.tv.domain.model.FocusedPosterTrailerPlaybackTarget
 import com.nuvio.tv.domain.model.HomeLayout
+import com.nuvio.tv.domain.model.MAX_CUSTOM_TABS
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
@@ -116,6 +118,7 @@ class LayoutPreferenceDataStore @Inject constructor(
     private val composeHighlighterEnabledKey = booleanPreferencesKey("compose_highlighter_enabled")
     private val animeTabVisibleKey = booleanPreferencesKey("anime_tab_visible")
     private val liveTvTabVisibleKey = booleanPreferencesKey("live_tv_tab_visible")
+    private val customTabsKey = stringPreferencesKey("custom_tabs")
 
     private fun <T> profileFlow(extract: (prefs: androidx.datastore.preferences.core.Preferences) -> T): Flow<T> =
         profileManager.activeProfileId.flatMapLatest { pid ->
@@ -382,6 +385,10 @@ class LayoutPreferenceDataStore @Inject constructor(
         prefs[liveTvTabVisibleKey] ?: true
     }
 
+    val customTabs: Flow<List<CustomTab>> = profileFlow { prefs ->
+        parseCustomTabs(prefs[customTabsKey])
+    }
+
     suspend fun setMemoryOnlyVerticalScroll(enabled: Boolean) {
         store().edit { prefs ->
             prefs[memoryOnlyVerticalScrollKey] = enabled
@@ -421,6 +428,49 @@ class LayoutPreferenceDataStore @Inject constructor(
     suspend fun setLiveTvTabVisible(enabled: Boolean) {
         store().edit { prefs ->
             prefs[liveTvTabVisibleKey] = enabled
+        }
+    }
+
+    suspend fun addCustomTab(tab: CustomTab) {
+        store().edit { prefs ->
+            val existing = parseCustomTabs(prefs[customTabsKey]).toMutableList()
+            if (existing.size < MAX_CUSTOM_TABS) {
+                existing.add(tab)
+                prefs[customTabsKey] = gson.toJson(existing)
+            }
+        }
+    }
+
+    suspend fun updateCustomTab(tab: CustomTab) {
+        store().edit { prefs ->
+            val existing = parseCustomTabs(prefs[customTabsKey]).toMutableList()
+            val index = existing.indexOfFirst { it.id == tab.id }
+            if (index >= 0) {
+                existing[index] = tab
+                prefs[customTabsKey] = gson.toJson(existing)
+            }
+        }
+    }
+
+    suspend fun removeCustomTab(tabId: String) {
+        store().edit { prefs ->
+            val existing = parseCustomTabs(prefs[customTabsKey]).toMutableList()
+            existing.removeAll { it.id == tabId }
+            if (existing.isEmpty()) {
+                prefs.remove(customTabsKey)
+            } else {
+                prefs[customTabsKey] = gson.toJson(existing)
+            }
+        }
+    }
+
+    suspend fun reorderCustomTabs(tabs: List<CustomTab>) {
+        store().edit { prefs ->
+            if (tabs.isEmpty()) {
+                prefs.remove(customTabsKey)
+            } else {
+                prefs[customTabsKey] = gson.toJson(tabs)
+            }
         }
     }
 
@@ -767,6 +817,16 @@ class LayoutPreferenceDataStore @Inject constructor(
             gson.fromJson<Map<String, String>>(json, type).orEmpty()
         } catch (_: Exception) {
             emptyMap()
+        }
+    }
+
+    private fun parseCustomTabs(json: String?): List<CustomTab> {
+        if (json.isNullOrBlank()) return emptyList()
+        return try {
+            val type = object : TypeToken<List<CustomTab>>() {}.type
+            gson.fromJson<List<CustomTab>>(json, type).orEmpty()
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 

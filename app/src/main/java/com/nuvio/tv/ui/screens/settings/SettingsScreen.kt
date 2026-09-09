@@ -104,6 +104,7 @@ internal enum class SettingsCategory {
     ACCOUNT,
     PROFILES,
     ANIME,
+    CUSTOM_TABS,
     APPEARANCE,
     LAYOUT,
     CONTENT_DISCOVERY,
@@ -197,6 +198,13 @@ private fun rememberSettingsSectionSpecs() = listOf(
         title = stringResource(R.string.nav_anime),
         icon = Icons.Default.FilterDrama,
         subtitle = stringResource(R.string.settings_anime_subtitle),
+        destination = SettingsSectionDestination.Inline
+    ),
+    SettingsSectionSpec(
+        category = SettingsCategory.CUSTOM_TABS,
+        title = stringResource(R.string.custom_tabs_title),
+        icon = Icons.Default.ViewList,
+        subtitle = stringResource(R.string.custom_tabs_subtitle),
         destination = SettingsSectionDestination.Inline
     ),
     SettingsSectionSpec(
@@ -318,6 +326,7 @@ fun SettingsScreen(
                 SettingsCategory.CONTENT_DISCOVERY -> true
                 SettingsCategory.INTEGRATION -> true
                 SettingsCategory.ADVANCED -> true
+                SettingsCategory.CUSTOM_TABS -> true
                 else -> true
             }
         }
@@ -339,6 +348,7 @@ fun SettingsScreen(
             SettingsCategory.EXPERIENCE to FocusRequester(),
             SettingsCategory.PROFILES to FocusRequester(),
             SettingsCategory.ANIME to FocusRequester(),
+            SettingsCategory.CUSTOM_TABS to FocusRequester(),
             SettingsCategory.LAYOUT to FocusRequester(),
             SettingsCategory.CONTENT_DISCOVERY to FocusRequester(),
             SettingsCategory.INTEGRATION to FocusRequester(),
@@ -897,6 +907,17 @@ private fun SettingsDetailPane(
             animeSkipFocusRequester = animeAnimeSkipFocusRequester,
             openSubtitlesFocusRequester = openSubtitlesFocusRequester,
             autoFocusEnabled = allowDetailAutofocus
+        )
+        SettingsCategory.CUSTOM_TABS -> CustomTabSettingsScreen(
+            initialFocusRequester = if (allowDetailAutofocus) {
+                contentFocusRequesters[SettingsCategory.CUSTOM_TABS]
+            } else {
+                null
+            },
+            onOpenEdit = { tabId ->
+                navController.navigate(Screen.CustomTabEdit.createRoute(tabId))
+            },
+            onBack = { selectedCategory = SettingsCategory.LAYOUT }
         )
         SettingsCategory.APPEARANCE -> ThemeSettingsContent(
             initialFocusRequester = if (allowDetailAutofocus) {

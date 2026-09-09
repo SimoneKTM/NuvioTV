@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.FilterDrama
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -139,6 +140,7 @@ import com.nuvio.tv.domain.model.AppFont
 import com.nuvio.tv.domain.model.AppTheme
 import com.nuvio.tv.domain.model.AuthState
 import com.nuvio.tv.domain.model.CardDepthStyle
+import com.nuvio.tv.domain.model.CustomTab
 import com.nuvio.tv.domain.model.DiscoverLocation
 import com.nuvio.tv.domain.model.ExperienceMode
 import com.nuvio.tv.domain.model.SettingsUiStyle
@@ -206,7 +208,8 @@ private data class MainUiPrefs(
     val settingsUiStyle: SettingsUiStyle = SettingsUiStyle.CLASSIC,
     val cardDepthStyle: CardDepthStyle = CardDepthStyle(),
     val animeTabVisible: Boolean = true,
-    val liveTvTabVisible: Boolean = true
+    val liveTvTabVisible: Boolean = true,
+    val customTabs: List<CustomTab> = emptyList()
 )
 
 @AndroidEntryPoint
@@ -437,6 +440,7 @@ class MainActivity : ComponentActivity() {
                 ) { animeVisible, liveTvVisible ->
                     Pair(animeVisible, liveTvVisible)
                 }
+                val customTabsFlow = layoutPreferenceDataStore.customTabs
                 val extraFeaturesBaseFlow = combine(
                     experienceModeDataStore.addonSetupSkipped,
                     layoutPreferenceDataStore.smoothBringIntoViewEnabled,
@@ -462,8 +466,9 @@ class MainActivity : ComponentActivity() {
                     themeAndExperienceFlow,
                     layoutAndFeaturesFlow,
                     extraFeaturesFlow,
-                    layoutPreferenceDataStore.cardDepthStyle
-                ) { themePrefs, layoutPrefs, extraPrefs, cardDepthStyle ->
+                    layoutPreferenceDataStore.cardDepthStyle,
+                    customTabsFlow
+                ) { themePrefs, layoutPrefs, extraPrefs, cardDepthStyle, customTabs ->
                     themePrefs.copy(
                         hasChosenLayout = layoutPrefs.hasChosenLayout,
                         sidebarCollapsed = layoutPrefs.sidebarCollapsed,
@@ -477,7 +482,8 @@ class MainActivity : ComponentActivity() {
                         settingsUiStyle = extraPrefs.settingsUiStyle,
                         cardDepthStyle = cardDepthStyle,
                         animeTabVisible = extraPrefs.animeTabVisible,
-                        liveTvTabVisible = extraPrefs.liveTvTabVisible
+                        liveTvTabVisible = extraPrefs.liveTvTabVisible,
+                        customTabs = customTabs
                     )
                 }
             }
@@ -745,7 +751,14 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    val rootRoutes = remember {
+                    val strNavHome = stringResource(R.string.nav_home)
+                    val strNavAnime = stringResource(R.string.nav_anime)
+                    val strNavSearch = stringResource(R.string.nav_search)
+                    val strNavLibrary = stringResource(R.string.nav_library)
+                    val strNavLiveTv = stringResource(R.string.nav_live_tv)
+                    val strNavSettings = stringResource(R.string.nav_settings)
+                    val customTabs = mainUiPrefs.customTabs.filter { it.enabled }
+                    val rootRoutes = remember(customTabs) {
                         buildSet {
                             add(Screen.Home.route)
                             add(Screen.Anime.route)
@@ -754,24 +767,21 @@ class MainActivity : ComponentActivity() {
                             add(Screen.Library.route)
                             add(Screen.LiveTv.route)
                             add(Screen.Settings.route)
+                            customTabs.forEach { tab ->
+                                add(Screen.CustomTab.createRoute(tab.id))
+                            }
                         }
                     }
-
-                    val strNavHome = stringResource(R.string.nav_home)
-                    val strNavAnime = stringResource(R.string.nav_anime)
-                    val strNavSearch = stringResource(R.string.nav_search)
-                    val strNavLibrary = stringResource(R.string.nav_library)
-                    val strNavLiveTv = stringResource(R.string.nav_live_tv)
-                    val strNavSettings = stringResource(R.string.nav_settings)
-val drawerItems = remember(
+                    val drawerItems = remember(
                         strNavHome,
                         strNavAnime,
                         strNavSearch,
-strNavLibrary,
+                        strNavLibrary,
                         strNavLiveTv,
                         strNavSettings,
                         mainUiPrefs.animeTabVisible,
-                        mainUiPrefs.liveTvTabVisible
+                        mainUiPrefs.liveTvTabVisible,
+                        customTabs
                     ) {
                         buildList {
                             add(
@@ -789,6 +799,15 @@ strNavLibrary,
                                     icon = Icons.Default.FilterDrama
                                 )
                             )
+                            }
+                            customTabs.forEach { tab ->
+                                add(
+                                    DrawerItem(
+                                        route = Screen.CustomTab.createRoute(tab.id),
+                                        label = tab.displayName,
+                                        icon = Icons.Default.ViewList
+                                    )
+                                )
                             }
                             add(
                                 DrawerItem(
