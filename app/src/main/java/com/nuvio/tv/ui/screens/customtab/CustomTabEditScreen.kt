@@ -1,13 +1,21 @@
 package com.nuvio.tv.ui.screens.customtab
 
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -17,18 +25,9 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalTvMaterial3Api
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,12 +42,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.tv.material3.TvMaterialTheme
+import androidx.tv.material3.Button
+import androidx.tv.material3.ButtonDefaults
+import androidx.tv.material3.Card
+import androidx.tv.material3.CardDefaults
+import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.Icon
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Switch
+import androidx.tv.material3.SwitchDefaults
+import androidx.tv.material3.Text
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.CustomTab
 import com.nuvio.tv.domain.model.IconType
 import com.nuvio.tv.ui.theme.NuvioTheme
 
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun CustomTabEditScreen(
     tabId: String,
@@ -71,11 +80,10 @@ fun CustomTabEditScreen(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Top,
-                
             ) {
                 Text(
                     text = stringResource(R.string.custom_tab_edit_title, currentTab.displayName),
-                    style = TvMaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.headlineMedium,
                     color = NuvioTheme.colors.TextPrimary,
                     modifier = Modifier.padding(top = 40.dp, bottom = 24.dp)
                 )
@@ -184,18 +192,19 @@ fun CustomTabEditScreen(
     }
 }
 
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun CustomTabEditSection(
     title: String,
     focusRequester: FocusRequester? = null,
     content: @Composable () -> Unit
 ) {
-    androidx.compose.material3.Card(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester ?: androidx.compose.ui.focus.FocusRequester.Default)
             .padding(vertical = 8.dp),
-        colors = androidx.tv.material3.CardDefaults.cardColors(
+        colors = CardDefaults.colors(
             containerColor = NuvioTheme.colors.BackgroundCard
         )
     ) {
@@ -205,7 +214,7 @@ private fun CustomTabEditSection(
         ) {
             Text(
                 text = title,
-                style = TvMaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelLarge,
                 color = NuvioTheme.colors.TextSecondary,
                 modifier = Modifier.padding(24.dp, 16.dp, 24.dp, 0.dp)
             )
@@ -214,6 +223,7 @@ private fun CustomTabEditSection(
     }
 }
 
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun CustomTabEditItem(
     title: String,
@@ -222,15 +232,15 @@ private fun CustomTabEditItem(
     isToggle: Boolean = false,
     isChecked: Boolean = false
 ) {
-    androidx.compose.material3.Button(
+    Button(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = ButtonDefaults.buttonColors(
+        colors = ButtonDefaults.colors(
             containerColor = NuvioTheme.colors.BackgroundCard,
             contentColor = NuvioTheme.colors.TextPrimary
         )
     ) {
-        androidx.compose.foundation.layout.Row(
+        Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -241,20 +251,20 @@ private fun CustomTabEditItem(
             ) {
                 Text(
                     text = title,
-                    style = TvMaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleMedium,
                     color = NuvioTheme.colors.TextPrimary
                 )
                 Text(
                     text = subtitle,
-                    style = TvMaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = NuvioTheme.colors.TextTertiary
                 )
             }
             if (isToggle) {
-                androidx.tv.material3.Switch(
+                Switch(
                     checked = isChecked,
                     onCheckedChange = { onClick() },
-                    colors = androidx.tv.material3.SwitchDefaults.colors(
+                    colors = SwitchDefaults.colors(
                         checkedThumbColor = NuvioTheme.colors.Primary,
                         checkedTrackColor = NuvioTheme.colors.Primary.copy(alpha = 0.5f)
                     )
@@ -264,6 +274,7 @@ private fun CustomTabEditItem(
     }
 }
 
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun RenameTabDialog(
     currentName: String,
@@ -277,7 +288,7 @@ private fun RenameTabDialog(
         focusRequester.requestFocus()
     }
 
-    androidx.compose.material3.AlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.custom_tab_rename_title)) },
         text = {
@@ -297,7 +308,7 @@ private fun RenameTabDialog(
             Button(
                 onClick = { if (name.isNotBlank()) onConfirm(name.trim()) },
                 enabled = name.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(
+                colors = ButtonDefaults.colors(
                     containerColor = NuvioTheme.colors.Primary,
                     contentColor = NuvioTheme.colors.OnPrimary
                 )
@@ -313,6 +324,7 @@ private fun RenameTabDialog(
     )
 }
 
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun IconPickerDialog(
     currentIcon: IconType,
@@ -326,11 +338,11 @@ private fun IconPickerDialog(
         focusRequester.requestFocus()
     }
 
-    androidx.compose.material3.AlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.custom_tab_icon_picker_title)) },
         text = {
-            androidx.compose.foundation.lazy.LazyColumn(
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(400.dp)
@@ -339,27 +351,27 @@ private fun IconPickerDialog(
             ) {
                 items(IconType.values()) { icon ->
                     val isSelected = icon == selectedIcon
-                    androidx.compose.material3.Button(
+                    Button(
                         onClick = { selectedIcon = icon },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
-                        colors = ButtonDefaults.buttonColors(
+                        colors = ButtonDefaults.colors(
                             containerColor = if (isSelected) NuvioTheme.colors.Primary.copy(alpha = 0.2f) else NuvioTheme.colors.BackgroundCard,
                             contentColor = if (isSelected) NuvioTheme.colors.Primary else NuvioTheme.colors.TextPrimary
                         )
                     ) {
-                        androidx.compose.foundation.layout.Row(
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = icon.resourceName,
-                                style = TvMaterialTheme.typography.bodyLarge
+                                style = MaterialTheme.typography.bodyLarge
                             )
                             if (isSelected) {
-                                androidx.tv.material3.Icon(
+                                Icon(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = null,
                                     tint = NuvioTheme.colors.Primary
@@ -373,7 +385,7 @@ private fun IconPickerDialog(
         confirmButton = {
             Button(
                 onClick = { onConfirm(selectedIcon) },
-                colors = ButtonDefaults.buttonColors(
+                colors = ButtonDefaults.colors(
                     containerColor = NuvioTheme.colors.Primary,
                     contentColor = NuvioTheme.colors.OnPrimary
                 )

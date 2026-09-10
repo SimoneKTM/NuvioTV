@@ -141,6 +141,7 @@ class NuvioColorScheme(
 
     val Rating = NuvioPrimitives.rating
     val Error = NuvioPrimitives.error
+    val ErrorContainer = NuvioPrimitives.error.copy(alpha = 0.12f)
     val Warning = NuvioPrimitives.warning
     val Success = NuvioPrimitives.success
     val Info = NuvioPrimitives.info
@@ -289,6 +290,7 @@ object NuvioColors {
     val TextDisabled = NuvioPrimitives.neutral700
     val Rating = NuvioPrimitives.rating
     val Error = NuvioPrimitives.error
+    val ErrorContainer = NuvioPrimitives.error.copy(alpha = 0.12f)
     val Success = NuvioPrimitives.success
     val Warning = NuvioPrimitives.warning
     val Info = NuvioPrimitives.info

@@ -2,6 +2,7 @@
 
 package com.nuvio.tv.ui.screens.settings
 
+import com.nuvio.tv.ui.screens.customtab.CustomTabSettingsScreen
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.activity.compose.BackHandler
@@ -52,6 +53,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.runtime.Composable
@@ -291,6 +293,7 @@ fun SettingsScreen(
     onNavigateToLicensesAttributions: () -> Unit = {},
     onNavigateToLiveTv: () -> Unit = {},
     onNavigateToVpn: () -> Unit = {},
+    onNavigateToCustomTabEdit: (String) -> Unit = {},
     profileViewModel: ProfileSettingsViewModel = hiltViewModel(),
     experienceModeViewModel: ExperienceModeSettingsViewModel = hiltViewModel()
 ) {
@@ -818,7 +821,9 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                         onNavigateToSupportersContributors = onNavigateToSupportersContributors,
                         onNavigateToLicensesAttributions = onNavigateToLicensesAttributions,
                         onNavigateToLiveTv = onNavigateToLiveTv,
-                        onNavigateToVpn = onNavigateToVpn
+                        onNavigateToVpn = onNavigateToVpn,
+                        onNavigateToCustomTabEdit = onNavigateToCustomTabEdit,
+                        onCategoryChange = { selectedCategory = it }
                     )
                 }
             }
@@ -867,7 +872,9 @@ private fun SettingsDetailPane(
     onNavigateToSupportersContributors: () -> Unit,
     onNavigateToLicensesAttributions: () -> Unit,
     onNavigateToLiveTv: () -> Unit,
-    onNavigateToVpn: () -> Unit
+    onNavigateToVpn: () -> Unit,
+    onNavigateToCustomTabEdit: (String) -> Unit,
+    onCategoryChange: (SettingsCategory) -> Unit
 ) {
     when (selectedCategory) {
         SettingsCategory.EXPERIENCE -> EssentialAdvancedSettingsContent(
@@ -908,16 +915,14 @@ private fun SettingsDetailPane(
             openSubtitlesFocusRequester = openSubtitlesFocusRequester,
             autoFocusEnabled = allowDetailAutofocus
         )
-        SettingsCategory.CUSTOM_TABS -> CustomTabSettingsScreen(
+SettingsCategory.CUSTOM_TABS -> CustomTabSettingsScreen(
             initialFocusRequester = if (allowDetailAutofocus) {
                 contentFocusRequesters[SettingsCategory.CUSTOM_TABS]
             } else {
                 null
             },
-            onOpenEdit = { tabId ->
-                navController.navigate(Screen.CustomTabEdit.createRoute(tabId))
-            },
-            onBack = { selectedCategory = SettingsCategory.LAYOUT }
+            onNavigateToEdit = onNavigateToCustomTabEdit,
+            onBackPress = { onCategoryChange(SettingsCategory.LAYOUT) }
         )
         SettingsCategory.APPEARANCE -> ThemeSettingsContent(
             initialFocusRequester = if (allowDetailAutofocus) {

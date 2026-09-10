@@ -20,6 +20,7 @@ import com.nuvio.tv.domain.model.HomeLayout
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
 import com.nuvio.tv.domain.model.PosterShape
+import com.nuvio.tv.domain.model.catalogRowStableKey
 import com.nuvio.tv.domain.model.mergeCatalogPage
 import com.nuvio.tv.domain.model.nextCatalogSkip
 import com.nuvio.tv.domain.model.skipStep
@@ -215,7 +216,7 @@ class CustomTabHomeViewModel @Inject constructor(
                     addonId = addon.id,
                     addonBaseUrl = addon.baseUrl,
                     addonName = addon.name,
-                    apiType = catalog.apiType,
+                    type = catalog.type,
                     rawType = catalog.apiType,
                     items = emptyList(),
                     hasMore = true,
@@ -283,7 +284,7 @@ class CustomTabHomeViewModel @Inject constructor(
                             }
                         }
                         is com.nuvio.tv.core.network.NetworkResult.Error -> {
-                            Log.e(TAG, "Error loading catalog items for ${row.catalogId}: ${result.error}")
+                            Log.e(TAG, "Error loading catalog items for ${row.catalogId}: ${result.exception.message}")
                             _fullCatalogRows.update { fullRows ->
                                 fullRows.map { r ->
                                     if (r.stableKey() == row.stableKey()) r.copy(isLoading = false) else r
@@ -311,6 +312,7 @@ class CustomTabHomeViewModel @Inject constructor(
                 val row = _fullCatalogRows.value.find { it.stableKey() == event.catalogKey }
                 row?.let { loadMoreCatalogItems(it) }
             }
+            else -> {}
         }
     }
 
@@ -358,7 +360,7 @@ class CustomTabHomeViewModel @Inject constructor(
                             }
                         }
                         is com.nuvio.tv.core.network.NetworkResult.Error -> {
-                            Log.e(TAG, "Error loading more items for ${row.catalogId}: ${result.error}")
+                            Log.e(TAG, "Error loading more items for ${row.catalogId}: ${result.exception.message}")
                         }
                     }
                 }
@@ -368,7 +370,7 @@ class CustomTabHomeViewModel @Inject constructor(
 
     private fun observeCustomContinueWatching() {
         viewModelScope.launch {
-            watchProgressRepository.getAllProgress().first().collectLatest { progressList ->
+            watchProgressRepository.allProgress.first().collectLatest { progressList ->
                 val cwItems = progressList.map { com.nuvio.tv.ui.screens.home.ContinueWatchingItem.InProgress(it) }
                 _uiState.update { it.copy(continueWatchingItems = cwItems) }
             }
@@ -387,12 +389,8 @@ class CustomTabHomeViewModel @Inject constructor(
     val failedEnrichmentIds: StateFlow<Set<String>> = MutableStateFlow(emptySet()).asStateFlow()
 
     fun requestTrailerPreview(item: MetaPreview) {
-        viewModelScope.launch {
-            val trailer = metaRepository.getTrailer(item.id, item.apiType).firstOrNull()
-            trailer?.let { t ->
-                // Custom tabs don't have trailer preview URLs state
-            }
-        }
+        // Custom tabs don't have trailer preview implementation
+        // This would require TrailerService and full TMDB integration
     }
 
     fun onItemFocus(item: MetaPreview) {

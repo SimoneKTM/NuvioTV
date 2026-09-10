@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -24,9 +25,9 @@ class CustomTabSettingsViewModel @Inject constructor(
 
     private fun loadTabs() {
         viewModelScope.launch {
-            layoutPreferenceDataStore.customTabs.collect { tabs ->
+            layoutPreferenceDataStore.customTabs.first().collect { tabs ->
                 _uiState.update { it.copy(tabs = tabs) }
-            }.first()
+            }
         }
     }
 

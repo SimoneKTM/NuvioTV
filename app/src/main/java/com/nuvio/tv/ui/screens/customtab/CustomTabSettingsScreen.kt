@@ -14,8 +14,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.VideoLibrary
-import androidx.compose.material3.ExperimentalTvMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,17 +24,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Button
 import androidx.tv.material3.ButtonDefaults
+import androidx.tv.material3.Icon
+import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import androidx.tv.material3.TvMaterialTheme
+import androidx.tv.material3.ExperimentalTvMaterial3Api
 import com.nuvio.tv.R
 import com.nuvio.tv.ui.theme.NuvioTheme
-import androidx.compose.ui.res.stringResource
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -46,6 +48,7 @@ fun CustomTabSettingsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val canAddMore = uiState.tabs.size < 3
     val focusRequester = remember { FocusRequester() }
+    var showAddTabDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -56,11 +59,10 @@ fun CustomTabSettingsScreen(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Top,
-            contentAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = stringResource(R.string.custom_tab_settings_title),
-                style = TvMaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineMedium,
                 color = NuvioTheme.colors.TextPrimary,
                 modifier = Modifier.padding(top = 40.dp, bottom = 24.dp)
             )
@@ -74,12 +76,12 @@ fun CustomTabSettingsScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.custom_tab_settings_empty_title),
-                        style = TvMaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.titleLarge,
                         color = NuvioTheme.colors.TextPrimary
                     )
                     Text(
                         text = stringResource(R.string.custom_tab_settings_empty_subtitle),
-                        style = TvMaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = NuvioTheme.colors.TextTertiary
                     )
                     if (canAddMore) {
@@ -125,7 +127,7 @@ fun CustomTabSettingsScreen(
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    androidx.tv.material3.Icon(
+                                    Icon(
                                         imageVector = Icons.Default.Add,
                                         contentDescription = null,
                                         tint = NuvioTheme.colors.Primary
@@ -133,7 +135,7 @@ fun CustomTabSettingsScreen(
                                     androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.foundation.layout.Modifier.width(12.dp))
                                     Text(
                                         text = stringResource(R.string.custom_tab_add_new),
-                                        style = TvMaterialTheme.typography.titleMedium,
+                                        style = MaterialTheme.typography.titleMedium,
                                         color = NuvioTheme.colors.Primary
                                     )
                                 }
@@ -145,7 +147,6 @@ fun CustomTabSettingsScreen(
         }
     }
 
-    var showAddTabDialog by remember { mutableStateOf(false) }
     if (showAddTabDialog) {
         AddTabDialog(
             onDismiss = { showAddTabDialog = false },
@@ -168,12 +169,12 @@ private fun CustomTabSettingsItem(
     val focusRequester = if (isFirst) remember { FocusRequester() } else null
     val deleteFocusRequester = remember { FocusRequester() }
 
-    androidx.compose.material3.Card(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester ?: androidx.compose.ui.focus.FocusRequester.Default)
             .padding(vertical = 8.dp),
-        colors = androidx.tv.material3.CardDefaults.cardColors(
+        colors = CardDefaults.colors(
             containerColor = NuvioTheme.colors.BackgroundCard
         )
     ) {
@@ -186,7 +187,7 @@ private fun CustomTabSettingsItem(
         ) {
             Text(
                 text = tab.displayName,
-                style = TvMaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleMedium,
                 color = NuvioTheme.colors.TextPrimary,
                 maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -208,7 +209,7 @@ private fun CustomTabSettingsItem(
                     onClick = onDeleteClick,
                     modifier = Modifier.focusRequester(deleteFocusRequester),
                     colors = ButtonDefaults.colors(
-                        containerColor = NuvioTheme.colors.ErrorContainer,
+                        containerColor = NuvioTheme.colors.BackgroundCard,
                         contentColor = NuvioTheme.colors.Error
                     )
                 ) {
@@ -252,7 +253,7 @@ private fun AddTabDialog(
             Button(
                 onClick = { if (name.isNotBlank()) onConfirm(name.trim()) },
                 enabled = name.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(
+                colors = ButtonDefaults.colors(
                     containerColor = NuvioTheme.colors.Primary,
                     contentColor = NuvioTheme.colors.OnPrimary
                 )
