@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
@@ -42,12 +43,13 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 @Composable
 fun CustomTabSettingsScreen(
     viewModel: CustomTabSettingsViewModel = hiltViewModel(),
+    initialFocusRequester: FocusRequester? = null,
     onBackPress: () -> Unit = {},
     onNavigateToEdit: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val canAddMore = uiState.tabs.size < 3
-    val focusRequester = remember { FocusRequester() }
+    val focusRequester = initialFocusRequester ?: remember { FocusRequester() }
     var showAddTabDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -169,14 +171,12 @@ private fun CustomTabSettingsItem(
     val focusRequester = if (isFirst) remember { FocusRequester() } else null
     val deleteFocusRequester = remember { FocusRequester() }
 
-    Card(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester ?: androidx.compose.ui.focus.FocusRequester.Default)
-            .padding(vertical = 8.dp),
-        colors = CardDefaults.colors(
-            containerColor = NuvioTheme.colors.BackgroundCard
-        )
+            .padding(vertical = 8.dp)
+            .background(NuvioTheme.colors.BackgroundCard, RoundedCornerShape(8.dp))
     ) {
         androidx.compose.foundation.layout.Row(
             modifier = Modifier

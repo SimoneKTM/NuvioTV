@@ -199,24 +199,21 @@ private fun CustomTabEditSection(
     focusRequester: FocusRequester? = null,
     content: @Composable () -> Unit
 ) {
-    Card(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester ?: androidx.compose.ui.focus.FocusRequester.Default)
-            .padding(vertical = 8.dp),
-        colors = CardDefaults.colors(
-            containerColor = NuvioTheme.colors.BackgroundCard
-        )
+            .padding(vertical = 8.dp)
+            .background(NuvioTheme.colors.BackgroundCard, RoundedCornerShape(8.dp))
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelLarge,
-                color = NuvioTheme.colors.TextSecondary,
-                modifier = Modifier.padding(24.dp, 16.dp, 24.dp, 0.dp)
+                color = NuvioTheme.colors.TextSecondary
             )
             content()
         }

@@ -242,7 +242,7 @@ class CustomTabHomeViewModel @Inject constructor(
         "catalog_$addonId|$type|$catalogId"
 
     private fun loadCustomCatalogItems(row: CatalogRow) {
-        val job = viewModelScope.launch {
+        viewModelScope.launch {
             try {
                 catalogRepository.getCatalog(
                     addonBaseUrl = row.addonBaseUrl,
@@ -284,7 +284,7 @@ class CustomTabHomeViewModel @Inject constructor(
                             }
                         }
                         is com.nuvio.tv.core.network.NetworkResult.Error -> {
-                            Log.e(TAG, "Error loading catalog items for ${row.catalogId}: ${result.exception.message}")
+                            Log.e(TAG, "Error loading catalog items for ${row.catalogId}: ${result.message}")
                             _fullCatalogRows.update { fullRows ->
                                 fullRows.map { r ->
                                     if (r.stableKey() == row.stableKey()) r.copy(isLoading = false) else r
@@ -300,6 +300,7 @@ class CustomTabHomeViewModel @Inject constructor(
                                 )
                             }
                         }
+                        else -> {}
                     }
                 }
             }
@@ -360,8 +361,9 @@ class CustomTabHomeViewModel @Inject constructor(
                             }
                         }
                         is com.nuvio.tv.core.network.NetworkResult.Error -> {
-                            Log.e(TAG, "Error loading more items for ${row.catalogId}: ${result.exception.message}")
+                            Log.e(TAG, "Error loading more items for ${row.catalogId}: ${result.message}")
                         }
+                        else -> {}
                     }
                 }
             }
@@ -370,7 +372,7 @@ class CustomTabHomeViewModel @Inject constructor(
 
     private fun observeCustomContinueWatching() {
         viewModelScope.launch {
-            watchProgressRepository.allProgress.first().collectLatest { progressList ->
+            watchProgressRepository.allProgress.collectLatest { progressList ->
                 val cwItems = progressList.map { com.nuvio.tv.ui.screens.home.ContinueWatchingItem.InProgress(it) }
                 _uiState.update { it.copy(continueWatchingItems = cwItems) }
             }

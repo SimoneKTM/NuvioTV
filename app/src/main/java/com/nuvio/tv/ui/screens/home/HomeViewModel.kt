@@ -78,10 +78,7 @@ class HomeViewModel @Inject constructor(
     internal val mdbListRepository: MDBListRepository,
     internal val trailerService: TrailerService,
     internal val watchedSeriesStateHolder: com.nuvio.tv.data.local.WatchedSeriesStateHolder,
-    internal val cwEnrichmentCache: ContinueWatchingEnrichmentCache,
-    internal val profileManager: com.nuvio.tv.core.profile.ProfileManager,
-    internal val tvRecommendationManager: TvRecommendationManager
-) : ViewModel(), HomeRouteViewModel {
+) : ViewModel(), HomeRouteViewModelInternal {
     companion object {
         internal const val TAG = "HomeViewModel"
         internal const val STARTUP_GRACE_PERIOD_MS = 1_500L

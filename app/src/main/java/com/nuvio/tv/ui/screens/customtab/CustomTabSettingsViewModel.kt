@@ -25,7 +25,7 @@ class CustomTabSettingsViewModel @Inject constructor(
 
     private fun loadTabs() {
         viewModelScope.launch {
-            layoutPreferenceDataStore.customTabs.first().collect { tabs ->
+            layoutPreferenceDataStore.customTabs.collect { tabs ->
                 _uiState.update { it.copy(tabs = tabs) }
             }
         }
@@ -34,7 +34,7 @@ class CustomTabSettingsViewModel @Inject constructor(
     fun addTab(displayName: String) {
         viewModelScope.launch {
             val currentTabs = layoutPreferenceDataStore.customTabs.first()
-            if (currentTabs.size >= MAX_CUSTOM_TABS) return
+            if (currentTabs.size >= MAX_CUSTOM_TABS) return@launch
 
             val newId = "custom_tab_${System.currentTimeMillis()}"
             val newTab = CustomTab(

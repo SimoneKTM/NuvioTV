@@ -649,7 +649,9 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                                 onNavigateToSupportersContributors = onNavigateToSupportersContributors,
                                 onNavigateToLicensesAttributions = onNavigateToLicensesAttributions,
                                 onNavigateToLiveTv = onNavigateToLiveTv,
-                                onNavigateToVpn = onNavigateToVpn
+                                onNavigateToVpn = onNavigateToVpn,
+                                onNavigateToCustomTabEdit = onNavigateToCustomTabEdit,
+                                onCategoryChange = { selectedCategory = it }
                             )
                         }
                     }

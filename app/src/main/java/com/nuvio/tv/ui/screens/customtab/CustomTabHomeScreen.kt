@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -216,7 +217,7 @@ fun CustomTabHomeScreen(
                     EmptyScreenState(
                         title = stringResource(R.string.web_no_catalogs),
                         subtitle = stringResource(R.string.home_empty_catalogs_subtitle),
-                        icon = Icons.Default.Home
+                        icon = Home
                     )
                 }
             }

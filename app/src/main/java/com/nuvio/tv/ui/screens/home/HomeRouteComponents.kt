@@ -16,46 +16,41 @@ import com.nuvio.tv.ui.util.StableList
 import com.nuvio.tv.ui.util.asStable
 import kotlinx.coroutines.flow.StateFlow
 
-private fun <T> Any?.getStateFlowValue(propertyName: String): StateFlow<T>? {
-    return try {
-        val clazz = this?.javaClass
-        val field = clazz?.getDeclaredField(propertyName)
-        field?.isAccessible = true
-        val value = field?.get(this)
-        if (value is StateFlow<*>) value as StateFlow<T> else null
-    } catch (_: Exception) {
-        null
-    }
-}
-
-private fun <K, V> Any?.getMapValue(propertyName: String): Map<K, V>? {
-    return try {
-        val clazz = this?.javaClass
-        val field = clazz?.getDeclaredField(propertyName)
-        field?.isAccessible = true
-        val value = field?.get(this)
-        if (value is Map<*, *>) value as Map<K, V> else null
-    } catch (_: Exception) {
-        null
-    }
-}
-
-private fun Any?.callMethod(methodName: String, vararg args: Any?): Any? {
-    return try {
-        val clazz = this.javaClass
-        val methods = clazz.getDeclaredMethods()
-        val method = methods.firstOrNull { it.name == methodName && it.parameterTypes.size == args.size }
-        method?.isAccessible = true
-        method?.invoke(this, *args)
-    } catch (_: Exception) {
-        null
-    }
+// Define a common interface for home route view models to avoid reflection
+interface HomeRouteViewModelInternal {
+    val focusState: StateFlow<HomeScreenFocusState>
+    val gridFocusState: StateFlow<HomeScreenFocusState>
+    val scrollToTopTrigger: StateFlow<Int>
+    val trailerPreviewUrls: Map<String, String>
+    val trailerPreviewAudioUrls: Map<String, String>
+    val enrichingItemId: StateFlow<String?>
+    val lastEnrichedPreview: StateFlow<MetaPreview?>
+    val enrichedPreviews: StateFlow<Map<String, MetaPreview>>
+    val failedEnrichmentIds: StateFlow<Set<String>>
+    
+    fun onEvent(event: HomeEvent)
+    fun requestTrailerPreview(item: MetaPreview)
+    fun requestTrailerPreview(itemId: String, title: String, releaseInfo: String?, apiType: String)
+    fun onItemFocus(item: MetaPreview)
+    fun saveFocusState(
+        vi: Int, vo: Int, rk: String?, ikm: Map<String, String>,
+        m: Map<String, Int>, ri: Int, ii: Int
+    )
+    fun saveGridFocusState(
+        verticalScrollIndex: Int,
+        verticalScrollOffset: Int,
+        focusedRowIndex: Int = 0,
+        focusedItemIndex: Int = 0,
+        focusedItemKey: String? = null
+    )
+    fun requestLazyCatalogLoad(catalogKey: String)
+    fun preloadAdjacentItem(item: MetaPreview)
 }
 
 @Composable
 internal fun ClassicHomeRoute(
-    viewModel: Any,
-    uiState: Any,
+    viewModel: HomeRouteViewModelInternal,
+    uiState: HomeUiState,
     posterCardStyle: PosterCardStyle,
     onNavigateToDetail: (String, String, String) -> Unit,
     onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
@@ -67,17 +62,15 @@ internal fun ClassicHomeRoute(
     isCatalogItemWatched: (MetaPreview) -> Boolean,
     onCatalogItemLongPress: (MetaPreview, String) -> Unit
 ) {
-    val focusState = viewModel.getStateFlowValue<HomeScreenFocusState>("focusState")?.collectAsStateWithLifecycle()
-    val scrollToTopTrigger = viewModel.getStateFlowValue<Int>("scrollToTopTrigger")?.collectAsStateWithLifecycle()
-    val trailerPreviewUrls = viewModel.getMapValue<String, String>("trailerPreviewUrls") ?: emptyMap()
-    val trailerPreviewAudioUrls = viewModel.getMapValue<String, String>("trailerPreviewAudioUrls") ?: emptyMap()
+    val focusState = viewModel.focusState.collectAsStateWithLifecycle()
+    val scrollToTopTrigger = viewModel.scrollToTopTrigger.collectAsStateWithLifecycle()
     ClassicHomeContent(
-        uiState = uiState as HomeUiState,
+        uiState = uiState,
         posterCardStyle = posterCardStyle,
-        focusState = focusState?.value,
-        scrollToTopTrigger = scrollToTopTrigger?.value,
-        trailerPreviewUrls = trailerPreviewUrls,
-        trailerPreviewAudioUrls = trailerPreviewAudioUrls,
+        focusState = focusState.value,
+        scrollToTopTrigger = scrollToTopTrigger.value,
+        trailerPreviewUrls = viewModel.trailerPreviewUrls,
+        trailerPreviewAudioUrls = viewModel.trailerPreviewAudioUrls,
         onNavigateToDetail = onNavigateToDetail,
         onContinueWatchingClick = onContinueWatchingClick,
         onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning,
@@ -86,29 +79,29 @@ internal fun ClassicHomeRoute(
         onNavigateToCatalogSeeAll = onNavigateToCatalogSeeAll,
         onNavigateToFolderDetail = onNavigateToFolderDetail,
         onRemoveContinueWatching = { contentId, season, episode, isNextUp ->
-            viewModel.callMethod("onEvent", HomeEvent.OnRemoveContinueWatching(contentId, season, episode, isNextUp))
+            viewModel.onEvent(HomeEvent.OnRemoveContinueWatching(contentId, season, episode, isNextUp))
         },
         isCatalogItemWatched = isCatalogItemWatched,
         onCatalogItemLongPress = onCatalogItemLongPress,
         onRequestTrailerPreview = { item ->
-            viewModel.callMethod("requestTrailerPreview", item)
+            viewModel.requestTrailerPreview(item)
         },
         onItemFocus = { item ->
-            viewModel.callMethod("onItemFocus", item)
+            viewModel.onItemFocus(item)
         },
         onSaveFocusState = { vi, vo, rk, ikm, m, ri, ii ->
-            viewModel.callMethod("saveFocusState", vi, vo, rk, ikm, m, ri, ii)
+            viewModel.saveFocusState(vi, vo, rk, ikm, m, ri, ii)
         },
         onRequestLazyCatalogLoad = remember(viewModel) {
-            { catalogKey: String -> viewModel.callMethod("requestLazyCatalogLoad", catalogKey) }
+            { catalogKey: String -> viewModel.requestLazyCatalogLoad(catalogKey) }
         }
     )
 }
 
 @Composable
 internal fun GridHomeRoute(
-    viewModel: Any,
-    uiState: Any,
+    viewModel: HomeRouteViewModelInternal,
+    uiState: HomeUiState,
     posterCardStyle: PosterCardStyle,
     onNavigateToDetail: (String, String, String) -> Unit,
     onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
@@ -120,13 +113,13 @@ internal fun GridHomeRoute(
     isCatalogItemWatched: (MetaPreview) -> Boolean,
     onCatalogItemLongPress: (MetaPreview, String) -> Unit
 ) {
-    val gridFocusState = viewModel.getStateFlowValue<HomeScreenFocusState>("gridFocusState")?.collectAsStateWithLifecycle()
-    val scrollToTopTrigger = viewModel.getStateFlowValue<Int>("scrollToTopTrigger")?.collectAsStateWithLifecycle()
+    val gridFocusState = viewModel.gridFocusState.collectAsStateWithLifecycle()
+    val scrollToTopTrigger = viewModel.scrollToTopTrigger.collectAsStateWithLifecycle()
     GridHomeContent(
-        uiState = uiState as HomeUiState,
+        uiState = uiState,
         posterCardStyle = posterCardStyle,
-        gridFocusState = gridFocusState?.value,
-        scrollToTopTrigger = scrollToTopTrigger?.value,
+        gridFocusState = gridFocusState.value,
+        scrollToTopTrigger = scrollToTopTrigger.value,
         onNavigateToDetail = onNavigateToDetail,
         onContinueWatchingClick = onContinueWatchingClick,
         onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning,
@@ -136,19 +129,23 @@ internal fun GridHomeRoute(
         onNavigateToFolderDetail = onNavigateToFolderDetail,
         onRemoveContinueWatching = remember(viewModel) {
             { contentId, season, episode, isNextUp ->
-                viewModel.callMethod("onEvent", HomeEvent.OnRemoveContinueWatching(contentId, season, episode, isNextUp))
+                viewModel.onEvent(HomeEvent.OnRemoveContinueWatching(contentId, season, episode, isNextUp))
             }
         },
         isCatalogItemWatched = isCatalogItemWatched,
         onCatalogItemLongPress = onCatalogItemLongPress,
         onItemFocus = remember(viewModel) {
             { item ->
-                viewModel.callMethod("onItemFocus", item)
+                viewModel.onItemFocus(item)
             }
         },
         onSaveGridFocusState = remember(viewModel) {
             { vi, vo, key ->
-                viewModel.callMethod("saveGridFocusState", vi, vo, key)
+                viewModel.saveGridFocusState(
+                    verticalScrollIndex = vi,
+                    verticalScrollOffset = vo,
+                    focusedItemKey = key
+                )
             }
         }
     )
@@ -156,8 +153,8 @@ internal fun GridHomeRoute(
 
 @Composable
 internal fun ModernHomeRoute(
-    viewModel: Any,
-    uiState: Any,
+    viewModel: HomeRouteViewModelInternal,
+    uiState: HomeUiState,
     onNavigateToDetail: (String, String, String) -> Unit,
     onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
     onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
@@ -167,47 +164,47 @@ internal fun ModernHomeRoute(
     isCatalogItemWatched: (MetaPreview) -> Boolean,
     onCatalogItemLongPress: (MetaPreview, String) -> Unit
 ) {
-    val focusState = viewModel.getStateFlowValue<HomeScreenFocusState>("focusState")?.collectAsStateWithLifecycle()
-    val scrollToTopTrigger = viewModel.getStateFlowValue<Int>("scrollToTopTrigger")?.collectAsStateWithLifecycle()
-    val enrichingItemId = viewModel.getStateFlowValue<String?>("enrichingItemId")?.collectAsStateWithLifecycle()
-    val lastEnrichedPreview = viewModel.getStateFlowValue<MetaPreview?>("lastEnrichedPreview")?.collectAsStateWithLifecycle()
-    val enrichedPreviews = viewModel.getStateFlowValue<Map<String, MetaPreview>>("enrichedPreviews")?.collectAsStateWithLifecycle()
-    val failedEnrichmentIds = viewModel.getStateFlowValue<Set<String>>("failedEnrichmentIds")?.collectAsStateWithLifecycle()
+    val focusState = viewModel.focusState.collectAsStateWithLifecycle()
+    val scrollToTopTrigger = viewModel.scrollToTopTrigger.collectAsStateWithLifecycle()
+    val enrichingItemId = viewModel.enrichingItemId.collectAsStateWithLifecycle()
+    val lastEnrichedPreview = viewModel.lastEnrichedPreview.collectAsStateWithLifecycle()
+    val enrichedPreviews = viewModel.enrichedPreviews.collectAsStateWithLifecycle()
+    val failedEnrichmentIds = viewModel.failedEnrichmentIds.collectAsStateWithLifecycle()
     val requestTrailerPreview = remember(viewModel) {
         { itemId: String, title: String, releaseInfo: String?, apiType: String ->
-            viewModel.callMethod("requestTrailerPreview", itemId, title, releaseInfo, apiType)
+            viewModel.requestTrailerPreview(itemId, title, releaseInfo, apiType)
         }
     }
     val loadMoreCatalog = remember(viewModel) {
         { catalogId: String, addonId: String, type: String ->
-            viewModel.callMethod("onEvent", HomeEvent.OnLoadMoreCatalog(catalogId, addonId, type))
+            viewModel.onEvent(HomeEvent.OnLoadMoreCatalog(catalogId, addonId, type))
         }
     }
     val removeContinueWatching = remember(viewModel) {
         { contentId: String, season: Int?, episode: Int?, isNextUp: Boolean ->
-            viewModel.callMethod("onEvent", HomeEvent.OnRemoveContinueWatching(contentId, season, episode, isNextUp))
+            viewModel.onEvent(HomeEvent.OnRemoveContinueWatching(contentId, season, episode, isNextUp))
         }
     }
     val saveModernFocusState = remember(viewModel) {
         { vi: Int, vo: Int, rk: String?, ikm: Map<String, String>, m: Map<String, Int>, ri: Int, ii: Int ->
-            viewModel.callMethod("saveFocusState", vi, vo, rk, ikm, m, ri, ii)
+            viewModel.saveFocusState(vi, vo, rk, ikm, m, ri, ii)
         }
     }
     val preloadAdjacentItem = remember(viewModel) {
         { item: MetaPreview ->
-            viewModel.callMethod("preloadAdjacentItem", item)
+            viewModel.preloadAdjacentItem(item)
         }
     }
     ModernHomeContent(
-        uiState = uiState as HomeUiState,
-        focusState = focusState?.value,
-        scrollToTopTrigger = scrollToTopTrigger?.value,
-        enrichingItemId = enrichingItemId?.value,
-        lastEnrichedPreview = lastEnrichedPreview?.value,
-        enrichedPreviews = enrichedPreviews?.value,
-        failedEnrichmentIds = failedEnrichmentIds?.value,
-        trailerPreviewUrls = viewModel.getMapValue<String, String>("trailerPreviewUrls") ?: emptyMap(),
-        trailerPreviewAudioUrls = viewModel.getMapValue<String, String>("trailerPreviewAudioUrls") ?: emptyMap(),
+        uiState = uiState,
+        focusState = focusState.value,
+        scrollToTopTrigger = scrollToTopTrigger.value,
+        enrichingItemId = enrichingItemId.value,
+        lastEnrichedPreview = lastEnrichedPreview.value,
+        enrichedPreviews = enrichedPreviews.value,
+        failedEnrichmentIds = failedEnrichmentIds.value,
+        trailerPreviewUrls = viewModel.trailerPreviewUrls,
+        trailerPreviewAudioUrls = viewModel.trailerPreviewAudioUrls,
         onNavigateToDetail = onNavigateToDetail,
         onContinueWatchingClick = onContinueWatchingClick,
         onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning,
@@ -220,12 +217,96 @@ internal fun ModernHomeRoute(
         onCatalogItemLongPress = onCatalogItemLongPress,
         onNavigateToFolderDetail = onNavigateToFolderDetail,
         onItemFocus = remember(viewModel) {
-            { item -> viewModel.callMethod("onItemFocus", item) }
+            { item -> viewModel.onItemFocus(item) }
         },
         onPreloadAdjacentItem = preloadAdjacentItem,
         onSaveFocusState = saveModernFocusState,
         onRequestLazyCatalogLoad = remember(viewModel) {
-            { catalogKey: String -> viewModel.callMethod("requestLazyCatalogLoad", catalogKey) }
+            { catalogKey: String -> viewModel.requestLazyCatalogLoad(catalogKey) }
         }
     )
 }
+
+// Adapter to use HomeViewModel with the internal interface
+@Composable
+internal fun <T : HomeRouteViewModelInternal> ClassicHomeRoute(
+    viewModel: T,
+    uiState: HomeUiState,
+    posterCardStyle: PosterCardStyle,
+    onNavigateToDetail: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingPlayManually: (ContinueWatchingItem) -> Unit,
+    showContinueWatchingManualPlayOption: Boolean,
+    onNavigateToCatalogSeeAll: (String, String, String) -> Unit,
+    onNavigateToFolderDetail: (String, String) -> Unit = { _, _ -> },
+    isCatalogItemWatched: (MetaPreview) -> Boolean,
+    onCatalogItemLongPress: (MetaPreview, String) -> Unit
+) = ClassicHomeRoute(
+    viewModel = viewModel,
+    uiState = uiState,
+    posterCardStyle = posterCardStyle,
+    onNavigateToDetail = onNavigateToDetail,
+    onContinueWatchingClick = onContinueWatchingClick,
+    onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning,
+    onContinueWatchingPlayManually = onContinueWatchingPlayManually,
+    showContinueWatchingManualPlayOption = showContinueWatchingManualPlayOption,
+    onNavigateToCatalogSeeAll = onNavigateToCatalogSeeAll,
+    onNavigateToFolderDetail = onNavigateToFolderDetail,
+    isCatalogItemWatched = isCatalogItemWatched,
+    onCatalogItemLongPress = onCatalogItemLongPress
+)
+
+@Composable
+internal fun <T : HomeRouteViewModelInternal> GridHomeRoute(
+    viewModel: T,
+    uiState: HomeUiState,
+    posterCardStyle: PosterCardStyle,
+    onNavigateToDetail: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingPlayManually: (ContinueWatchingItem) -> Unit,
+    showContinueWatchingManualPlayOption: Boolean,
+    onNavigateToCatalogSeeAll: (String, String, String) -> Unit,
+    onNavigateToFolderDetail: (String, String) -> Unit = { _, _ -> },
+    isCatalogItemWatched: (MetaPreview) -> Boolean,
+    onCatalogItemLongPress: (MetaPreview, String) -> Unit
+) = GridHomeRoute(
+    viewModel = viewModel,
+    uiState = uiState,
+    posterCardStyle = posterCardStyle,
+    onNavigateToDetail = onNavigateToDetail,
+    onContinueWatchingClick = onContinueWatchingClick,
+    onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning,
+    onContinueWatchingPlayManually = onContinueWatchingPlayManually,
+    showContinueWatchingManualPlayOption = showContinueWatchingManualPlayOption,
+    onNavigateToCatalogSeeAll = onNavigateToCatalogSeeAll,
+    onNavigateToFolderDetail = onNavigateToFolderDetail,
+    isCatalogItemWatched = isCatalogItemWatched,
+    onCatalogItemLongPress = onCatalogItemLongPress
+)
+
+@Composable
+internal fun <T : HomeRouteViewModelInternal> ModernHomeRoute(
+    viewModel: T,
+    uiState: HomeUiState,
+    onNavigateToDetail: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingPlayManually: (ContinueWatchingItem) -> Unit,
+    showContinueWatchingManualPlayOption: Boolean,
+    onNavigateToFolderDetail: (String, String) -> Unit = { _, _ -> },
+    isCatalogItemWatched: (MetaPreview) -> Boolean,
+    onCatalogItemLongPress: (MetaPreview, String) -> Unit
+) = ModernHomeRoute(
+    viewModel = viewModel,
+    uiState = uiState,
+    onNavigateToDetail = onNavigateToDetail,
+    onContinueWatchingClick = onContinueWatchingClick,
+    onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning,
+    onContinueWatchingPlayManually = onContinueWatchingPlayManually,
+    showContinueWatchingManualPlayOption = showContinueWatchingManualPlayOption,
+    onNavigateToFolderDetail = onNavigateToFolderDetail,
+    isCatalogItemWatched = isCatalogItemWatched,
+    onCatalogItemLongPress = onCatalogItemLongPress
+)
