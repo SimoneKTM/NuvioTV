@@ -1,10 +1,6 @@
 package com.nuvio.tv.ui.screens.customtab
 
 import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.core.sync.homeCatalogKey
@@ -14,14 +10,13 @@ import com.nuvio.tv.core.util.filterReleasedItems
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
+import com.nuvio.tv.domain.model.catalogRowStableKey
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.CustomTab
 import com.nuvio.tv.domain.model.HomeLayout
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
 import com.nuvio.tv.domain.model.PosterShape
-import com.nuvio.tv.domain.model.CatalogRow.stableKey
-import com.nuvio.tv.domain.model.catalogRowStableKey
 import com.nuvio.tv.domain.model.mergeCatalogPage
 import com.nuvio.tv.domain.model.nextCatalogSkip
 import com.nuvio.tv.domain.model.skipStep
@@ -43,6 +38,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
+import java.util.LinkedHashMap
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -51,6 +47,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Named
+
+private fun CatalogRow.stableKey(): String = catalogRowStableKey(addonId, addonBaseUrl, apiType, catalogId)
 
 @HiltViewModel
 class CustomTabHomeViewModel @Inject constructor(
@@ -305,14 +303,16 @@ class CustomTabHomeViewModel @Inject constructor(
                         else -> {}
                     }
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading catalog items", e)
             }
         }
     }
 
-    fun onEvent(event: HomeEvent) {
+    override fun onEvent(event: HomeEvent) {
         when (event) {
             is HomeEvent.OnLoadMoreCatalog -> {
-                val row = _fullCatalogRows.value.find { it.stableKey() == event.catalogKey }
+                val row = _fullCatalogRows.value.find { it.stableKey() == event.catalogId }
                 row?.let { loadMoreCatalogItems(it) }
             }
             else -> {}
@@ -368,6 +368,8 @@ class CustomTabHomeViewModel @Inject constructor(
                         else -> {}
                     }
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error loading more catalog items", e)
             }
         }
     }
@@ -387,10 +389,10 @@ class CustomTabHomeViewModel @Inject constructor(
     override val scrollToTopTrigger: StateFlow<Int> = MutableStateFlow(0).asStateFlow()
     override val trailerPreviewUrls: Map<String, String> = emptyMap()
     override val trailerPreviewAudioUrls: Map<String, String> = emptyMap()
-    override val enrichingItemId: StateFlow<String?> = MutableStateFlow(null).asStateFlow()
-    override val lastEnrichedPreview: StateFlow<MetaPreview?> = MutableStateFlow(null).asStateFlow()
-    override val enrichedPreviews: StateFlow<Map<String, MetaPreview>> = MutableStateFlow(emptyMap()).asStateFlow()
-    override val failedEnrichmentIds: StateFlow<Set<String>> = MutableStateFlow(emptySet()).asStateFlow()
+    override val enrichingItemId: StateFlow<String?> = MutableStateFlow<String?>(null).asStateFlow()
+    override val lastEnrichedPreview: StateFlow<MetaPreview?> = MutableStateFlow<MetaPreview?>(null).asStateFlow()
+    override val enrichedPreviews: StateFlow<Map<String, MetaPreview>> = MutableStateFlow(mutableMapOf<String, MetaPreview>()).asStateFlow()
+    override val failedEnrichmentIds: StateFlow<Set<String>> = MutableStateFlow<Set<String>>(emptySet()).asStateFlow()
 
     override fun requestTrailerPreview(item: MetaPreview) {
         // Custom tabs don't have trailer preview implementation
@@ -415,9 +417,9 @@ class CustomTabHomeViewModel @Inject constructor(
     override fun saveGridFocusState(
         verticalScrollIndex: Int,
         verticalScrollOffset: Int,
-        focusedRowIndex: Int = 0,
-        focusedItemIndex: Int = 0,
-        focusedItemKey: String? = null
+        focusedRowIndex: Int,
+        focusedItemIndex: Int,
+        focusedItemKey: String?
     ) {
         // Not used for custom tabs
     }

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +39,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import com.nuvio.tv.R
+import com.nuvio.tv.domain.model.CustomTab
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -135,7 +137,7 @@ fun CustomTabSettingsScreen(
                                         contentDescription = null,
                                         tint = NuvioTheme.colors.Primary
                                     )
-                                    androidx.compose.foundation.layout.Spacer(modifier = androidx.compose.foundation.layout.Modifier.width(12.dp))
+                                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(12.dp))
                                     Text(
                                         text = stringResource(R.string.custom_tab_add_new),
                                         style = MaterialTheme.typography.titleMedium,

@@ -20,6 +20,7 @@ import com.nuvio.tv.data.local.TmdbSettingsDataStore
 import com.nuvio.tv.data.local.TraktSettingsDataStore
 import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 import com.nuvio.tv.data.trailer.TrailerService
+import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
@@ -78,6 +79,9 @@ class HomeViewModel @Inject constructor(
     internal val mdbListRepository: MDBListRepository,
     internal val trailerService: TrailerService,
     internal val watchedSeriesStateHolder: com.nuvio.tv.data.local.WatchedSeriesStateHolder,
+    internal val profileManager: ProfileManager,
+    internal val cwEnrichmentCache: ContinueWatchingEnrichmentCache,
+    internal val tvRecommendationManager: com.nuvio.tv.core.recommendations.TvRecommendationManager,
 ) : ViewModel(), HomeRouteViewModelInternal {
     companion object {
         internal const val TAG = "HomeViewModel"
@@ -110,13 +114,13 @@ class HomeViewModel @Inject constructor(
     val fullCatalogRows: StateFlow<List<CatalogRow>> = _fullCatalogRows.asStateFlow()
 
     private val _focusState = MutableStateFlow(HomeScreenFocusState())
-    val focusState: StateFlow<HomeScreenFocusState> = _focusState.asStateFlow()
+    override val focusState: StateFlow<HomeScreenFocusState> = _focusState.asStateFlow()
 
     private val _gridFocusState = MutableStateFlow(HomeScreenFocusState())
-    val gridFocusState: StateFlow<HomeScreenFocusState> = _gridFocusState.asStateFlow()
+    override val gridFocusState: StateFlow<HomeScreenFocusState> = _gridFocusState.asStateFlow()
 
     private val _scrollToTopTrigger = MutableStateFlow(0)
-    val scrollToTopTrigger: StateFlow<Int> = _scrollToTopTrigger.asStateFlow()
+    override val scrollToTopTrigger: StateFlow<Int> = _scrollToTopTrigger.asStateFlow()
 
     internal val _currentLocaleTag = MutableStateFlow(LocaleCache.localeTag)
 
@@ -137,18 +141,18 @@ class HomeViewModel @Inject constructor(
     val loadingCatalogs: StateFlow<Set<String>> = _loadingCatalogs.asStateFlow()
 
     internal val _enrichingItemId = MutableStateFlow<String?>(null)
-    val enrichingItemId: StateFlow<String?> = _enrichingItemId.asStateFlow()
+    override val enrichingItemId: StateFlow<String?> = _enrichingItemId.asStateFlow()
     internal fun setEnrichingItemId(id: String?) { _enrichingItemId.value = id }
 
     internal val _lastEnrichedPreview = MutableStateFlow<MetaPreview?>(null)
-    val lastEnrichedPreview: StateFlow<MetaPreview?> = _lastEnrichedPreview.asStateFlow()
+    override val lastEnrichedPreview: StateFlow<MetaPreview?> = _lastEnrichedPreview.asStateFlow()
 
     internal val _enrichedPreviews = MutableStateFlow<Map<String, MetaPreview>>(emptyMap())
-    val enrichedPreviews: StateFlow<Map<String, MetaPreview>> = _enrichedPreviews.asStateFlow()
+    override val enrichedPreviews: StateFlow<Map<String, MetaPreview>> = _enrichedPreviews.asStateFlow()
 
     /** Items for which enrichment was attempted but produced no enriched data. */
     internal val _failedEnrichmentIds = MutableStateFlow<Set<String>>(emptySet())
-    val failedEnrichmentIds: StateFlow<Set<String>> = _failedEnrichmentIds.asStateFlow()
+    override val failedEnrichmentIds: StateFlow<Set<String>> = _failedEnrichmentIds.asStateFlow()
 
     internal val catalogStateLock = Any()
     internal val catalogsMap = linkedMapOf<String, CatalogRow>()
@@ -260,9 +264,9 @@ class HomeViewModel @Inject constructor(
         val displayTitle: String
     )
     internal val placeholderDescriptors = mutableListOf<PlaceholderDescriptor>()
-    val trailerPreviewUrls: Map<String, String>
+    override val trailerPreviewUrls: Map<String, String>
         get() = trailerPreviewUrlsState
-    val trailerPreviewAudioUrls: Map<String, String>
+    override val trailerPreviewAudioUrls: Map<String, String>
         get() = trailerPreviewAudioUrlsState
 
     init {
@@ -483,9 +487,9 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun requestTrailerPreview(item: MetaPreview) = requestTrailerPreviewPipeline(item)
+    override fun requestTrailerPreview(item: MetaPreview) = requestTrailerPreviewPipeline(item)
 
-    fun requestTrailerPreview(
+    override fun requestTrailerPreview(
         itemId: String,
         title: String,
         releaseInfo: String?,
@@ -497,9 +501,9 @@ class HomeViewModel @Inject constructor(
         apiType = apiType
     )
 
-    fun onItemFocus(item: MetaPreview) = onItemFocusPipeline(item)
+    override fun onItemFocus(item: MetaPreview) = onItemFocusPipeline(item)
 
-    fun preloadAdjacentItem(item: MetaPreview) = preloadAdjacentItemPipeline(item)
+    override fun preloadAdjacentItem(item: MetaPreview) = preloadAdjacentItemPipeline(item)
 
     private fun loadHomeCatalogOrderPreference() = loadHomeCatalogOrderPreferencePipeline()
 
@@ -579,7 +583,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun onEvent(event: HomeEvent) {
+    override fun onEvent(event: HomeEvent) {
         when (event) {
             is HomeEvent.OnItemClick -> navigateToDetail(event.itemId, event.itemType)
             is HomeEvent.OnLoadMoreCatalog -> loadMoreCatalogItems(event.catalogId, event.addonId, event.type)
@@ -728,7 +732,7 @@ class HomeViewModel @Inject constructor(
     /**
      * Called from the UI when a placeholder catalog row becomes visible.
      */
-    fun requestLazyCatalogLoad(catalogKey: String) {
+    override fun requestLazyCatalogLoad(catalogKey: String) {
         if (catalogKey in lazyLoadRequestedKeys) {
             return
         }
@@ -803,14 +807,14 @@ class HomeViewModel @Inject constructor(
     // layout's onDispose from poisoning the incoming layout's focus state.
     internal var suppressFocusSave: Boolean = false
 
-    fun saveFocusState(
+    override fun saveFocusState(
         verticalScrollIndex: Int,
         verticalScrollOffset: Int,
         focusedRowKey: String?,
         focusedItemKeyByRow: Map<String, String>,
         catalogRowScrollStates: Map<String, Int>,
-        focusedRowIndex: Int = 0,
-        focusedItemIndex: Int = 0
+        focusedRowIndex: Int,
+        focusedItemIndex: Int
     ) {
         if (suppressFocusSave) {
             suppressFocusSave = false
@@ -861,12 +865,12 @@ class HomeViewModel @Inject constructor(
     /**
      * Saves the grid layout focus and scroll state.
      */
-    fun saveGridFocusState(
+    override fun saveGridFocusState(
         verticalScrollIndex: Int,
         verticalScrollOffset: Int,
-        focusedRowIndex: Int = 0,
-        focusedItemIndex: Int = 0,
-        focusedItemKey: String? = null
+        focusedRowIndex: Int,
+        focusedItemIndex: Int,
+        focusedItemKey: String?
     ) {
         _gridFocusState.value = HomeScreenFocusState(
             verticalScrollIndex = verticalScrollIndex,

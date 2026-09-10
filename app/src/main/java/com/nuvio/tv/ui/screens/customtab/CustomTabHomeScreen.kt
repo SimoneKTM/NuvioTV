@@ -41,6 +41,7 @@ import com.nuvio.tv.ui.screens.home.ContinueWatchingItem
 import com.nuvio.tv.ui.screens.home.GridHomeRoute
 import com.nuvio.tv.ui.screens.home.HeroBackdropState
 import com.nuvio.tv.ui.screens.home.HomeEvent
+import com.nuvio.tv.ui.screens.home.HomeUiState
 import com.nuvio.tv.ui.screens.home.ModernHomeRoute
 import com.nuvio.tv.ui.theme.NuvioTheme
 import kotlinx.coroutines.delay
@@ -61,6 +62,7 @@ fun CustomTabHomeScreen(
     onOpenSettings: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val homeUiState = uiState.toHomeUiState()
     val hasCatalogContent = uiState.rows.any { it.items.isNotEmpty() }
     val hasHeroContent = uiState.heroItems.isNotEmpty()
     val modernPresentationReady =
@@ -217,7 +219,7 @@ fun CustomTabHomeScreen(
                     EmptyScreenState(
                         title = stringResource(R.string.web_no_catalogs),
                         subtitle = stringResource(R.string.home_empty_catalogs_subtitle),
-                        icon = androidx.compose.material.icons.filled.Home
+                        icon = Icons.Default.Home
                     )
                 }
             }
@@ -257,7 +259,7 @@ fun CustomTabHomeScreen(
                         when (uiState.homeLayout) {
                             HomeLayout.CLASSIC -> ClassicHomeRoute(
                                 viewModel = viewModel,
-                                uiState = uiState,
+                                uiState = homeUiState,
                                 posterCardStyle = posterCardStyle,
                                 onNavigateToDetail = onNavigateToDetailStable,
                                 onContinueWatchingClick = onContinueWatchingClickStable,
@@ -272,7 +274,7 @@ fun CustomTabHomeScreen(
 
                             HomeLayout.GRID -> GridHomeRoute(
                                 viewModel = viewModel,
-                                uiState = uiState,
+                                uiState = homeUiState,
                                 posterCardStyle = posterCardStyle,
                                 onNavigateToDetail = onNavigateToDetailStable,
                                 onContinueWatchingClick = onContinueWatchingClickStable,
@@ -287,7 +289,7 @@ fun CustomTabHomeScreen(
 
                             HomeLayout.MODERN -> ModernHomeRoute(
                                 viewModel = viewModel,
-                                uiState = uiState,
+                                uiState = homeUiState,
                                 onNavigateToDetail = onNavigateToDetailStable,
                                 onContinueWatchingClick = onContinueWatchingClickStable,
                                 onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginningStable,
