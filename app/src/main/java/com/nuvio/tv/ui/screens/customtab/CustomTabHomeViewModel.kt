@@ -20,6 +20,7 @@ import com.nuvio.tv.domain.model.HomeLayout
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
 import com.nuvio.tv.domain.model.PosterShape
+import com.nuvio.tv.domain.model.CatalogRow.stableKey
 import com.nuvio.tv.domain.model.catalogRowStableKey
 import com.nuvio.tv.domain.model.mergeCatalogPage
 import com.nuvio.tv.domain.model.nextCatalogSkip
@@ -31,6 +32,7 @@ import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.domain.repository.WatchProgressRepository
 import com.nuvio.tv.ui.screens.home.ContinueWatchingItem
 import com.nuvio.tv.ui.screens.home.HomeEvent
+import com.nuvio.tv.ui.screens.home.HomeRouteViewModelInternal
 import com.nuvio.tv.ui.screens.home.HomeScreenFocusState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -59,7 +61,7 @@ class CustomTabHomeViewModel @Inject constructor(
     @Named("anime_layout") private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val tmdbService: TmdbService,
     private val tmdbMetadataService: TmdbMetadataService,
-) : ViewModel() {
+) : ViewModel(), HomeRouteViewModelInternal {
 
     companion object {
         private const val TAG = "CustomTabHomeViewModel"
@@ -379,43 +381,53 @@ class CustomTabHomeViewModel @Inject constructor(
         }
     }
 
-    // Methods required by HomeRouteComponents (duck typing)
-    val focusState: StateFlow<com.nuvio.tv.ui.screens.home.HomeScreenFocusState> = MutableStateFlow(com.nuvio.tv.ui.screens.home.HomeScreenFocusState()).asStateFlow()
-    val gridFocusState: StateFlow<com.nuvio.tv.ui.screens.home.HomeScreenFocusState> = MutableStateFlow(com.nuvio.tv.ui.screens.home.HomeScreenFocusState()).asStateFlow()
-    val scrollToTopTrigger: StateFlow<Int> = MutableStateFlow(0).asStateFlow()
-    val trailerPreviewUrls: Map<String, String> = emptyMap()
-    val trailerPreviewAudioUrls: Map<String, String> = emptyMap()
-    val enrichingItemId: StateFlow<String?> = MutableStateFlow(null).asStateFlow()
-    val lastEnrichedPreview: StateFlow<MetaPreview?> = MutableStateFlow(null).asStateFlow()
-    val enrichedPreviews: StateFlow<Map<String, MetaPreview>> = MutableStateFlow(emptyMap()).asStateFlow()
-    val failedEnrichmentIds: StateFlow<Set<String>> = MutableStateFlow(emptySet()).asStateFlow()
+    // Methods required by HomeRouteViewModelInternal
+    override val focusState: StateFlow<com.nuvio.tv.ui.screens.home.HomeScreenFocusState> = MutableStateFlow(com.nuvio.tv.ui.screens.home.HomeScreenFocusState()).asStateFlow()
+    override val gridFocusState: StateFlow<com.nuvio.tv.ui.screens.home.HomeScreenFocusState> = MutableStateFlow(com.nuvio.tv.ui.screens.home.HomeScreenFocusState()).asStateFlow()
+    override val scrollToTopTrigger: StateFlow<Int> = MutableStateFlow(0).asStateFlow()
+    override val trailerPreviewUrls: Map<String, String> = emptyMap()
+    override val trailerPreviewAudioUrls: Map<String, String> = emptyMap()
+    override val enrichingItemId: StateFlow<String?> = MutableStateFlow(null).asStateFlow()
+    override val lastEnrichedPreview: StateFlow<MetaPreview?> = MutableStateFlow(null).asStateFlow()
+    override val enrichedPreviews: StateFlow<Map<String, MetaPreview>> = MutableStateFlow(emptyMap()).asStateFlow()
+    override val failedEnrichmentIds: StateFlow<Set<String>> = MutableStateFlow(emptySet()).asStateFlow()
 
-    fun requestTrailerPreview(item: MetaPreview) {
+    override fun requestTrailerPreview(item: MetaPreview) {
         // Custom tabs don't have trailer preview implementation
         // This would require TrailerService and full TMDB integration
     }
 
-    fun onItemFocus(item: MetaPreview) {
+    override fun requestTrailerPreview(itemId: String, title: String, releaseInfo: String?, apiType: String) {
+        // Not used for custom tabs
+    }
+
+    override fun onItemFocus(item: MetaPreview) {
         // Custom tabs don't need complex focus handling
     }
 
-    fun saveFocusState(
+    override fun saveFocusState(
         vi: Int, vo: Int, rk: String?, ikm: Map<String, String>,
         m: Map<String, Int>, ri: Int, ii: Int
     ) {
         // Not used for custom tabs
     }
 
-    fun saveGridFocusState(vi: Int, vo: Int, focusedItemKey: String) {
+    override fun saveGridFocusState(
+        verticalScrollIndex: Int,
+        verticalScrollOffset: Int,
+        focusedRowIndex: Int = 0,
+        focusedItemIndex: Int = 0,
+        focusedItemKey: String? = null
+    ) {
         // Not used for custom tabs
     }
 
-    fun requestLazyCatalogLoad(catalogKey: String) {
+    override fun requestLazyCatalogLoad(catalogKey: String) {
         val row = _fullCatalogRows.value.find { it.stableKey() == catalogKey }
         row?.let { loadCustomCatalogItems(it) }
     }
 
-    fun preloadAdjacentItem(item: MetaPreview) {
+    override fun preloadAdjacentItem(item: MetaPreview) {
         // Not used for custom tabs
     }
 }

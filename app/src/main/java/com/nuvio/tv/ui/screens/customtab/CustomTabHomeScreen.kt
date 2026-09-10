@@ -217,7 +217,7 @@ fun CustomTabHomeScreen(
                     EmptyScreenState(
                         title = stringResource(R.string.web_no_catalogs),
                         subtitle = stringResource(R.string.home_empty_catalogs_subtitle),
-                        icon = Home
+                        icon = androidx.compose.material.icons.filled.Home
                     )
                 }
             }
