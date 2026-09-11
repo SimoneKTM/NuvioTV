@@ -108,6 +108,8 @@ class CustomTabHomeViewModel @Inject constructor(
                         applyTabConfig(tab)
                         observeCustomAddons()
                         observeCustomContinueWatching()
+                    } else {
+                        _uiState.update { it.copy(isLoading = false, error = "Tab non trovato") }
                     }
                 }
             }
@@ -150,10 +152,12 @@ class CustomTabHomeViewModel @Inject constructor(
                 .collectLatest { tabs ->
                     currentTabId?.let { tabId ->
                         val tab = tabs.find { it.id == tabId }
-                        tab?.let {
-                            if (currentTab?.config != it.config) {
-                                applyTabConfig(it)
+                        if (tab != null) {
+                            if (currentTab?.config != tab.config) {
+                                applyTabConfig(tab)
                             }
+                        } else {
+                            _uiState.update { it.copy(isLoading = false, error = "Tab eliminato") }
                         }
                     }
                 }
@@ -175,10 +179,14 @@ class CustomTabHomeViewModel @Inject constructor(
                         addons
                     }
                     filteredAddons to currentTab
-                } ?: emptyList<com.nuvio.tv.domain.model.Addon>() to currentTab!!
+                } ?: emptyList<com.nuvio.tv.domain.model.Addon>() to tab
             }
                 .distinctUntilChanged()
                 .collectLatest { (addons, tab) ->
+                    if (tab == null) {
+                        _uiState.update { it.copy(isLoading = false, error = "Tab non trovato") }
+                        return@collectLatest
+                    }
                     if (addons != lastAddons) {
                         lastAddons = addons
                         loadCustomCatalogs(tab.config.selectedAddons)
