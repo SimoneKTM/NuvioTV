@@ -101,13 +101,17 @@ class CustomTabHomeViewModel @Inject constructor(
     private fun loadTabConfig() {
         currentTabId?.let { tabId ->
             viewModelScope.launch {
-                layoutPreferenceDataStore.customTabs.first().let { tabs ->
-                    val tab = tabs.find { it.id == tabId }
-                    if (tab != null) {
-                        currentTab = tab
-                        applyTabConfig(tab)
-                        observeCustomAddons()
-                        observeCustomContinueWatching()
+                layoutPreferenceDataStore.customTabs.firstOrNull().let { tabs ->
+                    if (tabs.isNotEmpty()) {
+                        val tab = tabs.find { it.id == tabId }
+                        if (tab != null) {
+                            currentTab = tab
+                            applyTabConfig(tab)
+                            observeCustomAddons()
+                            observeCustomContinueWatching()
+                        } else {
+                            _uiState.update { it.copy(isLoading = false, error = "Tab non trovato") }
+                        }
                     } else {
                         _uiState.update { it.copy(isLoading = false, error = "Tab non trovato") }
                     }
@@ -198,7 +202,7 @@ class CustomTabHomeViewModel @Inject constructor(
     private fun loadCustomCatalogs(selectedAddonIds: List<String>) {
         _uiState.update { it.copy(isLoading = true) }
         viewModelScope.launch {
-            val allAddons = addonRepository.getInstalledAddons().first()
+            val allAddons = addonRepository.getInstalledAddons().firstOrNull() ?: return@launch
             val filteredAddons = if (selectedAddonIds.isNotEmpty()) {
                 allAddons.filter { it.id in selectedAddonIds }
             } else {

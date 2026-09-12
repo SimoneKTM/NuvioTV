@@ -33,8 +33,8 @@ class CustomTabSettingsViewModel @Inject constructor(
 
     fun addTab(displayName: String) {
         viewModelScope.launch {
-            val currentTabs = layoutPreferenceDataStore.customTabs.first()
-            if (currentTabs.size >= MAX_CUSTOM_TABS) return@launch
+            val currentTabs = layoutPreferenceDataStore.customTabs.firstOrNull()
+            if (currentTabs?.size >= MAX_CUSTOM_TABS) return@launch
 
             val newId = "custom_tab_${System.currentTimeMillis()}"
             val newTab = CustomTab(
