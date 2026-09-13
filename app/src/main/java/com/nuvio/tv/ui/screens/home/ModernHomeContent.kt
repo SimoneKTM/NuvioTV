@@ -862,13 +862,13 @@ fun ModernHomeContent(
                     val isCollectionFolder = focusedSelection?.payload is ModernPayload.CollectionFolder
 
                     when {
+                        // Black hero for collection folders: always remove backdrop, even during scroll
+                        isCollectionFolder -> currentLive.copy(heroBackdrop = null)
                         // During vertical scroll: freeze stable to avoid flashing
                         // transient addon data before enrichment completes
                         isScrolling && stableHasPreview -> stable!!
                         // During rapid horizontal nav: freeze to avoid backdrop flashing
                         isRapidNav && stable != null -> stable
-                        // Black hero for collection folders: keep metadata (logo/title/description), remove backdrop
-                        isCollectionFolder -> currentLive.copy(heroBackdrop = null)
                         // Normal: show live state
                         else -> currentLive
                     }
