@@ -132,8 +132,8 @@ internal fun ModernHeroMediaLayer(
     val rawBackdrop by remember { derivedStateOf { heroBackdrop() } }
     val enriching by remember { derivedStateOf { enrichmentActive() } }
     var displayedBackdrop by remember { mutableStateOf(HeroBackdropState.lastDisplayedUrl ?: heroBackdrop()) }
-    if (rawBackdrop != null && rawBackdrop != displayedBackdrop && !enriching) {
-        displayedBackdrop = rawBackdrop!!
+    if (rawBackdrop != displayedBackdrop && !enriching) {
+        displayedBackdrop = rawBackdrop
     }
     val imageModel = remember(
         localContext,
