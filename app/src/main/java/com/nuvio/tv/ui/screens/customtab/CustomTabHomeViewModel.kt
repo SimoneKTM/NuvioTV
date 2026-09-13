@@ -46,7 +46,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
-import javax.inject.Named
+
 
 private fun CatalogRow.stableKey(): String = catalogRowStableKey(addonId, addonBaseUrl, apiType, catalogId)
 
@@ -56,7 +56,7 @@ class CustomTabHomeViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository,
     private val metaRepository: MetaRepository,
     private val watchProgressRepository: WatchProgressRepository,
-    @Named("anime_layout") private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
+    private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val tmdbService: TmdbService,
     private val tmdbMetadataService: TmdbMetadataService,
 ) : ViewModel(), HomeRouteViewModelInternal {
