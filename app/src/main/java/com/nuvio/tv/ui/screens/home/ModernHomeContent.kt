@@ -867,8 +867,8 @@ fun ModernHomeContent(
                         isScrolling && stableHasPreview -> stable!!
                         // During rapid horizontal nav: freeze to avoid backdrop flashing
                         isRapidNav && stable != null -> stable
-                        // Hide hero metadata (logo, title, description) for collection folders, keep backdrop (photo/GIF)
-                        isCollectionFolder -> currentLive.copy(preview = null)
+                        // Black hero for collection folders: keep metadata (logo/title/description), remove backdrop
+                        isCollectionFolder -> currentLive.copy(heroBackdrop = null)
                         // Normal: show live state
                         else -> currentLive
                     }
