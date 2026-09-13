@@ -480,6 +480,47 @@
     <string name="on">On</string>
     <string name="off">Off</string>
     <string name="custom_tab_not_found">Custom tab not found</string>
+
+    <string name="custom_tab_addons_all">All Add-ons</string>
+    <string name="custom_tab_addons_all_subtitle">Show all installed add-ons in this tab</string>
+
+    <string name="custom_tab_layout_home">Home Layout</string>
+    <string name="layout_modern_subtitle">Fixed hero with a single active row</string>
+    <string name="layout_classic_subtitle">Scroll through categories horizontally</string>
+    <string name="layout_grid_subtitle">Browse everything in a vertical grid</string>
+
+    <string name="custom_tab_layout_sections">Sections</string>
+    <string name="custom_tab_hero_section">Hero Section</string>
+    <string name="custom_tab_continue_watching">Continue Watching</string>
+    <string name="custom_tab_catalog_type_suffix">Catalog Type Suffix</string>
+
+    <string name="custom_tab_layout_options">Options</string>
+    <string name="custom_tab_modern_landscape">Landscape Posters</string>
+    <string name="custom_tab_full_screen_backdrop">Full Screen Backdrop</string>
+    <string name="custom_tab_classic_focus_gradient">Classic Focus Gradient</string>
+    <string name="custom_tab_follow_addons_order">Follow Add-ons Order</string>
+
+    <string name="custom_tab_poster_width">Poster Width</string>
+    <string name="custom_tab_poster_height">Poster Height</string>
+    <string name="custom_tab_poster_corner_radius">Corner Radius</string>
+    <string name="custom_tab_poster_labels">Poster Labels</string>
+    <string name="custom_tab_catalog_addon_name">Show Add-on Name</string>
+
+    <string name="custom_tab_hero_expand">Expand on Focus</string>
+    <string name="custom_tab_hero_expand_delay">Expand Delay (seconds)</string>
+    <string name="custom_tab_hero_trailer">Autoplay Trailer</string>
+    <string name="custom_tab_hero_trailer_muted">Mute Trailer</string>
+
+    <string name="custom_tab_continue_watching_settings">Continue Watching</string>
+    <string name="custom_tab_cw_episode_thumbnails">Use Episode Thumbnails</string>
+    <string name="custom_tab_cw_blur_next_up">Blur Next Up</string>
+    <string name="custom_tab_cw_unaired_next_up">Show Unaired Next Up</string>
+
+    <string name="custom_tab_content_settings_title">Content</string>
+    <string name="custom_tab_hide_unreleased">Hide Unreleased Content</string>
+    <string name="custom_tab_detail_trailer_button">Detail Trailer Button</string>
+    <string name="custom_tab_prefer_external_meta">Prefer External Meta Add-on</string>
+    <string name="custom_tab_show_full_release_date">Show Full Release Date</string>
     <string name="settings_live_tv_title">Live TV</string>
     <string name="settings_live_tv_subtitle">M3U playlists and Xtream codes</string>
     <string name="settings_live_tv_show_tab_title">Show TV Live tab</string>

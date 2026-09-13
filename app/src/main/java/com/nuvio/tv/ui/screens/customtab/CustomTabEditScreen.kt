@@ -63,7 +63,11 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 fun CustomTabEditScreen(
     tabId: String,
     viewModel: CustomTabSettingsViewModel = hiltViewModel(),
-    onBackPress: () -> Unit = {}
+    onBackPress: () -> Unit = {},
+    onNavigateToAddonSelector: (String) -> Unit = {},
+    onNavigateToLayoutSettings: (String) -> Unit = {},
+    onNavigateToCatalogOrder: (String) -> Unit = {},
+    onNavigateToAppearanceSettings: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val tab = uiState.tabs.find { it.id == tabId }
@@ -128,17 +132,17 @@ fun CustomTabEditScreen(
                             CustomTabEditItem(
                                 title = stringResource(R.string.custom_tab_select_addons),
                                 subtitle = stringResource(R.string.custom_tab_select_addons_subtitle),
-                                onClick = { /* TODO: navigate to addon selector */ }
+                                onClick = { onNavigateToAddonSelector(tabId) }
                             )
                             CustomTabEditItem(
                                 title = stringResource(R.string.custom_tab_layout),
                                 subtitle = stringResource(R.string.custom_tab_layout_subtitle),
-                                onClick = { /* TODO: navigate to layout settings */ }
+                                onClick = { onNavigateToLayoutSettings(tabId) }
                             )
                             CustomTabEditItem(
                                 title = stringResource(R.string.custom_tab_catalog_order),
                                 subtitle = stringResource(R.string.custom_tab_catalog_order_subtitle),
-                                onClick = { /* TODO: navigate to catalog order */ }
+                                onClick = { onNavigateToCatalogOrder(tabId) }
                             )
                         }
                     }
@@ -149,12 +153,12 @@ fun CustomTabEditScreen(
                             CustomTabEditItem(
                                 title = stringResource(R.string.custom_tab_poster_settings),
                                 subtitle = stringResource(R.string.custom_tab_poster_settings_subtitle),
-                                onClick = { /* TODO: navigate to poster settings */ }
+                                onClick = { onNavigateToAppearanceSettings(tabId) }
                             )
                             CustomTabEditItem(
                                 title = stringResource(R.string.custom_tab_hero_settings),
                                 subtitle = stringResource(R.string.custom_tab_hero_settings_subtitle),
-                                onClick = { /* TODO: navigate to hero settings */ }
+                                onClick = { onNavigateToAppearanceSettings(tabId) }
                             )
                         }
                     }

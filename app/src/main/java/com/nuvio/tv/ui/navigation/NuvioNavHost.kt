@@ -27,6 +27,10 @@ import com.nuvio.tv.ui.screens.customtab.CustomTabHomeScreen
 import com.nuvio.tv.ui.screens.customtab.CustomTabSettingsScreen
 import com.nuvio.tv.ui.screens.customtab.CustomTabEditScreen
 import com.nuvio.tv.ui.screens.customtab.CustomTabHomeViewModel
+import com.nuvio.tv.ui.screens.customtab.CustomTabAddonSelectorScreen
+import com.nuvio.tv.ui.screens.customtab.CustomTabLayoutSettingsScreen
+import com.nuvio.tv.ui.screens.customtab.CustomTabCatalogOrderScreen
+import com.nuvio.tv.ui.screens.customtab.CustomTabAppearanceSettingsScreen
 import com.nuvio.tv.ui.screens.detail.MetaDetailsScreen
 import com.nuvio.tv.ui.screens.home.HomeScreen
 import com.nuvio.tv.ui.screens.addon.AddonManagerScreen
@@ -1232,6 +1236,62 @@ fun NuvioNavHost(
         ) { backStackEntry ->
             val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
             CustomTabEditScreen(
+                tabId = tabId,
+                onBackPress = { navController.popBackStack() },
+                onNavigateToAddonSelector = { id ->
+                    navController.navigate(Screen.CustomTabAddonSelector.createRoute(id))
+                },
+                onNavigateToLayoutSettings = { id ->
+                    navController.navigate(Screen.CustomTabLayoutSettings.createRoute(id))
+                },
+                onNavigateToCatalogOrder = { id ->
+                    navController.navigate(Screen.CustomTabCatalogOrder.createRoute(id))
+                },
+                onNavigateToAppearanceSettings = { id ->
+                    navController.navigate(Screen.CustomTabAppearanceSettings.createRoute(id))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.CustomTabAddonSelector.route,
+            arguments = listOf(navArgument("tabId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
+            CustomTabAddonSelectorScreen(
+                tabId = tabId,
+                onBackPress = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.CustomTabLayoutSettings.route,
+            arguments = listOf(navArgument("tabId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
+            CustomTabLayoutSettingsScreen(
+                tabId = tabId,
+                onBackPress = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.CustomTabCatalogOrder.route,
+            arguments = listOf(navArgument("tabId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
+            CustomTabCatalogOrderScreen(
+                tabId = tabId,
+                onBackPress = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.CustomTabAppearanceSettings.route,
+            arguments = listOf(navArgument("tabId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
+            CustomTabAppearanceSettingsScreen(
                 tabId = tabId,
                 onBackPress = { navController.popBackStack() }
             )
