@@ -68,7 +68,7 @@ fun CustomTabHomeScreen(
     val modernPresentationReady =
         uiState.homeLayout != HomeLayout.MODERN ||
             uiState.heroItems.isNotEmpty() ||
-            (uiState.heroEnabled && hasHeroContent && !hasCatalogContent)
+            hasCatalogContent
     var showHomeContentWithAnimation by rememberSaveable { mutableStateOf(false) }
     var hasShownInitialHomeContent by rememberSaveable { mutableStateOf(false) }
     var homeStableGateReleased by rememberSaveable { mutableStateOf(false) }
@@ -112,7 +112,6 @@ fun CustomTabHomeScreen(
         if (!homeStableGateReleased &&
             catalogLoadingStarted &&
             !uiState.isLoading &&
-            modernPresentationReady &&
             (hasCatalogContent || uiState.installedAddonsCount == 0)
         ) {
             homeStableGateReleased = true
@@ -152,7 +151,7 @@ fun CustomTabHomeScreen(
         uiState.error == noCatalogAddonsError && uiState.rows.isEmpty() && !hasHeroContent -> !homeStableGateReleased
         uiState.error != null && uiState.rows.isEmpty() -> false
         !uiState.isLoading && !hasAnyContent -> !homeStableGateReleased
-        else -> !homeStableGateReleased || !modernPresentationReady || !showHomeContentWithAnimation
+        else -> !homeStableGateReleased
     }
 
     Box(
@@ -226,8 +225,6 @@ fun CustomTabHomeScreen(
 
             else -> {
                 if (!homeStableGateReleased) {
-                    Unit
-                } else if (!modernPresentationReady) {
                     Unit
                 } else {
                     LaunchedEffect(Unit) {

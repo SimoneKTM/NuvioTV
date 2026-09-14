@@ -16,6 +16,10 @@ object HeroBackdropState {
         }
     }
 
+    fun clearLastDisplayed() {
+        lastDisplayedUrl = null
+    }
+
     fun consumeAndClear(): String? {
         val url = currentHeroBackdropUrl
         currentHeroBackdropUrl = null

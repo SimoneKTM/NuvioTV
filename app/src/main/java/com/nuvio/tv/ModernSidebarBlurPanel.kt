@@ -158,21 +158,7 @@ internal fun ModernSidebarBlurPanel(
                 )
             }
         } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset(y = NuvioTheme.spacing.md),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.app_logo_wordmark),
-                    contentDescription = stringResource(R.string.app_name),
-                    modifier = Modifier
-                        .fillMaxWidth(0.72f)
-                        .height(36.dp),
-                    alpha = sidebarLabelAlpha
-                )
-            }
+            Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
         }
 
         Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))

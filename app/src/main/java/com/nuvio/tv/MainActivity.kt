@@ -818,6 +818,13 @@ class MainActivity : ComponentActivity() {
                             )
                             add(
                                 DrawerItem(
+                                    route = Screen.Discover.route,
+                                    label = stringResource(R.string.discover_title),
+                                    icon = Icons.Default.Explore
+                                )
+                            )
+                            add(
+                                DrawerItem(
                                     route = Screen.Library.route,
                                     label = strNavLibrary,
                                     iconRes = R.raw.sidebar_library
@@ -1202,13 +1209,7 @@ private fun LegacySidebarScaffold(
                                     }
                                 }
                             } else {
-                                Image(
-                                    painter = painterResource(id = R.drawable.app_logo_wordmark),
-                                    contentDescription = stringResource(R.string.app_name),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(42.dp)
-                                )
+                                Spacer(modifier = Modifier.height(42.dp))
                             }
                         }
                     }
@@ -1501,15 +1502,15 @@ private fun ModernSidebarScaffold(
         targetValue = targetSidebarWidth,
         animationSpec = if (isSidebarExpanded) {
             keyframes {
-                durationMillis = 365
-                (openSidebarWidth + NuvioTheme.spacing.md) at 175
+                durationMillis = 250
+                (openSidebarWidth + NuvioTheme.spacing.md) at 120
             }
         } else {
             tween(durationMillis = NuvioMotion.tokens.durations.sidebarEnter, easing = NuvioMotion.tokens.easings.decelerate)
         },
         label = "sidebarWidth"
     )
-    val animationDuration = if (sidebarVisible) 400 else 300
+    val animationDuration = if (sidebarVisible) 280 else 200
     val animationEasing = if (sidebarVisible) FastOutSlowInEasing else FastOutLinearInEasing
 
     val sidebarSlideX by animateDpAsState(

@@ -512,7 +512,7 @@ private fun StreamBackdrop(
     }
     val imageAlpha by animateFloatAsState(
         targetValue = if (isLoading) 0.7f else 0.5f,
-        animationSpec = tween(500),
+        animationSpec = tween(300),
         label = "backdrop_image_alpha"
     )
 
@@ -745,8 +745,8 @@ private fun RightStreamSection(
         Box(modifier = Modifier.height(chipRowHeight)) {
             androidx.compose.animation.AnimatedVisibility(
                 visible = sourceChips.isNotEmpty() || (!isLoading && availableAddons.isNotEmpty()),
-                enter = fadeIn(animationSpec = tween(300)),
-                exit = fadeOut(animationSpec = tween(300))
+                enter = fadeIn(animationSpec = tween(200)),
+                exit = fadeOut(animationSpec = tween(200))
             ) {
                 AddonFilterChips(
                     addons = availableAddons,
@@ -763,12 +763,12 @@ private fun RightStreamSection(
 
         androidx.compose.animation.AnimatedVisibility(
             visible = enter,
-            enter = fadeIn(animationSpec = tween(260)) +
+            enter = fadeIn(animationSpec = tween(180)) +
                 slideInHorizontally(
-                    animationSpec = tween(260),
+                    animationSpec = tween(180),
                     initialOffsetX = { fullWidth -> (fullWidth * 0.06f).toInt() }
                 ),
-            exit = fadeOut(animationSpec = tween(120))
+            exit = fadeOut(animationSpec = tween(90))
         ) {
             // Content area
             Box(

@@ -131,7 +131,7 @@ internal fun ModernHeroMediaLayer(
     // during rapid nav / scroll). Only update when enrichment is not active
     val rawBackdrop by remember { derivedStateOf { heroBackdrop() } }
     val enriching by remember { derivedStateOf { enrichmentActive() } }
-    var displayedBackdrop by remember { mutableStateOf(HeroBackdropState.lastDisplayedUrl ?: heroBackdrop()) }
+    var displayedBackdrop by remember { mutableStateOf(heroBackdrop()) }
     if (rawBackdrop != displayedBackdrop && !enriching) {
         displayedBackdrop = rawBackdrop
     }

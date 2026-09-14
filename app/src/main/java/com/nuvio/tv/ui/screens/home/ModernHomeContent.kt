@@ -832,17 +832,7 @@ fun ModernHomeContent(
                                 return@collect
                             }
                         }
-                        val displayedBackdrop = HeroBackdropState.lastDisplayedUrl
-                        val isCollectionFolder = focusedCatalogSelection.value?.payload is ModernPayload.CollectionFolder
-                        val corrected = if (!displayedBackdrop.isNullOrBlank() &&
-                            displayedBackdrop != currentStable.heroBackdrop &&
-                            !isCollectionFolder
-                        ) {
-                            currentStable.copy(heroBackdrop = displayedBackdrop)
-                        } else {
-                            currentStable
-                        }
-                        stableHeroSceneStateRef.value = corrected
+                        stableHeroSceneStateRef.value = currentStable
                     }
                 }
             }

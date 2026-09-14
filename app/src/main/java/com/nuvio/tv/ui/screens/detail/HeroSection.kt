@@ -157,17 +157,17 @@ fun HeroContentSection(
     // Animate logo properties for trailer mode
     val logoHeight by animateDpAsState(
         targetValue = if (isTrailerPlaying) 60.dp else 100.dp,
-        animationSpec = tween(600),
+        animationSpec = tween(350),
         label = "logoHeight"
     )
     val logoBottomPadding by animateDpAsState(
         targetValue = if (isTrailerPlaying) NuvioTheme.spacing.xl else NuvioTheme.spacing.lg,
-        animationSpec = tween(600),
+        animationSpec = tween(350),
         label = "logoPadding"
     )
     val logoMaxWidth by animateFloatAsState(
         targetValue = if (isTrailerPlaying) 0.25f else 0.4f,
-        animationSpec = tween(600),
+        animationSpec = tween(350),
         label = "logoWidth"
     )
 
@@ -181,7 +181,7 @@ fun HeroContentSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .animateContentSize(
-                    animationSpec = tween(600)
+                    animationSpec = tween(350)
                 )
                 .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, bottom = NuvioTheme.spacing.lg),
             verticalArrangement = Arrangement.Bottom
@@ -218,8 +218,8 @@ fun HeroContentSection(
             // Everything below the logo fades out during trailer
             AnimatedVisibility(
                 visible = isTrailerPlaying && !hideLogoDuringTrailer,
-                enter = fadeIn(tween(600)),
-                exit = fadeOut(tween(300))
+                enter = fadeIn(tween(250)),
+                exit = fadeOut(tween(150))
             ) {
                 Text(
                     text = stringResource(R.string.hero_press_back_trailer),

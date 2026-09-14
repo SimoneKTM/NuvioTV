@@ -39,6 +39,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -195,6 +197,53 @@ class SearchViewModel @Inject constructor(
         if (state.discoverLocation == DiscoverLocation.OFF) return
         if (state.discoverInitialized || state.discoverLoading) return
         viewModelScope.launch { loadDiscoverCatalogs() }
+    }
+
+    fun loadDiscoverRows() {
+        val state = _uiState.value
+        if (state.discoverRowsLoading) return
+        val catalogs = state.discoverCatalogs
+        if (catalogs.isEmpty()) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(discoverRowsLoading = true, discoverRows = catalogs.map { DiscoverRow(catalog = it) }) }
+
+            val rows = catalogs.map { catalog ->
+                async {
+                    try {
+                        catalogRepository.getCatalog(
+                            addonBaseUrl = catalog.addonBaseUrl,
+                            addonId = catalog.addonId,
+                            addonName = catalog.addonName,
+                            catalogId = catalog.catalogId,
+                            catalogName = catalog.catalogName,
+                            type = catalog.type,
+                            skip = 0,
+                            skipStep = 20,
+                            supportsSkip = false
+                        ).first().let { result ->
+                            when (result) {
+                                is NetworkResult.Success -> {
+                                    val items = result.data.items.map { item ->
+                                        item.copy(
+                                            poster = item.poster ?: item.backdropUrl ?: PLACEHOLDER_IMAGE_URL,
+                                            posterShape = item.posterShape
+                                        )
+                                    }.take(20)
+                                    DiscoverRow(catalog = catalog, items = items, isLoading = false)
+                                }
+                                else -> DiscoverRow(catalog = catalog, isLoading = false)
+                            }
+                        }
+                    } catch (_: Exception) {
+                        DiscoverRow(catalog = catalog, isLoading = false)
+                    }
+                }
+            }
+
+            val completedRows = rows.awaitAll()
+            _uiState.update { it.copy(discoverRows = completedRows, discoverRowsLoading = false) }
+        }
     }
 
     fun onEvent(event: SearchEvent) {
