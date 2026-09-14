@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.R
 import com.nuvio.tv.core.network.NetworkResult
+import com.nuvio.tv.data.local.DiscoverSelectionDataStore
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.data.local.SearchHistoryDataStore
 import com.nuvio.tv.domain.model.Addon
@@ -31,6 +32,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,8 +41,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -48,8 +48,9 @@ import javax.inject.Inject
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val addonRepository: AddonRepository,
-    private val animeAddonRepository: com.nuvio.tv.domain.repository.AnimeAddonRepository,
     private val catalogRepository: CatalogRepository,
+    private val metaRepository: com.nuvio.tv.domain.repository.MetaRepository,
+    private val discoverSelectionDataStore: DiscoverSelectionDataStore,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val searchHistoryDataStore: SearchHistoryDataStore,
     private val watchProgressRepository: com.nuvio.tv.domain.repository.WatchProgressRepository,
@@ -64,26 +65,24 @@ class SearchViewModel @Inject constructor(
     /** Saved focus state for restoring scroll/focus position after returning from details. */
     var savedFocusRowKey: String? = null
     var savedFocusItemIndex: Int = -1
-    var savedResultsScrollPosition: Pair<Int, Int>? = null
+    var savedRowScrollPositions: Map<String, Pair<Int, Int>> = emptyMap()
     var hasSavedSearchFocus: Boolean = false
 
     private val _watchedMovieIds = MutableStateFlow<Set<String>>(emptySet())
     val watchedMovieIds: StateFlow<Set<String>> = _watchedMovieIds.asStateFlow()
-
-    private fun normalizeDiscoverType(apiType: String): String {
-        return when (apiType.lowercase().trim()) {
-            "movie" -> "movie"
-            "series", "tv" -> "series"
-            "anime" -> "anime"
-            else -> "other"
-        }
-    }
     val watchedSeriesIds: StateFlow<Set<String>> = watchedSeriesStateHolder.fullyWatchedSeriesIds
 
     private val catalogsMap = linkedMapOf<String, CatalogRow>()
     private val catalogOrder = mutableListOf<String>()
 
     private var activeSearchJobs: List<Job> = emptyList()
+
+    /**
+     * Load-more jobs, tracked separately from [activeSearchJobs] because that list is replaced
+     * wholesale by each search run. Cancelled alongside it in [cancelSearchRun].
+     */
+    private val activeLoadMoreJobs: MutableSet<Job> =
+        java.util.concurrent.ConcurrentHashMap.newKeySet()
     private var searchRunJob: Job? = null
     private var activeSearchQuery: String? = null
     private var searchGeneration = 0L
@@ -107,9 +106,11 @@ class SearchViewModel @Inject constructor(
          * Live search fires while typing, but each run fans out to every enabled addon catalog, so
          * it waits longer than the suggestion debounce to avoid a request storm per keystroke.
          */
-        const val LIVE_SEARCH_DEBOUNCE_MS = 250L
+        const val LIVE_SEARCH_DEBOUNCE_MS = 350L
 
         const val MAX_SUGGESTIONS = 8
+        /** Splits titles and queries into words. */
+        private val WORD_SEPARATOR = Regex("[^\\p{L}\\p{N}]+")
         const val MAX_RECENT_SEARCHES = 8
     }
 
@@ -199,58 +200,41 @@ class SearchViewModel @Inject constructor(
         viewModelScope.launch { loadDiscoverCatalogs() }
     }
 
-    fun loadDiscoverRows() {
-        val state = _uiState.value
-        if (state.discoverRowsLoading) return
-        val catalogs = state.discoverCatalogs
-        if (catalogs.isEmpty()) return
+    private val metaPrefetchedIds: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+    private var metaPrefetchJob: Job? = null
 
-        viewModelScope.launch {
-            _uiState.update { it.copy(discoverRowsLoading = true, discoverRows = catalogs.map { DiscoverRow(catalog = it) }) }
-
-            val rows = catalogs.map { catalog ->
-                async {
-                    try {
-                        catalogRepository.getCatalog(
-                            addonBaseUrl = catalog.addonBaseUrl,
-                            addonId = catalog.addonId,
-                            addonName = catalog.addonName,
-                            catalogId = catalog.catalogId,
-                            catalogName = catalog.catalogName,
-                            type = catalog.type,
-                            skip = 0,
-                            skipStep = 20,
-                            supportsSkip = false
-                        ).first().let { result ->
-                            when (result) {
-                                is NetworkResult.Success -> {
-                                    val items = result.data.items.map { item ->
-                                        item.copy(
-                                            poster = item.poster ?: item.backdropUrl ?: PLACEHOLDER_IMAGE_URL,
-                                            posterShape = item.posterShape
-                                        )
-                                    }.take(20)
-                                    DiscoverRow(catalog = catalog, items = items, isLoading = false)
-                                }
-                                else -> DiscoverRow(catalog = catalog, isLoading = false)
-                            }
-                        }
-                    } catch (_: Exception) {
-                        DiscoverRow(catalog = catalog, isLoading = false)
-                    }
-                }
-            }
-
-            val completedRows = rows.awaitAll()
-            _uiState.update { it.copy(discoverRows = completedRows, discoverRowsLoading = false) }
+    /**
+     * Prefetch meta from addons in background when an item receives focus.
+     * Warms the MetaRepository cache so the detail screen loads instantly.
+     * Debounced to avoid flooding the network during rapid scrolling.
+     */
+    fun prefetchMetaOnFocus(id: String, type: String) {
+        if (id.isBlank() || id in metaPrefetchedIds) return
+        metaPrefetchJob?.cancel()
+        metaPrefetchJob = viewModelScope.launch {
+            delay(150)
+            if (id in metaPrefetchedIds) return@launch
+            metaPrefetchedIds.add(id)
+            metaRepository.getMetaFromAllAddons(type = type, id = id)
+                .first { it !is com.nuvio.tv.core.network.NetworkResult.Loading }
+            watchProgressRepository.getAllEpisodeProgress(id.substringBefore(":")).first()
         }
+    }
+
+    /**
+     * Returns the cached backdrop URL from a previously prefetched meta, or null.
+     */
+    fun getCachedBackdrop(id: String, type: String): String? {
+        return metaRepository.getCachedMeta(type, id)?.backdropUrl
     }
 
     fun onEvent(event: SearchEvent) {
         when (event) {
             is SearchEvent.QueryChanged -> onQueryChanged(event.query)
             SearchEvent.SubmitSearch -> submitSearch()
+            SearchEvent.RememberSearchFromTextInput -> rememberSearchFromTextInput()
             SearchEvent.ClearRecentSearches -> clearRecentSearches()
+            is SearchEvent.RemoveRecentSearch -> removeRecentSearch(event.query)
             is SearchEvent.LoadMoreCatalog -> loadMoreCatalogItems(
                 catalogId = event.catalogId,
                 addonId = event.addonId,
@@ -273,8 +257,14 @@ class SearchViewModel @Inject constructor(
     private fun onQueryChanged(query: String) {
         _uiState.update {
             val trimmedInput = query.trim()
+            // Narrow the strip to what still matches before anything is fetched, so a letter
+            // that rules a title out drops it on that keystroke rather than a fetch later.
+            // Narrowing does not clear the strip when every current title stops matching. The
+            // fetch stays authoritative for an empty result.
+            val narrowed = rankedSuggestions(it.suggestions, trimmedInput.lowercase())
             it.copy(
                 query = query,
+                suggestions = if (narrowed.isEmpty()) it.suggestions else narrowed,
                 error = null,
                 isSearching = false,
                 // Keep whatever is on screen while a keystroke waits to run. Clearing here flashed
@@ -294,7 +284,7 @@ class SearchViewModel @Inject constructor(
         if (trimmed.length >= MIN_SEARCH_QUERY_LENGTH) {
             liveSearchJob = viewModelScope.launch {
                 kotlinx.coroutines.delay(LIVE_SEARCH_DEBOUNCE_MS)
-                performSearch(query)
+                performSearch(query, keepSuggestions = true)
             }
         } else {
             // Emptying the field has to retire the submitted query too. Leaving it set kept the
@@ -306,6 +296,34 @@ class SearchViewModel @Inject constructor(
         fetchSuggestions(trimmed)
     }
 
+    /** Match rank for [title], lower being better, or null when it does not match [queryLower]. */
+    private fun suggestionRank(title: String, queryLower: String): Int? {
+        val titleLower = title.lowercase()
+        if (titleLower == queryLower) return 0
+        if (titleLower.startsWith(queryLower)) return 1
+        if (titleLower.contains(queryLower)) return 2
+
+        // Allow multi-word matches such as "wolf wall" -> "The Wolf of Wall Street".
+        // Each query word must consume a different title word.
+        val queryWords = queryLower.split(WORD_SEPARATOR).filter { it.isNotEmpty() }
+        if (queryWords.size < 2) return null
+        val unmatchedTitleWords = titleLower.split(WORD_SEPARATOR).filterTo(mutableListOf()) { it.isNotEmpty() }
+        val everyWordMatches = queryWords.all { word ->
+            val index = unmatchedTitleWords.indexOfFirst { it.startsWith(word) }
+            if (index >= 0) unmatchedTitleWords.removeAt(index)
+            index >= 0
+        }
+        return if (everyWordMatches) 3 else null
+    }
+
+    /** The strip contents for [names], best match first, capped at [MAX_SUGGESTIONS]. */
+    private fun rankedSuggestions(names: Collection<String>, queryLower: String): List<String> =
+        names
+            .mapNotNull { name -> suggestionRank(name, queryLower)?.let { name to it } }
+            .sortedWith(compareBy({ it.second }, { it.first.lowercase() }))
+            .map { it.first }
+            .take(MAX_SUGGESTIONS)
+
     private fun fetchSuggestions(query: String) {
         suggestionJob?.cancel()
 
@@ -314,9 +332,10 @@ class SearchViewModel @Inject constructor(
             return
         }
 
-        // Don't show suggestions if the query already matches the submitted search
+        // Already searched, so a fetch would repeat itself and the strip is current. Leave it
+        // standing: live search submits as the user types, so typing a space between words
+        // trims back to the submitted query and lands here mid-query.
         if (query == _uiState.value.submittedQuery.trim() && _uiState.value.catalogRows.isNotEmpty()) {
-            _uiState.update { it.copy(suggestions = emptyList()) }
             return
         }
 
@@ -324,8 +343,7 @@ class SearchViewModel @Inject constructor(
             kotlinx.coroutines.delay(SUGGESTION_DEBOUNCE_MS)
 
             val addons = try {
-                addonRepository.getInstalledAddons().first().enabledAddons() +
-                    animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+                addonRepository.getInstalledAddons().first().enabledAddons()
             } catch (_: Exception) {
                 return@launch
             }
@@ -360,18 +378,23 @@ class SearchViewModel @Inject constructor(
                                 result.data.items.forEach { item ->
                                     if (collectedNames.add(item.name)) added = true
                                 }
-                                // Push updated suggestions immediately as each addon responds
+                                // Catalog results arrive independently and accumulate into one
+                                // shared set, so a batch whose titles all fail the filter ranks
+                                // to nothing while the batch holding the match is still in
+                                // flight. Only the settle below may empty the strip: an empty
+                                // push tells the keyboard there are no completions, and it does
+                                // not always take them back when the next batch lands.
                                 if (added) {
-                                    val sorted = collectedNames
-                                        .sortedWith(
-                                            compareByDescending<String> { it.lowercase().startsWith(queryLower) }
-                                                .thenBy { it.lowercase() }
-                                        )
-                                        .take(MAX_SUGGESTIONS)
-                                    _uiState.update { it.copy(suggestions = sorted) }
+                                    val ranked = rankedSuggestions(collectedNames, queryLower)
+                                    if (ranked.isNotEmpty()) {
+                                        _uiState.update { it.copy(suggestions = ranked) }
+                                    }
                                 }
                             }
                         }
+                    } catch (e: CancellationException) {
+                        // The settle below treats joinAll() as "collection is over".
+                        throw e
                     } catch (_: Exception) {
                         // Ignore per-catalog errors for suggestions
                     }
@@ -379,18 +402,53 @@ class SearchViewModel @Inject constructor(
             }
 
             suggestionJobs.joinAll()
+
+            // Every catalog job has completed, so this is the first point the query is known
+            // to have no suggestions. Until here the strip keeps the previous query's titles
+            // rather than blinking on every keystroke. It must be cleared here or it would go
+            // on captioning text the field no longer contains.
+            if (_uiState.value.query.trim() == query) {
+                _uiState.update { it.copy(suggestions = rankedSuggestions(collectedNames, queryLower)) }
+            }
         }
     }
 
     private fun submitSearch() {
         // An explicit submit just skips the remaining debounce; the live run would land anyway.
         liveSearchJob?.cancel()
-        performSearch(_uiState.value.query)
+        performSearch(_uiState.value.query, rememberToHistory = true)
+    }
+
+    /**
+     * Moving from the text input into the results confirms the current query the same way
+     * Done/submit does. Live search may already have results on screen without an explicit
+     * submit; saving here
+     * avoids losing useful history while still not recording every keystroke prefix.
+     */
+    private fun rememberSearchFromTextInput() {
+        val state = _uiState.value
+        val query = state.submittedQuery.trim().ifBlank { state.query.trim() }
+        if (query.length < MIN_SEARCH_QUERY_LENGTH) return
+        val hasRealResults = state.catalogRows.any { row ->
+            row.items.any { item -> !item.id.startsWith("__placeholder_") }
+        } || catalogsMap.values.any { row ->
+            row.items.any { item -> !item.id.startsWith("__placeholder_") }
+        }
+        if (!hasRealResults) return
+        viewModelScope.launch {
+            searchHistoryDataStore.saveRecentSearch(query, MAX_RECENT_SEARCHES)
+        }
     }
 
     private fun clearRecentSearches() {
         viewModelScope.launch {
             searchHistoryDataStore.clearRecentSearches()
+        }
+    }
+
+    private fun removeRecentSearch(query: String) {
+        viewModelScope.launch {
+            searchHistoryDataStore.removeRecentSearch(query)
         }
     }
 
@@ -407,6 +465,8 @@ class SearchViewModel @Inject constructor(
         searchRunJob = null
         activeSearchJobs.forEach { it.cancel() }
         activeSearchJobs = emptyList()
+        activeLoadMoreJobs.forEach { it.cancel() }
+        activeLoadMoreJobs.clear()
         activeSearchQuery = null
     }
 
@@ -431,14 +491,25 @@ class SearchViewModel @Inject constructor(
     }
 
 
-    private fun performSearch(rawQuery: String) {
+    /**
+     * @param keepSuggestions live search runs this on every keystroke, while the field is still
+     * being typed into and the suggestion strip is the whole point. Those runs leave the strip
+     * alone. A submit or a retry replaces the screen with results, which retires it.
+     */
+    private fun performSearch(
+        rawQuery: String,
+        rememberToHistory: Boolean = false,
+        keepSuggestions: Boolean = false
+    ) {
         val query = rawQuery.trim()
-        suggestionJob?.cancel()
+        if (!keepSuggestions) {
+            suggestionJob?.cancel()
+        }
         _uiState.update {
             it.copy(
                 submittedQuery = submittedSearchQuery(query),
                 query = rawQuery,
-                suggestions = emptyList()
+                suggestions = if (keepSuggestions) it.suggestions else emptyList()
             )
         }
 
@@ -468,8 +539,7 @@ class SearchViewModel @Inject constructor(
 
         val job = viewModelScope.launch {
             val addons = try {
-                addonRepository.getInstalledAddons().first().enabledAddons() +
-                    animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+                addonRepository.getInstalledAddons().first().enabledAddons()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -491,7 +561,17 @@ class SearchViewModel @Inject constructor(
             val requestKey = buildRequestKey(query, searchTargets)
             val alreadySatisfied = requestKey == lastRequestKey &&
                 (requestKey == lastCompletedRequestKey || activeSearchJobs.any { it.isActive })
-            if (alreadySatisfied) return@launch
+            if (alreadySatisfied) {
+                // An explicit submit that lands on a query the live search already finished still
+                // counts as a search the user confirmed, so remember it instead of skipping out
+                // of the history save below.
+                if (rememberToHistory && catalogsMap.values.any { row -> row.items.isNotEmpty() }) {
+                    viewModelScope.launch {
+                        searchHistoryDataStore.saveRecentSearch(query, MAX_RECENT_SEARCHES)
+                    }
+                }
+                return@launch
+            }
             lastRequestKey = requestKey
 
             // Committed to a new run: drop the previous query's work and accumulated rows.
@@ -599,9 +679,11 @@ class SearchViewModel @Inject constructor(
                 ) {
                     lastCompletedRequestKey = requestKey
                     _uiState.update { it.copy(isSearching = false) }
-                    // Remembered once it has actually returned something, so backing out still
-                    // saves what you typed while typos that match nothing never get recorded.
-                    if (catalogsMap.values.any { row -> row.items.isNotEmpty() }) {
+                    // Only explicit submit (or moving into results from the text input — see
+                    // rememberSearchFromTextInput)
+                    // writes history. Live search fires per keystroke and would otherwise record
+                    // every prefix ("do", "dog") even when the user never confirmed the search.
+                    if (rememberToHistory && catalogsMap.values.any { row -> row.items.isNotEmpty() }) {
                         viewModelScope.launch {
                             searchHistoryDataStore.saveRecentSearch(query, MAX_RECENT_SEARCHES)
                         }
@@ -664,6 +746,12 @@ class SearchViewModel @Inject constructor(
     private fun isCurrentSearch(generation: Long, query: String): Boolean =
         generation == searchGeneration && uiState.value.submittedQuery.trim() == query
 
+    /**
+     * Pages one row of the current search. The page belongs to the search run that created it:
+     * it is keyed on [SearchUiState.submittedQuery] rather than the live field, and every
+     * assignment back into [catalogsMap] is gated on that run still being current, so a late page
+     * cannot merge into a different query's rows.
+     */
     private fun loadMoreCatalogItems(catalogId: String, addonId: String, type: String) {
         val (key, currentRow) = catalogsMap.entries.firstOrNull { (_, row) ->
             row.addonId == addonId && row.apiType == type && row.catalogId == catalogId
@@ -673,19 +761,19 @@ class SearchViewModel @Inject constructor(
             return
         }
 
-        catalogsMap[key] = currentRow.copy(isLoading = true)
-        scheduleCatalogRowsUpdate()
-
-        val query = uiState.value.query.trim()
+        val generation = searchGeneration
+        val query = uiState.value.submittedQuery.trim()
         if (query.isBlank()) {
             return
         }
 
-        viewModelScope.launch {
+        catalogsMap[key] = currentRow.copy(isLoading = true)
+        scheduleCatalogRowsUpdate()
+
+        val job = viewModelScope.launch {
             val addon = uiState.value.installedAddons.find { it.id == addonId && it.baseUrl == currentRow.addonBaseUrl }
                 ?: uiState.value.installedAddons.find { it.id == addonId } ?: run {
-                catalogsMap[key] = currentRow.copy(isLoading = false)
-                scheduleCatalogRowsUpdate()
+                clearRowLoading(key, generation, query)
                 return@launch
             }
 
@@ -704,19 +792,29 @@ class SearchViewModel @Inject constructor(
             ).collect { result ->
                 when (result) {
                     is NetworkResult.Success -> {
-                        val latestRow = catalogsMap[key] ?: currentRow
-                        val mergedRow = latestRow.mergeCatalogPage(result.data)
-                        catalogsMap[key] = mergedRow
+                        if (!isCurrentSearch(generation, query)) return@collect
+                        val latestRow = catalogsMap[key] ?: return@collect
+                        catalogsMap[key] = latestRow.mergeCatalogPage(result.data)
                         scheduleCatalogRowsUpdate()
                     }
                     is NetworkResult.Error -> {
-                        catalogsMap[key] = currentRow.copy(isLoading = false)
-                        scheduleCatalogRowsUpdate()
+                        clearRowLoading(key, generation, query)
                     }
                     NetworkResult.Loading -> Unit
                 }
             }
         }
+        activeLoadMoreJobs.add(job)
+        job.invokeOnCompletion { activeLoadMoreJobs.remove(job) }
+    }
+
+    /** Drops the loading flag for a row, but only while its search run is still current. */
+    private fun clearRowLoading(key: String, generation: Long, query: String) {
+        if (!isCurrentSearch(generation, query)) return
+        val row = catalogsMap[key] ?: return
+        if (!row.isLoading) return
+        catalogsMap[key] = row.copy(isLoading = false)
+        scheduleCatalogRowsUpdate()
     }
 
     private fun scheduleCatalogRowsUpdate() {
@@ -773,8 +871,7 @@ class SearchViewModel @Inject constructor(
         if (_uiState.value.discoverLocation == DiscoverLocation.OFF) return
         _uiState.update { it.copy(discoverLoading = true) }
         val addons = try {
-            addonRepository.getInstalledAddons().first().enabledAddons() +
-                animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+            addonRepository.getInstalledAddons().first().enabledAddons()
         } catch (_: Exception) {
             _uiState.update { it.copy(discoverInitialized = true, discoverLoading = false) }
             return
@@ -798,32 +895,20 @@ class SearchViewModel @Inject constructor(
                         addonBaseUrl = addon.baseUrl,
                         catalogId = catalog.id,
                         catalogName = catalog.name,
-                        type = normalizeDiscoverType(catalog.apiType),
+                        type = catalog.apiType,
                         genres = genres,
                         supportsSkip = catalog.supportsExtra("skip"),
                         skipStep = catalog.skipStep()
                     )
                 }
         }
-            .filter { catalog ->
-                // Filter out built-in TMDB discover catalogs
-                val addonIdLower = catalog.addonId.lowercase()
-                val addonNameLower = catalog.addonName.lowercase()
-                !(addonIdLower == "tmdb" ||
-                    addonIdLower.contains("tmdb") ||
-                    addonNameLower.contains("tmdb") ||
-                    addonNameLower.contains("the movie database"))
-            }
-            .distinctBy { it.catalogName to it.type }
 
-        val availableTypes = discoverCatalogs.map { it.type }.distinct()
-        val currentType = _uiState.value.selectedDiscoverType
-        val selectedType = if (currentType in availableTypes) currentType else availableTypes.firstOrNull() ?: "movie"
-        val selectedCatalog = pickDiscoverCatalog(
+        val selectedCatalog = resolveDiscoverCatalog(
             catalogs = discoverCatalogs,
-            selectedType = selectedType,
-            preferredKey = _uiState.value.selectedDiscoverCatalogKey
+            preferredKey = discoverSelectionDataStore.getSelectedCatalogKey(),
+            currentKey = _uiState.value.selectedDiscoverCatalogKey
         )
+        val selectedType = selectedCatalog?.type ?: "movie"
         val selectedGenre: String? = null
 
         _uiState.update {
@@ -840,6 +925,11 @@ class SearchViewModel @Inject constructor(
                 discoverHasMore = true,
                 discoverPage = 1
             )
+        }
+        selectedCatalog?.let { catalog ->
+            viewModelScope.launch {
+                discoverSelectionDataStore.setSelectedCatalogKey(catalog.key)
+            }
         }
         fetchDiscoverContent(reset = true)
     }
@@ -863,6 +953,11 @@ class SearchViewModel @Inject constructor(
                 discoverHasMore = true
             )
         }
+        selectedCatalog?.let { catalog ->
+            viewModelScope.launch {
+                discoverSelectionDataStore.setSelectedCatalogKey(catalog.key)
+            }
+        }
         fetchDiscoverContent(reset = true)
     }
 
@@ -878,6 +973,9 @@ class SearchViewModel @Inject constructor(
                 discoverPage = 1,
                 discoverHasMore = true
             )
+        }
+        viewModelScope.launch {
+            discoverSelectionDataStore.setSelectedCatalogKey(catalog.key)
         }
         fetchDiscoverContent(reset = true)
     }
@@ -1063,3 +1161,12 @@ class SearchViewModel @Inject constructor(
         return catalogRowStableKey(addonId, addonBaseUrl, type, catalogId)
     }
 }
+
+internal fun resolveDiscoverCatalog(
+    catalogs: List<DiscoverCatalog>,
+    preferredKey: String?,
+    currentKey: String?
+): DiscoverCatalog? =
+    catalogs.firstOrNull { it.key == preferredKey }
+        ?: catalogs.firstOrNull { it.key == currentKey }
+        ?: catalogs.firstOrNull()

@@ -757,7 +757,6 @@ class MainActivity : ComponentActivity() {
                     val strNavLibrary = stringResource(R.string.nav_library)
                     val strNavLiveTv = stringResource(R.string.nav_live_tv)
                     val strNavSettings = stringResource(R.string.nav_settings)
-                    val strNavDiscover = stringResource(R.string.discover_title)
                     val customTabs = mainUiPrefs.customTabs.filter { it.enabled }
                     val rootRoutes = remember(customTabs) {
                         buildSet {
@@ -815,13 +814,6 @@ class MainActivity : ComponentActivity() {
                                     route = Screen.Search.route,
                                     label = strNavSearch,
                                     iconRes = R.raw.sidebar_search
-                                )
-                            )
-                            add(
-                                DrawerItem(
-                                    route = Screen.Discover.route,
-                                    label = strNavDiscover,
-                                    icon = Icons.Default.Search
                                 )
                             )
                             add(

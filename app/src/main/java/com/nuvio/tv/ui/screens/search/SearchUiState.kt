@@ -41,15 +41,13 @@ data class SearchUiState(
     val discoverHasMore: Boolean = true,
     val discoverPage: Int = 1,
     val posterLabelsEnabled: Boolean = true,
-    val catalogAddonNameEnabled: Boolean = false,
+    val catalogAddonNameEnabled: Boolean = true,
     val catalogTypeSuffixEnabled: Boolean = true,
     val posterCardWidthDp: Int = 126,
     val posterCardHeightDp: Int = 189,
     val posterCardCornerRadiusDp: Int = 12,
     val recentSearches: List<String> = emptyList(),
-    val suggestions: List<String> = emptyList(),
-    val discoverRows: List<DiscoverRow> = emptyList(),
-    val discoverRowsLoading: Boolean = false
+    val suggestions: List<String> = emptyList()
 )
 
 @Immutable
@@ -64,11 +62,4 @@ data class DiscoverCatalog(
     val genres: List<String>,
     val supportsSkip: Boolean,
     val skipStep: Int
-)
-
-@Immutable
-data class DiscoverRow(
-    val catalog: DiscoverCatalog,
-    val items: List<MetaPreview> = emptyList(),
-    val isLoading: Boolean = true
 )

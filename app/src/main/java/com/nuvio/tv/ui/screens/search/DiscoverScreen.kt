@@ -67,12 +67,6 @@ fun DiscoverScreen(
         }
     }
 
-    LaunchedEffect(uiState.discoverInitialized) {
-        if (uiState.discoverInitialized && uiState.discoverCatalogs.isNotEmpty() && uiState.discoverRows.isEmpty()) {
-            viewModel.loadDiscoverRows()
-        }
-    }
-
     val latestPendingDiscoverRestore by rememberUpdatedState(pendingDiscoverRestoreOnResume)
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -88,6 +82,7 @@ fun DiscoverScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(NuvioTheme.colors.Background)
     ) {
         if (uiState.discoverLocation == DiscoverLocation.OFF) {
             EmptyScreenState(
@@ -96,14 +91,41 @@ fun DiscoverScreen(
                 icon = Icons.Default.Search
             )
         } else {
-            NetflixDiscoverSection(
-                discoverRows = uiState.discoverRows,
-                isLoading = uiState.discoverRowsLoading,
+            DiscoverSection(
+                uiState = uiState,
                 posterCardStyle = posterCardStyle,
+                watchedMovieIds = watchedMovieIds,
+                watchedSeriesIds = watchedSeriesIds,
+                focusResults = false,
+                showBuiltInHeader = showBuiltInHeader,
+                firstItemFocusRequester = discoverFirstItemFocusRequester,
+                focusedItemIndex = discoverFocusedItemIndex,
+                shouldRestoreFocusedItem = restoreDiscoverFocus,
+                blockFilterFocus = restoreDiscoverFocus || pendingDiscoverRestoreOnResume,
+                onRestoreFocusedItemHandled = { restoreDiscoverFocus = false },
                 onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
                     pendingDiscoverRestoreOnResume = true
                     onNavigateToDetail(itemId, itemType, addonBaseUrl)
                 },
+                onDiscoverItemFocused = { index ->
+                    discoverFocusedItemIndex = index
+                    uiState.discoverResults.getOrNull(index)?.let { item ->
+                        viewModel.prefetchMetaOnFocus(item.id, item.rawType)
+                    }
+                },
+                onSelectType = {
+                    discoverFocusedItemIndex = 0
+                    viewModel.onEvent(SearchEvent.SelectDiscoverType(it))
+                },
+                onSelectCatalog = {
+                    discoverFocusedItemIndex = 0
+                    viewModel.onEvent(SearchEvent.SelectDiscoverCatalog(it))
+                },
+                onSelectGenre = {
+                    discoverFocusedItemIndex = 0
+                    viewModel.onEvent(SearchEvent.SelectDiscoverGenre(it))
+                },
+                onLoadMore = { viewModel.onEvent(SearchEvent.LoadNextDiscoverResults) },
                 onItemLongPress = { item, addonBaseUrl ->
                     viewModel.posterOptions.show(item, addonBaseUrl)
                 },
@@ -117,7 +139,7 @@ fun DiscoverScreen(
             controller = viewModel.posterOptions,
             onNavigateToDetail = { id, type, addonBaseUrl ->
                 pendingDiscoverRestoreOnResume = true
-                val clickedItem = uiState.discoverRows.flatMap { it.items }.firstOrNull { it.id == id }
+                val clickedItem = uiState.discoverResults.firstOrNull { it.id == id }
                 HeroBackdropState.update(clickedItem?.backdropUrl)
                 onNavigateToDetail(id, type, addonBaseUrl)
             }
