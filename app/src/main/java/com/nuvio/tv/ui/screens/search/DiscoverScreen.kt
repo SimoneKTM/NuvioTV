@@ -82,7 +82,6 @@ fun DiscoverScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(NuvioTheme.colors.Background)
     ) {
         if (uiState.discoverLocation == DiscoverLocation.OFF) {
             EmptyScreenState(
@@ -107,12 +106,7 @@ fun DiscoverScreen(
                     pendingDiscoverRestoreOnResume = true
                     onNavigateToDetail(itemId, itemType, addonBaseUrl)
                 },
-                onDiscoverItemFocused = { index ->
-                    discoverFocusedItemIndex = index
-                    uiState.discoverResults.getOrNull(index)?.let { item ->
-                        viewModel.prefetchMetaOnFocus(item.id, item.rawType)
-                    }
-                },
+                onDiscoverItemFocused = { discoverFocusedItemIndex = it },
                 onSelectType = {
                     discoverFocusedItemIndex = 0
                     viewModel.onEvent(SearchEvent.SelectDiscoverType(it))
