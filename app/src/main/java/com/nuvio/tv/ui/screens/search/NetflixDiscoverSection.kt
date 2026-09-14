@@ -63,7 +63,7 @@ fun NetflixDiscoverSection(
     isLoading: Boolean,
     posterCardStyle: PosterCardStyle,
     onNavigateToDetail: (String, String, String) -> Unit,
-    onItemLongPress: (MetaPreview, String) -> Unit = {},
+    onItemLongPress: (MetaPreview, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -231,7 +231,7 @@ private fun NetflixPosterCard(
                 .height(posterCardStyle.height)
                 .onPreviewKeyEvent { event ->
                     event.nativeKeyEvent.action == AndroidKeyEvent.ACTION_DOWN &&
-                        event.nativeKeyEvent.keyCode == AndroidKeyEvent.KEYCODE_DPAD_LONG_CENTER
+                        event.nativeKeyEvent.keyCode == AndroidKeyEvent.KEYCODE_DPAD_CENTER
                 },
             shape = CardDefaults.shape(shape = cardShape),
             colors = CardDefaults.colors(
