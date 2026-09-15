@@ -16,9 +16,3 @@ data class CalendarItem(
     val releaseDate: LocalDate?,
     val addonName: String
 )
-
-enum class CalendarFilter(val label: String) {
-    ALL("All"),
-    MOVIES("Movies"),
-    SERIES("Series")
-}

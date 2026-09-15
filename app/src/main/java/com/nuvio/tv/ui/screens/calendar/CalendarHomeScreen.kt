@@ -2,12 +2,10 @@ package com.nuvio.tv.ui.screens.calendar
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,25 +17,19 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.FilterChip
-import androidx.tv.material3.FilterChipDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
-import com.nuvio.tv.domain.model.CalendarFilter
 import com.nuvio.tv.domain.model.CalendarSection
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.ui.components.ContentCard
@@ -58,11 +50,6 @@ fun CalendarHomeScreen(
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val posterCardStyle = remember { PosterCardDefaults.Style }
-    val filterFocusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(Unit) {
-        filterFocusRequester.requestFocus()
-    }
 
     Column(
         modifier = Modifier
@@ -76,35 +63,7 @@ fun CalendarHomeScreen(
             modifier = Modifier.padding(horizontal = 36.dp)
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            modifier = Modifier.padding(horizontal = 36.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            CalendarFilter.entries.forEach { filter ->
-                FilterChip(
-                    selected = uiState.selectedFilter == filter,
-                    onClick = {
-                        viewModel.onEvent(CalendarHomeEvent.OnFilterChanged(filter))
-                    },
-                    modifier = Modifier.focusRequester(filterFocusRequester),
-                    colors = FilterChipDefaults.colors(
-                        selectedContainerColor = NuvioTheme.colors.Primary.copy(alpha = 0.2f),
-                        selectedContentColor = NuvioTheme.colors.Primary,
-                        containerColor = NuvioTheme.colors.Surface,
-                        contentColor = NuvioTheme.colors.TextSecondary
-                    )
-                ) {
-                    Text(
-                        text = filter.label,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         when {
             uiState.isLoading -> {
@@ -233,9 +192,8 @@ private fun CalendarItemCard(
     posterCardStyle: PosterCardStyle,
     onNavigateToDetail: () -> Unit
 ) {
-    val context = LocalContext.current
     val dateLabel = remember(releaseDate) {
-        releaseDate?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.getDefault())) ?: ""
+        releaseDate?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.ITALIAN)) ?: ""
     }
 
     Column(

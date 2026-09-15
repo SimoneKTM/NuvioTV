@@ -3257,7 +3257,7 @@
   <string name="calendar_loading">Caricamento calendario…</string>
   <string name="calendar_error">Impossibile caricare il calendario</string>
   <string name="calendar_empty_title">Nessuna uscita in arrivo</string>
-  <string name="calendar_empty_subtitle">Installa addon con date di uscita per vedere i contenuti in arrivo</string>
+  <string name="calendar_empty_subtitle">Nessun contenuto in arrivo trovato su TMDB</string>
   <string name="calendar_tab_visibility_title">Mostra scheda Calendario</string>
   <string name="calendar_tab_visibility_subtitle">Mostra o nascondi la scheda Calendario nella barra laterale</string>
 </resources>
