@@ -11,13 +11,15 @@ import com.nuvio.tv.data.repository.SyncRepositoryImpl
 import com.nuvio.tv.data.repository.WatchProgressRepositoryImpl
 import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.domain.repository.AnimeAddonRepository
-import com.nuvio.tv.domain.repository.CatalogRepository
+import com.nuvio.tv.data.repository.ExtraAddonRepositoryImpl
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import com.nuvio.tv.domain.repository.LibraryRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.domain.repository.StreamRepository
 import com.nuvio.tv.domain.repository.SubtitleRepository
 import com.nuvio.tv.domain.repository.SyncRepository
 import com.nuvio.tv.domain.repository.WatchProgressRepository
+import com.nuvio.tv.domain.repository.CatalogRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -35,6 +37,10 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindAnimeAddonRepository(impl: AnimeAddonRepositoryImpl): AnimeAddonRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindExtraAddonRepository(impl: ExtraAddonRepositoryImpl): ExtraAddonRepository
 
     @Binds
     @Singleton

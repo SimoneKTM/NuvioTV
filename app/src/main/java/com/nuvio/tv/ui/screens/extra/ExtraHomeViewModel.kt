@@ -28,7 +28,7 @@ import com.nuvio.tv.domain.model.mergeCatalogPage
 import com.nuvio.tv.domain.model.nextCatalogSkip
 import com.nuvio.tv.domain.model.skipStep
 import com.nuvio.tv.domain.model.supportsExtra
-import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import com.nuvio.tv.domain.repository.CatalogRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.domain.repository.WatchProgressRepository
@@ -56,7 +56,7 @@ import javax.inject.Named
 
 @HiltViewModel
 class ExtraHomeViewModel @Inject constructor(
-    internal val addonRepository: AddonRepository,
+    internal val extraAddonRepository: ExtraAddonRepository,
     private val catalogRepository: CatalogRepository,
     internal val watchProgressRepository: WatchProgressRepository,
     internal val metaRepository: MetaRepository,
@@ -328,7 +328,7 @@ class ExtraHomeViewModel @Inject constructor(
 
     private fun observeExtraAddons() {
         viewModelScope.launch {
-            addonRepository.getInstalledAddons()
+            extraAddonRepository.getInstalledExtraAddons()
                 .distinctUntilChanged()
                 .collectLatest { addons ->
                     lastAddons = addons

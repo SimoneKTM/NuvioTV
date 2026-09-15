@@ -25,7 +25,7 @@ import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.Collection
 import com.nuvio.tv.domain.model.enabledAddons
-import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import com.nuvio.tv.ui.screens.addon.PendingChangeInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -59,7 +59,7 @@ data class ExtraSettingsUiState(
 
 @HiltViewModel
 class ExtraSettingsViewModel @Inject constructor(
-    private val addonRepository: AddonRepository,
+    private val extraAddonRepository: ExtraAddonRepository,
     @Named("extra_layout") private val extraLayoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val collectionsDataStore: CollectionsDataStore,
@@ -81,7 +81,7 @@ class ExtraSettingsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            addonRepository.getInstalledAddons()
+            extraAddonRepository.getInstalledExtraAddons()
                 .distinctUntilChanged()
                 .collectLatest { addons ->
                     _uiState.update {
@@ -147,9 +147,9 @@ class ExtraSettingsViewModel @Inject constructor(
         if (url.isEmpty()) return
         _uiState.update { it.copy(isInstalling = true, error = null) }
         viewModelScope.launch {
-            when (val result = addonRepository.fetchAddon(url)) {
+            when (val result = extraAddonRepository.fetchExtraAddon(url)) {
                 is NetworkResult.Success -> {
-                    addonRepository.addAddon(url)
+                    extraAddonRepository.addExtraAddon(url)
                     _uiState.update { it.copy(isInstalling = false, installUrl = "") }
                     Log.d("ExtraSettingsViewModel", "Installed addon url=$url")
                 }
@@ -168,7 +168,7 @@ class ExtraSettingsViewModel @Inject constructor(
 
     fun removeAddon(url: String) {
         viewModelScope.launch {
-            addonRepository.removeAddon(url)
+            extraAddonRepository.removeExtraAddon(url)
         }
     }
 
@@ -180,7 +180,7 @@ class ExtraSettingsViewModel @Inject constructor(
             val reordered = current.toMutableList()
             reordered.removeAt(index)
             reordered.add(index - 1, current[index])
-            addonRepository.setAddonOrder(reordered.map { it.baseUrl })
+            extraAddonRepository.setExtraAddonOrder(reordered.map { it.baseUrl })
         }
     }
 
@@ -192,13 +192,13 @@ class ExtraSettingsViewModel @Inject constructor(
             val reordered = current.toMutableList()
             reordered.removeAt(index)
             reordered.add(index + 1, current[index])
-            addonRepository.setAddonOrder(reordered.map { it.baseUrl })
+            extraAddonRepository.setExtraAddonOrder(reordered.map { it.baseUrl })
         }
     }
 
     fun setAddonEnabled(url: String, enabled: Boolean) {
         viewModelScope.launch {
-            addonRepository.setAddonEnabled(url, enabled)
+            extraAddonRepository.setExtraAddonEnabled(url, enabled)
         }
     }
 
@@ -207,7 +207,7 @@ class ExtraSettingsViewModel @Inject constructor(
         _uiState.update { it.copy(isRefreshing = true, error = null) }
         viewModelScope.launch {
             try {
-                addonRepository.getInstalledAddons().first()
+                extraAddonRepository.getInstalledExtraAddons().first()
             } catch (e: Exception) {
                 Log.e("ExtraSettingsViewModel", "Failed to refresh addons", e)
                 _uiState.update { it.copy(error = context.getString(R.string.extra_settings_refresh_failed)) }
@@ -463,7 +463,7 @@ class ExtraSettingsViewModel @Inject constructor(
 
     private suspend fun fetchAddonName(url: String): String {
         return try {
-            when (val result = addonRepository.fetchAddon(url)) {
+            when (val result = extraAddonRepository.fetchExtraAddon(url)) {
                 is NetworkResult.Success -> result.data.displayName.ifBlank { url }
                 else -> url
             }
@@ -483,11 +483,11 @@ class ExtraSettingsViewModel @Inject constructor(
 
             currentUrls
                 .filter { normalizeUrlForComparison(it) !in proposedNormalized }
-                .forEach { addonRepository.removeAddon(it) }
+                .forEach { extraAddonRepository.removeExtraAddon(it) }
             pending.proposedUrls
                 .filter { url -> currentUrls.none { normalizeUrlForComparison(it) == normalizeUrlForComparison(url) } }
-                .forEach { addonRepository.addAddon(it) }
-            addonRepository.setAddonOrder(pending.proposedUrls)
+                .forEach { extraAddonRepository.addExtraAddon(it) }
+            extraAddonRepository.setExtraAddonOrder(pending.proposedUrls)
 
             applyExtraCatalogPreferencesFromPending(pending, pending.proposedUrls)
 

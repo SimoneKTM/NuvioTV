@@ -68,7 +68,7 @@ internal fun ExtraHomeViewModel.observeExtraContinueWatching() {
         combine(
             combine(
                 watchProgressRepository.allProgress,
-                addonRepository.getInstalledAddons()
+                extraAddonRepository.getInstalledExtraAddons()
             ) { progress, addons ->
                 progress to addons
             },

@@ -209,7 +209,8 @@ private data class MainUiPrefs(
     val cardDepthStyle: CardDepthStyle = CardDepthStyle(),
     val animeTabVisible: Boolean = true,
     val liveTvTabVisible: Boolean = true,
-    val extraTabVisible: Boolean = true
+    val extraTabVisible: Boolean = true,
+    val extraTabName: String = "Extra"
 )
 
 @AndroidEntryPoint
@@ -463,6 +464,7 @@ class MainActivity : ComponentActivity() {
                         extraTabVisible = tabVisibility.third
                     )
                 }
+                val extraTabNameFlow = layoutPreferenceDataStore.extraTabName
                 combine(
                     themeAndExperienceFlow,
                     layoutAndFeaturesFlow,
@@ -483,8 +485,11 @@ class MainActivity : ComponentActivity() {
                         cardDepthStyle = cardDepthStyle,
                         animeTabVisible = extraPrefs.animeTabVisible,
                         liveTvTabVisible = extraPrefs.liveTvTabVisible,
-                        extraTabVisible = extraPrefs.extraTabVisible
+                        extraTabVisible = extraPrefs.extraTabVisible,
+                        extraTabName = extraPrefs.extraTabName
                     )
+                }.combine(extraTabNameFlow) { prefs, name ->
+                    prefs.copy(extraTabName = name)
                 }
             }
             val mainUiPrefs by mainUiPrefsFlow.collectAsState(initial = MainUiPrefs(hasChosenLayout = null))
@@ -776,7 +781,7 @@ class MainActivity : ComponentActivity() {
                         strNavSearch,
                         strNavLibrary,
                         strNavLiveTv,
-                        strNavExtra,
+                        mainUiPrefs.extraTabName,
                         strNavSettings,
                         mainUiPrefs.animeTabVisible,
                         mainUiPrefs.liveTvTabVisible,
@@ -826,7 +831,7 @@ class MainActivity : ComponentActivity() {
                             add(
                                 DrawerItem(
                                     route = Screen.Extra.route,
-                                    label = strNavExtra,
+                                    label = mainUiPrefs.extraTabName,
                                     icon = Icons.Default.Star
                                 )
                             )

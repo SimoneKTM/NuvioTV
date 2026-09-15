@@ -79,6 +79,7 @@ data class LayoutSettingsUiState(
     val animeTabVisible: Boolean = true,
     val liveTvTabVisible: Boolean = true,
     val extraTabVisible: Boolean = true,
+    val extraTabName: String = "Extra",
 )
 
 data class CatalogInfo(
@@ -134,6 +135,7 @@ sealed class LayoutSettingsEvent {
     data class SetAnimeTabVisible(val visible: Boolean) : LayoutSettingsEvent()
     data class SetLiveTvTabVisible(val visible: Boolean) : LayoutSettingsEvent()
     data class SetExtraTabVisible(val visible: Boolean) : LayoutSettingsEvent()
+    data class SetExtraTabName(val name: String) : LayoutSettingsEvent()
     data object ResetPosterCardStyle : LayoutSettingsEvent()
     data object ResetCardDepthStyle : LayoutSettingsEvent()
 }
@@ -380,6 +382,11 @@ open class LayoutSettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            layoutPreferenceDataStore.extraTabName.distinctUntilChanged().collectLatest { name ->
+                updateUiStateIfChanged { it.copy(extraTabName = name) }
+            }
+        }
+        viewModelScope.launch {
             delay(0)
             loadAvailableCatalogs()
         }
@@ -430,6 +437,7 @@ open class LayoutSettingsViewModel @Inject constructor(
             is LayoutSettingsEvent.SetAnimeTabVisible -> setAnimeTabVisible(event.visible)
             is LayoutSettingsEvent.SetLiveTvTabVisible -> setLiveTvTabVisible(event.visible)
             is LayoutSettingsEvent.SetExtraTabVisible -> setExtraTabVisible(event.visible)
+            is LayoutSettingsEvent.SetExtraTabName -> setExtraTabName(event.name)
             LayoutSettingsEvent.ResetPosterCardStyle -> resetPosterCardStyle()
             LayoutSettingsEvent.ResetCardDepthStyle -> resetCardDepthStyle()
         }
@@ -794,6 +802,13 @@ open class LayoutSettingsViewModel @Inject constructor(
         if (_uiState.value.extraTabVisible == visible) return
         viewModelScope.launch {
             layoutPreferenceDataStore.setExtraTabVisible(visible)
+        }
+    }
+
+    private fun setExtraTabName(name: String) {
+        if (_uiState.value.extraTabName == name) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setExtraTabName(name)
         }
     }
 

@@ -7,7 +7,7 @@ import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.enabledAddons
-import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import com.nuvio.tv.ui.screens.addon.CatalogOrderItem
 import com.nuvio.tv.ui.screens.addon.CatalogOrderUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,7 +23,7 @@ import javax.inject.Named
 
 @HiltViewModel
 class ExtraCatalogOrderViewModel @Inject constructor(
-    private val addonRepository: AddonRepository,
+    private val extraAddonRepository: ExtraAddonRepository,
     @Named("extra_layout") private val layoutPreferenceDataStore: LayoutPreferenceDataStore
 ) : ViewModel() {
 
@@ -81,7 +81,7 @@ class ExtraCatalogOrderViewModel @Inject constructor(
     private fun observeCatalogs() {
         viewModelScope.launch {
             combine(
-                addonRepository.getInstalledAddons(),
+                extraAddonRepository.getInstalledExtraAddons(),
                 layoutPreferenceDataStore.homeCatalogOrderKeys,
                 layoutPreferenceDataStore.disabledHomeCatalogKeys,
                 layoutPreferenceDataStore.followAddonsOrder
