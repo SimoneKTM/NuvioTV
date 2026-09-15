@@ -2408,6 +2408,40 @@
     <string name="anime_settings_manage_phone_title">Manage from phone</string>
     <string name="anime_settings_manage_phone_subtitle">Scan a QR code to manage anime add-ons from your phone</string>
 
+    <!-- Extra tab -->
+    <string name="nav_extra">Extra</string>
+    <string name="extra_settings_title">Extra</string>
+    <string name="extra_settings_subtitle">Extra addons, plugins and layout</string>
+    <string name="extra_settings_layout_title">Extra Layout</string>
+    <string name="extra_settings_layout_subtitle">Customize the Extra tab layout</string>
+    <string name="extra_settings_addons_title">Addon</string>
+    <string name="extra_settings_addons_subtitle">Install and manage add-ons for the Extra tab</string>
+    <string name="extra_settings_plugins_subtitle">Stream scrapers used to resolve sources</string>
+    <string name="extra_settings_show_tab_title">Show Extra tab</string>
+    <string name="extra_settings_show_tab_sub">Show or hide the Extra tab in the main navigation</string>
+    <string name="extra_settings_refresh_title">Update add-ons</string>
+    <string name="extra_settings_refreshing">Updating…</string>
+    <string name="extra_settings_refresh_failed">Could not update the add-ons. Check your connection and try again.</string>
+    <string name="extra_settings_update_subtitle">Pull the latest changes for add-ons</string>
+    <string name="extra_settings_reorder_title">Reorder catalog</string>
+    <string name="extra_settings_reorder_subtitle">Changes the order of the add-ons and catalogs of the Extra tab</string>
+    <string name="extra_settings_manage_phone_title">Manage from phone</string>
+    <string name="extra_settings_manage_phone_subtitle">Scan a QR code to manage add-ons from your phone</string>
+    <string name="extra_home_empty_title">No addons configured</string>
+    <string name="extra_home_empty_subtitle">Add an addon to fill this tab with content.</string>
+    <string name="extra_home_empty_action">Open Extra settings</string>
+    <string name="extra_home_no_catalogs_title">No catalogs available</string>
+    <string name="extra_home_no_catalogs_subtitle">The installed addons don\'t expose any home catalogs.</string>
+    <string name="extra_home_addons_count">%1$d addon(s) active</string>
+    <string name="extra_add_addon">Add addon</string>
+    <string name="extra_addons_section">Installed addons</string>
+    <string name="extra_addons_empty">No addons installed yet.</string>
+    <string name="extra_catalog_order_title">Reorder Catalogs</string>
+    <string name="extra_catalog_order_subtitle">This controls catalog row order on the Extra tab (Classic + Modern + Grid).</string>
+    <string name="extra_catalog_order_empty">No catalogs available yet.</string>
+    <string name="settings_extra_layout_title">Extra Layout</string>
+    <string name="settings_extra_layout_subtitle">Layout and appearance for the Extra tab</string>
+
     <string name="update_checking">Checking for updates…</string>
     <string name="update_download_complete">Download complete. Ready to install.</string>
     <string name="update_up_to_date">System is up to date. Latest changes:</string>

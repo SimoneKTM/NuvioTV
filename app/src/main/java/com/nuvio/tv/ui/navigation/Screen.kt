@@ -10,6 +10,11 @@ sealed class Screen(val route: String) {
     data object AnimeAddonManager : Screen("anime_addon_manager")
     data object AnimeCatalogOrder : Screen("anime_catalog_order")
     data object AnimeLayoutSettings : Screen("anime_layout_settings")
+    data object Extra : Screen("extra")
+    data object ExtraSettings : Screen("extra_settings")
+    data object ExtraAddonManager : Screen("extra_addon_manager")
+    data object ExtraCatalogOrder : Screen("extra_catalog_order")
+    data object ExtraLayoutSettings : Screen("extra_layout_settings")
     data object Detail : Screen("detail/{itemId}/{itemType}?addonBaseUrl={addonBaseUrl}&returnFocusSeason={returnFocusSeason}&returnFocusEpisode={returnFocusEpisode}&returnToHomeOnBack={returnToHomeOnBack}&heroBackdropUrl={heroBackdropUrl}") {
         private fun encode(value: String): String =
             URLEncoder.encode(value, "UTF-8").replace("+", "%20")
@@ -226,58 +231,4 @@ sealed class Screen(val route: String) {
         }
     }
 
-    data object CustomTab : Screen("custom_tab/{tabId}") {
-        private fun encode(value: String): String =
-            URLEncoder.encode(value, "UTF-8").replace("+", "%20")
-
-        fun createRoute(tabId: String): String {
-            return "custom_tab/${encode(tabId)}"
-        }
-    }
-
-    data object CustomTabSettings : Screen("custom_tab_settings")
-    data object CustomTabEdit : Screen("custom_tab_edit/{tabId}") {
-        private fun encode(value: String): String =
-            URLEncoder.encode(value, "UTF-8").replace("+", "%20")
-
-        fun createRoute(tabId: String): String {
-            return "custom_tab_edit/${encode(tabId)}"
-        }
-    }
-
-    data object CustomTabAddonSelector : Screen("custom_tab_addon_selector/{tabId}") {
-        private fun encode(value: String): String =
-            URLEncoder.encode(value, "UTF-8").replace("+", "%20")
-
-        fun createRoute(tabId: String): String {
-            return "custom_tab_addon_selector/${encode(tabId)}"
-        }
-    }
-
-    data object CustomTabLayoutSettings : Screen("custom_tab_layout_settings/{tabId}") {
-        private fun encode(value: String): String =
-            URLEncoder.encode(value, "UTF-8").replace("+", "%20")
-
-        fun createRoute(tabId: String): String {
-            return "custom_tab_layout_settings/${encode(tabId)}"
-        }
-    }
-
-    data object CustomTabCatalogOrder : Screen("custom_tab_catalog_order/{tabId}") {
-        private fun encode(value: String): String =
-            URLEncoder.encode(value, "UTF-8").replace("+", "%20")
-
-        fun createRoute(tabId: String): String {
-            return "custom_tab_catalog_order/${encode(tabId)}"
-        }
-    }
-
-    data object CustomTabAppearanceSettings : Screen("custom_tab_appearance_settings/{tabId}") {
-        private fun encode(value: String): String =
-            URLEncoder.encode(value, "UTF-8").replace("+", "%20")
-
-        fun createRoute(tabId: String): String {
-            return "custom_tab_appearance_settings/${encode(tabId)}"
-        }
-    }
 }

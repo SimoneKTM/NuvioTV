@@ -91,6 +91,26 @@ fun AnimeCatalogOrderScreen(
 }
 
 @Composable
+fun ExtraCatalogOrderScreen(
+    viewModel: com.nuvio.tv.ui.screens.extra.ExtraCatalogOrderViewModel = hiltViewModel(),
+    onBackPress: () -> Unit
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    CatalogOrderScreenContent(
+        uiState = uiState,
+        titleRes = R.string.extra_catalog_order_title,
+        subtitleRes = R.string.extra_catalog_order_subtitle,
+        emptyRes = R.string.extra_catalog_order_empty,
+        showFollowAddons = true,
+        onMoveUp = viewModel::moveUp,
+        onMoveDown = viewModel::moveDown,
+        onToggleEnabled = viewModel::toggleCatalogEnabled,
+        onToggleFollowAddons = viewModel::toggleFollowAddonsOrder,
+        onBackPress = onBackPress
+    )
+}
+
+@Composable
 private fun CatalogOrderScreenContent(
     uiState: CatalogOrderUiState,
     titleRes: Int,

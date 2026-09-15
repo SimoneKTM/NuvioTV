@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.FilterDrama
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -140,7 +141,6 @@ import com.nuvio.tv.domain.model.AppFont
 import com.nuvio.tv.domain.model.AppTheme
 import com.nuvio.tv.domain.model.AuthState
 import com.nuvio.tv.domain.model.CardDepthStyle
-import com.nuvio.tv.domain.model.CustomTab
 import com.nuvio.tv.domain.model.DiscoverLocation
 import com.nuvio.tv.domain.model.ExperienceMode
 import com.nuvio.tv.domain.model.SettingsUiStyle
@@ -209,7 +209,7 @@ private data class MainUiPrefs(
     val cardDepthStyle: CardDepthStyle = CardDepthStyle(),
     val animeTabVisible: Boolean = true,
     val liveTvTabVisible: Boolean = true,
-    val customTabs: List<CustomTab> = emptyList()
+    val extraTabVisible: Boolean = true
 )
 
 @AndroidEntryPoint
@@ -436,11 +436,11 @@ class MainActivity : ComponentActivity() {
                 }
                 val tabVisibilityFlow = combine(
                     layoutPreferenceDataStore.animeTabVisible,
-                    layoutPreferenceDataStore.liveTvTabVisible
-                ) { animeVisible, liveTvVisible ->
-                    Pair(animeVisible, liveTvVisible)
+                    layoutPreferenceDataStore.liveTvTabVisible,
+                    layoutPreferenceDataStore.extraTabVisible
+                ) { animeVisible, liveTvVisible, extraVisible ->
+                    Triple(animeVisible, liveTvVisible, extraVisible)
                 }
-                val customTabsFlow = layoutPreferenceDataStore.customTabs
                 val extraFeaturesBaseFlow = combine(
                     experienceModeDataStore.addonSetupSkipped,
                     layoutPreferenceDataStore.smoothBringIntoViewEnabled,
@@ -459,16 +459,16 @@ class MainActivity : ComponentActivity() {
                 val extraFeaturesFlow = extraFeaturesBaseFlow.combine(tabVisibilityFlow) { prefs, tabVisibility ->
                     prefs.copy(
                         animeTabVisible = tabVisibility.first,
-                        liveTvTabVisible = tabVisibility.second
+                        liveTvTabVisible = tabVisibility.second,
+                        extraTabVisible = tabVisibility.third
                     )
                 }
                 combine(
                     themeAndExperienceFlow,
                     layoutAndFeaturesFlow,
                     extraFeaturesFlow,
-                    layoutPreferenceDataStore.cardDepthStyle,
-                    customTabsFlow
-                ) { themePrefs, layoutPrefs, extraPrefs, cardDepthStyle, customTabs ->
+                    layoutPreferenceDataStore.cardDepthStyle
+                ) { themePrefs, layoutPrefs, extraPrefs, cardDepthStyle ->
                     themePrefs.copy(
                         hasChosenLayout = layoutPrefs.hasChosenLayout,
                         sidebarCollapsed = layoutPrefs.sidebarCollapsed,
@@ -483,7 +483,7 @@ class MainActivity : ComponentActivity() {
                         cardDepthStyle = cardDepthStyle,
                         animeTabVisible = extraPrefs.animeTabVisible,
                         liveTvTabVisible = extraPrefs.liveTvTabVisible,
-                        customTabs = customTabs
+                        extraTabVisible = extraPrefs.extraTabVisible
                     )
                 }
             }
@@ -756,9 +756,9 @@ class MainActivity : ComponentActivity() {
                     val strNavSearch = stringResource(R.string.nav_search)
                     val strNavLibrary = stringResource(R.string.nav_library)
                     val strNavLiveTv = stringResource(R.string.nav_live_tv)
+                    val strNavExtra = stringResource(R.string.nav_extra)
                     val strNavSettings = stringResource(R.string.nav_settings)
-                    val customTabs = mainUiPrefs.customTabs.filter { it.enabled }
-                    val rootRoutes = remember(customTabs) {
+                    val rootRoutes = remember {
                         buildSet {
                             add(Screen.Home.route)
                             add(Screen.Anime.route)
@@ -766,10 +766,8 @@ class MainActivity : ComponentActivity() {
                             add(Screen.Search.route)
                             add(Screen.Library.route)
                             add(Screen.LiveTv.route)
+                            add(Screen.Extra.route)
                             add(Screen.Settings.route)
-                            customTabs.forEach { tab ->
-                                add(Screen.CustomTab.createRoute(tab.id))
-                            }
                         }
                     }
                     val drawerItems = remember(
@@ -778,10 +776,11 @@ class MainActivity : ComponentActivity() {
                         strNavSearch,
                         strNavLibrary,
                         strNavLiveTv,
+                        strNavExtra,
                         strNavSettings,
                         mainUiPrefs.animeTabVisible,
                         mainUiPrefs.liveTvTabVisible,
-                        customTabs
+                        mainUiPrefs.extraTabVisible
                     ) {
                         buildList {
                             add(
@@ -799,15 +798,6 @@ class MainActivity : ComponentActivity() {
                                     icon = Icons.Default.FilterDrama
                                 )
                             )
-                            }
-                            customTabs.forEach { tab ->
-                                add(
-                                    DrawerItem(
-                                        route = Screen.CustomTab.createRoute(tab.id),
-                                        label = tab.displayName,
-                                        icon = Icons.Default.ViewList
-                                    )
-                                )
                             }
                             add(
                                 DrawerItem(
@@ -829,6 +819,15 @@ class MainActivity : ComponentActivity() {
                                     route = Screen.LiveTv.route,
                                     label = strNavLiveTv,
                                     icon = Icons.Default.LiveTv
+                                )
+                            )
+                            }
+                            if (mainUiPrefs.extraTabVisible) {
+                            add(
+                                DrawerItem(
+                                    route = Screen.Extra.route,
+                                    label = strNavExtra,
+                                    icon = Icons.Default.Star
                                 )
                             )
                             }

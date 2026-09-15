@@ -2,7 +2,6 @@
 
 package com.nuvio.tv.ui.screens.settings
 
-import com.nuvio.tv.ui.screens.customtab.CustomTabSettingsScreen
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.activity.compose.BackHandler
@@ -106,7 +105,6 @@ internal enum class SettingsCategory {
     ACCOUNT,
     PROFILES,
     ANIME,
-    CUSTOM_TABS,
     APPEARANCE,
     LAYOUT,
     CONTENT_DISCOVERY,
@@ -203,13 +201,6 @@ private fun rememberSettingsSectionSpecs() = listOf(
         destination = SettingsSectionDestination.Inline
     ),
     SettingsSectionSpec(
-        category = SettingsCategory.CUSTOM_TABS,
-        title = stringResource(R.string.custom_tabs_title),
-        icon = Icons.Default.ViewList,
-        subtitle = stringResource(R.string.custom_tabs_subtitle),
-        destination = SettingsSectionDestination.Inline
-    ),
-    SettingsSectionSpec(
         category = SettingsCategory.APPEARANCE,
         title = stringResource(R.string.appearance_title),
         icon = Icons.Default.Palette,
@@ -293,7 +284,6 @@ fun SettingsScreen(
     onNavigateToLicensesAttributions: () -> Unit = {},
     onNavigateToLiveTv: () -> Unit = {},
     onNavigateToVpn: () -> Unit = {},
-    onNavigateToCustomTabEdit: (String) -> Unit = {},
     profileViewModel: ProfileSettingsViewModel = hiltViewModel(),
     experienceModeViewModel: ExperienceModeSettingsViewModel = hiltViewModel()
 ) {
@@ -329,7 +319,6 @@ fun SettingsScreen(
                 SettingsCategory.CONTENT_DISCOVERY -> true
                 SettingsCategory.INTEGRATION -> true
                 SettingsCategory.ADVANCED -> true
-                SettingsCategory.CUSTOM_TABS -> true
                 else -> true
             }
         }
@@ -351,7 +340,6 @@ fun SettingsScreen(
             SettingsCategory.EXPERIENCE to FocusRequester(),
             SettingsCategory.PROFILES to FocusRequester(),
             SettingsCategory.ANIME to FocusRequester(),
-            SettingsCategory.CUSTOM_TABS to FocusRequester(),
             SettingsCategory.LAYOUT to FocusRequester(),
             SettingsCategory.CONTENT_DISCOVERY to FocusRequester(),
             SettingsCategory.INTEGRATION to FocusRequester(),
@@ -650,7 +638,6 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                                 onNavigateToLicensesAttributions = onNavigateToLicensesAttributions,
                                 onNavigateToLiveTv = onNavigateToLiveTv,
                                 onNavigateToVpn = onNavigateToVpn,
-                                onNavigateToCustomTabEdit = onNavigateToCustomTabEdit,
                                 onCategoryChange = { selectedCategory = it }
                             )
                         }
@@ -824,7 +811,6 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                         onNavigateToLicensesAttributions = onNavigateToLicensesAttributions,
                         onNavigateToLiveTv = onNavigateToLiveTv,
                         onNavigateToVpn = onNavigateToVpn,
-                        onNavigateToCustomTabEdit = onNavigateToCustomTabEdit,
                         onCategoryChange = { selectedCategory = it }
                     )
                 }
@@ -875,7 +861,6 @@ private fun SettingsDetailPane(
     onNavigateToLicensesAttributions: () -> Unit,
     onNavigateToLiveTv: () -> Unit,
     onNavigateToVpn: () -> Unit,
-    onNavigateToCustomTabEdit: (String) -> Unit,
     onCategoryChange: (SettingsCategory) -> Unit
 ) {
     when (selectedCategory) {
@@ -895,8 +880,7 @@ private fun SettingsDetailPane(
                 null
             }
         )
-        SettingsCategory.ANIME -> AnimeSettingsContent(
-            selectedSection = animeSection,
+        SettingsCategory.ANIME -> AnimeSettingsContent(            selectedSection = animeSection,
             onSelectSection = onSelectAnimeSection,
             onNavigateToAnimeAddons = onNavigateToAnimeAddons,
             onNavigateToPlugins = onNavigateToPlugins,
@@ -916,15 +900,6 @@ private fun SettingsDetailPane(
             animeSkipFocusRequester = animeAnimeSkipFocusRequester,
             openSubtitlesFocusRequester = openSubtitlesFocusRequester,
             autoFocusEnabled = allowDetailAutofocus
-        )
-SettingsCategory.CUSTOM_TABS -> CustomTabSettingsScreen(
-            initialFocusRequester = if (allowDetailAutofocus) {
-                contentFocusRequesters[SettingsCategory.CUSTOM_TABS]
-            } else {
-                null
-            },
-            onNavigateToEdit = onNavigateToCustomTabEdit,
-            onBackPress = { onCategoryChange(SettingsCategory.LAYOUT) }
         )
         SettingsCategory.APPEARANCE -> ThemeSettingsContent(
             initialFocusRequester = if (allowDetailAutofocus) {

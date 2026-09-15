@@ -78,6 +78,7 @@ data class LayoutSettingsUiState(
     val continueWatchingCardStyle: ContinueWatchingCardStyle = ContinueWatchingCardStyle.CARD,
     val animeTabVisible: Boolean = true,
     val liveTvTabVisible: Boolean = true,
+    val extraTabVisible: Boolean = true,
 )
 
 data class CatalogInfo(
@@ -132,6 +133,7 @@ sealed class LayoutSettingsEvent {
     data class SetContinueWatchingCardStyle(val style: ContinueWatchingCardStyle) : LayoutSettingsEvent()
     data class SetAnimeTabVisible(val visible: Boolean) : LayoutSettingsEvent()
     data class SetLiveTvTabVisible(val visible: Boolean) : LayoutSettingsEvent()
+    data class SetExtraTabVisible(val visible: Boolean) : LayoutSettingsEvent()
     data object ResetPosterCardStyle : LayoutSettingsEvent()
     data object ResetCardDepthStyle : LayoutSettingsEvent()
 }
@@ -143,7 +145,7 @@ open class LayoutSettingsViewModel @Inject constructor(
     private val streamBadgeSettingsDataStore: StreamBadgeSettingsDataStore,
     private val traktSettingsDataStore: TraktSettingsDataStore,
     private val trailerSettingsDataStore: TrailerSettingsDataStore,
-    private val addonRepository: AddonRepository,
+    protected val addonRepository: AddonRepository,
     private val metaRepository: com.nuvio.tv.domain.repository.MetaRepository
 ) : ViewModel() {
 
@@ -373,6 +375,11 @@ open class LayoutSettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            layoutPreferenceDataStore.extraTabVisible.distinctUntilChanged().collectLatest { visible ->
+                updateUiStateIfChanged { it.copy(extraTabVisible = visible) }
+            }
+        }
+        viewModelScope.launch {
             delay(0)
             loadAvailableCatalogs()
         }
@@ -422,6 +429,7 @@ open class LayoutSettingsViewModel @Inject constructor(
             is LayoutSettingsEvent.SetContinueWatchingCardStyle -> setContinueWatchingCardStyle(event.style)
             is LayoutSettingsEvent.SetAnimeTabVisible -> setAnimeTabVisible(event.visible)
             is LayoutSettingsEvent.SetLiveTvTabVisible -> setLiveTvTabVisible(event.visible)
+            is LayoutSettingsEvent.SetExtraTabVisible -> setExtraTabVisible(event.visible)
             LayoutSettingsEvent.ResetPosterCardStyle -> resetPosterCardStyle()
             LayoutSettingsEvent.ResetCardDepthStyle -> resetCardDepthStyle()
         }
@@ -779,6 +787,13 @@ open class LayoutSettingsViewModel @Inject constructor(
         if (_uiState.value.liveTvTabVisible == visible) return
         viewModelScope.launch {
             layoutPreferenceDataStore.setLiveTvTabVisible(visible)
+        }
+    }
+
+    private fun setExtraTabVisible(visible: Boolean) {
+        if (_uiState.value.extraTabVisible == visible) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setExtraTabVisible(visible)
         }
     }
 

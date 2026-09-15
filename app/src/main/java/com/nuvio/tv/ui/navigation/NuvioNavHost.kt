@@ -23,14 +23,6 @@ import com.nuvio.tv.domain.model.ExperienceMode
 import com.nuvio.tv.ui.screens.CatalogSeeAllScreen
 import com.nuvio.tv.ui.screens.ExperienceModeSelectionScreen
 import com.nuvio.tv.ui.screens.LayoutSelectionScreen
-import com.nuvio.tv.ui.screens.customtab.CustomTabHomeScreen
-import com.nuvio.tv.ui.screens.customtab.CustomTabSettingsScreen
-import com.nuvio.tv.ui.screens.customtab.CustomTabEditScreen
-import com.nuvio.tv.ui.screens.customtab.CustomTabHomeViewModel
-import com.nuvio.tv.ui.screens.customtab.CustomTabAddonSelectorScreen
-import com.nuvio.tv.ui.screens.customtab.CustomTabLayoutSettingsScreen
-import com.nuvio.tv.ui.screens.customtab.CustomTabCatalogOrderScreen
-import com.nuvio.tv.ui.screens.customtab.CustomTabAppearanceSettingsScreen
 import com.nuvio.tv.ui.screens.detail.MetaDetailsScreen
 import com.nuvio.tv.ui.screens.home.HomeScreen
 import com.nuvio.tv.ui.screens.addon.AddonManagerScreen
@@ -1192,15 +1184,21 @@ fun NuvioNavHost(
             )
         }
 
-        composable(
-            route = Screen.CustomTab.route,
-            arguments = listOf(navArgument("tabId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
-            val customTabViewModel: CustomTabHomeViewModel = hiltViewModel<CustomTabHomeViewModel>()
-            customTabViewModel.setTabId(tabId)
-            CustomTabHomeScreen(
-                viewModel = customTabViewModel,
+        composable(Screen.AnimeLayoutSettings.route) {
+            LayoutSettingsScreen(
+                viewModel = androidx.hilt.navigation.compose.hiltViewModel<com.nuvio.tv.ui.screens.settings.AnimeLayoutSettingsViewModel>(),
+                onBackPress = { navController.popBackStack() },
+                headerTitleRes = com.nuvio.tv.R.string.settings_anime_layout_title,
+                headerSubtitleRes = com.nuvio.tv.R.string.settings_anime_layout_subtitle,
+                animeMode = true
+            )
+        }
+
+        composable(Screen.Extra.route) {
+            val extraViewModel: com.nuvio.tv.ui.screens.extra.ExtraHomeViewModel =
+                androidx.hilt.navigation.compose.hiltViewModel()
+            com.nuvio.tv.ui.screens.extra.ExtraHomeScreen(
+                viewModel = extraViewModel,
                 onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
                     val heroBackdrop = HeroBackdropState.consumeAndClear()
                     navController.navigate(
@@ -1212,97 +1210,43 @@ fun NuvioNavHost(
                         )
                     )
                 },
-                onNavigateToCatalogSeeAll = { catalogId, addonId, type ->
+                onNavigateToSeeAll = { catalogId, addonId, type ->
                     navController.navigate(
-                        Screen.CatalogSeeAll.createRoute(catalogId, addonId, type)
+                        Screen.CatalogSeeAll.createRoute(catalogId, addonId, type, fromAnime = true)
                     )
                 },
-                onOpenSettings = { navController.navigate(Screen.CustomTabSettings.route) }
+                onOpenSettings = { navController.navigate(Screen.ExtraSettings.route) }
             )
         }
 
-        composable(Screen.CustomTabSettings.route) {
-            CustomTabSettingsScreen(
+        composable(Screen.ExtraSettings.route) {
+            com.nuvio.tv.ui.screens.extra.ExtraSettingsScreen(
                 onBackPress = { navController.popBackStack() },
-                onNavigateToEdit = { tabId ->
-                    navController.navigate(Screen.CustomTabEdit.createRoute(tabId))
-                }
+                onNavigateToExtraLayout = { navController.navigate(Screen.ExtraLayoutSettings.route) },
+                onNavigateToExtraAddons = { navController.navigate(Screen.ExtraAddonManager.route) },
+                onNavigateToPlugins = { navController.navigate(Screen.Plugins.route) }
             )
         }
 
-        composable(
-            route = Screen.CustomTabEdit.route,
-            arguments = listOf(navArgument("tabId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
-            CustomTabEditScreen(
-                tabId = tabId,
+        composable(Screen.ExtraAddonManager.route) {
+            com.nuvio.tv.ui.screens.extra.ExtraAddonManagerScreen(
                 onBackPress = { navController.popBackStack() },
-                onNavigateToAddonSelector = { id ->
-                    navController.navigate(Screen.CustomTabAddonSelector.createRoute(id))
-                },
-                onNavigateToLayoutSettings = { id ->
-                    navController.navigate(Screen.CustomTabLayoutSettings.createRoute(id))
-                },
-                onNavigateToCatalogOrder = { id ->
-                    navController.navigate(Screen.CustomTabCatalogOrder.createRoute(id))
-                },
-                onNavigateToAppearanceSettings = { id ->
-                    navController.navigate(Screen.CustomTabAppearanceSettings.createRoute(id))
-                }
+                onNavigateToReorder = { navController.navigate(Screen.ExtraCatalogOrder.route) }
             )
         }
 
-        composable(
-            route = Screen.CustomTabAddonSelector.route,
-            arguments = listOf(navArgument("tabId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
-            CustomTabAddonSelectorScreen(
-                tabId = tabId,
+        composable(Screen.ExtraCatalogOrder.route) {
+            com.nuvio.tv.ui.screens.addon.ExtraCatalogOrderScreen(
                 onBackPress = { navController.popBackStack() }
             )
         }
 
-        composable(
-            route = Screen.CustomTabLayoutSettings.route,
-            arguments = listOf(navArgument("tabId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
-            CustomTabLayoutSettingsScreen(
-                tabId = tabId,
-                onBackPress = { navController.popBackStack() }
-            )
-        }
-
-        composable(
-            route = Screen.CustomTabCatalogOrder.route,
-            arguments = listOf(navArgument("tabId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
-            CustomTabCatalogOrderScreen(
-                tabId = tabId,
-                onBackPress = { navController.popBackStack() }
-            )
-        }
-
-        composable(
-            route = Screen.CustomTabAppearanceSettings.route,
-            arguments = listOf(navArgument("tabId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val tabId = backStackEntry.arguments?.getString("tabId") ?: ""
-            CustomTabAppearanceSettingsScreen(
-                tabId = tabId,
-                onBackPress = { navController.popBackStack() }
-            )
-        }
-
-        composable(Screen.AnimeLayoutSettings.route) {
+        composable(Screen.ExtraLayoutSettings.route) {
             LayoutSettingsScreen(
-                viewModel = androidx.hilt.navigation.compose.hiltViewModel<com.nuvio.tv.ui.screens.settings.AnimeLayoutSettingsViewModel>(),
+                viewModel = androidx.hilt.navigation.compose.hiltViewModel<com.nuvio.tv.ui.screens.settings.ExtraLayoutSettingsViewModel>(),
                 onBackPress = { navController.popBackStack() },
-                headerTitleRes = com.nuvio.tv.R.string.settings_anime_layout_title,
-                headerSubtitleRes = com.nuvio.tv.R.string.settings_anime_layout_subtitle,
+                headerTitleRes = com.nuvio.tv.R.string.extra_settings_layout_title,
+                headerSubtitleRes = com.nuvio.tv.R.string.extra_settings_layout_subtitle,
                 animeMode = true
             )
         }
