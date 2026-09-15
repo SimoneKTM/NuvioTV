@@ -2449,7 +2449,6 @@
     <string name="extra_catalog_order_empty">No catalogs available yet.</string>
     <string name="settings_extra_layout_title">Extra Layout</string>
     <string name="settings_extra_layout_subtitle">Layout and appearance for the Extra tab</string>
-    <string name="extra_settings_rename_title">Rename tab</string>
 
     <string name="update_checking">Checking for updates…</string>
     <string name="update_download_complete">Download complete. Ready to install.</string>

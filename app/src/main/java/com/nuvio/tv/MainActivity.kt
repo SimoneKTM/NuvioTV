@@ -211,7 +211,6 @@ private data class MainUiPrefs(
     val animeTabVisible: Boolean = true,
     val liveTvTabVisible: Boolean = true,
     val extraTabVisible: Boolean = true,
-    val extraTabName: String = "Extra",
     val calendarTabVisible: Boolean = true
 )
 
@@ -468,7 +467,6 @@ class MainActivity : ComponentActivity() {
                         calendarTabVisible = tabVisibility[3]
                     )
                 }
-                val extraTabNameFlow = layoutPreferenceDataStore.extraTabName
                 combine(
                     themeAndExperienceFlow,
                     layoutAndFeaturesFlow,
@@ -489,11 +487,8 @@ class MainActivity : ComponentActivity() {
                         cardDepthStyle = cardDepthStyle,
                         animeTabVisible = extraPrefs.animeTabVisible,
                         liveTvTabVisible = extraPrefs.liveTvTabVisible,
-                        extraTabVisible = extraPrefs.extraTabVisible,
-                        extraTabName = extraPrefs.extraTabName
+                        extraTabVisible = extraPrefs.extraTabVisible
                     )
-                }.combine(extraTabNameFlow) { prefs, name ->
-                    prefs.copy(extraTabName = name)
                 }
             }
             val mainUiPrefs by mainUiPrefsFlow.collectAsState(initial = MainUiPrefs(hasChosenLayout = null))
@@ -787,7 +782,6 @@ class MainActivity : ComponentActivity() {
                         strNavSearch,
                         strNavLibrary,
                         strNavLiveTv,
-                        mainUiPrefs.extraTabName,
                         strNavSettings,
                         mainUiPrefs.animeTabVisible,
                         mainUiPrefs.liveTvTabVisible,
@@ -838,7 +832,7 @@ class MainActivity : ComponentActivity() {
                             add(
                                 DrawerItem(
                                     route = Screen.Extra.route,
-                                    label = mainUiPrefs.extraTabName,
+                                    label = strNavExtra,
                                     icon = Icons.Default.Star
                                 )
                             )
