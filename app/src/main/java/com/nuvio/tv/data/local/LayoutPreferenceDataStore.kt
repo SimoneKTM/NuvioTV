@@ -118,6 +118,7 @@ class LayoutPreferenceDataStore @Inject constructor(
     private val liveTvTabVisibleKey = booleanPreferencesKey("live_tv_tab_visible")
     private val extraTabVisibleKey = booleanPreferencesKey("extra_tab_visible")
     private val extraTabNameKey = stringPreferencesKey("extra_tab_name")
+    private val calendarTabVisibleKey = booleanPreferencesKey("calendar_tab_visible")
 
     private fun <T> profileFlow(extract: (prefs: androidx.datastore.preferences.core.Preferences) -> T): Flow<T> =
         profileManager.activeProfileId.flatMapLatest { pid ->
@@ -392,6 +393,10 @@ class LayoutPreferenceDataStore @Inject constructor(
         prefs[extraTabNameKey] ?: "Extra"
     }
 
+    val calendarTabVisible: Flow<Boolean> = profileFlow { prefs ->
+        prefs[calendarTabVisibleKey] ?: true
+    }
+
     suspend fun setMemoryOnlyVerticalScroll(enabled: Boolean) {
         store().edit { prefs ->
             prefs[memoryOnlyVerticalScrollKey] = enabled
@@ -443,6 +448,12 @@ class LayoutPreferenceDataStore @Inject constructor(
     suspend fun setExtraTabName(name: String) {
         store().edit { prefs ->
             prefs[extraTabNameKey] = name
+        }
+    }
+
+    suspend fun setCalendarTabVisible(enabled: Boolean) {
+        store().edit { prefs ->
+            prefs[calendarTabVisibleKey] = enabled
         }
     }
 

@@ -465,6 +465,17 @@ fun LayoutSettingsContent(
                             onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
                         )
                     }
+                    CompactToggleRow(
+                        title = stringResource(R.string.calendar_tab_visibility_title),
+                        subtitle = stringResource(R.string.calendar_tab_visibility_subtitle),
+                        checked = uiState.calendarTabVisible,
+                        onToggle = {
+                            viewModel.onEvent(
+                                LayoutSettingsEvent.SetCalendarTabVisible(!uiState.calendarTabVisible)
+                            )
+                        },
+                        onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
+                    )
                     DiscoverLocationRow(
                         selectedLocation = uiState.discoverLocation,
                         rememberedLocation = uiState.lastNonOffDiscoverLocation,

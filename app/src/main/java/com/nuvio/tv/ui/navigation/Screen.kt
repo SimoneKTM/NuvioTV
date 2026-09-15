@@ -15,6 +15,7 @@ sealed class Screen(val route: String) {
     data object ExtraAddonManager : Screen("extra_addon_manager")
     data object ExtraCatalogOrder : Screen("extra_catalog_order")
     data object ExtraLayoutSettings : Screen("extra_layout_settings")
+    data object Calendar : Screen("calendar")
     data object Detail : Screen("detail/{itemId}/{itemType}?addonBaseUrl={addonBaseUrl}&returnFocusSeason={returnFocusSeason}&returnFocusEpisode={returnFocusEpisode}&returnToHomeOnBack={returnToHomeOnBack}&heroBackdropUrl={heroBackdropUrl}") {
         private fun encode(value: String): String =
             URLEncoder.encode(value, "UTF-8").replace("+", "%20")

@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.FilterDrama
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.runtime.Composable
@@ -210,7 +211,8 @@ private data class MainUiPrefs(
     val animeTabVisible: Boolean = true,
     val liveTvTabVisible: Boolean = true,
     val extraTabVisible: Boolean = true,
-    val extraTabName: String = "Extra"
+    val extraTabName: String = "Extra",
+    val calendarTabVisible: Boolean = true
 )
 
 @AndroidEntryPoint
@@ -438,9 +440,10 @@ class MainActivity : ComponentActivity() {
                 val tabVisibilityFlow = combine(
                     layoutPreferenceDataStore.animeTabVisible,
                     layoutPreferenceDataStore.liveTvTabVisible,
-                    layoutPreferenceDataStore.extraTabVisible
-                ) { animeVisible, liveTvVisible, extraVisible ->
-                    Triple(animeVisible, liveTvVisible, extraVisible)
+                    layoutPreferenceDataStore.extraTabVisible,
+                    layoutPreferenceDataStore.calendarTabVisible
+                ) { animeVisible, liveTvVisible, extraVisible, calendarVisible ->
+                    arrayOf(animeVisible, liveTvVisible, extraVisible, calendarVisible)
                 }
                 val extraFeaturesBaseFlow = combine(
                     experienceModeDataStore.addonSetupSkipped,
@@ -459,9 +462,10 @@ class MainActivity : ComponentActivity() {
                 }
                 val extraFeaturesFlow = extraFeaturesBaseFlow.combine(tabVisibilityFlow) { prefs, tabVisibility ->
                     prefs.copy(
-                        animeTabVisible = tabVisibility.first,
-                        liveTvTabVisible = tabVisibility.second,
-                        extraTabVisible = tabVisibility.third
+                        animeTabVisible = tabVisibility[0],
+                        liveTvTabVisible = tabVisibility[1],
+                        extraTabVisible = tabVisibility[2],
+                        calendarTabVisible = tabVisibility[3]
                     )
                 }
                 val extraTabNameFlow = layoutPreferenceDataStore.extraTabName
@@ -762,6 +766,7 @@ class MainActivity : ComponentActivity() {
                     val strNavLibrary = stringResource(R.string.nav_library)
                     val strNavLiveTv = stringResource(R.string.nav_live_tv)
                     val strNavExtra = stringResource(R.string.nav_extra)
+                    val strNavCalendar = stringResource(R.string.nav_calendar)
                     val strNavSettings = stringResource(R.string.nav_settings)
                     val rootRoutes = remember {
                         buildSet {
@@ -772,6 +777,7 @@ class MainActivity : ComponentActivity() {
                             add(Screen.Library.route)
                             add(Screen.LiveTv.route)
                             add(Screen.Extra.route)
+                            add(Screen.Calendar.route)
                             add(Screen.Settings.route)
                         }
                     }
@@ -785,7 +791,8 @@ class MainActivity : ComponentActivity() {
                         strNavSettings,
                         mainUiPrefs.animeTabVisible,
                         mainUiPrefs.liveTvTabVisible,
-                        mainUiPrefs.extraTabVisible
+                        mainUiPrefs.extraTabVisible,
+                        mainUiPrefs.calendarTabVisible
                     ) {
                         buildList {
                             add(
@@ -833,6 +840,15 @@ class MainActivity : ComponentActivity() {
                                     route = Screen.Extra.route,
                                     label = mainUiPrefs.extraTabName,
                                     icon = Icons.Default.Star
+                                )
+                            )
+                            }
+                            if (mainUiPrefs.calendarTabVisible) {
+                            add(
+                                DrawerItem(
+                                    route = Screen.Calendar.route,
+                                    label = strNavCalendar,
+                                    icon = Icons.Default.CalendarMonth
                                 )
                             )
                             }

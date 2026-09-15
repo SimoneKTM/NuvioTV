@@ -80,6 +80,7 @@ data class LayoutSettingsUiState(
     val liveTvTabVisible: Boolean = true,
     val extraTabVisible: Boolean = true,
     val extraTabName: String = "Extra",
+    val calendarTabVisible: Boolean = true,
 )
 
 data class CatalogInfo(
@@ -136,6 +137,7 @@ sealed class LayoutSettingsEvent {
     data class SetLiveTvTabVisible(val visible: Boolean) : LayoutSettingsEvent()
     data class SetExtraTabVisible(val visible: Boolean) : LayoutSettingsEvent()
     data class SetExtraTabName(val name: String) : LayoutSettingsEvent()
+    data class SetCalendarTabVisible(val visible: Boolean) : LayoutSettingsEvent()
     data object ResetPosterCardStyle : LayoutSettingsEvent()
     data object ResetCardDepthStyle : LayoutSettingsEvent()
 }
@@ -387,6 +389,11 @@ open class LayoutSettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            layoutPreferenceDataStore.calendarTabVisible.distinctUntilChanged().collectLatest { visible ->
+                updateUiStateIfChanged { it.copy(calendarTabVisible = visible) }
+            }
+        }
+        viewModelScope.launch {
             delay(0)
             loadAvailableCatalogs()
         }
@@ -438,6 +445,7 @@ open class LayoutSettingsViewModel @Inject constructor(
             is LayoutSettingsEvent.SetLiveTvTabVisible -> setLiveTvTabVisible(event.visible)
             is LayoutSettingsEvent.SetExtraTabVisible -> setExtraTabVisible(event.visible)
             is LayoutSettingsEvent.SetExtraTabName -> setExtraTabName(event.name)
+            is LayoutSettingsEvent.SetCalendarTabVisible -> setCalendarTabVisible(event.visible)
             LayoutSettingsEvent.ResetPosterCardStyle -> resetPosterCardStyle()
             LayoutSettingsEvent.ResetCardDepthStyle -> resetCardDepthStyle()
         }
@@ -809,6 +817,13 @@ open class LayoutSettingsViewModel @Inject constructor(
         if (_uiState.value.extraTabName == name) return
         viewModelScope.launch {
             layoutPreferenceDataStore.setExtraTabName(name)
+        }
+    }
+
+    private fun setCalendarTabVisible(visible: Boolean) {
+        if (_uiState.value.calendarTabVisible == visible) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setCalendarTabVisible(visible)
         }
     }
 
