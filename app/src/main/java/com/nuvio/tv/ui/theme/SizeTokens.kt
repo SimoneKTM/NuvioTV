@@ -102,12 +102,12 @@ object NuvioSizes {
         ),
         sidebar = NuvioSidebarSizes(
             hiddenWidth = 0.dp,
-            compactWidth = 72.dp,
-            closedWidth = 184.dp,
-            expandedWidth = 262.dp,
-            expandedItemWidth = 148.dp,
-            railItemHeight = 52.dp,
-            leadingVisual = 34.dp
+            compactWidth = 64.dp,
+            closedWidth = 168.dp,
+            expandedWidth = 240.dp,
+            expandedItemWidth = 132.dp,
+            railItemHeight = 44.dp,
+            leadingVisual = 28.dp
         ),
         cards = NuvioCardSizes(
             posterWidth = 126.dp,

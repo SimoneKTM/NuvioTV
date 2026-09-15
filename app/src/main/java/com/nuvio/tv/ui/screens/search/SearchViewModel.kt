@@ -73,7 +73,7 @@ class SearchViewModel @Inject constructor(
             "movie" -> "movie"
             "series", "tv" -> "series"
             "anime" -> "anime"
-            else -> "other"
+            else -> apiType.lowercase().trim()
         }
     }
     val watchedSeriesIds: StateFlow<Set<String>> = watchedSeriesStateHolder.fullyWatchedSeriesIds
@@ -757,13 +757,14 @@ class SearchViewModel @Inject constructor(
                 }
         }
             .filter { catalog ->
-                // Filter out built-in TMDB discover catalogs
                 val addonIdLower = catalog.addonId.lowercase()
                 val addonNameLower = catalog.addonName.lowercase()
-                !(addonIdLower == "tmdb" ||
+                val isTmdb = addonIdLower == "tmdb" ||
                     addonIdLower.contains("tmdb") ||
                     addonNameLower.contains("tmdb") ||
-                    addonNameLower.contains("the movie database"))
+                    addonNameLower.contains("the movie database")
+                val isKnownType = catalog.type in listOf("movie", "series", "tv", "anime")
+                !isTmdb && isKnownType
             }
             .distinctBy { it.catalogName to it.type }
 

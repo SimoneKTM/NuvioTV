@@ -73,14 +73,18 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
-        SentryInitializer.start(this, sentrySettingsDataStore)
-        PluginRuntimeHooks.onApplicationCreate(this)
-        androidTvChannelSyncService.start()
         // Load locale synchronously so it's available before Activity.attachBaseContext.
         // SharedPreferences reads are fast (cached in memory after first access).
         val tag = getSharedPreferences("app_locale", Context.MODE_PRIVATE)
             .getString("locale_tag", null)
         LocaleCache.localeTag = tag ?: ""
+
+        // Defer heavy initialization to after first frame renders
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            SentryInitializer.start(this, sentrySettingsDataStore)
+            PluginRuntimeHooks.onApplicationCreate(this)
+            androidTvChannelSyncService.start()
+        }
     }
 
     override fun newImageLoader(context: android.content.Context): ImageLoader {

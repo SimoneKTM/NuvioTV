@@ -32,6 +32,8 @@ import com.nuvio.tv.data.remote.dto.trakt.TraktTokenResponseDto
 import com.nuvio.tv.data.remote.dto.trakt.TraktUserEpisodeHistoryItemDto
 import com.nuvio.tv.data.remote.dto.trakt.TraktUserSettingsResponseDto
 import com.nuvio.tv.data.remote.dto.trakt.TraktUserStatsResponseDto
+import com.nuvio.tv.data.remote.dto.trakt.TraktCalendarMovieItemDto
+import com.nuvio.tv.data.remote.dto.trakt.TraktCalendarShowItemDto
 import com.nuvio.tv.data.remote.dto.trakt.TraktWatchedMovieItemDto
 import com.nuvio.tv.data.remote.dto.trakt.TraktWatchedShowItemDto
 import com.nuvio.tv.data.remote.dto.trakt.TraktHiddenItemDto
@@ -373,4 +375,16 @@ interface TraktApi {
         @Header("Authorization") authorization: String,
         @Body body: TraktListItemsMutationRequestDto
     ): Response<TraktListItemsMutationResponseDto>
+
+    @GET("calendar/shows")
+    suspend fun getCalendarShows(
+        @Query("start_date") startDate: String? = null,
+        @Query("days") days: Int = 30
+    ): Response<List<TraktCalendarShowItemDto>>
+
+    @GET("calendar/movies")
+    suspend fun getCalendarMovies(
+        @Query("start_date") startDate: String? = null,
+        @Query("days") days: Int = 30
+    ): Response<List<TraktCalendarMovieItemDto>>
 }

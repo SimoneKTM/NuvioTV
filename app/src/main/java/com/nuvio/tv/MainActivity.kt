@@ -837,6 +837,16 @@ class MainActivity : ComponentActivity() {
                                     iconRes = R.raw.sidebar_search
                                 )
                             )
+                            if (mainUiPrefs.extraTabVisible) {
+                            val extraLogoIcon = extraLogoIcons[mainUiPrefs.extraTabLogoIndex.coerceIn(0, extraLogoIcons.lastIndex)]
+                            add(
+                                DrawerItem(
+                                    route = Screen.Extra.route,
+                                    label = strNavExtra,
+                                    icon = extraLogoIcon
+                                )
+                            )
+                            }
                             add(
                                 DrawerItem(
                                     route = Screen.Library.route,
@@ -850,16 +860,6 @@ class MainActivity : ComponentActivity() {
                                     route = Screen.LiveTv.route,
                                     label = strNavLiveTv,
                                     icon = Icons.Default.LiveTv
-                                )
-                            )
-                            }
-                            if (mainUiPrefs.extraTabVisible) {
-                            val extraLogoIcon = extraLogoIcons[mainUiPrefs.extraTabLogoIndex.coerceIn(0, extraLogoIcons.lastIndex)]
-                            add(
-                                DrawerItem(
-                                    route = Screen.Extra.route,
-                                    label = strNavExtra,
-                                    icon = extraLogoIcon
                                 )
                             )
                             }
@@ -1252,7 +1252,7 @@ private fun LegacySidebarScaffold(
                             .align(Alignment.CenterStart)
                             .offset(y = 28.dp)
                             .fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalAlignment = Alignment.Start
                     ) {
                         drawerItems.forEach { item ->
