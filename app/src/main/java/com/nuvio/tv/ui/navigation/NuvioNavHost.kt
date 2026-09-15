@@ -1086,6 +1086,7 @@ fun NuvioNavHost(
                 showBuiltInHeader = !hideBuiltInHeaders,
                 onNavigateToAddons = { navController.navigate(Screen.AddonManager.route) },
                 onNavigateToAnimeAddons = { navController.navigate(Screen.AnimeAddonManager.route) },
+                onNavigateToExtraAddons = { navController.navigate(Screen.ExtraAddonManager.route) },
                 onNavigateToPlugins = { navController.navigate(Screen.Plugins.route) },
                 onNavigateToAuthQrSignIn = { navController.navigate(Screen.AuthQrSignIn.route) },
                 onNavigateToManageProfiles = { navController.navigate(Screen.ManageProfiles.route) },

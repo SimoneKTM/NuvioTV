@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
@@ -105,6 +106,7 @@ internal enum class SettingsCategory {
     ACCOUNT,
     PROFILES,
     ANIME,
+    EXTRA,
     APPEARANCE,
     LAYOUT,
     CONTENT_DISCOVERY,
@@ -144,6 +146,13 @@ private enum class AnimeSettingsSection {
     Tvdb,
     AnimeSkip,
     OpenSubtitles
+}
+
+private enum class ExtraSettingsSection {
+    Hub,
+    ContentDiscovery,
+    Layout,
+    Integrations
 }
 
 internal enum class SettingsSectionDestination {
@@ -198,6 +207,13 @@ private fun rememberSettingsSectionSpecs() = listOf(
         title = stringResource(R.string.nav_anime),
         icon = Icons.Default.FilterDrama,
         subtitle = stringResource(R.string.settings_anime_subtitle),
+        destination = SettingsSectionDestination.Inline
+    ),
+    SettingsSectionSpec(
+        category = SettingsCategory.EXTRA,
+        title = stringResource(R.string.nav_extra),
+        icon = Icons.Default.Star,
+        subtitle = stringResource(R.string.extra_settings_subtitle),
         destination = SettingsSectionDestination.Inline
     ),
     SettingsSectionSpec(
@@ -277,6 +293,7 @@ fun SettingsScreen(
     showBuiltInHeader: Boolean = true,
     onNavigateToAddons: () -> Unit = {},
     onNavigateToAnimeAddons: () -> Unit = {},
+    onNavigateToExtraAddons: () -> Unit = {},
     onNavigateToPlugins: () -> Unit = {},
     onNavigateToAuthQrSignIn: () -> Unit = {},
     onNavigateToManageProfiles: () -> Unit = {},
@@ -340,6 +357,7 @@ fun SettingsScreen(
             SettingsCategory.EXPERIENCE to FocusRequester(),
             SettingsCategory.PROFILES to FocusRequester(),
             SettingsCategory.ANIME to FocusRequester(),
+            SettingsCategory.EXTRA to FocusRequester(),
             SettingsCategory.LAYOUT to FocusRequester(),
             SettingsCategory.CONTENT_DISCOVERY to FocusRequester(),
             SettingsCategory.INTEGRATION to FocusRequester(),
@@ -371,9 +389,14 @@ fun SettingsScreen(
     val animeMdbListFocusRequester = remember { FocusRequester() }
     val animeTvdbFocusRequester = remember { FocusRequester() }
     val animeAnimeSkipFocusRequester = remember { FocusRequester() }
+    val extraHubFocusRequester = remember { FocusRequester() }
+    val extraContentDiscoveryFocusRequester = remember { FocusRequester() }
+    val extraLayoutFocusRequester = remember { FocusRequester() }
+    val extraIntegrationsFocusRequester = remember { FocusRequester() }
     var integrationSection by remember { mutableStateOf(IntegrationSettingsSection.Hub) }
     var librarySection by remember { mutableStateOf(LibrarySettingsSection.Hub) }
     var animeSection by remember { mutableStateOf(AnimeSettingsSection.Hub) }
+    var extraSection by remember { mutableStateOf(ExtraSettingsSection.Hub) }
     var pendingContentFocusCategory by remember { mutableStateOf<SettingsCategory?>(null) }
     var pendingContentFocusRequestId by remember { mutableLongStateOf(0L) }
     var allowDetailAutofocus by remember { mutableStateOf(false) }
@@ -393,6 +416,9 @@ fun SettingsScreen(
     LaunchedEffect(selectedCategory) {
         if (selectedCategory == SettingsCategory.ANIME) {
             animeSection = AnimeSettingsSection.Hub
+        }
+        if (selectedCategory == SettingsCategory.EXTRA) {
+            extraSection = ExtraSettingsSection.Hub
         }
         if (selectedCategory == SettingsCategory.INTEGRATION) {
             integrationSection = IntegrationSettingsSection.Hub
@@ -629,9 +655,16 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                                 animeMdbListFocusRequester = animeMdbListFocusRequester,
                                 animeTvdbFocusRequester = animeTvdbFocusRequester,
                                 animeAnimeSkipFocusRequester = animeAnimeSkipFocusRequester,
+                                extraSection = extraSection,
+                                onSelectExtraSection = { extraSection = it },
+                                extraHubFocusRequester = extraHubFocusRequester,
+                                extraContentDiscoveryFocusRequester = extraContentDiscoveryFocusRequester,
+                                extraLayoutFocusRequester = extraLayoutFocusRequester,
+                                extraIntegrationsFocusRequester = extraIntegrationsFocusRequester,
                                 onNavigateToManageProfiles = onNavigateToManageProfiles,
                                 onNavigateToAddons = onNavigateToAddons,
                                 onNavigateToAnimeAddons = onNavigateToAnimeAddons,
+                                onNavigateToExtraAddons = onNavigateToExtraAddons,
                                 onNavigateToPlugins = onNavigateToPlugins,
                                 onNavigateToAuthQrSignIn = onNavigateToAuthQrSignIn,
                                 onNavigateToSupportersContributors = onNavigateToSupportersContributors,
@@ -802,9 +835,16 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                         animeMdbListFocusRequester = animeMdbListFocusRequester,
                         animeTvdbFocusRequester = animeTvdbFocusRequester,
                         animeAnimeSkipFocusRequester = animeAnimeSkipFocusRequester,
+                        extraSection = extraSection,
+                        onSelectExtraSection = { extraSection = it },
+                        extraHubFocusRequester = extraHubFocusRequester,
+                        extraContentDiscoveryFocusRequester = extraContentDiscoveryFocusRequester,
+                        extraLayoutFocusRequester = extraLayoutFocusRequester,
+                        extraIntegrationsFocusRequester = extraIntegrationsFocusRequester,
                         onNavigateToManageProfiles = onNavigateToManageProfiles,
                         onNavigateToAddons = onNavigateToAddons,
                         onNavigateToAnimeAddons = onNavigateToAnimeAddons,
+                        onNavigateToExtraAddons = onNavigateToExtraAddons,
                         onNavigateToPlugins = onNavigateToPlugins,
                         onNavigateToAuthQrSignIn = onNavigateToAuthQrSignIn,
                         onNavigateToSupportersContributors = onNavigateToSupportersContributors,
@@ -852,9 +892,16 @@ private fun SettingsDetailPane(
     animeTvdbFocusRequester: FocusRequester,
     animeAnimeSkipFocusRequester: FocusRequester,
     openSubtitlesFocusRequester: FocusRequester,
+    extraSection: ExtraSettingsSection,
+    onSelectExtraSection: (ExtraSettingsSection) -> Unit,
+    extraHubFocusRequester: FocusRequester,
+    extraContentDiscoveryFocusRequester: FocusRequester,
+    extraLayoutFocusRequester: FocusRequester,
+    extraIntegrationsFocusRequester: FocusRequester,
     onNavigateToManageProfiles: () -> Unit,
     onNavigateToAddons: () -> Unit,
     onNavigateToAnimeAddons: () -> Unit,
+    onNavigateToExtraAddons: () -> Unit,
     onNavigateToPlugins: () -> Unit,
     onNavigateToAuthQrSignIn: () -> Unit,
     onNavigateToSupportersContributors: () -> Unit,
@@ -899,6 +946,22 @@ private fun SettingsDetailPane(
             tvdbFocusRequester = animeTvdbFocusRequester,
             animeSkipFocusRequester = animeAnimeSkipFocusRequester,
             openSubtitlesFocusRequester = openSubtitlesFocusRequester,
+            autoFocusEnabled = allowDetailAutofocus
+        )
+        SettingsCategory.EXTRA -> ExtraSettingsContent(
+            selectedSection = extraSection,
+            onSelectSection = onSelectExtraSection,
+            onNavigateToExtraAddons = onNavigateToExtraAddons,
+            onNavigateToPlugins = onNavigateToPlugins,
+            initialFocusRequester = if (allowDetailAutofocus) {
+                contentFocusRequesters[SettingsCategory.EXTRA]
+            } else {
+                null
+            },
+            hubFocusRequester = extraHubFocusRequester,
+            contentDiscoveryFocusRequester = extraContentDiscoveryFocusRequester,
+            layoutFocusRequester = extraLayoutFocusRequester,
+            integrationsFocusRequester = extraIntegrationsFocusRequester,
             autoFocusEnabled = allowDetailAutofocus
         )
         SettingsCategory.APPEARANCE -> ThemeSettingsContent(
@@ -1397,6 +1460,195 @@ private fun AnimeSettingsContent(
             OpenSubtitlesSettingsContent(
                 initialFocusRequester = openSubtitlesFocusRequester
             )
+        }
+    }
+}
+
+@Composable
+private fun ExtraSettingsContent(
+    selectedSection: ExtraSettingsSection,
+    onSelectSection: (ExtraSettingsSection) -> Unit,
+    onNavigateToExtraAddons: () -> Unit,
+    onNavigateToPlugins: () -> Unit,
+    initialFocusRequester: FocusRequester?,
+    hubFocusRequester: FocusRequester,
+    contentDiscoveryFocusRequester: FocusRequester,
+    layoutFocusRequester: FocusRequester,
+    integrationsFocusRequester: FocusRequester,
+    autoFocusEnabled: Boolean
+) {
+    BackHandler(enabled = selectedSection != ExtraSettingsSection.Hub) {
+        onSelectSection(ExtraSettingsSection.Hub)
+    }
+    val hubEntryFocusRequester = initialFocusRequester ?: hubFocusRequester
+
+    LaunchedEffect(selectedSection, autoFocusEnabled) {
+        if (!autoFocusEnabled) return@LaunchedEffect
+        val requester = when (selectedSection) {
+            ExtraSettingsSection.Hub -> hubEntryFocusRequester
+            ExtraSettingsSection.ContentDiscovery -> contentDiscoveryFocusRequester
+            ExtraSettingsSection.Layout -> layoutFocusRequester
+            ExtraSettingsSection.Integrations -> integrationsFocusRequester
+        }
+        runCatching { requester.requestFocus() }
+    }
+
+    when (selectedSection) {
+        ExtraSettingsSection.Hub -> {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+            ) {
+                SettingsDetailHeader(
+                    title = stringResource(R.string.nav_extra),
+                    subtitle = stringResource(R.string.extra_settings_subtitle)
+                )
+                SettingsGroupCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    val extraHubState = rememberLazyListState()
+                    val layoutSettingsViewModel: LayoutSettingsViewModel = hiltViewModel()
+                    val layoutUiState by layoutSettingsViewModel.uiState.collectAsStateWithLifecycle()
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            state = extraHubState,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            item(key = "extra_hub_tab_visibility") {
+                                ToggleSettingsItem(
+                                    icon = Icons.Default.Visibility,
+                                    title = stringResource(R.string.extra_settings_show_tab_title),
+                                    subtitle = stringResource(R.string.extra_settings_show_tab_sub),
+                                    isChecked = layoutUiState.extraTabVisible,
+                                    onCheckedChange = {
+                                        layoutSettingsViewModel.onEvent(
+                                            LayoutSettingsEvent.SetExtraTabVisible(it)
+                                        )
+                                    }
+                                )
+                            }
+                            item(key = "extra_hub_content_discovery") {
+                                SettingsActionRow(
+                                    title = stringResource(R.string.extra_settings_addons_title),
+                                    subtitle = stringResource(R.string.extra_settings_addons_subtitle),
+                                    onClick = { onSelectSection(ExtraSettingsSection.ContentDiscovery) },
+                                    leadingIcon = Icons.Default.Explore,
+                                    modifier = Modifier.focusRequester(hubEntryFocusRequester)
+                                )
+                            }
+                            item(key = "extra_hub_layout") {
+                                SettingsActionRow(
+                                    title = stringResource(R.string.extra_settings_layout_title),
+                                    subtitle = stringResource(R.string.extra_settings_layout_subtitle),
+                                    onClick = { onSelectSection(ExtraSettingsSection.Layout) },
+                                    leadingIcon = Icons.Default.GridView
+                                )
+                            }
+                            item(key = "extra_hub_integrations") {
+                                SettingsActionRow(
+                                    title = stringResource(R.string.extra_settings_integrations_title),
+                                    subtitle = stringResource(R.string.extra_settings_integrations_subtitle),
+                                    onClick = { onSelectSection(ExtraSettingsSection.Integrations) },
+                                    leadingIcon = Icons.Default.Link
+                                )
+                            }
+                        }
+                        SettingsVerticalScrollIndicators(state = extraHubState)
+                    }
+                }
+            }
+        }
+
+        ExtraSettingsSection.ContentDiscovery -> {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+            ) {
+                SettingsDetailHeader(
+                    title = stringResource(R.string.extra_settings_addons_title),
+                    subtitle = stringResource(R.string.extra_settings_addons_subtitle)
+                )
+                SettingsGroupCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    val contentDiscoveryState = rememberLazyListState()
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            state = contentDiscoveryState,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            item(key = "extra_content_discovery_addons") {
+                                SettingsActionRow(
+                                    title = stringResource(R.string.extra_settings_addons_title),
+                                    subtitle = stringResource(R.string.extra_settings_addons_subtitle),
+                                    onClick = onNavigateToExtraAddons,
+                                    leadingIcon = Icons.Default.Extension,
+                                    modifier = Modifier.focusRequester(contentDiscoveryFocusRequester)
+                                )
+                            }
+                            item(key = "extra_content_discovery_plugins") {
+                                SettingsActionRow(
+                                    title = stringResource(R.string.plugin_title),
+                                    subtitle = stringResource(R.string.extra_settings_plugins_subtitle),
+                                    onClick = onNavigateToPlugins,
+                                    leadingIcon = Icons.Default.Build
+                                )
+                            }
+                        }
+                        SettingsVerticalScrollIndicators(state = contentDiscoveryState)
+                    }
+                }
+            }
+        }
+
+        ExtraSettingsSection.Layout -> {
+            LayoutSettingsScreen(
+                viewModel = hiltViewModel<ExtraLayoutSettingsViewModel>(),
+                onBackPress = { onSelectSection(ExtraSettingsSection.Hub) },
+                headerTitleRes = R.string.extra_settings_layout_title,
+                headerSubtitleRes = R.string.extra_settings_layout_subtitle,
+                animeMode = true
+            )
+        }
+
+        ExtraSettingsSection.Integrations -> {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+            ) {
+                SettingsDetailHeader(
+                    title = stringResource(R.string.extra_settings_integrations_title),
+                    subtitle = stringResource(R.string.extra_settings_integrations_subtitle)
+                )
+                SettingsGroupCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    val integrationsState = rememberLazyListState()
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            state = integrationsState,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            item(key = "extra_integration_plugins") {
+                                SettingsActionRow(
+                                    title = stringResource(R.string.plugin_title),
+                                    subtitle = stringResource(R.string.extra_settings_plugins_subtitle),
+                                    onClick = onNavigateToPlugins,
+                                    leadingIcon = Icons.Default.Build,
+                                    modifier = Modifier.focusRequester(integrationsFocusRequester)
+                                )
+                            }
+                        }
+                        SettingsVerticalScrollIndicators(state = integrationsState)
+                    }
+                }
+            }
         }
     }
 }
