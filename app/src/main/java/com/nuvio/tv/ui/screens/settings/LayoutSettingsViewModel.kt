@@ -81,6 +81,7 @@ data class LayoutSettingsUiState(
     val extraTabVisible: Boolean = true,
     val extraTabName: String = "Extra",
     val calendarTabVisible: Boolean = true,
+    val extraTabLogoIndex: Int = 0,
 )
 
 data class CatalogInfo(
@@ -138,6 +139,7 @@ sealed class LayoutSettingsEvent {
     data class SetExtraTabVisible(val visible: Boolean) : LayoutSettingsEvent()
     data class SetExtraTabName(val name: String) : LayoutSettingsEvent()
     data class SetCalendarTabVisible(val visible: Boolean) : LayoutSettingsEvent()
+    data class SetExtraTabLogoIndex(val index: Int) : LayoutSettingsEvent()
     data object ResetPosterCardStyle : LayoutSettingsEvent()
     data object ResetCardDepthStyle : LayoutSettingsEvent()
 }
@@ -394,6 +396,11 @@ open class LayoutSettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            layoutPreferenceDataStore.extraTabLogoIndex.distinctUntilChanged().collectLatest { index ->
+                updateUiStateIfChanged { it.copy(extraTabLogoIndex = index) }
+            }
+        }
+        viewModelScope.launch {
             delay(0)
             loadAvailableCatalogs()
         }
@@ -446,6 +453,7 @@ open class LayoutSettingsViewModel @Inject constructor(
             is LayoutSettingsEvent.SetExtraTabVisible -> setExtraTabVisible(event.visible)
             is LayoutSettingsEvent.SetExtraTabName -> setExtraTabName(event.name)
             is LayoutSettingsEvent.SetCalendarTabVisible -> setCalendarTabVisible(event.visible)
+            is LayoutSettingsEvent.SetExtraTabLogoIndex -> setExtraTabLogoIndex(event.index)
             LayoutSettingsEvent.ResetPosterCardStyle -> resetPosterCardStyle()
             LayoutSettingsEvent.ResetCardDepthStyle -> resetCardDepthStyle()
         }
@@ -824,6 +832,13 @@ open class LayoutSettingsViewModel @Inject constructor(
         if (_uiState.value.calendarTabVisible == visible) return
         viewModelScope.launch {
             layoutPreferenceDataStore.setCalendarTabVisible(visible)
+        }
+    }
+
+    private fun setExtraTabLogoIndex(index: Int) {
+        if (_uiState.value.extraTabLogoIndex == index) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setExtraTabLogoIndex(index)
         }
     }
 

@@ -2429,6 +2429,8 @@
     <string name="extra_settings_show_tab_sub">Show or hide the Extra tab in the sidebar</string>
     <string name="extra_settings_integrations_title">Integrations</string>
     <string name="extra_settings_integrations_subtitle">Manage integrations for the Extra tab</string>
+    <string name="extra_settings_logo_title">Tab icon</string>
+    <string name="extra_settings_logo_subtitle">Choose the icon to show in the sidebar</string>
     <string name="extra_settings_refresh_title">Update add-ons</string>
     <string name="extra_settings_refreshing">Updating…</string>
     <string name="extra_settings_refresh_failed">Could not update the add-ons. Check your connection and try again.</string>

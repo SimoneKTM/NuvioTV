@@ -3212,4 +3212,52 @@
   <string name="tracking_removal_impact_rating">valutazione</string>
   <string name="tracking_removal_impact_history_rating">cronologia di visione e valutazione</string>
   <string name="action_remove_anyway">Rimuovi comunque</string>
+
+  <!-- Extra tab -->
+  <string name="nav_extra">Extra</string>
+  <string name="extra_settings_title">Extra</string>
+  <string name="extra_settings_subtitle">Addon, plugin e layout per Extra</string>
+  <string name="extra_settings_layout_title">Layout Extra</string>
+  <string name="extra_settings_layout_subtitle">Personalizza il layout della scheda Extra</string>
+  <string name="extra_settings_addons_title">Addon</string>
+  <string name="extra_settings_addons_subtitle">Installa e gestisci gli addon per la scheda Extra</string>
+  <string name="extra_settings_plugins_subtitle">Scraper per lo streaming usati per risolvere le fonti</string>
+  <string name="extra_settings_show_tab_title">Mostra scheda Extra</string>
+  <string name="extra_settings_show_tab_sub">Mostra o nascondi la scheda Extra nella barra laterale</string>
+  <string name="extra_settings_integrations_title">Integrazioni</string>
+  <string name="extra_settings_integrations_subtitle">Gestisci le integrazioni per la scheda Extra</string>
+  <string name="extra_settings_refresh_title">Aggiorna addon</string>
+  <string name="extra_settings_refreshing">Aggiornamento in corso…</string>
+  <string name="extra_settings_refresh_failed">Impossibile aggiornare gli addon. Controlla la connessione e riprova.</string>
+  <string name="extra_settings_update_subtitle">Scarica le ultime modifiche degli addon</string>
+  <string name="extra_settings_reorder_title">Riordina catalogo</string>
+  <string name="extra_settings_reorder_subtitle">Cambia l\'ordine degli addon e dei cataloghi della scheda Extra</string>
+  <string name="extra_settings_manage_phone_title">Gestisci dal telefono</string>
+  <string name="extra_settings_manage_phone_subtitle">Scansiona un codice QR per gestire gli addon dal telefono</string>
+  <string name="extra_home_empty_title">Nessun addon configurato</string>
+  <string name="extra_home_empty_subtitle">Aggiungi un addon per riempire questa scheda con contenuti.</string>
+  <string name="extra_home_empty_action">Apri impostazioni Extra</string>
+  <string name="extra_home_no_catalogs_title">Nessun catalogo disponibile</string>
+  <string name="extra_home_no_catalogs_subtitle">Gli addon installati non espongono cataloghi home.</string>
+  <string name="extra_home_addons_count">%1$d addon attivi</string>
+  <string name="extra_add_addon">Aggiungi addon</string>
+  <string name="extra_addons_section">Addon installati</string>
+  <string name="extra_addons_empty">Nessun addon installato ancora.</string>
+  <string name="extra_catalog_order_title">Riordina cataloghi</string>
+  <string name="extra_catalog_order_subtitle">Controlla l\'ordine delle righe del catalogo nella scheda Extra (Classico + Moderno + Griglia).</string>
+  <string name="extra_catalog_order_empty">Nessun catalogo disponibile ancora.</string>
+  <string name="settings_extra_layout_title">Layout Extra</string>
+  <string name="settings_extra_layout_subtitle">Layout e aspetto della scheda Extra</string>
+  <string name="extra_settings_logo_title">Icona della scheda</string>
+  <string name="extra_settings_logo_subtitle">Scegli l\'icona da mostrare nella barra laterale</string>
+
+  <!-- Calendar tab -->
+  <string name="nav_calendar">Calendario</string>
+  <string name="calendar_title">Calendario</string>
+  <string name="calendar_loading">Caricamento calendario…</string>
+  <string name="calendar_error">Impossibile caricare il calendario</string>
+  <string name="calendar_empty_title">Nessuna uscita in arrivo</string>
+  <string name="calendar_empty_subtitle">Installa addon con date di uscita per vedere i contenuti in arrivo</string>
+  <string name="calendar_tab_visibility_title">Mostra scheda Calendario</string>
+  <string name="calendar_tab_visibility_subtitle">Mostra o nascondi la scheda Calendario nella barra laterale</string>
 </resources>

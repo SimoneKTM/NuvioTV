@@ -51,6 +51,14 @@ import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material.icons.filled.Diamond
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Rocket
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -190,6 +198,19 @@ data class DrawerItem(
     val icon: ImageVector? = null
 )
 
+private val extraLogoIcons = listOf(
+    Icons.Default.Star,
+    Icons.Default.Movie,
+    Icons.Default.LiveTv,
+    Icons.Default.Bookmark,
+    Icons.Default.Favorite,
+    Icons.Default.Whatshot,
+    Icons.Default.Diamond,
+    Icons.Default.Bolt,
+    Icons.Default.Rocket,
+    Icons.Default.AutoAwesome
+)
+
 private data class MainUiPrefs(
     val theme: AppTheme = AppTheme.WHITE,
     val font: AppFont = AppFont.INTER,
@@ -211,7 +232,8 @@ private data class MainUiPrefs(
     val animeTabVisible: Boolean = true,
     val liveTvTabVisible: Boolean = true,
     val extraTabVisible: Boolean = true,
-    val calendarTabVisible: Boolean = true
+    val calendarTabVisible: Boolean = true,
+    val extraTabLogoIndex: Int = 0
 )
 
 @AndroidEntryPoint
@@ -467,12 +489,14 @@ class MainActivity : ComponentActivity() {
                         calendarTabVisible = tabVisibility[3]
                     )
                 }
+                val extraLogoFlow = layoutPreferenceDataStore.extraTabLogoIndex
                 combine(
                     themeAndExperienceFlow,
                     layoutAndFeaturesFlow,
                     extraFeaturesFlow,
-                    layoutPreferenceDataStore.cardDepthStyle
-                ) { themePrefs, layoutPrefs, extraPrefs, cardDepthStyle ->
+                    layoutPreferenceDataStore.cardDepthStyle,
+                    extraLogoFlow
+                ) { themePrefs, layoutPrefs, extraPrefs, cardDepthStyle, logoIndex ->
                     themePrefs.copy(
                         hasChosenLayout = layoutPrefs.hasChosenLayout,
                         sidebarCollapsed = layoutPrefs.sidebarCollapsed,
@@ -487,7 +511,8 @@ class MainActivity : ComponentActivity() {
                         cardDepthStyle = cardDepthStyle,
                         animeTabVisible = extraPrefs.animeTabVisible,
                         liveTvTabVisible = extraPrefs.liveTvTabVisible,
-                        extraTabVisible = extraPrefs.extraTabVisible
+                        extraTabVisible = extraPrefs.extraTabVisible,
+                        extraTabLogoIndex = logoIndex
                     )
                 }
             }
@@ -829,11 +854,12 @@ class MainActivity : ComponentActivity() {
                             )
                             }
                             if (mainUiPrefs.extraTabVisible) {
+                            val extraLogoIcon = extraLogoIcons[mainUiPrefs.extraTabLogoIndex.coerceIn(0, extraLogoIcons.lastIndex)]
                             add(
                                 DrawerItem(
                                     route = Screen.Extra.route,
                                     label = strNavExtra,
-                                    icon = Icons.Default.Star
+                                    icon = extraLogoIcon
                                 )
                             )
                             }

@@ -3,6 +3,8 @@
 package com.nuvio.tv.ui.screens.settings
 
 import com.nuvio.tv.ui.theme.NuvioTheme
+import com.nuvio.tv.ui.components.ExtraLogoOption
+import com.nuvio.tv.ui.components.ExtraLogoPicker
 
 import androidx.activity.compose.BackHandler
 import androidx.annotation.RawRes
@@ -21,8 +23,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -56,6 +60,15 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material.icons.filled.Workspaces
+import androidx.compose.material.icons.filled.Diamond
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Rocket
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -91,6 +104,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
 import com.nuvio.tv.BuildConfig
 import com.nuvio.tv.R
 import com.nuvio.tv.core.build.AppFeaturePolicy
@@ -154,6 +169,19 @@ private enum class ExtraSettingsSection {
     Layout,
     Integrations
 }
+
+private val extraLogoOptions = listOf(
+    ExtraLogoOption("Stella", Icons.Default.Star),
+    ExtraLogoOption("Film", Icons.Default.Movie),
+    ExtraLogoOption("TV", Icons.Default.LiveTv),
+    ExtraLogoOption("Segnalibro", Icons.Default.Bookmark),
+    ExtraLogoOption("Preferito", Icons.Default.Favorite),
+    ExtraLogoOption("Fuoco", Icons.Default.Whatshot),
+    ExtraLogoOption("Diamante", Icons.Default.Diamond),
+    ExtraLogoOption("Fulmine", Icons.Default.Bolt),
+    ExtraLogoOption("Razzo", Icons.Default.Rocket),
+    ExtraLogoOption("Magia", Icons.Default.AutoAwesome)
+)
 
 internal enum class SettingsSectionDestination {
     Inline,
@@ -1528,6 +1556,35 @@ private fun ExtraSettingsContent(
                                         )
                                     }
                                 )
+                            }
+                            item(key = "extra_hub_logo") {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.extra_settings_logo_title),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = NuvioTheme.colors.TextPrimary
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = stringResource(R.string.extra_settings_logo_subtitle),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = NuvioTheme.colors.TextSecondary
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    ExtraLogoPicker(
+                                        options = extraLogoOptions,
+                                        selectedIndex = layoutUiState.extraTabLogoIndex,
+                                        onOptionSelected = { index ->
+                                            layoutSettingsViewModel.onEvent(
+                                                LayoutSettingsEvent.SetExtraTabLogoIndex(index)
+                                            )
+                                        }
+                                    )
+                                }
                             }
                             item(key = "extra_hub_content_discovery") {
                                 SettingsActionRow(
