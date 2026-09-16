@@ -2,6 +2,8 @@ package com.nuvio.tv.ui.screens.calendar
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
@@ -11,12 +13,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -156,22 +157,24 @@ private fun CalendarHeroSection(
     onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String) -> Unit
 ) {
     val firstItem = section.items.firstOrNull() ?: return
+    var focusedIndex by remember { mutableIntStateOf(0) }
+    val focusedItem = remember(focusedIndex, section.items) {
+        section.items.getOrNull(focusedIndex) ?: firstItem
+    }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(420.dp)
+            .height(480.dp)
     ) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(firstItem.meta.backdropUrl ?: firstItem.meta.poster)
+                .data(focusedItem.meta.backdropUrl ?: focusedItem.meta.poster)
                 .crossfade(true)
                 .build(),
-            contentDescription = firstItem.meta.name,
+            contentDescription = focusedItem.meta.name,
             contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+            modifier = Modifier.fillMaxSize()
         )
 
         Box(
@@ -180,9 +183,23 @@ private fun CalendarHeroSection(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
+                            Color.Black.copy(alpha = 0.3f),
                             Color.Transparent,
-                            NuvioTheme.colors.Background.copy(alpha = 0.6f),
+                            NuvioTheme.colors.Background.copy(alpha = 0.5f),
                             NuvioTheme.colors.Background
+                        )
+                    )
+                )
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            NuvioTheme.colors.Background.copy(alpha = 0.7f),
+                            Color.Transparent
                         )
                     )
                 )
@@ -191,7 +208,7 @@ private fun CalendarHeroSection(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = SECTION_PADDING_HORIZONTAL, end = 48.dp, bottom = 24.dp)
+                .padding(start = SECTION_PADDING_HORIZONTAL, end = 48.dp, bottom = 16.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -204,7 +221,7 @@ private fun CalendarHeroSection(
                 SectionBadge(count = section.items.size)
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
             Text(
                 text = section.label,
@@ -212,16 +229,66 @@ private fun CalendarHeroSection(
                 color = Color.White.copy(alpha = 0.7f)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            val focusedGenres = remember(focusedItem) {
+                focusedItem.meta.genres.take(3).joinToString(" \u00B7 ") { it.replaceFirstChar { c -> c.uppercase() } }
+            }
+            val focusedTypeLabel = remember(focusedItem) {
+                when (focusedItem.meta.rawType.lowercase()) {
+                    "movie" -> "Film"
+                    "tv" -> "Serie TV"
+                    else -> focusedItem.meta.rawType
+                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = focusedTypeLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                focusedItem.meta.imdbRating?.let { rating ->
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "\u2605 ${String.format(Locale.US, "%.1f", rating)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = NuvioTheme.colors.Secondary
+                    )
+                }
+                if (focusedGenres.isNotEmpty()) {
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = focusedGenres,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                }
+            }
+
+            focusedItem.meta.description?.let { desc ->
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = desc,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.5f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             LazyRow(
                 contentPadding = PaddingValues(end = 48.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(
+                itemsIndexed(
                     items = section.items,
-                    key = { "${it.meta.id}_${it.meta.type}" }
-                ) { calendarItem ->
+                    key = { _, it -> "${it.meta.id}_${it.meta.type}" }
+                ) { index, calendarItem ->
                     CalendarWideCard(
                         meta = calendarItem.meta,
                         releaseDate = calendarItem.releaseDate,
@@ -231,6 +298,9 @@ private fun CalendarHeroSection(
                                 calendarItem.meta.apiType,
                                 calendarItem.meta.sourceAddonBaseUrl ?: ""
                             )
+                        },
+                        onFocusChange = { focused ->
+                            if (focused) focusedIndex = index
                         }
                     )
                 }
@@ -313,7 +383,8 @@ private fun SectionBadge(count: Int) {
 private fun CalendarWideCard(
     meta: MetaPreview,
     releaseDate: java.time.LocalDate?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onFocusChange: (Boolean) -> Unit = {}
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val dateLabel = remember(releaseDate) {
@@ -331,7 +402,10 @@ private fun CalendarWideCard(
         modifier = Modifier
             .width(WIDE_CARD_WIDTH)
             .focusable()
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                onFocusChange(it.isFocused)
+            }
             .clickable(onClick = onClick)
     ) {
         Box(
