@@ -1537,8 +1537,8 @@ private fun ExtraSettingsContent(
                         .weight(1f)
                 ) {
                     val extraHubState = rememberLazyListState()
-                    val layoutSettingsViewModel: LayoutSettingsViewModel = hiltViewModel()
-                    val layoutUiState by layoutSettingsViewModel.uiState.collectAsStateWithLifecycle()
+                    val extraHubViewModel: com.nuvio.tv.ui.screens.extra.ExtraHubViewModel = hiltViewModel()
+                    val extraHubUiState by extraHubViewModel.uiState.collectAsStateWithLifecycle()
                     Box(modifier = Modifier.fillMaxSize()) {
                         LazyColumn(
                             state = extraHubState,
@@ -1549,10 +1549,10 @@ private fun ExtraSettingsContent(
                                     icon = Icons.Default.Visibility,
                                     title = stringResource(R.string.extra_settings_show_tab_title),
                                     subtitle = stringResource(R.string.extra_settings_show_tab_sub),
-                                    isChecked = layoutUiState.extraTabVisible,
+                                    isChecked = extraHubUiState.extraTabVisible,
                                     onCheckedChange = {
-                                        layoutSettingsViewModel.onEvent(
-                                            LayoutSettingsEvent.SetExtraTabVisible(it)
+                                        extraHubViewModel.onEvent(
+                                            com.nuvio.tv.ui.screens.extra.ExtraHubEvent.SetExtraTabVisible(it)
                                         )
                                     }
                                 )
@@ -1577,10 +1577,10 @@ private fun ExtraSettingsContent(
                                     Spacer(modifier = Modifier.height(12.dp))
                                     ExtraLogoPicker(
                                         options = extraLogoOptions,
-                                        selectedIndex = layoutUiState.extraTabLogoIndex,
+                                        selectedIndex = extraHubUiState.extraTabLogoIndex,
                                         onOptionSelected = { index ->
-                                            layoutSettingsViewModel.onEvent(
-                                                LayoutSettingsEvent.SetExtraTabLogoIndex(index)
+                                            extraHubViewModel.onEvent(
+                                                com.nuvio.tv.ui.screens.extra.ExtraHubEvent.SetExtraTabLogoIndex(index)
                                             )
                                         }
                                     )
