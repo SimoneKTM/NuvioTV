@@ -254,12 +254,6 @@ fun ThemeSettingsContent(
                 subtitle = stringResource(R.string.appearance_tabs_subtitle)
             ) {
                 SettingsToggleRow(
-                    title = stringResource(R.string.nav_home),
-                    subtitle = stringResource(R.string.appearance_tab_home_subtitle),
-                    checked = true,
-                    onToggle = {}
-                )
-                SettingsToggleRow(
                     title = stringResource(R.string.nav_anime),
                     subtitle = stringResource(R.string.appearance_tab_anime_subtitle),
                     checked = uiState.animeTabVisible,
