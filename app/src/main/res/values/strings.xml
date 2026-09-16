@@ -361,6 +361,8 @@
     <string name="settings_style_horizon_desc">Navigation tabs at the top</string>
     <string name="appearance_font_and_language">Font and Language</string>
     <string name="appearance_font_and_language_subtitle">Choose the typeface and locale used throughout the app</string>
+    <string name="appearance_tabs_title">Tabs</string>
+    <string name="appearance_tabs_subtitle">Manage which tabs are visible in the sidebar</string>
     <string name="cd_selected">Selected</string>
 
     <string name="about_title">About</string>
@@ -2412,10 +2414,12 @@
     <string name="nav_extra">Extra</string>
     <string name="nav_calendar">Calendar</string>
     <string name="calendar_title">Calendar</string>
+    <string name="calendar_subtitle">Upcoming movies and TV shows</string>
     <string name="calendar_loading">Loading calendar…</string>
     <string name="calendar_error">Failed to load calendar</string>
     <string name="calendar_empty_title">No upcoming releases</string>
     <string name="calendar_empty_subtitle">No upcoming content found on TMDB</string>
+    <string name="calendar_items_count">items</string>
     <string name="calendar_tab_visibility_title">Show Calendar tab</string>
     <string name="calendar_tab_visibility_subtitle">Show or hide the Calendar tab in the sidebar</string>
     <string name="extra_settings_title">Extra</string>

@@ -1663,12 +1663,16 @@ private fun ExtraSettingsContent(
         }
 
         ExtraSettingsSection.Layout -> {
-            LayoutSettingsScreen(
+            LayoutSettingsContent(
                 viewModel = hiltViewModel<ExtraLayoutSettingsViewModel>(),
-                onBackPress = { onSelectSection(ExtraSettingsSection.Hub) },
+                initialFocusRequester = if (autoFocusEnabled) {
+                    layoutFocusRequester
+                } else {
+                    null
+                },
+                animeMode = true,
                 headerTitleRes = R.string.extra_settings_layout_title,
-                headerSubtitleRes = R.string.extra_settings_layout_subtitle,
-                animeMode = true
+                headerSubtitleRes = R.string.extra_settings_layout_subtitle
             )
         }
 

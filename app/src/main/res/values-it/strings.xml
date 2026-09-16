@@ -291,6 +291,8 @@
 <string name="appearance_color_theme_subtitle">Scegli il colore d\'accento usato nell\'app</string>
 <string name="appearance_font_and_language">Carattere e Lingua</string>
 <string name="appearance_font_and_language_subtitle">Scegli il font e la lingua locale usati nell\'app</string>
+<string name="appearance_tabs_title">Schede</string>
+<string name="appearance_tabs_subtitle">Gestisci quali schede sono visibili nella barra laterale</string>
 <string name="cd_selected">Selezionato</string>
 
     <!-- AboutScreen -->
@@ -3254,10 +3256,12 @@
   <!-- Calendar tab -->
   <string name="nav_calendar">Calendario</string>
   <string name="calendar_title">Calendario</string>
+  <string name="calendar_subtitle">Film e serie TV in uscita</string>
   <string name="calendar_loading">Caricamento calendario…</string>
   <string name="calendar_error">Impossibile caricare il calendario</string>
   <string name="calendar_empty_title">Nessuna uscita in arrivo</string>
   <string name="calendar_empty_subtitle">Nessun contenuto in arrivo trovato su TMDB</string>
+  <string name="calendar_items_count">elementi</string>
   <string name="calendar_tab_visibility_title">Mostra scheda Calendario</string>
   <string name="calendar_tab_visibility_subtitle">Mostra o nascondi la scheda Calendario nella barra laterale</string>
 </resources>

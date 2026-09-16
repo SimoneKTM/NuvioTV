@@ -2,6 +2,7 @@ package com.nuvio.tv.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.data.local.ThemeDataStore
 import com.nuvio.tv.domain.model.AppFont
 import com.nuvio.tv.domain.model.AppTheme
@@ -24,7 +25,8 @@ data class ThemeSettingsUiState(
     val amoledMode: Boolean = false,
     val amoledSurfacesMode: Boolean = false,
     val settingsUiStyle: SettingsUiStyle = SettingsUiStyle.CLASSIC,
-    val availableSettingsUiStyles: List<SettingsUiStyle> = SettingsUiStyle.entries.toList()
+    val availableSettingsUiStyles: List<SettingsUiStyle> = SettingsUiStyle.entries.toList(),
+    val calendarTabVisible: Boolean = true
 )
 
 sealed class ThemeSettingsEvent {
@@ -33,11 +35,13 @@ sealed class ThemeSettingsEvent {
     data class ToggleAmoledMode(val enabled: Boolean) : ThemeSettingsEvent()
     data class ToggleAmoledSurfacesMode(val enabled: Boolean) : ThemeSettingsEvent()
     data class SelectSettingsUiStyle(val style: SettingsUiStyle) : ThemeSettingsEvent()
+    data class SetCalendarTabVisible(val visible: Boolean) : ThemeSettingsEvent()
 }
 
 @HiltViewModel
 class ThemeSettingsViewModel @Inject constructor(
-    private val themeDataStore: ThemeDataStore
+    private val themeDataStore: ThemeDataStore,
+    private val layoutPreferenceDataStore: LayoutPreferenceDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ThemeSettingsUiState())
@@ -97,6 +101,15 @@ class ThemeSettingsViewModel @Inject constructor(
                     }
                 }
         }
+        viewModelScope.launch {
+            layoutPreferenceDataStore.calendarTabVisible
+                .distinctUntilChanged()
+                .collectLatest { visible ->
+                    _uiState.update { state ->
+                        if (state.calendarTabVisible == visible) state else state.copy(calendarTabVisible = visible)
+                    }
+                }
+        }
     }
 
     private fun currentTheme(): AppTheme {
@@ -110,6 +123,7 @@ class ThemeSettingsViewModel @Inject constructor(
             is ThemeSettingsEvent.ToggleAmoledMode -> setAmoledMode(event.enabled)
             is ThemeSettingsEvent.ToggleAmoledSurfacesMode -> setAmoledSurfacesMode(event.enabled)
             is ThemeSettingsEvent.SelectSettingsUiStyle -> selectSettingsUiStyle(event.style)
+            is ThemeSettingsEvent.SetCalendarTabVisible -> setCalendarTabVisible(event.visible)
         }
     }
 
@@ -146,6 +160,13 @@ class ThemeSettingsViewModel @Inject constructor(
         restoreStyleFocus = true
         viewModelScope.launch {
             themeDataStore.setSettingsUiStyle(style)
+        }
+    }
+
+    private fun setCalendarTabVisible(visible: Boolean) {
+        if (_uiState.value.calendarTabVisible == visible) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setCalendarTabVisible(visible)
         }
     }
 }

@@ -67,7 +67,6 @@ import com.nuvio.tv.ui.components.CatalogRowSection
 import com.nuvio.tv.ui.components.ContentCard
 import com.nuvio.tv.ui.components.ContinueWatchingCard
 import com.nuvio.tv.ui.components.ContinueWatchingSection
-import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.GridContinueWatchingSection
 import com.nuvio.tv.ui.components.HeroCarousel
 import com.nuvio.tv.ui.components.LoadingIndicator
@@ -114,29 +113,11 @@ fun ExtraHomeScreen(
             }
 
             uiState.installedAddonsCount == 0 -> {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    EmptyScreenState(
-                        title = stringResource(R.string.extra_home_empty_title),
-                        subtitle = stringResource(R.string.extra_home_empty_subtitle),
-                        icon = Icons.Default.FilterDrama
-                    )
-                    Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
-                    Button(onClick = onOpenSettings) {
-                        Text(stringResource(R.string.extra_home_empty_action))
-                    }
-                }
+                Box(modifier = Modifier.fillMaxSize())
             }
 
             rows.isEmpty() -> {
-                EmptyScreenState(
-                    title = stringResource(R.string.extra_home_no_catalogs_title),
-                    subtitle = stringResource(R.string.extra_home_no_catalogs_subtitle),
-                    icon = Icons.Default.FilterDrama
-                )
+                Box(modifier = Modifier.fillMaxSize())
             }
 
             else -> {

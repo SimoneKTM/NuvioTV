@@ -247,6 +247,21 @@ fun ThemeSettingsContent(
                     onClick = { showLanguageDialog = true }
                 )
             }
+
+            SettingsGroupCard(
+                modifier = Modifier.fillMaxWidth(),
+                title = stringResource(R.string.appearance_tabs_title),
+                subtitle = stringResource(R.string.appearance_tabs_subtitle)
+            ) {
+                SettingsToggleRow(
+                    title = stringResource(R.string.calendar_tab_visibility_title),
+                    subtitle = stringResource(R.string.calendar_tab_visibility_subtitle),
+                    checked = uiState.calendarTabVisible,
+                    onToggle = {
+                        viewModel.onEvent(ThemeSettingsEvent.SetCalendarTabVisible(!uiState.calendarTabVisible))
+                    }
+                )
+            }
         }
         SettingsVerticalScrollIndicators(state = themeScrollState)
     }
