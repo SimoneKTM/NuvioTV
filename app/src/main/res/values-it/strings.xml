@@ -293,6 +293,11 @@
 <string name="appearance_font_and_language_subtitle">Scegli il font e la lingua locale usati nell\'app</string>
 <string name="appearance_tabs_title">Schede</string>
 <string name="appearance_tabs_subtitle">Gestisci quali schede sono visibili nella barra laterale</string>
+<string name="appearance_tab_home_subtitle">Sempre visibile</string>
+<string name="appearance_tab_anime_subtitle">Mostra o nascondi la scheda Anime</string>
+<string name="appearance_tab_extra_subtitle">Mostra o nascondi la scheda Extra</string>
+<string name="appearance_tab_library_subtitle">Mostra o nascondi la scheda Libreria</string>
+<string name="appearance_tab_live_tv_subtitle">Mostra o nascondi la scheda Live TV</string>
 <string name="cd_selected">Selezionato</string>
 
     <!-- AboutScreen -->

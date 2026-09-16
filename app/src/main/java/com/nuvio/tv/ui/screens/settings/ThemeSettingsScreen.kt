@@ -254,7 +254,45 @@ fun ThemeSettingsContent(
                 subtitle = stringResource(R.string.appearance_tabs_subtitle)
             ) {
                 SettingsToggleRow(
-                    title = stringResource(R.string.calendar_tab_visibility_title),
+                    title = stringResource(R.string.nav_home),
+                    subtitle = stringResource(R.string.appearance_tab_home_subtitle),
+                    checked = true,
+                    onToggle = {}
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.nav_anime),
+                    subtitle = stringResource(R.string.appearance_tab_anime_subtitle),
+                    checked = uiState.animeTabVisible,
+                    onToggle = {
+                        viewModel.onEvent(ThemeSettingsEvent.SetAnimeTabVisible(!uiState.animeTabVisible))
+                    }
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.extra_settings_title),
+                    subtitle = stringResource(R.string.appearance_tab_extra_subtitle),
+                    checked = uiState.extraTabVisible,
+                    onToggle = {
+                        viewModel.onEvent(ThemeSettingsEvent.SetExtraTabVisible(!uiState.extraTabVisible))
+                    }
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.nav_library),
+                    subtitle = stringResource(R.string.appearance_tab_library_subtitle),
+                    checked = uiState.libraryTabVisible,
+                    onToggle = {
+                        viewModel.onEvent(ThemeSettingsEvent.SetLibraryTabVisible(!uiState.libraryTabVisible))
+                    }
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.nav_live_tv),
+                    subtitle = stringResource(R.string.appearance_tab_live_tv_subtitle),
+                    checked = uiState.liveTvTabVisible,
+                    onToggle = {
+                        viewModel.onEvent(ThemeSettingsEvent.SetLiveTvTabVisible(!uiState.liveTvTabVisible))
+                    }
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.nav_calendar),
                     subtitle = stringResource(R.string.calendar_tab_visibility_subtitle),
                     checked = uiState.calendarTabVisible,
                     onToggle = {

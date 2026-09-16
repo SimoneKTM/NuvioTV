@@ -26,7 +26,11 @@ data class ThemeSettingsUiState(
     val amoledSurfacesMode: Boolean = false,
     val settingsUiStyle: SettingsUiStyle = SettingsUiStyle.CLASSIC,
     val availableSettingsUiStyles: List<SettingsUiStyle> = SettingsUiStyle.entries.toList(),
-    val calendarTabVisible: Boolean = true
+    val calendarTabVisible: Boolean = true,
+    val animeTabVisible: Boolean = true,
+    val extraTabVisible: Boolean = true,
+    val liveTvTabVisible: Boolean = true,
+    val libraryTabVisible: Boolean = true
 )
 
 sealed class ThemeSettingsEvent {
@@ -36,6 +40,10 @@ sealed class ThemeSettingsEvent {
     data class ToggleAmoledSurfacesMode(val enabled: Boolean) : ThemeSettingsEvent()
     data class SelectSettingsUiStyle(val style: SettingsUiStyle) : ThemeSettingsEvent()
     data class SetCalendarTabVisible(val visible: Boolean) : ThemeSettingsEvent()
+    data class SetAnimeTabVisible(val visible: Boolean) : ThemeSettingsEvent()
+    data class SetExtraTabVisible(val visible: Boolean) : ThemeSettingsEvent()
+    data class SetLiveTvTabVisible(val visible: Boolean) : ThemeSettingsEvent()
+    data class SetLibraryTabVisible(val visible: Boolean) : ThemeSettingsEvent()
 }
 
 @HiltViewModel
@@ -110,6 +118,42 @@ class ThemeSettingsViewModel @Inject constructor(
                     }
                 }
         }
+        viewModelScope.launch {
+            layoutPreferenceDataStore.animeTabVisible
+                .distinctUntilChanged()
+                .collectLatest { visible ->
+                    _uiState.update { state ->
+                        if (state.animeTabVisible == visible) state else state.copy(animeTabVisible = visible)
+                    }
+                }
+        }
+        viewModelScope.launch {
+            layoutPreferenceDataStore.extraTabVisible
+                .distinctUntilChanged()
+                .collectLatest { visible ->
+                    _uiState.update { state ->
+                        if (state.extraTabVisible == visible) state else state.copy(extraTabVisible = visible)
+                    }
+                }
+        }
+        viewModelScope.launch {
+            layoutPreferenceDataStore.liveTvTabVisible
+                .distinctUntilChanged()
+                .collectLatest { visible ->
+                    _uiState.update { state ->
+                        if (state.liveTvTabVisible == visible) state else state.copy(liveTvTabVisible = visible)
+                    }
+                }
+        }
+        viewModelScope.launch {
+            layoutPreferenceDataStore.libraryTabVisible
+                .distinctUntilChanged()
+                .collectLatest { visible ->
+                    _uiState.update { state ->
+                        if (state.libraryTabVisible == visible) state else state.copy(libraryTabVisible = visible)
+                    }
+                }
+        }
     }
 
     private fun currentTheme(): AppTheme {
@@ -124,6 +168,10 @@ class ThemeSettingsViewModel @Inject constructor(
             is ThemeSettingsEvent.ToggleAmoledSurfacesMode -> setAmoledSurfacesMode(event.enabled)
             is ThemeSettingsEvent.SelectSettingsUiStyle -> selectSettingsUiStyle(event.style)
             is ThemeSettingsEvent.SetCalendarTabVisible -> setCalendarTabVisible(event.visible)
+            is ThemeSettingsEvent.SetAnimeTabVisible -> setAnimeTabVisible(event.visible)
+            is ThemeSettingsEvent.SetExtraTabVisible -> setExtraTabVisible(event.visible)
+            is ThemeSettingsEvent.SetLiveTvTabVisible -> setLiveTvTabVisible(event.visible)
+            is ThemeSettingsEvent.SetLibraryTabVisible -> setLibraryTabVisible(event.visible)
         }
     }
 
@@ -167,6 +215,34 @@ class ThemeSettingsViewModel @Inject constructor(
         if (_uiState.value.calendarTabVisible == visible) return
         viewModelScope.launch {
             layoutPreferenceDataStore.setCalendarTabVisible(visible)
+        }
+    }
+
+    private fun setAnimeTabVisible(visible: Boolean) {
+        if (_uiState.value.animeTabVisible == visible) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setAnimeTabVisible(visible)
+        }
+    }
+
+    private fun setExtraTabVisible(visible: Boolean) {
+        if (_uiState.value.extraTabVisible == visible) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setExtraTabVisible(visible)
+        }
+    }
+
+    private fun setLiveTvTabVisible(visible: Boolean) {
+        if (_uiState.value.liveTvTabVisible == visible) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setLiveTvTabVisible(visible)
+        }
+    }
+
+    private fun setLibraryTabVisible(visible: Boolean) {
+        if (_uiState.value.libraryTabVisible == visible) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setLibraryTabVisible(visible)
         }
     }
 }

@@ -363,6 +363,11 @@
     <string name="appearance_font_and_language_subtitle">Choose the typeface and locale used throughout the app</string>
     <string name="appearance_tabs_title">Tabs</string>
     <string name="appearance_tabs_subtitle">Manage which tabs are visible in the sidebar</string>
+    <string name="appearance_tab_home_subtitle">Always visible</string>
+    <string name="appearance_tab_anime_subtitle">Show or hide the Anime tab</string>
+    <string name="appearance_tab_extra_subtitle">Show or hide the Extra tab</string>
+    <string name="appearance_tab_library_subtitle">Show or hide the Library tab</string>
+    <string name="appearance_tab_live_tv_subtitle">Show or hide the Live TV tab</string>
     <string name="cd_selected">Selected</string>
 
     <string name="about_title">About</string>

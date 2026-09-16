@@ -119,6 +119,7 @@ class LayoutPreferenceDataStore @Inject constructor(
     private val extraTabVisibleKey = booleanPreferencesKey("extra_tab_visible")
     private val extraTabNameKey = stringPreferencesKey("extra_tab_name")
     private val calendarTabVisibleKey = booleanPreferencesKey("calendar_tab_visible")
+    private val libraryTabVisibleKey = booleanPreferencesKey("library_tab_visible")
     private val extraTabLogoIndexKey = intPreferencesKey("extra_tab_logo_index")
 
     private fun <T> profileFlow(extract: (prefs: androidx.datastore.preferences.core.Preferences) -> T): Flow<T> =
@@ -398,6 +399,10 @@ class LayoutPreferenceDataStore @Inject constructor(
         prefs[calendarTabVisibleKey] ?: true
     }
 
+    val libraryTabVisible: Flow<Boolean> = profileFlow { prefs ->
+        prefs[libraryTabVisibleKey] ?: true
+    }
+
     val extraTabLogoIndex: Flow<Int> = profileFlow { prefs ->
         prefs[extraTabLogoIndexKey] ?: 0
     }
@@ -459,6 +464,12 @@ class LayoutPreferenceDataStore @Inject constructor(
     suspend fun setCalendarTabVisible(enabled: Boolean) {
         store().edit { prefs ->
             prefs[calendarTabVisibleKey] = enabled
+        }
+    }
+
+    suspend fun setLibraryTabVisible(enabled: Boolean) {
+        store().edit { prefs ->
+            prefs[libraryTabVisibleKey] = enabled
         }
     }
 

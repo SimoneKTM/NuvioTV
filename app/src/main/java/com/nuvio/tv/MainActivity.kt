@@ -233,6 +233,7 @@ private data class MainUiPrefs(
     val liveTvTabVisible: Boolean = true,
     val extraTabVisible: Boolean = true,
     val calendarTabVisible: Boolean = true,
+    val libraryTabVisible: Boolean = true,
     val extraTabLogoIndex: Int = 0
 )
 
@@ -462,9 +463,10 @@ class MainActivity : ComponentActivity() {
                     layoutPreferenceDataStore.animeTabVisible,
                     layoutPreferenceDataStore.liveTvTabVisible,
                     layoutPreferenceDataStore.extraTabVisible,
-                    layoutPreferenceDataStore.calendarTabVisible
-                ) { animeVisible, liveTvVisible, extraVisible, calendarVisible ->
-                    arrayOf(animeVisible, liveTvVisible, extraVisible, calendarVisible)
+                    layoutPreferenceDataStore.calendarTabVisible,
+                    layoutPreferenceDataStore.libraryTabVisible
+                ) { animeVisible, liveTvVisible, extraVisible, calendarVisible, libraryVisible ->
+                    arrayOf(animeVisible, liveTvVisible, extraVisible, calendarVisible, libraryVisible)
                 }
                 val extraFeaturesBaseFlow = combine(
                     experienceModeDataStore.addonSetupSkipped,
@@ -486,7 +488,8 @@ class MainActivity : ComponentActivity() {
                         animeTabVisible = tabVisibility[0],
                         liveTvTabVisible = tabVisibility[1],
                         extraTabVisible = tabVisibility[2],
-                        calendarTabVisible = tabVisibility[3]
+                        calendarTabVisible = tabVisibility[3],
+                        libraryTabVisible = tabVisibility[4]
                     )
                 }
                 val extraLogoFlow = layoutPreferenceDataStore.extraTabLogoIndex
@@ -512,6 +515,8 @@ class MainActivity : ComponentActivity() {
                         animeTabVisible = extraPrefs.animeTabVisible,
                         liveTvTabVisible = extraPrefs.liveTvTabVisible,
                         extraTabVisible = extraPrefs.extraTabVisible,
+                        calendarTabVisible = extraPrefs.calendarTabVisible,
+                        libraryTabVisible = extraPrefs.libraryTabVisible,
                         extraTabLogoIndex = logoIndex
                     )
                 }
@@ -811,7 +816,8 @@ class MainActivity : ComponentActivity() {
                         mainUiPrefs.animeTabVisible,
                         mainUiPrefs.liveTvTabVisible,
                         mainUiPrefs.extraTabVisible,
-                        mainUiPrefs.calendarTabVisible
+                        mainUiPrefs.calendarTabVisible,
+                        mainUiPrefs.libraryTabVisible
                     ) {
                         buildList {
                             add(
@@ -847,6 +853,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             )
                             }
+                            if (mainUiPrefs.libraryTabVisible) {
                             add(
                                 DrawerItem(
                                     route = Screen.Library.route,
@@ -854,6 +861,7 @@ class MainActivity : ComponentActivity() {
                                     iconRes = R.raw.sidebar_library
                                 )
                             )
+                            }
                             if (mainUiPrefs.liveTvTabVisible) {
                             add(
                                 DrawerItem(
