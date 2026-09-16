@@ -2,11 +2,8 @@ package com.nuvio.tv.ui.screens.calendar
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +40,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.tv.material3.Border
+import androidx.tv.material3.Card as TvCard
+import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -379,6 +379,7 @@ private fun SectionBadge(count: Int) {
     }
 }
 
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun CalendarWideCard(
     meta: MetaPreview,
@@ -397,89 +398,95 @@ private fun CalendarWideCard(
             else -> meta.rawType
         }
     }
+    val cardShape = RoundedCornerShape(12.dp)
 
-    Column(
+    TvCard(
+        onClick = onClick,
         modifier = Modifier
             .width(WIDE_CARD_WIDTH)
-            .focusable()
             .onFocusChanged {
                 isFocused = it.isFocused
                 onFocusChange(it.isFocused)
-            }
-            .clickable(onClick = onClick)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(WIDE_CARD_HEIGHT)
-                .clip(RoundedCornerShape(12.dp))
-        ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(meta.backdropUrl ?: meta.poster)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = meta.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+            },
+        shape = CardDefaults.shape(shape = cardShape),
+        colors = CardDefaults.colors(
+            containerColor = Color.Transparent,
+            focusedContainerColor = Color.Transparent
+        ),
+        border = CardDefaults.border(
+            focusedBorder = Border(
+                border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),
+                shape = cardShape
             )
-
-            if (isFocused) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White.copy(alpha = 0.1f))
+        )
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(WIDE_CARD_HEIGHT)
+                    .clip(cardShape)
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(meta.backdropUrl ?: meta.poster)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = meta.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
                 )
-            }
 
-            if (dateLabel.isNotEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color.Black.copy(alpha = 0.7f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = dateLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White
-                    )
+                if (dateLabel.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color.Black.copy(alpha = 0.7f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = dateLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White
+                        )
+                    }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
-        Text(
-            text = meta.name,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
-            color = if (isFocused) Color.White else NuvioTheme.colors.TextPrimary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = typeLabel,
-                style = MaterialTheme.typography.labelSmall,
-                color = NuvioTheme.colors.TextTertiary
+                text = meta.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
+                color = if (isFocused) Color.White else NuvioTheme.colors.TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-            meta.imdbRating?.let { rating ->
-                Spacer(modifier = Modifier.width(6.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "\u2605 ${String.format(Locale.US, "%.1f", rating)}",
+                    text = typeLabel,
                     style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = NuvioTheme.colors.Secondary
+                    color = NuvioTheme.colors.TextTertiary
                 )
+                meta.imdbRating?.let { rating ->
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "\u2605 ${String.format(Locale.US, "%.1f", rating)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = NuvioTheme.colors.Secondary
+                    )
+                }
             }
         }
     }
 }
 
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun CalendarPortraitCard(
     meta: MetaPreview,
@@ -493,76 +500,81 @@ private fun CalendarPortraitCard(
     val genresText = remember(meta.genres) {
         meta.genres.take(2).joinToString(" \u00B7 ") { it.replaceFirstChar { c -> c.uppercase() } }
     }
+    val cardShape = RoundedCornerShape(10.dp)
 
-    Column(
+    TvCard(
+        onClick = onClick,
         modifier = Modifier
             .width(CARD_WIDTH)
-            .focusable()
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable(onClick = onClick)
-    ) {
-        Box(
-            modifier = Modifier
-                .width(CARD_WIDTH)
-                .height(CARD_HEIGHT)
-                .clip(RoundedCornerShape(10.dp))
-        ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(meta.poster)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = meta.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
+            .onFocusChanged { isFocused = it.isFocused },
+        shape = CardDefaults.shape(shape = cardShape),
+        colors = CardDefaults.colors(
+            containerColor = Color.Transparent,
+            focusedContainerColor = Color.Transparent
+        ),
+        border = CardDefaults.border(
+            focusedBorder = Border(
+                border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),
+                shape = cardShape
             )
-
-            if (isFocused) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.White.copy(alpha = 0.1f))
+        )
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .width(CARD_WIDTH)
+                    .height(CARD_HEIGHT)
+                    .clip(cardShape)
+            ) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(meta.poster)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = meta.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
                 )
-            }
 
-            if (dateLabel.isNotEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(6.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color.Black.copy(alpha = 0.75f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = dateLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White
-                    )
+                if (dateLabel.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(6.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color.Black.copy(alpha = 0.75f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = dateLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White
+                        )
+                    }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
-        Text(
-            text = meta.name,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
-            color = if (isFocused) Color.White else NuvioTheme.colors.TextPrimary,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-
-        if (genresText.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = genresText,
-                style = MaterialTheme.typography.labelSmall,
-                color = NuvioTheme.colors.TextTertiary,
-                maxLines = 1,
+                text = meta.name,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
+                color = if (isFocused) Color.White else NuvioTheme.colors.TextPrimary,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+
+            if (genresText.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = genresText,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = NuvioTheme.colors.TextTertiary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
