@@ -753,10 +753,17 @@ class MetaDetailsViewModel @Inject constructor(
 
     private suspend fun tryApplyTmdbFallbackMeta(): Boolean {
         val tmdbId = itemId
-            .takeIf { it.startsWith("tmdb:", ignoreCase = true) }
-            ?.substringAfter(':')
-            ?.substringBefore(':')
-            ?.toIntOrNull()
+            .let { id ->
+                when {
+                    id.startsWith("tmdb:", ignoreCase = true) ->
+                        id.substringAfter(':').substringBefore(':').toIntOrNull()
+                    id.startsWith("tmdb_tv_", ignoreCase = true) ->
+                        id.removePrefix("tmdb_tv_").removePrefix("tmdb_Tv_").toIntOrNull()
+                    id.startsWith("tmdb_movie_", ignoreCase = true) ->
+                        id.removePrefix("tmdb_movie_").removePrefix("tmdb_Movie_").toIntOrNull()
+                    else -> null
+                }
+            }
             ?: return false
         val type = ContentType.fromString(itemType)
         val settings = tmdbSettingsDataStore.settings.first()
@@ -807,13 +814,20 @@ class MetaDetailsViewModel @Inject constructor(
 
     private suspend fun resolveMetaLookupId(itemId: String, itemType: String): String {
         val raw = itemId.trim()
-        if (!raw.startsWith("tmdb:", ignoreCase = true)) return raw
+        val isTmdbFormat = raw.startsWith("tmdb:", ignoreCase = true) ||
+            raw.startsWith("tmdb_tv_", ignoreCase = true) ||
+            raw.startsWith("tmdb_movie_", ignoreCase = true)
+        if (!isTmdbFormat) return raw
 
-        val tmdbNumericId = raw
-            .substringAfter(':', missingDelimiterValue = "")
-            .substringBefore(':')
-            .toIntOrNull()
-            ?: return raw
+        val tmdbNumericId = when {
+            raw.startsWith("tmdb:", ignoreCase = true) ->
+                raw.substringAfter(':', missingDelimiterValue = "").substringBefore(':').toIntOrNull()
+            raw.startsWith("tmdb_tv_", ignoreCase = true) ->
+                raw.removePrefix("tmdb_tv_").removePrefix("tmdb_Tv_").toIntOrNull()
+            raw.startsWith("tmdb_movie_", ignoreCase = true) ->
+                raw.removePrefix("tmdb_movie_").removePrefix("tmdb_Movie_").toIntOrNull()
+            else -> null
+        } ?: return raw
 
         // Use a short timeout so a blocked TMDB API doesn't stall the detail screen.
         return kotlinx.coroutines.withTimeoutOrNull(5_000L) {
