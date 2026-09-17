@@ -47,6 +47,7 @@ import javax.inject.Inject
 class SearchViewModel @Inject constructor(
     private val addonRepository: AddonRepository,
     private val animeAddonRepository: com.nuvio.tv.domain.repository.AnimeAddonRepository,
+    private val extraAddonRepository: com.nuvio.tv.domain.repository.ExtraAddonRepository,
     private val catalogRepository: CatalogRepository,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val searchHistoryDataStore: SearchHistoryDataStore,
@@ -276,7 +277,8 @@ class SearchViewModel @Inject constructor(
 
             val addons = try {
                 addonRepository.getInstalledAddons().first().enabledAddons() +
-                    animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+                    animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons() +
+                    extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()
             } catch (_: Exception) {
                 return@launch
             }
@@ -420,7 +422,8 @@ class SearchViewModel @Inject constructor(
         val job = viewModelScope.launch {
             val addons = try {
                 addonRepository.getInstalledAddons().first().enabledAddons() +
-                    animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+                    animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons() +
+                    extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -725,7 +728,8 @@ class SearchViewModel @Inject constructor(
         _uiState.update { it.copy(discoverLoading = true) }
         val addons = try {
             addonRepository.getInstalledAddons().first().enabledAddons() +
-                animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+                animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons() +
+                extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()
         } catch (_: Exception) {
             _uiState.update { it.copy(discoverInitialized = true, discoverLoading = false) }
             return
