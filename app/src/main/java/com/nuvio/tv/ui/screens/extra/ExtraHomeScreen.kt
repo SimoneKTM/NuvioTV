@@ -676,8 +676,8 @@ private fun ExtraModernHero(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .focusProperties { canFocus = false }
-            .clickable { onOpen() }) {
+            .clickable { onOpen() }
+            .focusProperties { canFocus = false }) {
         val heroMediaModifier = if (fullScreenBackdrop) {
             Modifier
                 .align(Alignment.TopStart)
