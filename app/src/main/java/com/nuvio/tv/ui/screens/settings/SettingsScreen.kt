@@ -2179,7 +2179,8 @@ private fun ExtraLogoPickerDialog(
     com.nuvio.tv.ui.components.NuvioDialog(
         onDismiss = onDismiss,
         title = stringResource(R.string.extra_settings_logo_title),
-        width = 520.dp
+        width = 520.dp,
+        suppressFirstKeyUp = false
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
