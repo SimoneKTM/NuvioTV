@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import javax.inject.Named
 
 data class ExtraHubUiState(
     val extraTabVisible: Boolean = true,
@@ -26,7 +25,7 @@ sealed class ExtraHubEvent {
 
 @HiltViewModel
 class ExtraHubViewModel @Inject constructor(
-    @Named("extra_layout") private val layoutPreferenceDataStore: LayoutPreferenceDataStore
+    private val layoutPreferenceDataStore: LayoutPreferenceDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ExtraHubUiState())
