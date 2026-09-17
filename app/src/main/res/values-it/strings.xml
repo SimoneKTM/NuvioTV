@@ -3231,6 +3231,10 @@
   <string name="extra_settings_plugins_subtitle">Scraper per lo streaming usati per risolvere le fonti</string>
   <string name="extra_settings_show_tab_title">Mostra scheda Extra</string>
   <string name="extra_settings_show_tab_sub">Mostra o nascondi la scheda Extra nella barra laterale</string>
+  <string name="extra_settings_tab_name_title">Nome scheda</string>
+  <string name="extra_settings_tab_name_sub">Personalizza il nome visualizzato nella barra laterale</string>
+  <string name="extra_settings_tab_name_dialog_title">Nome scheda</string>
+  <string name="extra_settings_tab_name_placeholder">Extra</string>
   <string name="extra_settings_integrations_title">Integrazioni</string>
   <string name="extra_settings_integrations_subtitle">Gestisci le integrazioni per la scheda Extra</string>
   <string name="extra_settings_refresh_title">Aggiorna addon</string>

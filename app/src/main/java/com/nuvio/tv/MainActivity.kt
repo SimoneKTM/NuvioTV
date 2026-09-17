@@ -234,7 +234,8 @@ private data class MainUiPrefs(
     val extraTabVisible: Boolean = true,
     val calendarTabVisible: Boolean = true,
     val libraryTabVisible: Boolean = true,
-    val extraTabLogoIndex: Int = 0
+    val extraTabLogoIndex: Int = 0,
+    val extraTabName: String = "Extra"
 )
 
 @AndroidEntryPoint
@@ -493,13 +494,17 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 val extraLogoFlow = layoutPreferenceDataStore.extraTabLogoIndex
+                val extraTabNameFlow = layoutPreferenceDataStore.extraTabName
+                val extraTabExtrasFlow = combine(extraLogoFlow, extraTabNameFlow) { logoIndex, tabName ->
+                    logoIndex to tabName
+                }
                 combine(
                     themeAndExperienceFlow,
                     layoutAndFeaturesFlow,
                     extraFeaturesFlow,
                     layoutPreferenceDataStore.cardDepthStyle,
-                    extraLogoFlow
-                ) { themePrefs, layoutPrefs, extraPrefs, cardDepthStyle, logoIndex ->
+                    extraTabExtrasFlow
+                ) { themePrefs, layoutPrefs, extraPrefs, cardDepthStyle, (logoIndex, tabName) ->
                     themePrefs.copy(
                         hasChosenLayout = layoutPrefs.hasChosenLayout,
                         sidebarCollapsed = layoutPrefs.sidebarCollapsed,
@@ -517,7 +522,8 @@ class MainActivity : ComponentActivity() {
                         extraTabVisible = extraPrefs.extraTabVisible,
                         calendarTabVisible = extraPrefs.calendarTabVisible,
                         libraryTabVisible = extraPrefs.libraryTabVisible,
-                        extraTabLogoIndex = logoIndex
+                        extraTabLogoIndex = logoIndex,
+                        extraTabName = tabName
                     )
                 }
             }
@@ -848,7 +854,7 @@ class MainActivity : ComponentActivity() {
                             add(
                                 DrawerItem(
                                     route = Screen.Extra.route,
-                                    label = strNavExtra,
+                                    label = mainUiPrefs.extraTabName.ifBlank { strNavExtra },
                                     icon = extraLogoIcon
                                 )
                             )

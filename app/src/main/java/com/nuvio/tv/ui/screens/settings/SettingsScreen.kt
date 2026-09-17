@@ -69,6 +69,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -106,6 +107,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import androidx.tv.material3.Button
+import androidx.tv.material3.ButtonDefaults
+import androidx.tv.material3.Card
+import androidx.tv.material3.CardDefaults
+import androidx.tv.material3.Border
 import com.nuvio.tv.BuildConfig
 import com.nuvio.tv.R
 import com.nuvio.tv.core.build.AppFeaturePolicy
@@ -1539,11 +1545,22 @@ private fun ExtraSettingsContent(
                     val extraHubState = rememberLazyListState()
                     val extraHubViewModel: com.nuvio.tv.ui.screens.extra.ExtraHubViewModel = hiltViewModel()
                     val extraHubUiState by extraHubViewModel.uiState.collectAsStateWithLifecycle()
+                    var showTabNameDialog by remember { mutableStateOf(false) }
                     Box(modifier = Modifier.fillMaxSize()) {
                         LazyColumn(
                             state = extraHubState,
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
+                            item(key = "extra_hub_tab_name") {
+                                SettingsActionRow(
+                                    title = stringResource(R.string.extra_settings_tab_name_title),
+                                    subtitle = extraHubUiState.extraTabName,
+                                    value = extraHubUiState.extraTabName,
+                                    onClick = { showTabNameDialog = true },
+                                    leadingIcon = Icons.Default.Edit,
+                                    modifier = Modifier.padding(top = NuvioTheme.spacing.xxs)
+                                )
+                            }
                             item(key = "extra_hub_tab_visibility") {
                                 ToggleSettingsItem(
                                     icon = Icons.Default.Visibility,
@@ -1613,6 +1630,18 @@ private fun ExtraSettingsContent(
                             }
                         }
                         SettingsVerticalScrollIndicators(state = extraHubState)
+                    }
+                    if (showTabNameDialog) {
+                        ExtraTabNameDialog(
+                            currentValue = extraHubUiState.extraTabName,
+                            onSaved = { newName ->
+                                extraHubViewModel.onEvent(
+                                    com.nuvio.tv.ui.screens.extra.ExtraHubEvent.SetExtraTabName(newName)
+                                )
+                                showTabNameDialog = false
+                            },
+                            onDismiss = { showTabNameDialog = false }
+                        )
                     }
                 }
             }
@@ -2030,6 +2059,96 @@ private fun IntegrationSettingsContent(
             OpenSubtitlesSettingsContent(
                 initialFocusRequester = openSubtitlesFocusRequester
             )
+        }
+    }
+}
+
+@Composable
+private fun ExtraTabNameDialog(
+    currentValue: String,
+    onSaved: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var value by remember { mutableStateOf(currentValue) }
+    val inputFocusRequester = remember { FocusRequester() }
+    var isInputFocused by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        runCatching { inputFocusRequester.requestFocus() }
+    }
+
+    com.nuvio.tv.ui.components.NuvioDialog(
+        onDismiss = onDismiss,
+        title = stringResource(R.string.extra_settings_tab_name_dialog_title),
+        width = 520.dp
+    ) {
+        Card(
+            onClick = { inputFocusRequester.requestFocus() },
+            modifier = Modifier.fillMaxWidth().onFocusChanged { isInputFocused = it.isFocused || it.hasFocus },
+            colors = CardDefaults.colors(
+                containerColor = NuvioTheme.colors.BackgroundElevated,
+                focusedContainerColor = NuvioTheme.colors.BackgroundElevated
+            ),
+            border = CardDefaults.border(
+                border = Border(
+                    border = androidx.compose.foundation.BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border),
+                    shape = RoundedCornerShape(10.dp)
+                ),
+                focusedBorder = Border(
+                    border = androidx.compose.foundation.BorderStroke(NuvioTheme.spacing.xxs, NuvioTheme.colors.FocusRing),
+                    shape = RoundedCornerShape(10.dp)
+                )
+            ),
+            shape = CardDefaults.shape(RoundedCornerShape(10.dp)),
+            scale = CardDefaults.scale(focusedScale = 1f)
+        ) {
+            Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = NuvioTheme.spacing.md)) {
+                androidx.compose.foundation.text.BasicTextField(
+                    value = value,
+                    onValueChange = { value = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(inputFocusRequester),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = NuvioTheme.colors.TextPrimary),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(
+                        if (isInputFocused) NuvioTheme.colors.Primary
+                        else androidx.compose.ui.graphics.Color.Transparent
+                    ),
+                    decorationBox = { innerTextField ->
+                        if (value.isBlank()) {
+                            Text(
+                                text = stringResource(R.string.extra_settings_tab_name_placeholder),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = NuvioTheme.colors.TextTertiary
+                            )
+                        }
+                        innerTextField()
+                    }
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.colors(
+                    containerColor = NuvioTheme.colors.BackgroundElevated,
+                    contentColor = NuvioTheme.colors.TextPrimary
+                )
+            ) { Text(stringResource(R.string.action_cancel)) }
+            Spacer(modifier = Modifier.width(NuvioTheme.spacing.sm))
+            Button(
+                onClick = { onSaved(value.ifBlank { "Extra" }) },
+                colors = ButtonDefaults.colors(
+                    containerColor = NuvioTheme.colors.BackgroundCard,
+                    contentColor = NuvioTheme.colors.TextPrimary
+                )
+            ) { Text(stringResource(R.string.action_save)) }
         }
     }
 }

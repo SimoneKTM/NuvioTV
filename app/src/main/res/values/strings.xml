@@ -2436,6 +2436,10 @@
     <string name="extra_settings_plugins_subtitle">Stream scrapers used to resolve sources</string>
     <string name="extra_settings_show_tab_title">Show Extra tab</string>
     <string name="extra_settings_show_tab_sub">Show or hide the Extra tab in the sidebar</string>
+    <string name="extra_settings_tab_name_title">Tab name</string>
+    <string name="extra_settings_tab_name_sub">Customize the name shown in the sidebar</string>
+    <string name="extra_settings_tab_name_dialog_title">Tab name</string>
+    <string name="extra_settings_tab_name_placeholder">Extra</string>
     <string name="extra_settings_integrations_title">Integrations</string>
     <string name="extra_settings_integrations_subtitle">Manage integrations for the Extra tab</string>
     <string name="extra_settings_logo_title">Tab icon</string>

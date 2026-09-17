@@ -15,12 +15,14 @@ import javax.inject.Inject
 
 data class ExtraHubUiState(
     val extraTabVisible: Boolean = true,
-    val extraTabLogoIndex: Int = 0
+    val extraTabLogoIndex: Int = 0,
+    val extraTabName: String = "Extra"
 )
 
 sealed class ExtraHubEvent {
     data class SetExtraTabVisible(val visible: Boolean) : ExtraHubEvent()
     data class SetExtraTabLogoIndex(val index: Int) : ExtraHubEvent()
+    data class SetExtraTabName(val name: String) : ExtraHubEvent()
 }
 
 @HiltViewModel
@@ -50,12 +52,22 @@ class ExtraHubViewModel @Inject constructor(
                     }
                 }
         }
+        viewModelScope.launch {
+            layoutPreferenceDataStore.extraTabName
+                .distinctUntilChanged()
+                .collectLatest { name ->
+                    _uiState.update { state ->
+                        if (state.extraTabName == name) state else state.copy(extraTabName = name)
+                    }
+                }
+        }
     }
 
     fun onEvent(event: ExtraHubEvent) {
         when (event) {
             is ExtraHubEvent.SetExtraTabVisible -> setExtraTabVisible(event.visible)
             is ExtraHubEvent.SetExtraTabLogoIndex -> setExtraTabLogoIndex(event.index)
+            is ExtraHubEvent.SetExtraTabName -> setExtraTabName(event.name)
         }
     }
 
@@ -70,6 +82,13 @@ class ExtraHubViewModel @Inject constructor(
         if (_uiState.value.extraTabLogoIndex == index) return
         viewModelScope.launch {
             layoutPreferenceDataStore.setExtraTabLogoIndex(index)
+        }
+    }
+
+    private fun setExtraTabName(name: String) {
+        if (_uiState.value.extraTabName == name) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setExtraTabName(name)
         }
     }
 }
