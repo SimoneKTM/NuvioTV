@@ -125,7 +125,7 @@ fun CalendarHomeScreen(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 80.dp)
+                    contentPadding = PaddingValues(bottom = 120.dp)
                 ) {
                     if (firstSection != null) {
                         item(key = "hero_header") {
@@ -165,7 +165,7 @@ private fun CalendarHeroSection(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(480.dp)
+            .height(520.dp)
     ) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
@@ -208,7 +208,7 @@ private fun CalendarHeroSection(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = SECTION_PADDING_HORIZONTAL, end = 48.dp, bottom = 16.dp)
+                .padding(start = SECTION_PADDING_HORIZONTAL, end = 48.dp, bottom = 24.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -317,7 +317,7 @@ private fun CalendarSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 24.dp)
+            .padding(top = 28.dp)
             .animateContentSize()
     ) {
         Row(

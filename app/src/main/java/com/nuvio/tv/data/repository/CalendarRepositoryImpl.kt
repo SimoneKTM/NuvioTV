@@ -95,12 +95,13 @@ class CalendarRepositoryImpl @Inject constructor(
                 sortBy = "primary_release_date.asc",
                 releaseDateGte = todayStr,
                 releaseDateLte = nextMonth.format(DateTimeFormatter.ISO_LOCAL_DATE),
-                voteCountGte = 5
+                voteCountGte = 1,
+                voteAverageGte = 0.0
             )
             if (moviesResponse.isSuccessful) {
                 moviesResponse.body()?.results?.forEach { result ->
                     val releaseDate = parseLocalDate(result.releaseDate)
-                    if (releaseDate != null) {
+                    if (releaseDate != null && !releaseDate.isBefore(today)) {
                         allItems.add(
                             CalendarItem(
                                 meta = result.toMetaPreview("movie"),
@@ -122,12 +123,13 @@ class CalendarRepositoryImpl @Inject constructor(
                 sortBy = "first_air_date.asc",
                 firstAirDateGte = todayStr,
                 firstAirDateLte = nextMonth.format(DateTimeFormatter.ISO_LOCAL_DATE),
-                voteCountGte = 5
+                voteCountGte = 1,
+                voteAverageGte = 0.0
             )
             if (tvResponse.isSuccessful) {
                 tvResponse.body()?.results?.forEach { result ->
                     val releaseDate = parseLocalDate(result.firstAirDate)
-                    if (releaseDate != null) {
+                    if (releaseDate != null && !releaseDate.isBefore(today)) {
                         allItems.add(
                             CalendarItem(
                                 meta = result.toMetaPreview("tv"),
@@ -143,8 +145,8 @@ class CalendarRepositoryImpl @Inject constructor(
         }
 
         emit(allItems.filter { item ->
-            val releaseDate = item.releaseDate ?: return@filter true
-            releaseDate.isAfter(today.minusMonths(1))
+            val releaseDate = item.releaseDate ?: return@filter false
+            !releaseDate.isBefore(today)
         })
     }
 
