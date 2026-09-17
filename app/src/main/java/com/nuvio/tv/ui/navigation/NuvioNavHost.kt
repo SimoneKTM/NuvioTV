@@ -1248,7 +1248,7 @@ fun NuvioNavHost(
                 onBackPress = { navController.popBackStack() },
                 headerTitleRes = com.nuvio.tv.R.string.extra_settings_layout_title,
                 headerSubtitleRes = com.nuvio.tv.R.string.extra_settings_layout_subtitle,
-                animeMode = true
+                animeMode = false
             )
         }
 

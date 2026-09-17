@@ -6,13 +6,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,7 +24,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Icon
-import androidx.tv.material3.MaterialTheme
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 data class ExtraLogoOption(
@@ -41,44 +38,54 @@ fun ExtraLogoPicker(
     onOptionSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(5),
-        modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    val columns = 5
+    val rows = options.chunked(columns)
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        itemsIndexed(options) { index, option ->
-            var isFocused by remember { mutableIntStateOf(0) }
-            val isSelected = index == selectedIndex
-            val borderColor = when {
-                isSelected -> NuvioTheme.colors.Primary
-                isFocused > 0 -> NuvioTheme.colors.FocusRing
-                else -> NuvioTheme.colors.Border
-            }
-            val borderWidth = if (isSelected || isFocused > 0) 2.dp else 1.dp
-
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(
-                        if (isSelected) NuvioTheme.colors.Primary.copy(alpha = 0.15f)
-                        else NuvioTheme.colors.Surface
-                    )
-                    .border(borderWidth, borderColor, RoundedCornerShape(12.dp))
-                    .focusable()
-                    .onFocusChanged { isFocused = if (it.isFocused) 1 else 0 }
-                    .clickable { onOptionSelected(index) },
-                contentAlignment = Alignment.Center
+        rows.forEachIndexed { rowIndex, rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(
-                    imageVector = option.icon,
-                    contentDescription = option.name,
-                    tint = if (isSelected) NuvioTheme.colors.Primary
-                    else NuvioTheme.colors.TextSecondary,
-                    modifier = Modifier.size(28.dp)
-                )
+                rowItems.forEachIndexed { colIndex, option ->
+                    val index = rowIndex * columns + colIndex
+                    var isFocused by remember { mutableIntStateOf(0) }
+                    val isSelected = index == selectedIndex
+                    val borderColor = when {
+                        isSelected -> NuvioTheme.colors.Primary
+                        isFocused > 0 -> NuvioTheme.colors.FocusRing
+                        else -> NuvioTheme.colors.Border
+                    }
+                    val borderWidth = if (isSelected || isFocused > 0) 2.dp else 1.dp
+
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (isSelected) NuvioTheme.colors.Primary.copy(alpha = 0.15f)
+                                else NuvioTheme.colors.Surface
+                            )
+                            .border(borderWidth, borderColor, RoundedCornerShape(12.dp))
+                            .focusable()
+                            .onFocusChanged { isFocused = if (it.isFocused) 1 else 0 }
+                            .clickable { onOptionSelected(index) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = option.icon,
+                            contentDescription = option.name,
+                            tint = if (isSelected) NuvioTheme.colors.Primary
+                            else NuvioTheme.colors.TextSecondary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
             }
         }
     }

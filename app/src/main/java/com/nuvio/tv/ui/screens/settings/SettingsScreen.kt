@@ -1670,7 +1670,7 @@ private fun ExtraSettingsContent(
                 } else {
                     null
                 },
-                animeMode = true,
+                animeMode = false,
                 headerTitleRes = R.string.extra_settings_layout_title,
                 headerSubtitleRes = R.string.extra_settings_layout_subtitle
             )
