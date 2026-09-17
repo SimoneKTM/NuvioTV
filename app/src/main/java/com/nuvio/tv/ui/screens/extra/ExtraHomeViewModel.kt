@@ -526,6 +526,14 @@ class ExtraHomeViewModel @Inject constructor(
         }
     }
 
+    fun refreshCatalogs() {
+        val enabled = lastAddons.filter { it.enabled }
+        if (enabled.isEmpty()) return
+        viewModelScope.launch {
+            loadAllCatalogs(enabled)
+        }
+    }
+
     private fun publishRows() {
         val snapshot = synchronized(rows) { rows.values.toList() }
         if (_fullCatalogRows.value != snapshot) {

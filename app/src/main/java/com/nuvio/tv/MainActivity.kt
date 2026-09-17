@@ -59,6 +59,16 @@ import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Rocket
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.VideogameAsset
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -208,7 +218,17 @@ private val extraLogoIcons = listOf(
     Icons.Default.Diamond,
     Icons.Default.Bolt,
     Icons.Default.Rocket,
-    Icons.Default.AutoAwesome
+    Icons.Default.AutoAwesome,
+    Icons.Default.PlayArrow,
+    Icons.Default.Explore,
+    Icons.Default.VideogameAsset,
+    Icons.Default.MusicNote,
+    Icons.Default.Palette,
+    Icons.Default.Cloud,
+    Icons.Default.FileDownload,
+    Icons.Default.Cast,
+    Icons.Default.Extension,
+    Icons.Default.Headphones
 )
 
 private data class MainUiPrefs(

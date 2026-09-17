@@ -66,6 +66,13 @@ import androidx.compose.material.icons.filled.Diamond
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Rocket
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.VideogameAsset
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Cloud
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.Bookmark
@@ -186,7 +193,17 @@ private val extraLogoOptions = listOf(
     ExtraLogoOption("Diamante", Icons.Default.Diamond),
     ExtraLogoOption("Fulmine", Icons.Default.Bolt),
     ExtraLogoOption("Razzo", Icons.Default.Rocket),
-    ExtraLogoOption("Magia", Icons.Default.AutoAwesome)
+    ExtraLogoOption("Magia", Icons.Default.AutoAwesome),
+    ExtraLogoOption("Play", Icons.Default.PlayArrow),
+    ExtraLogoOption("Esplora", Icons.Default.Explore),
+    ExtraLogoOption("Giochi", Icons.Default.VideogameAsset),
+    ExtraLogoOption("Musica", Icons.Default.MusicNote),
+    ExtraLogoOption("Palette", Icons.Default.Palette),
+    ExtraLogoOption("Nuvola", Icons.Default.Cloud),
+    ExtraLogoOption("Download", Icons.Default.FileDownload),
+    ExtraLogoOption("Cast", Icons.Default.Cast),
+    ExtraLogoOption("Estensione", Icons.Default.Extension),
+    ExtraLogoOption("Cuffie", Icons.Default.Headphones)
 )
 
 internal enum class SettingsSectionDestination {

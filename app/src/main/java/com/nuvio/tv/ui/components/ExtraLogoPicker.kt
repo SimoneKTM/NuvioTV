@@ -56,21 +56,24 @@ fun ExtraLogoPicker(
                     val index = rowIndex * columns + colIndex
                     var isFocused by remember { mutableIntStateOf(0) }
                     val isSelected = index == selectedIndex
+                    val isFocusedState = isFocused > 0
                     val borderColor = when {
                         isSelected -> NuvioTheme.colors.Primary
-                        isFocused > 0 -> NuvioTheme.colors.FocusRing
+                        isFocusedState -> NuvioTheme.colors.FocusRing
                         else -> NuvioTheme.colors.Border
                     }
-                    val borderWidth = if (isSelected || isFocused > 0) 2.dp else 1.dp
+                    val borderWidth = if (isSelected || isFocusedState) 2.dp else 1.dp
+                    val bgColor = when {
+                        isSelected -> NuvioTheme.colors.Primary.copy(alpha = 0.15f)
+                        isFocusedState -> NuvioTheme.colors.FocusRing.copy(alpha = 0.12f)
+                        else -> NuvioTheme.colors.Surface
+                    }
 
                     Box(
                         modifier = Modifier
                             .size(64.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                if (isSelected) NuvioTheme.colors.Primary.copy(alpha = 0.15f)
-                                else NuvioTheme.colors.Surface
-                            )
+                            .background(bgColor)
                             .border(borderWidth, borderColor, RoundedCornerShape(12.dp))
                             .focusable()
                             .onFocusChanged { isFocused = if (it.isFocused) 1 else 0 }
@@ -80,8 +83,11 @@ fun ExtraLogoPicker(
                         Icon(
                             imageVector = option.icon,
                             contentDescription = option.name,
-                            tint = if (isSelected) NuvioTheme.colors.Primary
-                            else NuvioTheme.colors.TextSecondary,
+                            tint = when {
+                                isSelected -> NuvioTheme.colors.Primary
+                                isFocusedState -> NuvioTheme.colors.FocusRing
+                                else -> NuvioTheme.colors.TextSecondary
+                            },
                             modifier = Modifier.size(28.dp)
                         )
                     }
