@@ -82,6 +82,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -119,6 +120,7 @@ import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.Border
+import androidx.tv.material3.Icon
 import com.nuvio.tv.BuildConfig
 import com.nuvio.tv.R
 import com.nuvio.tv.core.build.AppFeaturePolicy
@@ -1563,6 +1565,7 @@ private fun ExtraSettingsContent(
                     val extraHubViewModel: com.nuvio.tv.ui.screens.extra.ExtraHubViewModel = hiltViewModel()
                     val extraHubUiState by extraHubViewModel.uiState.collectAsStateWithLifecycle()
                     var showTabNameDialog by remember { mutableStateOf(false) }
+                    var showLogoDialog by remember { mutableStateOf(false) }
                     Box(modifier = Modifier.fillMaxSize()) {
                         LazyColumn(
                             state = extraHubState,
@@ -1592,33 +1595,13 @@ private fun ExtraSettingsContent(
                                 )
                             }
                             item(key = "extra_hub_logo") {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.extra_settings_logo_title),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = NuvioTheme.colors.TextPrimary
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = stringResource(R.string.extra_settings_logo_subtitle),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = NuvioTheme.colors.TextSecondary
-                                    )
-                                    Spacer(modifier = Modifier.height(12.dp))
-                                    ExtraLogoPicker(
-                                        options = extraLogoOptions,
-                                        selectedIndex = extraHubUiState.extraTabLogoIndex,
-                                        onOptionSelected = { index ->
-                                            extraHubViewModel.onEvent(
-                                                com.nuvio.tv.ui.screens.extra.ExtraHubEvent.SetExtraTabLogoIndex(index)
-                                            )
-                                        }
-                                    )
-                                }
+                                val currentIconName = extraLogoOptions.getOrNull(extraHubUiState.extraTabLogoIndex)?.name ?: ""
+                                SettingsActionRow(
+                                    title = stringResource(R.string.extra_settings_logo_title),
+                                    subtitle = currentIconName,
+                                    onClick = { showLogoDialog = true },
+                                    leadingIcon = extraLogoOptions.getOrNull(extraHubUiState.extraTabLogoIndex)?.icon
+                                )
                             }
                             item(key = "extra_hub_content_discovery") {
                                 SettingsActionRow(
@@ -1658,6 +1641,19 @@ private fun ExtraSettingsContent(
                                 showTabNameDialog = false
                             },
                             onDismiss = { showTabNameDialog = false }
+                        )
+                    }
+                    if (showLogoDialog) {
+                        ExtraLogoPickerDialog(
+                            options = extraLogoOptions,
+                            selectedIndex = extraHubUiState.extraTabLogoIndex,
+                            onOptionSelected = { index ->
+                                extraHubViewModel.onEvent(
+                                    com.nuvio.tv.ui.screens.extra.ExtraHubEvent.SetExtraTabLogoIndex(index)
+                                )
+                                showLogoDialog = false
+                            },
+                            onDismiss = { showLogoDialog = false }
                         )
                     }
                 }
@@ -2166,6 +2162,77 @@ private fun ExtraTabNameDialog(
                     contentColor = NuvioTheme.colors.TextPrimary
                 )
             ) { Text(stringResource(R.string.action_save)) }
+        }
+    }
+}
+
+@Composable
+private fun ExtraLogoPickerDialog(
+    options: List<ExtraLogoOption>,
+    selectedIndex: Int,
+    onOptionSelected: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var pendingIndex by remember { mutableIntStateOf(selectedIndex) }
+    val pendingOption = options.getOrNull(pendingIndex)
+
+    com.nuvio.tv.ui.components.NuvioDialog(
+        onDismiss = onDismiss,
+        title = stringResource(R.string.extra_settings_logo_title),
+        width = 520.dp
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            pendingOption?.let { option ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = option.icon,
+                        contentDescription = option.name,
+                        tint = NuvioTheme.colors.Primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = option.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = NuvioTheme.colors.TextPrimary
+                    )
+                }
+            }
+
+            ExtraLogoPicker(
+                options = options,
+                selectedIndex = pendingIndex,
+                onOptionSelected = { pendingIndex = it }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.colors(
+                        containerColor = NuvioTheme.colors.BackgroundElevated,
+                        contentColor = NuvioTheme.colors.TextPrimary
+                    )
+                ) { Text(stringResource(R.string.action_cancel)) }
+                Spacer(modifier = Modifier.width(NuvioTheme.spacing.sm))
+                Button(
+                    onClick = { onOptionSelected(pendingIndex) },
+                    colors = ButtonDefaults.colors(
+                        containerColor = NuvioTheme.colors.BackgroundCard,
+                        contentColor = NuvioTheme.colors.TextPrimary
+                    )
+                ) { Text(stringResource(R.string.action_save)) }
+            }
         }
     }
 }
