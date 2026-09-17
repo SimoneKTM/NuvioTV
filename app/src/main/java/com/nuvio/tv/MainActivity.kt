@@ -843,7 +843,9 @@ class MainActivity : ComponentActivity() {
                         mainUiPrefs.liveTvTabVisible,
                         mainUiPrefs.extraTabVisible,
                         mainUiPrefs.calendarTabVisible,
-                        mainUiPrefs.libraryTabVisible
+                        mainUiPrefs.libraryTabVisible,
+                        mainUiPrefs.extraTabLogoIndex,
+                        mainUiPrefs.extraTabName
                     ) {
                         buildList {
                             add(
