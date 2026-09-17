@@ -14,10 +14,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -38,6 +41,9 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.Alignment
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Border
@@ -48,6 +54,7 @@ import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import androidx.compose.material3.CircularProgressIndicator
 import com.nuvio.tv.R
 import com.nuvio.tv.ui.components.NuvioDialog
 
@@ -235,4 +242,102 @@ private fun maskClientId(key: String, notSetLabel: String): String {
     val trimmed = key.trim()
     if (trimmed.isBlank()) return notSetLabel
     return if (trimmed.length <= 4) "••••" else "••••••${trimmed.takeLast(4)}"
+}
+
+@Composable
+fun ExtraAnimeSkipSettingsContent(
+    viewModel: ExtraAnimeSkipSettingsViewModel = hiltViewModel(),
+    initialFocusRequester: FocusRequester? = null
+) {
+    val clientId by viewModel.clientId.collectAsStateWithLifecycle()
+    val enabled by viewModel.enabled.collectAsStateWithLifecycle()
+    var showDialog by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        SettingsDetailHeader(
+            title = stringResource(R.string.animeskip_title),
+            subtitle = stringResource(R.string.animeskip_subtitle)
+        )
+
+        SettingsGroupCard(
+            modifier = Modifier.fillMaxWidth().weight(1f)
+        ) {
+            val extraAnimeSkipListState = rememberLazyListState()
+            Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                state = extraAnimeSkipListState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = NuvioTheme.spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                item(key = "extra_animeskip_toggle") {
+                    SettingsToggleRow(
+                        title = stringResource(R.string.animeskip_enable_title),
+                        subtitle = stringResource(R.string.animeskip_enable_subtitle),
+                        checked = enabled,
+                        onToggle = { viewModel.setEnabled(!enabled) },
+                        modifier = Modifier
+                            .padding(top = NuvioTheme.spacing.xxs)
+                            .then(
+                                if (initialFocusRequester != null) {
+                                    Modifier.focusRequester(initialFocusRequester)
+                                } else {
+                                    Modifier
+                                }
+                            )
+                    )
+                }
+
+                if (enabled) {
+                    item(key = "extra_animeskip_client_id") {
+                        SettingsActionRow(
+                            title = stringResource(R.string.animeskip_client_id_title),
+                            subtitle = stringResource(R.string.animeskip_client_id_subtitle),
+                            value = maskClientId(clientId, stringResource(R.string.mdblist_not_set)),
+                            onClick = { showDialog = true }
+                        )
+                    }
+                }
+            }
+            SettingsVerticalScrollIndicators(state = extraAnimeSkipListState)
+            }
+        }
+    }
+
+    if (showDialog) {
+        var input by remember { mutableStateOf(clientId) }
+        val validating by viewModel.validating.collectAsStateWithLifecycle()
+        NuvioDialog(
+            onDismiss = { showDialog = false },
+            title = stringResource(R.string.animeskip_client_id_title),
+        ) {
+            Column {
+                BasicTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(NuvioTheme.colors.Surface, RoundedCornerShape(8.dp))
+                        .border(1.dp, NuvioTheme.colors.Border, RoundedCornerShape(8.dp))
+                        .padding(12.dp),
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = NuvioTheme.colors.TextPrimary)
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = {
+                        viewModel.validateAndSave(input) { showDialog = false }
+                    },
+                    enabled = !validating,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    if (validating) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text(stringResource(R.string.action_save))
+                    }
+                }
+            }
+        }
+    }
 }

@@ -2,6 +2,9 @@ package com.nuvio.tv.core.di
 
 import android.content.Context
 import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
+import com.nuvio.tv.data.local.ExtraAnimeSkipSettingsDataStore
+import com.nuvio.tv.data.local.ExtraOpenSubtitlesDirectDataStore
+import com.nuvio.tv.data.local.ExtraTvdbSettingsDataStore
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.data.local.MDBListSettingsDataStore
 import com.nuvio.tv.data.local.ProfileDataStoreFactory
@@ -54,4 +57,27 @@ object ExtraLayoutModule {
         profileManager: ProfileManager
     ): MDBListSettingsDataStore =
         MDBListSettingsDataStore(factory, profileManager, "extra_mdblist_settings")
+
+    @Provides
+    @Singleton
+    fun provideExtraTvdbSettingsDataStore(
+        factory: ProfileDataStoreFactory,
+        profileManager: ProfileManager
+    ): ExtraTvdbSettingsDataStore =
+        ExtraTvdbSettingsDataStore(factory, profileManager)
+
+    @Provides
+    @Singleton
+    fun provideExtraAnimeSkipSettingsDataStore(
+        factory: ProfileDataStoreFactory,
+        profileManager: ProfileManager
+    ): ExtraAnimeSkipSettingsDataStore =
+        ExtraAnimeSkipSettingsDataStore(factory, profileManager)
+
+    @Provides
+    @Singleton
+    fun provideExtraOpenSubtitlesDirectDataStore(
+        @ApplicationContext context: Context
+    ): ExtraOpenSubtitlesDirectDataStore =
+        ExtraOpenSubtitlesDirectDataStore(context)
 }

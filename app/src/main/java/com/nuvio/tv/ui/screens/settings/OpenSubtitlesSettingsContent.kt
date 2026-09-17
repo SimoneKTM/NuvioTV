@@ -380,3 +380,173 @@ private fun OpenSubtitlesLanguagesDialog(
 
 private fun maskSecret(hasValue: Boolean, notSetLabel: String): String =
     if (hasValue) "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" else notSetLabel
+
+@Composable
+fun ExtraOpenSubtitlesSettingsContent(
+    viewModel: ExtraOpenSubtitlesSettingsViewModel = hiltViewModel(),
+    initialFocusRequester: FocusRequester? = null
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showApiKeyDialog by remember { mutableStateOf(false) }
+    var showUsernameDialog by remember { mutableStateOf(false) }
+    var showPasswordDialog by remember { mutableStateOf(false) }
+    var showLanguagesDialog by remember { mutableStateOf(false) }
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        SettingsDetailHeader(
+            title = stringResource(R.string.opensubtitles_title),
+            subtitle = stringResource(R.string.settings_opensubtitles_subtitle)
+        )
+
+        SettingsGroupCard(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        ) {
+            val state = rememberLazyListState()
+            Box(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    state = state,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = NuvioTheme.spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    item(key = "extra_opensubtitles_direct_enable") {
+                        SettingsToggleRow(
+                            title = stringResource(R.string.opensubtitles_direct_enable_title),
+                            subtitle = stringResource(R.string.opensubtitles_direct_enable_subtitle),
+                            checked = uiState.enabledDirect,
+                            onToggle = { viewModel.setDirectEnabled(!uiState.enabledDirect) },
+                            modifier = Modifier
+                                .padding(top = NuvioTheme.spacing.xxs)
+                                .then(
+                                    if (initialFocusRequester != null) {
+                                        Modifier.focusRequester(initialFocusRequester)
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                        )
+                    }
+
+                    if (uiState.enabledDirect && !uiState.hasApiKey) {
+                        item(key = "extra_opensubtitles_direct_api_key_hint") {
+                            Text(
+                                text = stringResource(R.string.opensubtitles_direct_no_api_key_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = NuvioTheme.colors.TextTertiary,
+                                modifier = Modifier.padding(horizontal = NuvioTheme.spacing.md)
+                            )
+                        }
+                    }
+
+                    item(key = "extra_opensubtitles_direct_api_key") {
+                        SettingsActionRow(
+                            leadingIcon = Icons.Default.Key,
+                            title = stringResource(R.string.opensubtitles_api_key_title),
+                            subtitle = stringResource(R.string.opensubtitles_api_key_subtitle),
+                            value = maskSecret(uiState.hasApiKey, stringResource(R.string.opensubtitles_not_set)),
+                            onClick = { showApiKeyDialog = true },
+                            enabled = uiState.enabledDirect
+                        )
+                    }
+
+                    item(key = "extra_opensubtitles_direct_username") {
+                        SettingsActionRow(
+                            leadingIcon = Icons.Default.Person,
+                            title = stringResource(R.string.opensubtitles_username_title),
+                            subtitle = stringResource(R.string.opensubtitles_username_subtitle),
+                            value = uiState.username.ifBlank { stringResource(R.string.opensubtitles_not_set) },
+                            onClick = { showUsernameDialog = true },
+                            enabled = uiState.enabledDirect && uiState.hasApiKey
+                        )
+                    }
+
+                    item(key = "extra_opensubtitles_direct_password") {
+                        SettingsActionRow(
+                            leadingIcon = Icons.Default.Lock,
+                            title = stringResource(R.string.opensubtitles_password_title),
+                            subtitle = stringResource(R.string.opensubtitles_password_subtitle),
+                            value = if (uiState.hasUserCredentials) {
+                                "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+                            } else {
+                                stringResource(R.string.opensubtitles_not_set)
+                            },
+                            onClick = { showPasswordDialog = true },
+                            enabled = uiState.enabledDirect && uiState.hasApiKey
+                        )
+                    }
+
+                    item(key = "extra_opensubtitles_direct_languages") {
+                        SettingsActionRow(
+                            leadingIcon = Icons.Default.Language,
+                            title = stringResource(R.string.opensubtitles_languages_title),
+                            subtitle = stringResource(R.string.opensubtitles_languages_subtitle),
+                            value = if (uiState.languages.isNotEmpty()) {
+                                uiState.languages.sorted().joinToString(", ")
+                            } else {
+                                stringResource(R.string.opensubtitles_not_set)
+                            },
+                            onClick = { showLanguagesDialog = true },
+                            enabled = uiState.enabledDirect && uiState.hasApiKey
+                        )
+                    }
+                }
+                SettingsVerticalScrollIndicators(state = state)
+            }
+        }
+    }
+
+    if (showApiKeyDialog) {
+        OpenSubtitlesTextDialog(
+            title = stringResource(R.string.opensubtitles_api_key_title),
+            currentValue = "",
+            placeholder = stringResource(R.string.opensubtitles_api_key_placeholder),
+            keyboardType = KeyboardType.Text,
+            onSaved = { value ->
+                viewModel.setApiKey(value)
+                showApiKeyDialog = false
+            },
+            onDismiss = { showApiKeyDialog = false }
+        )
+    }
+
+    if (showUsernameDialog) {
+        OpenSubtitlesTextDialog(
+            title = stringResource(R.string.opensubtitles_username_title),
+            currentValue = uiState.username,
+            placeholder = stringResource(R.string.opensubtitles_username_placeholder),
+            keyboardType = KeyboardType.Text,
+            onSaved = { value ->
+                viewModel.setUsername(value)
+                showUsernameDialog = false
+            },
+            onDismiss = { showUsernameDialog = false }
+        )
+    }
+
+    if (showPasswordDialog) {
+        OpenSubtitlesTextDialog(
+            title = stringResource(R.string.opensubtitles_password_title),
+            currentValue = "",
+            placeholder = stringResource(R.string.opensubtitles_password_placeholder),
+            keyboardType = KeyboardType.Password,
+            isPassword = true,
+            onSaved = { value ->
+                viewModel.setPassword(value)
+                showPasswordDialog = false
+            },
+            onDismiss = { showPasswordDialog = false }
+        )
+    }
+
+    if (showLanguagesDialog) {
+        OpenSubtitlesLanguagesDialog(
+            selectedLanguages = uiState.languages,
+            onToggleLanguage = viewModel::toggleLanguage,
+            onDismiss = { showLanguagesDialog = false }
+        )
+    }
+}

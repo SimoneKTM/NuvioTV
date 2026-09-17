@@ -819,6 +819,13 @@
     <string name="tvdb_settings_subtitle">Use TVDB to improve series metadata</string>
     <string name="tvdb_anime_settings_title">TVDB Enrichment</string>
     <string name="tvdb_anime_settings_subtitle">Use TVDB to improve anime metadata</string>
+    <string name="tvdb_extra_settings_title">TVDB Enrichment</string>
+    <string name="tvdb_extra_settings_subtitle">Use TVDB to improve Extra tab metadata</string>
+    <string name="settings_integration_tmdb_subtitle">Metadata enrichment controls</string>
+    <string name="settings_integration_mdblist_subtitle">External ratings providers</string>
+    <string name="settings_integration_tvdb_subtitle">TVDB metadata enrichment</string>
+    <string name="settings_integration_anime_skip_subtitle">Anime intro/outro skip timestamps</string>
+    <string name="settings_integration_opensubtitles_subtitle">Subtitles from OpenSubtitles</string>
     <string name="tvdb_enable_title">Enable TVDB enrichment</string>
     <string name="tvdb_enable_subtitle">Use TVDB as a metadata source to enrich addon data. Add your API key first.</string>
     <string name="tvdb_api_key_title">TVDB API key</string>

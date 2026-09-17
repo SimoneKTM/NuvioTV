@@ -77,6 +77,19 @@ fun AnimeTvdbSettingsContent(
 }
 
 @Composable
+fun ExtraTvdbSettingsContent(
+    viewModel: ExtraTvdbSettingsViewModel = hiltViewModel(),
+    initialFocusRequester: FocusRequester? = null
+) {
+    TvdbSettingsContentShared(
+        controller = viewModel,
+        headerTitleRes = R.string.tvdb_extra_settings_title,
+        headerSubtitleRes = R.string.tvdb_extra_settings_subtitle,
+        initialFocusRequester = initialFocusRequester
+    )
+}
+
+@Composable
 private fun TvdbSettingsContentShared(
     controller: TvdbSettingsController,
     headerTitleRes: Int,

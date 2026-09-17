@@ -182,7 +182,12 @@ private enum class ExtraSettingsSection {
     Hub,
     ContentDiscovery,
     Layout,
-    Integrations
+    Integrations,
+    Tmdb,
+    MdbList,
+    Tvdb,
+    AnimeSkip,
+    OpenSubtitles
 }
 
 private val extraLogoOptions = listOf(
@@ -1530,6 +1535,12 @@ private fun ExtraSettingsContent(
     integrationsFocusRequester: FocusRequester,
     autoFocusEnabled: Boolean
 ) {
+    val extraTmdbFocusRequester = remember { FocusRequester() }
+    val extraMdbListFocusRequester = remember { FocusRequester() }
+    val extraTvdbFocusRequester = remember { FocusRequester() }
+    val extraAnimeSkipFocusRequester = remember { FocusRequester() }
+    val extraOpenSubtitlesFocusRequester = remember { FocusRequester() }
+
     BackHandler(enabled = selectedSection != ExtraSettingsSection.Hub) {
         onSelectSection(ExtraSettingsSection.Hub)
     }
@@ -1542,6 +1553,11 @@ private fun ExtraSettingsContent(
             ExtraSettingsSection.ContentDiscovery -> contentDiscoveryFocusRequester
             ExtraSettingsSection.Layout -> layoutFocusRequester
             ExtraSettingsSection.Integrations -> integrationsFocusRequester
+            ExtraSettingsSection.Tmdb -> extraTmdbFocusRequester
+            ExtraSettingsSection.MdbList -> extraMdbListFocusRequester
+            ExtraSettingsSection.Tvdb -> extraTvdbFocusRequester
+            ExtraSettingsSection.AnimeSkip -> extraAnimeSkipFocusRequester
+            ExtraSettingsSection.OpenSubtitles -> extraOpenSubtitlesFocusRequester
         }
         runCatching { requester.requestFocus() }
     }
@@ -1738,13 +1754,45 @@ private fun ExtraSettingsContent(
                             state = integrationsState,
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            item(key = "extra_integration_plugins") {
+                            item(key = "extra_integration_tmdb") {
                                 SettingsActionRow(
-                                    title = stringResource(R.string.plugin_title),
-                                    subtitle = stringResource(R.string.extra_settings_plugins_subtitle),
-                                    onClick = onNavigateToPlugins,
-                                    leadingIcon = Icons.Default.Build,
+                                    title = "TMDB",
+                                    subtitle = stringResource(R.string.settings_integration_tmdb_subtitle),
+                                    onClick = { onSelectSection(ExtraSettingsSection.Tmdb) },
+                                    leadingIcon = Icons.Default.Cloud,
                                     modifier = Modifier.focusRequester(integrationsFocusRequester)
+                                )
+                            }
+                            item(key = "extra_integration_mdblist") {
+                                SettingsActionRow(
+                                    title = "MDBList",
+                                    subtitle = stringResource(R.string.settings_integration_mdblist_subtitle),
+                                    onClick = { onSelectSection(ExtraSettingsSection.MdbList) },
+                                    leadingIcon = Icons.Default.Star
+                                )
+                            }
+                            item(key = "extra_integration_tvdb") {
+                                SettingsActionRow(
+                                    title = "TVDB",
+                                    subtitle = stringResource(R.string.settings_integration_tvdb_subtitle),
+                                    onClick = { onSelectSection(ExtraSettingsSection.Tvdb) },
+                                    leadingIcon = Icons.Default.LiveTv
+                                )
+                            }
+                            item(key = "extra_integration_animeskip") {
+                                SettingsActionRow(
+                                    title = "Anime-Skip",
+                                    subtitle = stringResource(R.string.settings_integration_anime_skip_subtitle),
+                                    onClick = { onSelectSection(ExtraSettingsSection.AnimeSkip) },
+                                    leadingIcon = Icons.Default.Explore
+                                )
+                            }
+                            item(key = "extra_integration_opensubtitles") {
+                                SettingsActionRow(
+                                    title = "OpenSubtitles",
+                                    subtitle = stringResource(R.string.settings_integration_opensubtitles_subtitle),
+                                    onClick = { onSelectSection(ExtraSettingsSection.OpenSubtitles) },
+                                    leadingIcon = Icons.Default.Extension
                                 )
                             }
                         }
@@ -1752,6 +1800,36 @@ private fun ExtraSettingsContent(
                     }
                 }
             }
+        }
+
+        ExtraSettingsSection.Tmdb -> {
+            ExtraTmdbSettingsContent(
+                initialFocusRequester = extraTmdbFocusRequester
+            )
+        }
+
+        ExtraSettingsSection.MdbList -> {
+            ExtraMDBListSettingsContent(
+                initialFocusRequester = extraMdbListFocusRequester
+            )
+        }
+
+        ExtraSettingsSection.Tvdb -> {
+            ExtraTvdbSettingsContent(
+                initialFocusRequester = extraTvdbFocusRequester
+            )
+        }
+
+        ExtraSettingsSection.AnimeSkip -> {
+            ExtraAnimeSkipSettingsContent(
+                initialFocusRequester = extraAnimeSkipFocusRequester
+            )
+        }
+
+        ExtraSettingsSection.OpenSubtitles -> {
+            ExtraOpenSubtitlesSettingsContent(
+                initialFocusRequester = extraOpenSubtitlesFocusRequester
+            )
         }
     }
 }
@@ -1859,6 +1937,26 @@ private fun AnimeMDBListSettingsContent(
 ) {
     MDBListSettingsContent(
         viewModel = hiltViewModel<AnimeMDBListSettingsViewModel>(),
+        initialFocusRequester = initialFocusRequester
+    )
+}
+
+@Composable
+private fun ExtraTmdbSettingsContent(
+    initialFocusRequester: FocusRequester? = null
+) {
+    TmdbSettingsContent(
+        viewModel = hiltViewModel<ExtraTmdbSettingsViewModel>(),
+        initialFocusRequester = initialFocusRequester
+    )
+}
+
+@Composable
+private fun ExtraMDBListSettingsContent(
+    initialFocusRequester: FocusRequester? = null
+) {
+    MDBListSettingsContent(
+        viewModel = hiltViewModel<ExtraMDBListSettingsViewModel>(),
         initialFocusRequester = initialFocusRequester
     )
 }
