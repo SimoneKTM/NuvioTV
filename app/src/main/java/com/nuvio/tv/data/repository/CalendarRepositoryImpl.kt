@@ -87,108 +87,59 @@ class CalendarRepositoryImpl @Inject constructor(
             Log.e(TAG, "Failed to fetch upcoming shows from Trakt", e)
         }
 
-        // Fetch upcoming movies from Trakt Calendar API
+        // Fetch upcoming movies from TMDB (Trakt calendar/movies returns old films
+        // with original release dates instead of actual upcoming releases)
         try {
-            val moviesResponse = traktApi.getCalendarMovies(
-                startDate = todayStr,
-                days = 30
+            val moviesResponse = tmdbApi.discoverMovies(
+                apiKey = com.nuvio.tv.BuildConfig.TMDB_API_KEY,
+                sortBy = "primary_release_date.asc",
+                releaseDateGte = todayStr,
+                releaseDateLte = nextMonth.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                voteCountGte = 5
             )
             if (moviesResponse.isSuccessful) {
-                moviesResponse.body()?.forEach { item ->
-                    val releaseDate = item.released?.let { parseLocalDate(it) }
-                    val movie = item.movie
-                    if (releaseDate != null && movie != null) {
-                        val tmdbId = movie.ids?.tmdb
-                        val posterUrl = movie.images?.poster?.firstOrNull()?.let { url ->
-                            if (url.startsWith("http")) url else "$POSTER_W342$url"
-                        }
-                        val backdropUrl = movie.images?.fanart?.firstOrNull()?.let { url ->
-                            if (url.startsWith("http")) url else "$BACKDROP_W780$url"
-                        }
-                        val id = if (tmdbId != null) "tmdb_movie_$tmdbId" else "trakt_movie_${movie.ids?.trakt ?: 0}"
-
+                moviesResponse.body()?.results?.forEach { result ->
+                    val releaseDate = parseLocalDate(result.releaseDate)
+                    if (releaseDate != null) {
                         allItems.add(
                             CalendarItem(
-                                meta = MetaPreview(
-                                    id = id,
-                                    type = ContentType.MOVIE,
-                                    rawType = "movie",
-                                    name = movie.title ?: "",
-                                    poster = posterUrl,
-                                    posterShape = PosterShape.POSTER,
-                                    background = backdropUrl,
-                                    logo = null,
-                                    description = movie.overview,
-                                    releaseInfo = movie.year?.toString(),
-                                    imdbRating = movie.rating?.toFloat(),
-                                    genres = movie.genres ?: emptyList(),
-                                    sourceAddonBaseUrl = null
-                                ),
+                                meta = result.toMetaPreview("movie"),
                                 releaseDate = releaseDate,
-                                addonName = "Trakt"
+                                addonName = "TMDB"
                             )
                         )
                     }
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to fetch upcoming movies from Trakt", e)
+            Log.e(TAG, "Failed to fetch upcoming movies from TMDB", e)
         }
 
-        // Fallback to TMDB if Trakt returned no results
-        if (allItems.isEmpty()) {
-            Log.w(TAG, "Trakt calendar returned no items, falling back to TMDB")
-            try {
-                val moviesResponse = tmdbApi.discoverMovies(
-                    apiKey = com.nuvio.tv.BuildConfig.TMDB_API_KEY,
-                    sortBy = "primary_release_date.asc",
-                    releaseDateGte = todayStr,
-                    releaseDateLte = nextMonth.format(DateTimeFormatter.ISO_LOCAL_DATE),
-                    voteCountGte = 5
-                )
-                if (moviesResponse.isSuccessful) {
-                    moviesResponse.body()?.results?.forEach { result ->
-                        val releaseDate = parseLocalDate(result.releaseDate)
-                        if (releaseDate != null) {
-                            allItems.add(
-                                CalendarItem(
-                                    meta = result.toMetaPreview("movie"),
-                                    releaseDate = releaseDate,
-                                    addonName = "TMDB"
-                                )
+        // Fetch upcoming TV from TMDB as well
+        try {
+            val tvResponse = tmdbApi.discoverTv(
+                apiKey = com.nuvio.tv.BuildConfig.TMDB_API_KEY,
+                sortBy = "first_air_date.asc",
+                firstAirDateGte = todayStr,
+                firstAirDateLte = nextMonth.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                voteCountGte = 5
+            )
+            if (tvResponse.isSuccessful) {
+                tvResponse.body()?.results?.forEach { result ->
+                    val releaseDate = parseLocalDate(result.firstAirDate)
+                    if (releaseDate != null) {
+                        allItems.add(
+                            CalendarItem(
+                                meta = result.toMetaPreview("tv"),
+                                releaseDate = releaseDate,
+                                addonName = "TMDB"
                             )
-                        }
+                        )
                     }
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to fetch upcoming movies from TMDB fallback", e)
             }
-
-            try {
-                val tvResponse = tmdbApi.discoverTv(
-                    apiKey = com.nuvio.tv.BuildConfig.TMDB_API_KEY,
-                    sortBy = "first_air_date.asc",
-                    firstAirDateGte = todayStr,
-                    firstAirDateLte = nextMonth.format(DateTimeFormatter.ISO_LOCAL_DATE),
-                    voteCountGte = 5
-                )
-                if (tvResponse.isSuccessful) {
-                    tvResponse.body()?.results?.forEach { result ->
-                        val releaseDate = parseLocalDate(result.firstAirDate)
-                        if (releaseDate != null) {
-                            allItems.add(
-                                CalendarItem(
-                                    meta = result.toMetaPreview("tv"),
-                                    releaseDate = releaseDate,
-                                    addonName = "TMDB"
-                                )
-                            )
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to fetch upcoming TV from TMDB fallback", e)
-            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch upcoming TV from TMDB", e)
         }
 
         emit(allItems)

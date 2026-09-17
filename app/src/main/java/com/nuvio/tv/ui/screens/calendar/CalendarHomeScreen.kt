@@ -283,7 +283,7 @@ private fun CalendarHeroSection(
 
             LazyRow(
                 contentPadding = PaddingValues(end = 48.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 itemsIndexed(
                     items = section.items,
@@ -340,7 +340,7 @@ private fun CalendarSection(
 
         LazyRow(
             contentPadding = PaddingValues(horizontal = SECTION_PADDING_HORIZONTAL),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(
                 items = section.items,
