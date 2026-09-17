@@ -1759,7 +1759,6 @@ private fun ExtraSettingsContent(
                                     title = "TMDB",
                                     subtitle = stringResource(R.string.settings_integration_tmdb_subtitle),
                                     onClick = { onSelectSection(ExtraSettingsSection.Tmdb) },
-                                    leadingIcon = Icons.Default.Cloud,
                                     modifier = Modifier.focusRequester(integrationsFocusRequester)
                                 )
                             }
@@ -1767,32 +1766,28 @@ private fun ExtraSettingsContent(
                                 SettingsActionRow(
                                     title = "MDBList",
                                     subtitle = stringResource(R.string.settings_integration_mdblist_subtitle),
-                                    onClick = { onSelectSection(ExtraSettingsSection.MdbList) },
-                                    leadingIcon = Icons.Default.Star
+                                    onClick = { onSelectSection(ExtraSettingsSection.MdbList) }
                                 )
                             }
                             item(key = "extra_integration_tvdb") {
                                 SettingsActionRow(
                                     title = "TVDB",
                                     subtitle = stringResource(R.string.settings_integration_tvdb_subtitle),
-                                    onClick = { onSelectSection(ExtraSettingsSection.Tvdb) },
-                                    leadingIcon = Icons.Default.LiveTv
+                                    onClick = { onSelectSection(ExtraSettingsSection.Tvdb) }
                                 )
                             }
                             item(key = "extra_integration_animeskip") {
                                 SettingsActionRow(
                                     title = "Anime-Skip",
                                     subtitle = stringResource(R.string.settings_integration_anime_skip_subtitle),
-                                    onClick = { onSelectSection(ExtraSettingsSection.AnimeSkip) },
-                                    leadingIcon = Icons.Default.Explore
+                                    onClick = { onSelectSection(ExtraSettingsSection.AnimeSkip) }
                                 )
                             }
                             item(key = "extra_integration_opensubtitles") {
                                 SettingsActionRow(
                                     title = "OpenSubtitles",
                                     subtitle = stringResource(R.string.settings_integration_opensubtitles_subtitle),
-                                    onClick = { onSelectSection(ExtraSettingsSection.OpenSubtitles) },
-                                    leadingIcon = Icons.Default.Extension
+                                    onClick = { onSelectSection(ExtraSettingsSection.OpenSubtitles) }
                                 )
                             }
                         }

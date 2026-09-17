@@ -3226,8 +3226,8 @@
   <string name="extra_settings_subtitle">Addon, plugin e layout per Extra</string>
   <string name="extra_settings_layout_title">Layout Extra</string>
   <string name="extra_settings_layout_subtitle">Personalizza il layout della scheda Extra</string>
-  <string name="extra_settings_addons_title">Addon</string>
-  <string name="extra_settings_addons_subtitle">Installa e gestisci gli addon per la scheda Extra</string>
+  <string name="extra_settings_addons_title">Contenuti e scoperta</string>
+  <string name="extra_settings_addons_subtitle">Gestisci addon e plugin per la scheda Extra</string>
   <string name="extra_settings_plugins_subtitle">Scraper per lo streaming usati per risolvere le fonti</string>
   <string name="extra_settings_show_tab_title">Mostra scheda Extra</string>
   <string name="extra_settings_show_tab_sub">Mostra o nascondi la scheda Extra nella barra laterale</string>
