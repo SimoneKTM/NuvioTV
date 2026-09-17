@@ -3237,6 +3237,9 @@
   <string name="extra_settings_tab_name_placeholder">Extra</string>
   <string name="extra_settings_integrations_title">Integrazioni</string>
   <string name="extra_settings_integrations_subtitle">Gestisci le integrazioni per la scheda Extra</string>
+  <string name="extra_home_empty_title">Nessun addon configurato per %s</string>
+  <string name="extra_home_empty_subtitle">Aggiungi un addon Extra per riempire questa scheda di contenuti.</string>
+  <string name="extra_home_empty_action">Apri impostazioni Extra</string>
   <string name="extra_settings_refresh_title">Aggiorna addon</string>
   <string name="extra_settings_refreshing">Aggiornamento in corso…</string>
   <string name="extra_settings_refresh_failed">Impossibile aggiornare gli addon. Controlla la connessione e riprova.</string>
@@ -3245,9 +3248,6 @@
   <string name="extra_settings_reorder_subtitle">Cambia l\'ordine degli addon e dei cataloghi della scheda Extra</string>
   <string name="extra_settings_manage_phone_title">Gestisci dal telefono</string>
   <string name="extra_settings_manage_phone_subtitle">Scansiona un codice QR per gestire gli addon dal telefono</string>
-  <string name="extra_home_empty_title">Nessun addon configurato</string>
-  <string name="extra_home_empty_subtitle">Aggiungi un addon per riempire questa scheda con contenuti.</string>
-  <string name="extra_home_empty_action">Apri impostazioni Extra</string>
   <string name="extra_home_no_catalogs_title">Nessun catalogo disponibile</string>
   <string name="extra_home_no_catalogs_subtitle">Gli addon installati non espongono cataloghi home.</string>
   <string name="extra_home_addons_count">%1$d addon attivi</string>

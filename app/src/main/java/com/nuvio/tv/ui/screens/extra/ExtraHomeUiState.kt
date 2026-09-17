@@ -36,7 +36,8 @@ data class ExtraHomeUiState(
     val focusedPosterBackdropExpandEnabled: Boolean = false,
     val focusedPosterBackdropExpandDelaySeconds: Int = 3,
     val focusedPosterBackdropTrailerEnabled: Boolean = false,
-    val focusedPosterBackdropTrailerMuted: Boolean = true
+    val focusedPosterBackdropTrailerMuted: Boolean = true,
+    val extraTabName: String = ""
 )
 
 sealed class ExtraHomeEvent {

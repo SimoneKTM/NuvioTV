@@ -131,6 +131,15 @@ class ExtraHomeViewModel @Inject constructor(
         observeExtraAddons()
         observeExtraContinueWatching()
         observeExtraEnrichmentSettings()
+        observeTabName()
+    }
+
+    private fun observeTabName() {
+        viewModelScope.launch {
+            layoutPreferenceDataStore.extraTabName.collectLatest { name ->
+                _uiState.update { it.copy(extraTabName = name) }
+            }
+        }
     }
 
     private fun observeExtraEnrichmentSettings() {

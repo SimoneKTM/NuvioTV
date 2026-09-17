@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FilterDrama
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -72,6 +73,7 @@ import com.nuvio.tv.ui.components.ContinueWatchingSection
 import com.nuvio.tv.ui.components.GridContinueWatchingSection
 import com.nuvio.tv.ui.components.HeroCarousel
 import com.nuvio.tv.ui.components.LoadingIndicator
+import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.PosterCardStyle
 import com.nuvio.tv.ui.components.rememberPlaceholderShimmerOffsetState
 import com.nuvio.tv.ui.screens.home.ClassicFocusArtwork
@@ -126,11 +128,41 @@ fun ExtraHomeScreen(
             }
 
             uiState.installedAddonsCount == 0 -> {
-                Box(modifier = Modifier.fillMaxSize())
+                val tabName = uiState.extraTabName.ifBlank { stringResource(R.string.nav_extra) }
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    EmptyScreenState(
+                        title = stringResource(R.string.extra_home_empty_title, tabName),
+                        subtitle = stringResource(R.string.extra_home_empty_subtitle),
+                        icon = Icons.Default.Extension
+                    )
+                    Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+                    Button(onClick = onOpenSettings) {
+                        Text(stringResource(R.string.extra_home_empty_action))
+                    }
+                }
             }
 
             rows.isEmpty() -> {
-                Box(modifier = Modifier.fillMaxSize())
+                val tabName = uiState.extraTabName.ifBlank { stringResource(R.string.nav_extra) }
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    EmptyScreenState(
+                        title = stringResource(R.string.extra_home_empty_title, tabName),
+                        subtitle = stringResource(R.string.extra_home_empty_subtitle),
+                        icon = Icons.Default.Extension
+                    )
+                    Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+                    Button(onClick = onOpenSettings) {
+                        Text(stringResource(R.string.extra_home_empty_action))
+                    }
+                }
             }
 
             else -> {

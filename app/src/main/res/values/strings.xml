@@ -2442,6 +2442,9 @@
     <string name="extra_settings_tab_name_placeholder">Extra</string>
     <string name="extra_settings_integrations_title">Integrations</string>
     <string name="extra_settings_integrations_subtitle">Manage integrations for the Extra tab</string>
+    <string name="extra_home_empty_title">No addons configured for %s</string>
+    <string name="extra_home_empty_subtitle">Add an Extra addon to fill this tab with content.</string>
+    <string name="extra_home_empty_action">Open Extra settings</string>
     <string name="extra_settings_logo_title">Tab icon</string>
     <string name="extra_settings_logo_subtitle">Choose the icon to show in the sidebar</string>
     <string name="extra_settings_refresh_title">Update add-ons</string>
@@ -2452,9 +2455,6 @@
     <string name="extra_settings_reorder_subtitle">Changes the order of the add-ons and catalogs of the Extra tab</string>
     <string name="extra_settings_manage_phone_title">Manage from phone</string>
     <string name="extra_settings_manage_phone_subtitle">Scan a QR code to manage add-ons from your phone</string>
-    <string name="extra_home_empty_title">No addons configured</string>
-    <string name="extra_home_empty_subtitle">Add an addon to fill this tab with content.</string>
-    <string name="extra_home_empty_action">Open Extra settings</string>
     <string name="extra_home_no_catalogs_title">No catalogs available</string>
     <string name="extra_home_no_catalogs_subtitle">The installed addons don\'t expose any home catalogs.</string>
     <string name="extra_home_addons_count">%1$d addon(s) active</string>
