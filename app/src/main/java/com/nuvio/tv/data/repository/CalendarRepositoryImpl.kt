@@ -32,26 +32,27 @@ class CalendarRepositoryImpl @Inject constructor(
     override fun getCalendarItems(): Flow<List<CalendarItem>> = flow {
         val today = LocalDate.now()
         val todayStr = today.format(DateTimeFormatter.ISO_LOCAL_DATE)
-        val nextMonth = today.plusMonths(1)
+        val twoMonthsLater = today.plusMonths(2)
+        val twoMonthsLaterStr = twoMonthsLater.format(DateTimeFormatter.ISO_LOCAL_DATE)
 
         val allItems = mutableListOf<CalendarItem>()
 
-        // Fetch upcoming shows from Trakt Calendar API
+        // Fetch upcoming TV episodes from Trakt Calendar API
         try {
             val showsResponse = traktApi.getCalendarShows(
                 startDate = todayStr,
-                days = 30
+                days = 60
             )
             if (showsResponse.isSuccessful) {
                 showsResponse.body()?.forEach { item ->
                     val airDate = item.firstAired?.let { parseTraktDate(it) }
                     val show = item.show
                     val episode = item.episode
-                    if (airDate != null && show != null) {
+                    if (airDate != null && show != null && !airDate.isBefore(today)) {
                         val tmdbId = show.ids?.tmdb
                         val posterUrl = show.images?.poster?.firstOrNull()?.let { url ->
                             if (url.startsWith("http")) url else "$POSTER_W342$url"
-                        } ?: tmdbId?.let { "$POSTER_W342" } // fallback without path
+                        } ?: tmdbId?.let { "$POSTER_W342" }
                         val backdropUrl = show.images?.fanart?.firstOrNull()?.let { url ->
                             if (url.startsWith("http")) url else "$BACKDROP_W780$url"
                         }
@@ -70,7 +71,7 @@ class CalendarRepositoryImpl @Inject constructor(
                                     posterShape = PosterShape.POSTER,
                                     background = backdropUrl,
                                     logo = null,
-                                    description = episode?.title,
+                                    description = episode?.let { ep -> episodeLabel },
                                     releaseInfo = show.year?.toString(),
                                     imdbRating = show.rating?.toFloat(),
                                     genres = show.genres ?: emptyList(),
@@ -87,16 +88,13 @@ class CalendarRepositoryImpl @Inject constructor(
             Log.e(TAG, "Failed to fetch upcoming shows from Trakt", e)
         }
 
-        // Fetch upcoming movies from TMDB (Trakt calendar/movies returns old films
-        // with original release dates instead of actual upcoming releases)
+        // Fetch upcoming movies from TMDB discover
         try {
             val moviesResponse = tmdbApi.discoverMovies(
                 apiKey = com.nuvio.tv.BuildConfig.TMDB_API_KEY,
                 sortBy = "primary_release_date.asc",
                 releaseDateGte = todayStr,
-                releaseDateLte = nextMonth.format(DateTimeFormatter.ISO_LOCAL_DATE),
-                voteCountGte = 1,
-                voteAverageGte = 0.0
+                releaseDateLte = twoMonthsLaterStr
             )
             if (moviesResponse.isSuccessful) {
                 moviesResponse.body()?.results?.forEach { result ->
@@ -116,15 +114,13 @@ class CalendarRepositoryImpl @Inject constructor(
             Log.e(TAG, "Failed to fetch upcoming movies from TMDB", e)
         }
 
-        // Fetch upcoming TV from TMDB as well
+        // Fetch upcoming TV premieres from TMDB discover
         try {
             val tvResponse = tmdbApi.discoverTv(
                 apiKey = com.nuvio.tv.BuildConfig.TMDB_API_KEY,
                 sortBy = "first_air_date.asc",
                 firstAirDateGte = todayStr,
-                firstAirDateLte = nextMonth.format(DateTimeFormatter.ISO_LOCAL_DATE),
-                voteCountGte = 1,
-                voteAverageGte = 0.0
+                firstAirDateLte = twoMonthsLaterStr
             )
             if (tvResponse.isSuccessful) {
                 tvResponse.body()?.results?.forEach { result ->
