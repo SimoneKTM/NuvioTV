@@ -57,8 +57,8 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val CARD_WIDTH = 130.dp
-private val CARD_HEIGHT = 195.dp
+private val CARD_WIDTH = 120.dp
+private val CARD_HEIGHT = 180.dp
 private val WIDE_CARD_WIDTH = 260.dp
 private val WIDE_CARD_HEIGHT = 146.dp
 private val SECTION_PADDING_HORIZONTAL = 52.dp

@@ -142,7 +142,10 @@ class CalendarRepositoryImpl @Inject constructor(
             Log.e(TAG, "Failed to fetch upcoming TV from TMDB", e)
         }
 
-        emit(allItems)
+        emit(allItems.filter { item ->
+            val releaseDate = item.releaseDate ?: return@filter true
+            releaseDate.isAfter(today.minusMonths(1))
+        })
     }
 
     private fun parseLocalDate(dateStr: String?): LocalDate? {
