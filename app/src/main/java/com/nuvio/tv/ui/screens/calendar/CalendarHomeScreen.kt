@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -166,6 +167,7 @@ private fun CalendarHeroSection(
         modifier = Modifier
             .fillMaxWidth()
             .height(520.dp)
+            .clipToBounds()
     ) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
@@ -519,7 +521,9 @@ private fun CalendarPortraitCard(
             )
         )
     ) {
-        Column {
+        Column(
+            modifier = Modifier.width(CARD_WIDTH)
+        ) {
             Box(
                 modifier = Modifier
                     .width(CARD_WIDTH)

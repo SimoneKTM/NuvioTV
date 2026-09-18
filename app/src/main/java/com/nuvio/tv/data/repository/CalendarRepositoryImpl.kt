@@ -88,13 +88,14 @@ class CalendarRepositoryImpl @Inject constructor(
             Log.e(TAG, "Failed to fetch upcoming shows from Trakt", e)
         }
 
-        // Fetch upcoming movies from TMDB discover
+        // Fetch upcoming movies from TMDB discover (sorted by popularity)
         try {
             val moviesResponse = tmdbApi.discoverMovies(
                 apiKey = com.nuvio.tv.BuildConfig.TMDB_API_KEY,
-                sortBy = "primary_release_date.asc",
+                sortBy = "popularity.desc",
                 releaseDateGte = todayStr,
-                releaseDateLte = twoMonthsLaterStr
+                releaseDateLte = twoMonthsLaterStr,
+                voteCountGte = 50
             )
             if (moviesResponse.isSuccessful) {
                 moviesResponse.body()?.results?.forEach { result ->
@@ -114,13 +115,14 @@ class CalendarRepositoryImpl @Inject constructor(
             Log.e(TAG, "Failed to fetch upcoming movies from TMDB", e)
         }
 
-        // Fetch upcoming TV premieres from TMDB discover
+        // Fetch upcoming TV premieres from TMDB discover (sorted by popularity)
         try {
             val tvResponse = tmdbApi.discoverTv(
                 apiKey = com.nuvio.tv.BuildConfig.TMDB_API_KEY,
-                sortBy = "first_air_date.asc",
+                sortBy = "popularity.desc",
                 firstAirDateGte = todayStr,
-                firstAirDateLte = twoMonthsLaterStr
+                firstAirDateLte = twoMonthsLaterStr,
+                voteCountGte = 50
             )
             if (tvResponse.isSuccessful) {
                 tvResponse.body()?.results?.forEach { result ->
