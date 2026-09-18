@@ -1698,7 +1698,7 @@ private fun ExtraSettingsContent(
                         ) {
                             item(key = "extra_content_discovery_addons") {
                                 SettingsActionRow(
-                                    title = stringResource(R.string.extra_settings_addons_title),
+                                    title = stringResource(R.string.extra_settings_inner_addons_title),
                                     subtitle = stringResource(R.string.extra_settings_addons_subtitle),
                                     onClick = onNavigateToExtraAddons,
                                     leadingIcon = Icons.Default.Extension,

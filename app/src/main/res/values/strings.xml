@@ -2440,6 +2440,7 @@
     <string name="extra_settings_layout_subtitle">Customize the Extra tab layout</string>
     <string name="extra_settings_addons_title">Content &amp; Discovery</string>
     <string name="extra_settings_addons_subtitle">Manage add-ons and plugins for the Extra tab</string>
+    <string name="extra_settings_inner_addons_title">Addons</string>
     <string name="extra_settings_plugins_subtitle">Stream scrapers used to resolve sources</string>
     <string name="extra_settings_show_tab_title">Show Extra tab</string>
     <string name="extra_settings_show_tab_sub">Show or hide the Extra tab in the sidebar</string>

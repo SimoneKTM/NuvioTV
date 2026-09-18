@@ -85,9 +85,9 @@ fun ExtraLogoPicker(
                             .clip(RoundedCornerShape(12.dp))
                             .background(bgColor)
                             .border(borderWidth, borderColor, RoundedCornerShape(12.dp))
-                            .focusable()
                             .onFocusChanged { isFocused = if (it.isFocused) 1 else 0 }
-                            .clickable { onOptionSelected(index) },
+                            .clickable { onOptionSelected(index) }
+                            .focusable(),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
