@@ -2343,6 +2343,8 @@
     <string name="discover_empty_no_catalog_subtitle">Choose a discover catalog to browse</string>
     <string name="discover_empty_no_content_title">No content found</string>
     <string name="discover_empty_no_content_subtitle">Try a different genre or catalog</string>
+    <string name="discover_error_title">Failed to load content</string>
+    <string name="discover_error_subtitle">Check your connection and try again</string>
 
     <!-- AddonManagerScreen -->
 

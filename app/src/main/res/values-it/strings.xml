@@ -1424,6 +1424,8 @@
 <string name="discover_empty_no_catalog_subtitle">Scegli un catalogo da sfogliare</string>
 <string name="discover_empty_no_content_title">Nessun contenuto trovato</string>
 <string name="discover_empty_no_content_subtitle">Prova un genere o un catalogo differente</string>
+<string name="discover_error_title">Impossibile caricare i contenuti</string>
+<string name="discover_error_subtitle">Controlla la connessione e riprova</string>
 
     <!-- AddonManagerScreen -->
 <string name="addon_confirm_total_addons">Totale addon: %1$d</string>

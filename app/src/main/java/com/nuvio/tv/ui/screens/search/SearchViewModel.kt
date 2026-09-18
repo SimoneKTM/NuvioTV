@@ -736,8 +736,10 @@ class SearchViewModel @Inject constructor(
         val discoverCatalogs = addons.flatMap { addon ->
             addon.catalogs
                 .filter { catalog ->
-                    !(catalog.supportsExtra("search") &&
-                        catalog.extra.any { it.name.equals("search", ignoreCase = true) && it.isRequired })
+                    val hasUnsupportedRequired = catalog.extra.any { prop ->
+                        prop.isRequired && !prop.name.equals("genre", ignoreCase = true)
+                    }
+                    !hasUnsupportedRequired
                 }
                 .map { catalog ->
                     val genres = catalog.extra
@@ -887,7 +889,8 @@ class SearchViewModel @Inject constructor(
                         discoverResults = emptyList(),
                         pendingDiscoverResults = emptyList(),
                         discoverPage = 1,
-                        discoverHasMore = true
+                        discoverHasMore = true,
+                        discoverError = null
                     )
                 }
             } else {
@@ -966,7 +969,8 @@ class SearchViewModel @Inject constructor(
                             it.copy(
                                 discoverLoading = false,
                                 discoverLoadingMore = false,
-                                discoverHasMore = false
+                                discoverHasMore = false,
+                                discoverError = result.message ?: "Unknown error"
                             )
                         }
                     }

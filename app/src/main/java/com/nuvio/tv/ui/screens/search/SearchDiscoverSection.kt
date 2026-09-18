@@ -272,6 +272,14 @@ internal fun DiscoverSection(
                 )
             }
 
+            uiState.discoverError != null && !uiState.discoverLoading -> {
+                EmptyScreenState(
+                    title = stringResource(R.string.discover_error_title),
+                    subtitle = stringResource(R.string.discover_error_subtitle),
+                    icon = Icons.Default.Search
+                )
+            }
+
             uiState.discoverInitialized && !uiState.discoverLoading && selectedCatalog != null -> {
                 EmptyScreenState(
                     title = stringResource(R.string.discover_empty_no_content_title),

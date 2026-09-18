@@ -40,6 +40,7 @@ data class SearchUiState(
     val pendingDiscoverResults: List<MetaPreview> = emptyList(),
     val discoverHasMore: Boolean = true,
     val discoverPage: Int = 1,
+    val discoverError: String? = null,
     val posterLabelsEnabled: Boolean = true,
     val catalogAddonNameEnabled: Boolean = false,
     val catalogTypeSuffixEnabled: Boolean = true,
