@@ -275,11 +275,11 @@ class SearchViewModel @Inject constructor(
         suggestionJob = viewModelScope.launch {
             kotlinx.coroutines.delay(SUGGESTION_DEBOUNCE_MS)
 
-            val addons = try {
-                addonRepository.getInstalledAddons().first().enabledAddons() +
-                    animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons() +
-                    extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()
-            } catch (_: Exception) {
+            val addons = mutableListOf<Addon>()
+            try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
+            try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
+            try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+            if (addons.isEmpty()) {
                 return@launch
             }
 
@@ -420,15 +420,13 @@ class SearchViewModel @Inject constructor(
         activeSearchQuery = query
 
         val job = viewModelScope.launch {
-            val addons = try {
-                addonRepository.getInstalledAddons().first().enabledAddons() +
-                    animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons() +
-                    extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
+            val addons = mutableListOf<Addon>()
+            try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
+            try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
+            try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+            if (addons.isEmpty()) {
                 if (generation == searchGeneration && activeSearchQuery == query) {
-                    _uiState.update { it.copy(isSearching = false, error = e.message ?: context.getString(com.nuvio.tv.R.string.search_error_load_addons_failed)) }
+                    _uiState.update { it.copy(isSearching = false, error = context.getString(com.nuvio.tv.R.string.search_error_load_addons_failed)) }
                 }
                 return@launch
             }
@@ -726,11 +724,11 @@ class SearchViewModel @Inject constructor(
     private suspend fun loadDiscoverCatalogs() {
         if (_uiState.value.discoverLocation == DiscoverLocation.OFF) return
         _uiState.update { it.copy(discoverLoading = true) }
-        val addons = try {
-            addonRepository.getInstalledAddons().first().enabledAddons() +
-                animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons() +
-                extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()
-        } catch (_: Exception) {
+        val addons = mutableListOf<Addon>()
+        try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
+        try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
+        try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+        if (addons.isEmpty()) {
             _uiState.update { it.copy(discoverInitialized = true, discoverLoading = false) }
             return
         }
@@ -761,16 +759,9 @@ class SearchViewModel @Inject constructor(
                 }
         }
             .filter { catalog ->
-                val addonIdLower = catalog.addonId.lowercase()
-                val addonNameLower = catalog.addonName.lowercase()
-                val isTmdb = addonIdLower == "tmdb" ||
-                    addonIdLower.contains("tmdb") ||
-                    addonNameLower.contains("tmdb") ||
-                    addonNameLower.contains("the movie database")
-                val isKnownType = catalog.type in listOf("movie", "series", "tv", "anime")
-                !isTmdb && isKnownType
+                catalog.type in listOf("movie", "series", "tv", "anime")
             }
-            .distinctBy { it.catalogName to it.type }
+            .distinctBy { it.key }
 
         val availableTypes = discoverCatalogs.map { it.type }.distinct()
         val currentType = _uiState.value.selectedDiscoverType
