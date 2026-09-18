@@ -864,13 +864,6 @@ class MainActivity : ComponentActivity() {
                                 )
                             )
                             }
-                            add(
-                                DrawerItem(
-                                    route = Screen.Search.route,
-                                    label = strNavSearch,
-                                    iconRes = R.raw.sidebar_search
-                                )
-                            )
                             if (mainUiPrefs.extraTabVisible) {
                             val extraLogoIcon = extraLogoIcons[mainUiPrefs.extraTabLogoIndex.coerceIn(0, extraLogoIcons.lastIndex)]
                             add(
@@ -881,6 +874,13 @@ class MainActivity : ComponentActivity() {
                                 )
                             )
                             }
+                            add(
+                                DrawerItem(
+                                    route = Screen.Search.route,
+                                    label = strNavSearch,
+                                    iconRes = R.raw.sidebar_search
+                                )
+                            )
                             if (mainUiPrefs.libraryTabVisible) {
                             add(
                                 DrawerItem(

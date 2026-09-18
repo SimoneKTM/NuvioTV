@@ -95,7 +95,7 @@ class CalendarRepositoryImpl @Inject constructor(
                 sortBy = "popularity.desc",
                 releaseDateGte = todayStr,
                 releaseDateLte = twoMonthsLaterStr,
-                voteCountGte = 50
+                voteCountGte = 10
             )
             if (moviesResponse.isSuccessful) {
                 moviesResponse.body()?.results?.forEach { result ->
@@ -122,7 +122,7 @@ class CalendarRepositoryImpl @Inject constructor(
                 sortBy = "popularity.desc",
                 firstAirDateGte = todayStr,
                 firstAirDateLte = twoMonthsLaterStr,
-                voteCountGte = 50
+                voteCountGte = 10
             )
             if (tvResponse.isSuccessful) {
                 tvResponse.body()?.results?.forEach { result ->
