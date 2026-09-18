@@ -53,6 +53,7 @@ data class DiscoverCatalog(
     val addonBaseUrl: String,
     val catalogId: String,
     val catalogName: String,
+    val apiType: String,
     val type: String,
     val genres: List<String>,
     val supportsSkip: Boolean,

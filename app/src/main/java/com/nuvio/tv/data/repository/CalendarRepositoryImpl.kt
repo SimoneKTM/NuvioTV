@@ -97,21 +97,27 @@ class CalendarRepositoryImpl @Inject constructor(
             }
             try { allItems.addAll(netflixMoviesDeferred.await()) } catch (e: Exception) {
                 Log.e(TAG, "Netflix movies failed", e)
+                sourceErrors.add("Netflix Film: ${e.localizedMessage}")
             }
             try { allItems.addAll(netflixTvDeferred.await()) } catch (e: Exception) {
                 Log.e(TAG, "Netflix TV failed", e)
+                sourceErrors.add("Netflix TV: ${e.localizedMessage}")
             }
             try { allItems.addAll(primeMoviesDeferred.await()) } catch (e: Exception) {
                 Log.e(TAG, "Prime movies failed", e)
+                sourceErrors.add("Prime Film: ${e.localizedMessage}")
             }
             try { allItems.addAll(primeTvDeferred.await()) } catch (e: Exception) {
                 Log.e(TAG, "Prime TV failed", e)
+                sourceErrors.add("Prime TV: ${e.localizedMessage}")
             }
             try { allItems.addAll(disneyMoviesDeferred.await()) } catch (e: Exception) {
                 Log.e(TAG, "Disney movies failed", e)
+                sourceErrors.add("Disney+ Film: ${e.localizedMessage}")
             }
             try { allItems.addAll(disneyTvDeferred.await()) } catch (e: Exception) {
                 Log.e(TAG, "Disney TV failed", e)
+                sourceErrors.add("Disney+ TV: ${e.localizedMessage}")
             }
             try { allItems.addAll(cinemaDeferred.await()) } catch (e: Exception) {
                 Log.e(TAG, "ComingSoon failed", e)
@@ -210,8 +216,7 @@ class CalendarRepositoryImpl @Inject constructor(
                     watchRegion = "IT",
                     withWatchMonetizationTypes = "flatrate",
                     releaseDateGte = dateFrom,
-                    releaseDateLte = dateTo,
-                    voteCountGte = 1
+                    releaseDateLte = dateTo
                 )
                 if (response.isSuccessful) {
                     response.body()?.results?.forEach { result ->
@@ -239,10 +244,8 @@ class CalendarRepositoryImpl @Inject constructor(
                     sortBy = "first_air_date.asc",
                     withWatchProviders = providerId.toString(),
                     watchRegion = "IT",
-                    withWatchMonetizationTypes = "flatrate",
                     firstAirDateGte = dateFrom,
-                    firstAirDateLte = dateTo,
-                    voteCountGte = 1
+                    firstAirDateLte = dateTo
                 )
                 if (response.isSuccessful) {
                     response.body()?.results?.forEach { result ->
