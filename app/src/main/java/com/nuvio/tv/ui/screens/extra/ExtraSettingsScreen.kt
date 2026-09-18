@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.runtime.Composable
@@ -27,7 +26,6 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 @Composable
 fun ExtraSettingsScreen(
     onBackPress: () -> Unit,
-    onNavigateToExtraLayout: () -> Unit,
     onNavigateToExtraAddons: () -> Unit,
     onNavigateToPlugins: () -> Unit
 ) {
@@ -49,17 +47,6 @@ fun ExtraSettingsScreen(
                     text = stringResource(R.string.extra_settings_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = NuvioTheme.colors.TextSecondary
-                )
-            }
-        }
-
-        item(key = "layout") {
-            SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
-                SettingsActionRow(
-                    title = stringResource(R.string.extra_settings_layout_title),
-                    subtitle = stringResource(R.string.extra_settings_layout_subtitle),
-                    onClick = onNavigateToExtraLayout,
-                    leadingIcon = Icons.Default.GridView
                 )
             }
         }

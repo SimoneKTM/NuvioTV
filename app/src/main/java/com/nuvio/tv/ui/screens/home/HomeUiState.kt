@@ -111,7 +111,8 @@ data class NextUpInfo(
     val isNewSeasonRelease: Boolean = false,
     val seedSeason: Int? = null,
     val seedEpisode: Int? = null,
-    val contentLanguage: String? = null
+    val contentLanguage: String? = null,
+    val addonBaseUrl: String? = null
 )
 
 @Immutable

@@ -10,6 +10,7 @@ import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.AddonResource
 import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.R
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,7 +31,8 @@ import javax.inject.Singleton
 class MetaRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val api: AddonApi,
-    private val addonRepository: AddonRepository
+    private val addonRepository: AddonRepository,
+    private val extraAddonRepository: ExtraAddonRepository
 ) : MetaRepository {
     companion object {
         private const val TAG = "MetaRepository"
@@ -115,7 +117,9 @@ class MetaRepositoryImpl @Inject constructor(
 
         emit(NetworkResult.Loading)
 
-        val addons = addonRepository.getInstalledAddons().first()
+        val regularAddons = addonRepository.getInstalledAddons().first()
+        val extraAddons = extraAddonRepository.getInstalledExtraAddons().first()
+        val addons = regularAddons + extraAddons
 
         val requestedType = type.trim()
         val inferredType = inferCanonicalType(requestedType, id)
@@ -257,7 +261,9 @@ class MetaRepositoryImpl @Inject constructor(
 
         emit(NetworkResult.Loading)
 
-        val addons = addonRepository.getInstalledAddons().first()
+        val regularAddons = addonRepository.getInstalledAddons().first()
+        val extraAddons = extraAddonRepository.getInstalledExtraAddons().first()
+        val addons = regularAddons + extraAddons
         val requestedType = type.trim()
         val inferredType = inferCanonicalType(requestedType, id)
         val candidate = selectPrimaryMetaCandidate(

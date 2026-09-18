@@ -35,6 +35,7 @@ import com.nuvio.tv.domain.model.TraktCommentReview
 import com.nuvio.tv.domain.model.Video
 import com.nuvio.tv.domain.model.WatchProgress
 import com.nuvio.tv.domain.repository.AnimeAddonRepository
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import com.nuvio.tv.domain.repository.LibraryRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.domain.repository.WatchProgressRepository
@@ -101,7 +102,9 @@ class MetaDetailsViewModel @Inject constructor(
     private val traktSettingsDataStore: TraktSettingsDataStore,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     @Named("anime_layout") private val animeLayoutPreferenceDataStore: LayoutPreferenceDataStore,
+    @Named("extra_layout") private val extraLayoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val animeAddonRepository: AnimeAddonRepository,
+    private val extraAddonRepository: ExtraAddonRepository,
     private val playerSettingsDataStore: PlayerSettingsDataStore,
     private val watchedSeriesStateHolder: com.nuvio.tv.data.local.WatchedSeriesStateHolder,
     val posterOptions: com.nuvio.tv.ui.components.posteroptions.PosterOptionsController,
@@ -156,13 +159,30 @@ class MetaDetailsViewModel @Inject constructor(
      */
     private val animeLayoutActive = MutableStateFlow(false)
 
+    /**
+     * True when the item originated from an extra addon: extra layout settings
+     * then override the global layout settings for this detail page.
+     */
+    private val extraLayoutActive = MutableStateFlow(false)
+
     private val activeLayoutDataStore: LayoutPreferenceDataStore
-        get() = if (animeLayoutActive.value) animeLayoutPreferenceDataStore else layoutPreferenceDataStore
+        get() = when {
+            animeLayoutActive.value -> animeLayoutPreferenceDataStore
+            extraLayoutActive.value -> extraLayoutPreferenceDataStore
+            else -> layoutPreferenceDataStore
+        }
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private fun <T> layoutFlow(selector: (LayoutPreferenceDataStore) -> Flow<T>): Flow<T> =
-        animeLayoutActive.flatMapLatest { active ->
-            if (active) selector(animeLayoutPreferenceDataStore) else selector(layoutPreferenceDataStore)
+        animeLayoutActive.flatMapLatest { animeActive ->
+            if (animeActive) {
+                selector(animeLayoutPreferenceDataStore)
+            } else {
+                extraLayoutActive.flatMapLatest { extraActive ->
+                    if (extraActive) selector(extraLayoutPreferenceDataStore)
+                    else selector(layoutPreferenceDataStore)
+                }
+            }
         }
 
     /** Content ID used for watch-progress and watched-items lookups.
@@ -176,6 +196,7 @@ class MetaDetailsViewModel @Inject constructor(
     init {
         posterOptions.bind(viewModelScope)
         observeAnimeLayoutSource()
+        observeExtraLayoutSource()
         observeMetaViewSettings()
         observeTrailerAutoplaySettings()
         observeTraktCommentsAvailability()
@@ -201,6 +222,22 @@ class MetaDetailsViewModel @Inject constructor(
                 .distinctUntilChanged()
                 .collectLatest { active ->
                     animeLayoutActive.value = active
+                }
+        }
+    }
+
+    private fun observeExtraLayoutSource() {
+        viewModelScope.launch {
+            val normalizedSource = preferredAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
+            extraAddonRepository.getInstalledExtraAddons()
+                .map { addons ->
+                    normalizedSource.isNotEmpty() && addons.any { addon ->
+                        addon.baseUrl.trim().trimEnd('/').lowercase() == normalizedSource
+                    }
+                }
+                .distinctUntilChanged()
+                .collectLatest { active ->
+                    extraLayoutActive.value = active
                 }
         }
     }

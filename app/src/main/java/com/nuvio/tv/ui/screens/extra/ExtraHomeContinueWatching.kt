@@ -156,7 +156,8 @@ private suspend fun ExtraHomeViewModel.buildExtraContinueWatching(snapshot: Extr
                 isNewSeasonRelease = cached.isNewSeasonRelease,
                 seedSeason = cached.seedSeason,
                 seedEpisode = cached.seedEpisode,
-                contentLanguage = cached.contentLanguage
+                contentLanguage = cached.contentLanguage,
+                addonBaseUrl = cached.addonBaseUrl
             )
         }
     }
@@ -286,7 +287,8 @@ private suspend fun ExtraHomeViewModel.buildExtraContinueWatching(snapshot: Extr
                 isReleaseAlert = freshIsReleaseAlert,
                 isNewSeasonRelease = freshIsNewSeasonRelease,
                 seedSeason = cached.seedSeason,
-                seedEpisode = cached.seedEpisode
+                seedEpisode = cached.seedEpisode,
+                addonBaseUrl = cached.addonBaseUrl
             )
         )
     }
@@ -503,7 +505,8 @@ private suspend fun ExtraHomeViewModel.buildExtraContinueWatching(snapshot: Extr
                     isReleaseAlert = freshIsReleaseAlert,
                     isNewSeasonRelease = freshIsNewSeasonRelease,
                     seedSeason = cached.seedSeason,
-                    seedEpisode = cached.seedEpisode
+                    seedEpisode = cached.seedEpisode,
+                    addonBaseUrl = cached.addonBaseUrl
                 )
             )
         }
@@ -1164,7 +1167,8 @@ private suspend fun ExtraHomeViewModel.buildExtraNextUpItem(
         isReleaseAlert = releaseState.isReleaseAlert,
         isNewSeasonRelease = releaseState.isNewSeasonRelease,
         seedSeason = progress.season,
-        seedEpisode = progress.episode
+        seedEpisode = progress.episode,
+        addonBaseUrl = progress.addonBaseUrl
     )
     return ContinueWatchingItem.NextUp(info)
 }

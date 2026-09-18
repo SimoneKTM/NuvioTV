@@ -52,6 +52,7 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.CalendarSection
+import com.nuvio.tv.domain.model.CalendarSource
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -128,6 +129,14 @@ fun CalendarHomeScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 120.dp)
                 ) {
+                    item(key = "source_tabs") {
+                        SourceFilterTabs(
+                            sources = uiState.availableSources,
+                            selectedSource = uiState.selectedSource,
+                            onSourceSelected = { viewModel.onEvent(CalendarHomeEvent.OnSourceSelected(it)) }
+                        )
+                    }
+
                     if (firstSection != null) {
                         item(key = "hero_header") {
                             CalendarHeroSection(
@@ -578,6 +587,53 @@ private fun CalendarPortraitCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SourceFilterTabs(
+    sources: List<CalendarSource>,
+    selectedSource: CalendarSource,
+    onSourceSelected: (CalendarSource) -> Unit
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = SECTION_PADDING_HORIZONTAL, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(sources) { source ->
+            val isSelected = source == selectedSource
+            val bgColor = if (isSelected) NuvioTheme.colors.Secondary else Color.Transparent
+            val textColor = if (isSelected) Color.White else NuvioTheme.colors.TextSecondary
+
+            TvCard(
+                onClick = { onSourceSelected(source) },
+                modifier = Modifier.height(36.dp),
+                shape = CardDefaults.shape(shape = RoundedCornerShape(18.dp)),
+                colors = CardDefaults.colors(
+                    containerColor = bgColor,
+                    focusedContainerColor = bgColor
+                ),
+                border = CardDefaults.border(
+                    focusedBorder = Border(
+                        border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),
+                        shape = RoundedCornerShape(18.dp)
+                    )
+                )
+            ) {
+                Box(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = source.displayName,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = textColor
+                    )
+                }
             }
         }
     }

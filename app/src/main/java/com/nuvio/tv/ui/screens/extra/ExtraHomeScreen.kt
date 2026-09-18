@@ -103,6 +103,8 @@ fun ExtraHomeScreen(
     viewModel: ExtraHomeViewModel = hiltViewModel(),
     onNavigateToDetail: (String, String, String) -> Unit,
     onNavigateToSeeAll: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
     onOpenSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -169,9 +171,9 @@ fun ExtraHomeScreen(
                 val onRemoveContinueWatching: (ContinueWatchingItem) -> Unit = viewModel::removeContinueWatching
                 val enrichHeroItem: suspend (MetaPreview) -> MetaPreview? = viewModel::enrichExtraHeroItem
                 when (uiState.homeLayout) {
-                    HomeLayout.MODERN -> ExtraModernContent(uiState = uiState, enrichHeroItem = enrichHeroItem, onNavigateToDetail = onNavigateToDetail, onRemoveContinueWatching = onRemoveContinueWatching, onLoadMoreCatalog = viewModel::loadMoreCatalogItems)
-                    HomeLayout.CLASSIC -> ExtraClassicContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onRemoveContinueWatching = onRemoveContinueWatching)
-                    HomeLayout.GRID -> ExtraGridContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onRemoveContinueWatching = onRemoveContinueWatching)
+                    HomeLayout.MODERN -> ExtraModernContent(uiState = uiState, enrichHeroItem = enrichHeroItem, onNavigateToDetail = onNavigateToDetail, onContinueWatchingClick = onContinueWatchingClick, onRemoveContinueWatching = onRemoveContinueWatching, onLoadMoreCatalog = viewModel::loadMoreCatalogItems)
+                    HomeLayout.CLASSIC -> ExtraClassicContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onContinueWatchingClick = onContinueWatchingClick, onRemoveContinueWatching = onRemoveContinueWatching)
+                    HomeLayout.GRID -> ExtraGridContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onContinueWatchingClick = onContinueWatchingClick, onRemoveContinueWatching = onRemoveContinueWatching)
                 }
             }
         }
@@ -200,6 +202,7 @@ private fun ExtraModernContent(
     uiState: ExtraHomeUiState,
     enrichHeroItem: suspend (MetaPreview) -> MetaPreview?,
     onNavigateToDetail: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit,
     onLoadMoreCatalog: (String, String, String) -> Unit
 ) {
@@ -293,7 +296,7 @@ private fun ExtraModernContent(
                         cornerRadius = uiState.posterCardCornerRadiusDp.dp,
                         blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
                         useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
-                        onItemClick = { item -> handleExtraCwClick(item, onNavigateToDetail) },
+                        onItemClick = { item -> onContinueWatchingClick(item) },
                         onRemoveItem = onRemoveContinueWatching,
                         onItemFocus = { focusedHeroItem = it }
                     )
@@ -310,7 +313,7 @@ private fun ExtraModernContent(
                         cornerRadius = uiState.posterCardCornerRadiusDp.dp,
                         blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
                         useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
-                        onItemClick = { item -> handleExtraCwClick(item, onNavigateToDetail) },
+                        onItemClick = { item -> onContinueWatchingClick(item) },
                         onRemoveItem = onRemoveContinueWatching,
                         onItemFocus = { focusedHeroItem = it }
                     )
@@ -785,6 +788,7 @@ private fun ExtraClassicContent(
     uiState: ExtraHomeUiState,
     onNavigateToDetail: (String, String, String) -> Unit,
     onNavigateToSeeAll: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
 ) {
     var focusedArtwork by remember { mutableStateOf<ClassicFocusArtwork?>(null) }
@@ -827,7 +831,7 @@ private fun ExtraClassicContent(
                 item(key = "extra_continue_watching") {
                     ExtraContinueWatchingRow(
                         uiState = uiState,
-                        onNavigateToDetail = onNavigateToDetail,
+                        onContinueWatchingClick = onContinueWatchingClick,
                         onRemoveItem = onRemoveContinueWatching
                     )
                 }
@@ -864,6 +868,7 @@ private fun ExtraGridContent(
     uiState: ExtraHomeUiState,
     onNavigateToDetail: (String, String, String) -> Unit,
     onNavigateToSeeAll: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
 ) {
     LazyColumn(
@@ -887,7 +892,7 @@ private fun ExtraGridContent(
             item(key = "extra_continue_watching") {
                 ExtraGridContinueWatchingRow(
                     uiState = uiState,
-                    onNavigateToDetail = onNavigateToDetail,
+                    onContinueWatchingClick = onContinueWatchingClick,
                     onRemoveItem = onRemoveContinueWatching
                 )
             }
@@ -1043,13 +1048,13 @@ private fun buildExtraHeroPreview(context: Context, item: MetaPreview): HeroPrev
 @Composable
 private fun ExtraContinueWatchingRow(
     uiState: ExtraHomeUiState,
-    onNavigateToDetail: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
     onRemoveItem: (ContinueWatchingItem) -> Unit
 ) {
     if (uiState.continueWatchingItems.isEmpty() && uiState.upcomingItems.isEmpty()) return
     val (cardWidth, imageHeight) = extraCwCardSize(uiState)
     val onItemClick: (ContinueWatchingItem) -> Unit = { item ->
-        handleExtraCwClick(item, onNavigateToDetail)
+        onContinueWatchingClick(item)
     }
     val cornerRadius = uiState.posterCardCornerRadiusDp.dp
     Column(modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)) {
@@ -1092,12 +1097,12 @@ private fun ExtraContinueWatchingRow(
 @Composable
 private fun ExtraGridContinueWatchingRow(
     uiState: ExtraHomeUiState,
-    onNavigateToDetail: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
     onRemoveItem: (ContinueWatchingItem) -> Unit
 ) {
     if (uiState.continueWatchingItems.isEmpty() && uiState.upcomingItems.isEmpty()) return
     val onItemClick: (ContinueWatchingItem) -> Unit = { item ->
-        handleExtraCwClick(item, onNavigateToDetail)
+        onContinueWatchingClick(item)
     }
     Column(modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)) {
         GridContinueWatchingSection(
@@ -1138,22 +1143,6 @@ private fun extraCwCardSize(uiState: ExtraHomeUiState): Pair<Dp, Dp> {
         ContinueWatchingCardStyle.POSTER -> baseWidth to baseHeight
         ContinueWatchingCardStyle.WIDE -> baseWidth * 2.5f to baseWidth * 2.5f * 0.4f
         ContinueWatchingCardStyle.CARD -> baseWidth * (16f / 9f) to baseWidth
-    }
-}
-
-private fun handleExtraCwClick(
-    item: ContinueWatchingItem,
-    onNavigateToDetail: (String, String, String) -> Unit
-) {
-    when (item) {
-        is ContinueWatchingItem.InProgress ->
-            onNavigateToDetail(
-                item.progress.contentId,
-                item.progress.contentType,
-                item.progress.addonBaseUrl.orEmpty()
-            )
-        is ContinueWatchingItem.NextUp ->
-            onNavigateToDetail(item.info.contentId, item.info.contentType, "")
     }
 }
 

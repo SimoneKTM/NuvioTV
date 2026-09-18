@@ -181,7 +181,6 @@ private enum class AnimeSettingsSection {
 private enum class ExtraSettingsSection {
     Hub,
     ContentDiscovery,
-    Layout,
     Integrations,
     Tmdb,
     MdbList,
@@ -449,7 +448,6 @@ fun SettingsScreen(
     val animeAnimeSkipFocusRequester = remember { FocusRequester() }
     val extraHubFocusRequester = remember { FocusRequester() }
     val extraContentDiscoveryFocusRequester = remember { FocusRequester() }
-    val extraLayoutFocusRequester = remember { FocusRequester() }
     val extraIntegrationsFocusRequester = remember { FocusRequester() }
     var integrationSection by remember { mutableStateOf(IntegrationSettingsSection.Hub) }
     var librarySection by remember { mutableStateOf(LibrarySettingsSection.Hub) }
@@ -717,7 +715,6 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                                 onSelectExtraSection = { extraSection = it },
                                 extraHubFocusRequester = extraHubFocusRequester,
                                 extraContentDiscoveryFocusRequester = extraContentDiscoveryFocusRequester,
-                                extraLayoutFocusRequester = extraLayoutFocusRequester,
                                 extraIntegrationsFocusRequester = extraIntegrationsFocusRequester,
                                 onNavigateToManageProfiles = onNavigateToManageProfiles,
                                 onNavigateToAddons = onNavigateToAddons,
@@ -897,7 +894,6 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                         onSelectExtraSection = { extraSection = it },
                         extraHubFocusRequester = extraHubFocusRequester,
                         extraContentDiscoveryFocusRequester = extraContentDiscoveryFocusRequester,
-                        extraLayoutFocusRequester = extraLayoutFocusRequester,
                         extraIntegrationsFocusRequester = extraIntegrationsFocusRequester,
                         onNavigateToManageProfiles = onNavigateToManageProfiles,
                         onNavigateToAddons = onNavigateToAddons,
@@ -954,7 +950,6 @@ private fun SettingsDetailPane(
     onSelectExtraSection: (ExtraSettingsSection) -> Unit,
     extraHubFocusRequester: FocusRequester,
     extraContentDiscoveryFocusRequester: FocusRequester,
-    extraLayoutFocusRequester: FocusRequester,
     extraIntegrationsFocusRequester: FocusRequester,
     onNavigateToManageProfiles: () -> Unit,
     onNavigateToAddons: () -> Unit,
@@ -1018,7 +1013,6 @@ private fun SettingsDetailPane(
             },
             hubFocusRequester = extraHubFocusRequester,
             contentDiscoveryFocusRequester = extraContentDiscoveryFocusRequester,
-            layoutFocusRequester = extraLayoutFocusRequester,
             integrationsFocusRequester = extraIntegrationsFocusRequester,
             autoFocusEnabled = allowDetailAutofocus
         )
@@ -1531,7 +1525,6 @@ private fun ExtraSettingsContent(
     initialFocusRequester: FocusRequester?,
     hubFocusRequester: FocusRequester,
     contentDiscoveryFocusRequester: FocusRequester,
-    layoutFocusRequester: FocusRequester,
     integrationsFocusRequester: FocusRequester,
     autoFocusEnabled: Boolean
 ) {
@@ -1551,7 +1544,6 @@ private fun ExtraSettingsContent(
         val requester = when (selectedSection) {
             ExtraSettingsSection.Hub -> hubEntryFocusRequester
             ExtraSettingsSection.ContentDiscovery -> contentDiscoveryFocusRequester
-            ExtraSettingsSection.Layout -> layoutFocusRequester
             ExtraSettingsSection.Integrations -> integrationsFocusRequester
             ExtraSettingsSection.Tmdb -> extraTmdbFocusRequester
             ExtraSettingsSection.MdbList -> extraMdbListFocusRequester
@@ -1626,14 +1618,6 @@ private fun ExtraSettingsContent(
                                     onClick = { onSelectSection(ExtraSettingsSection.ContentDiscovery) },
                                     leadingIcon = Icons.Default.Explore,
                                     modifier = Modifier.focusRequester(hubEntryFocusRequester)
-                                )
-                            }
-                            item(key = "extra_hub_layout") {
-                                SettingsActionRow(
-                                    title = stringResource(R.string.extra_settings_layout_title),
-                                    subtitle = stringResource(R.string.extra_settings_layout_subtitle),
-                                    onClick = { onSelectSection(ExtraSettingsSection.Layout) },
-                                    leadingIcon = Icons.Default.GridView
                                 )
                             }
                             item(key = "extra_hub_integrations") {
@@ -1718,20 +1702,6 @@ private fun ExtraSettingsContent(
                     }
                 }
             }
-        }
-
-        ExtraSettingsSection.Layout -> {
-            LayoutSettingsContent(
-                viewModel = hiltViewModel<ExtraLayoutSettingsViewModel>(),
-                initialFocusRequester = if (autoFocusEnabled) {
-                    layoutFocusRequester
-                } else {
-                    null
-                },
-                animeMode = false,
-                headerTitleRes = R.string.extra_settings_layout_title,
-                headerSubtitleRes = R.string.extra_settings_layout_subtitle
-            )
         }
 
         ExtraSettingsSection.Integrations -> {

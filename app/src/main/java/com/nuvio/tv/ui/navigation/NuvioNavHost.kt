@@ -53,6 +53,59 @@ import com.nuvio.tv.ui.screens.profile.ProfileSelectionScreen
 import com.nuvio.tv.ui.screens.tmdb.TmdbEntityBrowseScreen
 import com.nuvio.tv.ui.screens.home.HeroBackdropState
 
+private fun createContinueWatchingRoute(
+    item: ContinueWatchingItem,
+    manualSelection: Boolean = false,
+    startFromBeginning: Boolean = false
+): String {
+    return when (item) {
+        is ContinueWatchingItem.InProgress -> Screen.Stream.createRoute(
+            videoId = item.progress.videoId,
+            contentType = item.progress.contentType,
+            title = item.progress.name,
+            poster = item.progress.poster,
+            backdrop = item.progress.backdrop,
+            logo = item.progress.logo,
+            season = item.progress.season,
+            episode = item.progress.episode,
+            episodeName = item.progress.episodeTitle,
+            genres = null,
+            year = null,
+            contentId = item.progress.contentId,
+            contentName = item.progress.name,
+            runtime = null,
+            manualSelection = manualSelection,
+            returnToDetailOnBack = item.progress.contentType.equals("series", ignoreCase = true),
+            returnToHomeOnBack = true,
+            startFromBeginning = startFromBeginning,
+            contentLanguage = item.contentLanguage,
+            addonBaseUrl = item.progress.addonBaseUrl
+        )
+        is ContinueWatchingItem.NextUp -> Screen.Stream.createRoute(
+            videoId = item.info.videoId,
+            contentType = item.info.contentType,
+            title = item.info.name,
+            poster = item.info.poster,
+            backdrop = item.info.backdrop,
+            logo = item.info.logo,
+            season = item.info.season,
+            episode = item.info.episode,
+            episodeName = item.info.episodeTitle,
+            genres = null,
+            year = null,
+            contentId = item.info.contentId,
+            contentName = item.info.name,
+            runtime = null,
+            manualSelection = manualSelection,
+            returnToDetailOnBack = item.info.contentType.equals("series", ignoreCase = true),
+            returnToHomeOnBack = true,
+            startFromBeginning = startFromBeginning,
+            contentLanguage = item.info.contentLanguage,
+            addonBaseUrl = item.info.addonBaseUrl
+        )
+    }
+}
+
 @Composable
 fun NuvioNavHost(
     navController: NavHostController,
@@ -145,57 +198,6 @@ fun NuvioNavHost(
         }
 
         composable(Screen.Home.route) {
-            fun createContinueWatchingRoute(
-                item: ContinueWatchingItem,
-                manualSelection: Boolean = false,
-                startFromBeginning: Boolean = false
-            ): String {
-                return when (item) {
-                    is ContinueWatchingItem.InProgress -> Screen.Stream.createRoute(
-                        videoId = item.progress.videoId,
-                        contentType = item.progress.contentType,
-                        title = item.progress.name,
-                        poster = item.progress.poster,
-                        backdrop = item.progress.backdrop,
-                        logo = item.progress.logo,
-                        season = item.progress.season,
-                        episode = item.progress.episode,
-                        episodeName = item.progress.episodeTitle,
-                        genres = null,
-                        year = null,
-                        contentId = item.progress.contentId,
-                        contentName = item.progress.name,
-                        runtime = null,
-                        manualSelection = manualSelection,
-                        returnToDetailOnBack = item.progress.contentType.equals("series", ignoreCase = true),
-                        returnToHomeOnBack = true,
-                        startFromBeginning = startFromBeginning,
-                        contentLanguage = item.contentLanguage
-                    )
-                    is ContinueWatchingItem.NextUp -> Screen.Stream.createRoute(
-                        videoId = item.info.videoId,
-                        contentType = item.info.contentType,
-                        title = item.info.name,
-                        poster = item.info.poster,
-                        backdrop = item.info.backdrop,
-                        logo = item.info.logo,
-                        season = item.info.season,
-                        episode = item.info.episode,
-                        episodeName = item.info.episodeTitle,
-                        genres = null,
-                        year = null,
-                        contentId = item.info.contentId,
-                        contentName = item.info.name,
-                        runtime = null,
-                        manualSelection = manualSelection,
-                        returnToDetailOnBack = item.info.contentType.equals("series", ignoreCase = true),
-                        returnToHomeOnBack = true,
-                        startFromBeginning = startFromBeginning,
-                        contentLanguage = item.info.contentLanguage
-                    )
-                }
-            }
-
             HomeScreen(
                 onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
                     val heroBackdrop = HeroBackdropState.consumeAndClear()
@@ -1216,6 +1218,14 @@ fun NuvioNavHost(
                         Screen.CatalogSeeAll.createRoute(catalogId, addonId, type, fromAnime = true)
                     )
                 },
+                onContinueWatchingClick = { item ->
+                    navController.navigate(createContinueWatchingRoute(item))
+                },
+                onContinueWatchingStartFromBeginning = { item ->
+                    navController.navigate(
+                        createContinueWatchingRoute(item, startFromBeginning = true)
+                    )
+                },
                 onOpenSettings = { navController.navigate(Screen.ExtraSettings.route) }
             )
         }
@@ -1223,7 +1233,6 @@ fun NuvioNavHost(
         composable(Screen.ExtraSettings.route) {
             com.nuvio.tv.ui.screens.extra.ExtraSettingsScreen(
                 onBackPress = { navController.popBackStack() },
-                onNavigateToExtraLayout = { navController.navigate(Screen.ExtraLayoutSettings.route) },
                 onNavigateToExtraAddons = { navController.navigate(Screen.ExtraAddonManager.route) },
                 onNavigateToPlugins = { navController.navigate(Screen.Plugins.route) }
             )

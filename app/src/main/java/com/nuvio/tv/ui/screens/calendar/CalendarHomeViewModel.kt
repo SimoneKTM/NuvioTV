@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.domain.model.CalendarItem
 import com.nuvio.tv.domain.model.CalendarSection
+import com.nuvio.tv.domain.model.CalendarSource
 import com.nuvio.tv.domain.repository.CalendarRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,10 +41,14 @@ class CalendarHomeViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 calendarRepository.getCalendarItems().collect { items ->
-                    val sections = groupItemsByPeriod(items)
+                    val sources = items.map { it.source }.distinct().sortedBy { it.ordinal }
+                    val availableSources = listOf(CalendarSource.ALL) + sources
+                    val sections = groupItemsByPeriod(items, _uiState.value.selectedSource)
                     _uiState.update {
                         it.copy(
+                            allItems = items,
                             sections = sections,
+                            availableSources = availableSources,
                             isLoading = false
                         )
                     }
@@ -60,12 +65,21 @@ class CalendarHomeViewModel @Inject constructor(
         }
     }
 
-    private fun groupItemsByPeriod(items: List<CalendarItem>): List<CalendarSection> {
+    private fun groupItemsByPeriod(
+        items: List<CalendarItem>,
+        source: CalendarSource
+    ): List<CalendarSection> {
         val today = LocalDate.now()
+        val filteredItems = if (source == CalendarSource.ALL) {
+            items
+        } else {
+            items.filter { it.source == source }
+        }
+
         val sections = mutableListOf<CalendarSection>()
 
         val thisWeekEnd = today.with(TemporalAdjusters.next(DayOfWeek.SUNDAY))
-        val thisWeekItems = items.filter { item ->
+        val thisWeekItems = filteredItems.filter { item ->
             item.releaseDate != null && !item.releaseDate.isBefore(today) && !item.releaseDate.isAfter(thisWeekEnd)
         }
         if (thisWeekItems.isNotEmpty()) {
@@ -80,7 +94,7 @@ class CalendarHomeViewModel @Inject constructor(
 
         val nextWeekStart = thisWeekEnd.plusDays(1)
         val nextWeekEnd = nextWeekStart.with(TemporalAdjusters.next(DayOfWeek.SUNDAY))
-        val nextWeekItems = items.filter { item ->
+        val nextWeekItems = filteredItems.filter { item ->
             item.releaseDate != null && !item.releaseDate.isBefore(nextWeekStart) && !item.releaseDate.isAfter(nextWeekEnd)
         }
         if (nextWeekItems.isNotEmpty()) {
@@ -93,7 +107,7 @@ class CalendarHomeViewModel @Inject constructor(
             )
         }
 
-        val laterItems = items.filter { item ->
+        val laterItems = filteredItems.filter { item ->
             item.releaseDate != null && item.releaseDate.isAfter(nextWeekEnd)
         }
         if (laterItems.isNotEmpty()) {
@@ -119,6 +133,14 @@ class CalendarHomeViewModel @Inject constructor(
     fun onEvent(event: CalendarHomeEvent) {
         when (event) {
             CalendarHomeEvent.OnRetry -> loadCalendar()
+            is CalendarHomeEvent.OnSourceSelected -> {
+                _uiState.update { state ->
+                    state.copy(
+                        selectedSource = event.source,
+                        sections = groupItemsByPeriod(state.allItems, event.source)
+                    )
+                }
+            }
         }
     }
 }

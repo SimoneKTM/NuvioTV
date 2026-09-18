@@ -1829,7 +1829,8 @@ private suspend fun HomeViewModel.buildNextUpItem(
         isReleaseAlert = releaseState.isReleaseAlert,
         isNewSeasonRelease = releaseState.isNewSeasonRelease,
         seedSeason = progress.season,
-        seedEpisode = progress.episode
+        seedEpisode = progress.episode,
+        addonBaseUrl = progress.addonBaseUrl
     )
     logNextUpDecision(
         "built contentId=${progress.contentId} name=${progress.name} next=${nextUp.season}x${nextUp.episode} " +

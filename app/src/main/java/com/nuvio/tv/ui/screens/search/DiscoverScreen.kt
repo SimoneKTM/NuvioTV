@@ -3,7 +3,6 @@ package com.nuvio.tv.ui.screens.search
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.screens.home.HeroBackdropState
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -32,7 +31,6 @@ import com.nuvio.tv.domain.model.DiscoverLocation
 import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.PosterCardDefaults
 import com.nuvio.tv.ui.components.PosterCardStyle
-import com.nuvio.tv.ui.theme.NuvioColors
 import kotlin.math.roundToInt
 
 @Composable
@@ -45,9 +43,6 @@ fun DiscoverScreen(
     val watchedMovieIds by viewModel.watchedMovieIds.collectAsState()
     val watchedSeriesIds by viewModel.watchedSeriesIds.collectAsState()
     val lifecycleOwner = LocalLifecycleOwner.current
-    val discoverFirstItemFocusRequester = remember { FocusRequester() }
-    var discoverFocusedItemIndex by rememberSaveable { mutableStateOf(0) }
-    var restoreDiscoverFocus by rememberSaveable { mutableStateOf(false) }
     var pendingDiscoverRestoreOnResume by rememberSaveable { mutableStateOf(false) }
 
     val posterCardStyle = remember(uiState.posterCardWidthDp, uiState.posterCardCornerRadiusDp) {
@@ -71,7 +66,6 @@ fun DiscoverScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME && latestPendingDiscoverRestore) {
-                restoreDiscoverFocus = true
                 pendingDiscoverRestoreOnResume = false
             }
         }
@@ -95,31 +89,11 @@ fun DiscoverScreen(
                 posterCardStyle = posterCardStyle,
                 watchedMovieIds = watchedMovieIds,
                 watchedSeriesIds = watchedSeriesIds,
-                focusResults = false,
                 showBuiltInHeader = showBuiltInHeader,
-                firstItemFocusRequester = discoverFirstItemFocusRequester,
-                focusedItemIndex = discoverFocusedItemIndex,
-                shouldRestoreFocusedItem = restoreDiscoverFocus,
-                blockFilterFocus = restoreDiscoverFocus || pendingDiscoverRestoreOnResume,
-                onRestoreFocusedItemHandled = { restoreDiscoverFocus = false },
                 onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
                     pendingDiscoverRestoreOnResume = true
                     onNavigateToDetail(itemId, itemType, addonBaseUrl)
                 },
-                onDiscoverItemFocused = { discoverFocusedItemIndex = it },
-                onSelectType = {
-                    discoverFocusedItemIndex = 0
-                    viewModel.onEvent(SearchEvent.SelectDiscoverType(it))
-                },
-                onSelectCatalog = {
-                    discoverFocusedItemIndex = 0
-                    viewModel.onEvent(SearchEvent.SelectDiscoverCatalog(it))
-                },
-                onSelectGenre = {
-                    discoverFocusedItemIndex = 0
-                    viewModel.onEvent(SearchEvent.SelectDiscoverGenre(it))
-                },
-                onLoadMore = { viewModel.onEvent(SearchEvent.LoadNextDiscoverResults) },
                 onItemLongPress = { item, addonBaseUrl ->
                     viewModel.posterOptions.show(item, addonBaseUrl)
                 },
@@ -133,7 +107,9 @@ fun DiscoverScreen(
             controller = viewModel.posterOptions,
             onNavigateToDetail = { id, type, addonBaseUrl ->
                 pendingDiscoverRestoreOnResume = true
-                val clickedItem = uiState.discoverResults.firstOrNull { it.id == id }
+                val clickedItem = uiState.discoverMovieResults.firstOrNull { it.id == id }
+                    ?: uiState.discoverSeriesResults.firstOrNull { it.id == id }
+                    ?: uiState.discoverAnimeResults.firstOrNull { it.id == id }
                 HeroBackdropState.update(clickedItem?.backdropUrl)
                 onNavigateToDetail(id, type, addonBaseUrl)
             }
