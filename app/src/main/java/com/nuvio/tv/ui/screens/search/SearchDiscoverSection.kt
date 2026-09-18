@@ -67,6 +67,7 @@ internal fun DiscoverSection(
     showBuiltInHeader: Boolean = true,
     onNavigateToDetail: (String, String, String) -> Unit,
     onItemLongPress: (MetaPreview, String) -> Unit = { _, _ -> },
+    onRetry: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val localContext = LocalContext.current
@@ -104,19 +105,37 @@ internal fun DiscoverSection(
             }
 
             uiState.discoverError != null && !uiState.discoverLoading -> {
-                EmptyScreenState(
-                    title = stringResource(R.string.discover_error_title),
-                    subtitle = stringResource(R.string.discover_error_subtitle),
-                    icon = Icons.Default.Search
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    EmptyScreenState(
+                        title = stringResource(R.string.discover_error_title),
+                        subtitle = uiState.discoverError ?: stringResource(R.string.discover_error_subtitle),
+                        icon = Icons.Default.Search
+                    )
+                    androidx.compose.material3.TextButton(onClick = onRetry) {
+                        androidx.compose.material3.Text(text = stringResource(R.string.action_retry))
+                    }
+                }
             }
 
             !hasAnyContent && uiState.discoverInitialized -> {
-                EmptyScreenState(
-                    title = stringResource(R.string.discover_empty_no_content_title),
-                    subtitle = stringResource(R.string.discover_empty_no_content_subtitle),
-                    icon = Icons.Default.Search
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = 28.dp, bottom = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    EmptyScreenState(
+                        title = stringResource(R.string.discover_empty_no_content_title),
+                        subtitle = stringResource(R.string.discover_empty_no_content_subtitle),
+                        icon = Icons.Default.Search
+                    )
+                    androidx.compose.material3.TextButton(onClick = onRetry) {
+                        androidx.compose.material3.Text(text = stringResource(R.string.action_retry))
+                    }
+                }
             }
 
             else -> {

@@ -214,7 +214,6 @@ class CalendarRepositoryImpl @Inject constructor(
                     sortBy = "primary_release_date.asc",
                     withWatchProviders = providerId.toString(),
                     watchRegion = "IT",
-                    withWatchMonetizationTypes = "flatrate",
                     releaseDateGte = dateFrom,
                     releaseDateLte = dateTo
                 )
@@ -237,6 +236,9 @@ class CalendarRepositoryImpl @Inject constructor(
                             )
                         }
                     }
+                    Log.d(TAG, "TMDB $mediaType provider=$providerName: ${items.size} items from ${response.body()?.results?.size ?: 0} results")
+                } else {
+                    Log.w(TAG, "TMDB $mediaType provider=$providerName failed: ${response.code()} ${response.message()}")
                 }
             } else {
                 val response = tmdbApi.discoverTv(
@@ -266,6 +268,9 @@ class CalendarRepositoryImpl @Inject constructor(
                             )
                         }
                     }
+                    Log.d(TAG, "TMDB $mediaType provider=$providerName: ${items.size} items from ${response.body()?.results?.size ?: 0} results")
+                } else {
+                    Log.w(TAG, "TMDB $mediaType provider=$providerName failed: ${response.code()} ${response.message()}")
                 }
             }
         } catch (e: Exception) {

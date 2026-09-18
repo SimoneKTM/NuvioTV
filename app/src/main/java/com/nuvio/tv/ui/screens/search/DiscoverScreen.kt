@@ -97,6 +97,7 @@ fun DiscoverScreen(
                 onItemLongPress = { item, addonBaseUrl ->
                     viewModel.posterOptions.show(item, addonBaseUrl)
                 },
+                onRetry = { viewModel.retryDiscover() },
                 modifier = Modifier.padding(top = NuvioTheme.spacing.lg)
             )
         }

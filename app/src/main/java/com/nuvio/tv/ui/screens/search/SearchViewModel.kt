@@ -189,6 +189,22 @@ class SearchViewModel @Inject constructor(
         viewModelScope.launch { loadDiscoverCatalogs() }
     }
 
+    fun retryDiscover() {
+        val state = _uiState.value
+        if (state.discoverLocation == DiscoverLocation.OFF) return
+        _uiState.update {
+            it.copy(
+                discoverInitialized = false,
+                discoverLoading = false,
+                discoverError = null,
+                discoverMovieResults = emptyList(),
+                discoverSeriesResults = emptyList(),
+                discoverAnimeResults = emptyList()
+            )
+        }
+        viewModelScope.launch { loadDiscoverCatalogs() }
+    }
+
     fun onEvent(event: SearchEvent) {
         when (event) {
             is SearchEvent.QueryChanged -> onQueryChanged(event.query)
@@ -764,12 +780,14 @@ class SearchViewModel @Inject constructor(
         val series = fetchDiscoverCatalogsForType(discoverCatalogs, "series")
         val anime = fetchDiscoverCatalogsForType(discoverCatalogs, "anime")
 
+        val hasAnyContent = movies.isNotEmpty() || series.isNotEmpty() || anime.isNotEmpty()
         _uiState.update {
             it.copy(
                 discoverLoading = false,
                 discoverMovieResults = movies,
                 discoverSeriesResults = series,
-                discoverAnimeResults = anime
+                discoverAnimeResults = anime,
+                discoverError = if (hasAnyContent) null else it.discoverError
             )
         }
     }
@@ -782,6 +800,7 @@ class SearchViewModel @Inject constructor(
         if (typeCatalogs.isEmpty()) return emptyList()
 
         val allResults = java.util.concurrent.ConcurrentHashMap<String, MetaPreview>()
+        val firstError = java.util.concurrent.atomic.AtomicReference<String?>(null)
 
         val jobs = typeCatalogs.map { catalog ->
             viewModelScope.launch {
@@ -798,24 +817,37 @@ class SearchViewModel @Inject constructor(
                         extraArgs = emptyMap(),
                         supportsSkip = catalog.supportsSkip
                     ).collect { result ->
-                        if (result is NetworkResult.Success) {
-                            result.data.items.forEach { item ->
-                                if (_uiState.value.discoverLocation != DiscoverLocation.OFF) {
-                                    allResults["${item.apiType}:${item.id}"] = item
+                        when (result) {
+                            is NetworkResult.Success -> {
+                                result.data.items.forEach { item ->
+                                    if (_uiState.value.discoverLocation != DiscoverLocation.OFF) {
+                                        allResults["${item.apiType}:${item.id}"] = item
+                                    }
                                 }
                             }
-                        } else if (result is NetworkResult.Error) {
-                            android.util.Log.e("SearchVM", "Discover catalog ${catalog.catalogId} (${catalog.apiType}) error: ${result.message}")
+                            is NetworkResult.Error -> {
+                                val msg = result.message ?: "Unknown error"
+                                android.util.Log.e("SearchVM", "Discover catalog ${catalog.catalogId} (${catalog.apiType}) error: $msg")
+                                firstError.compareAndSet(null, msg)
+                            }
+                            NetworkResult.Loading -> {}
                         }
                     }
                 } catch (e: Exception) {
                     if (e !is CancellationException) {
+                        val msg = e.localizedMessage ?: e.javaClass.simpleName
                         android.util.Log.e("SearchVM", "Discover catalog ${catalog.catalogId} (${catalog.apiType}) exception", e)
+                        firstError.compareAndSet(null, msg)
                     }
                 }
             }
         }
         jobs.joinAll()
+
+        // Surface the first error to the UI when all catalogs failed for this type
+        if (allResults.isEmpty() && firstError.get() != null) {
+            _uiState.update { it.copy(discoverError = firstError.get()) }
+        }
 
         return allResults.values
             .sortedWith(
