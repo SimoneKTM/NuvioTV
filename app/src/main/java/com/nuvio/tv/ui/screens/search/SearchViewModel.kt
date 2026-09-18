@@ -711,9 +711,10 @@ class SearchViewModel @Inject constructor(
         if (_uiState.value.discoverLocation == DiscoverLocation.OFF) return
         _uiState.update { it.copy(discoverLoading = true) }
         val addons = mutableListOf<Addon>()
-        try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
-        try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
-        try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+        try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (e: Exception) { android.util.Log.e("SearchVM", "Failed to load regular addons", e) }
+        try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (e: Exception) { android.util.Log.e("SearchVM", "Failed to load anime addons", e) }
+        try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (e: Exception) { android.util.Log.e("SearchVM", "Failed to load extra addons", e) }
+        android.util.Log.d("SearchVM", "Discover: found ${addons.size} enabled addons (${addons.map { it.displayName }})")
         if (addons.isEmpty()) {
             _uiState.update { it.copy(discoverInitialized = true, discoverLoading = false) }
             return
@@ -747,6 +748,8 @@ class SearchViewModel @Inject constructor(
                 catalog.type in listOf("movie", "series", "anime")
             }
             .distinctBy { it.key }
+
+        android.util.Log.d("SearchVM", "Discover: ${discoverCatalogs.size} catalogs after filter: ${discoverCatalogs.map { "${it.catalogId}(${it.apiType}→${it.type})" }}")
 
         _uiState.update {
             it.copy(
@@ -801,9 +804,15 @@ class SearchViewModel @Inject constructor(
                                     allResults["${item.apiType}:${item.id}"] = item
                                 }
                             }
+                        } else if (result is NetworkResult.Error) {
+                            android.util.Log.e("SearchVM", "Discover catalog ${catalog.catalogId} (${catalog.apiType}) error: ${result.message}")
                         }
                     }
-                } catch (_: Exception) {}
+                } catch (e: Exception) {
+                    if (e !is CancellationException) {
+                        android.util.Log.e("SearchVM", "Discover catalog ${catalog.catalogId} (${catalog.apiType}) exception", e)
+                    }
+                }
             }
         }
         jobs.joinAll()
