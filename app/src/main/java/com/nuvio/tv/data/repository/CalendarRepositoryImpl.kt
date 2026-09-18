@@ -38,7 +38,7 @@ class CalendarRepositoryImpl @Inject constructor(
                 target = "all",
                 startDate = todayStr,
                 days = daysAhead,
-                extended = null
+                extended = "fullimages"
             )
 
             if (response.isSuccessful) {

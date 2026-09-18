@@ -700,14 +700,18 @@ fun SearchScreen(
         ) {
             when {
                 isDiscoverMode -> {
-                    EmptyScreenState(
-                        title = stringResource(R.string.search_start_title),
-                        subtitle = if (uiState.discoverLocation == DiscoverLocation.OFF) {
-                            stringResource(R.string.search_start_subtitle_no_discover)
-                        } else {
-                            stringResource(R.string.search_start_subtitle)
+                    DiscoverSection(
+                        uiState = uiState,
+                        posterCardStyle = posterCardStyle,
+                        watchedMovieIds = watchedMovieIds,
+                        watchedSeriesIds = watchedSeriesIds,
+                        showBuiltInHeader = false,
+                        onNavigateToDetail = onNavigateToDetail,
+                        onItemLongPress = { item, addonBaseUrl ->
+                            viewModel.posterOptions.show(item, addonBaseUrl)
                         },
-                        icon = Icons.Default.Search
+                        onEvent = { viewModel.onEvent(it) },
+                        modifier = Modifier
                     )
                 }
 

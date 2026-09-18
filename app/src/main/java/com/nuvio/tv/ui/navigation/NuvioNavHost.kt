@@ -513,7 +513,7 @@ fun NuvioNavHost(
                                 Screen.Detail.createRoute(
                                     itemId = streamContentId,
                                     itemType = streamContentType,
-                                    addonBaseUrl = null,
+                                    addonBaseUrl = streamSourceAddonBaseUrl,
                                     returnFocusSeason = season,
                                     returnFocusEpisode = episode,
                                     returnToHomeOnBack = returnToHomeOnBack,
@@ -770,6 +770,7 @@ fun NuvioNavHost(
                         ?.toBooleanStrictOrNull() == true
                     val contentType = args?.getString("contentType").orEmpty()
                     val contentId = args?.getString("contentId").orEmpty()
+                    val addonBaseUrl = args?.getString("addonBaseUrl")?.takeIf { it.isNotBlank() }
                     val focusSeason = currentSeason ?: initialSeason
                     val focusEpisode = currentEpisode ?: initialEpisode
                     fun returnToDetail() {
@@ -790,7 +791,7 @@ fun NuvioNavHost(
                                 Screen.Detail.createRoute(
                                     itemId = contentId,
                                     itemType = contentType,
-                                    addonBaseUrl = null,
+                                    addonBaseUrl = addonBaseUrl,
                                     returnFocusSeason = focusSeason,
                                     returnFocusEpisode = focusEpisode,
                                     returnToHomeOnBack = returnToHomeOnBack,
@@ -904,6 +905,7 @@ fun NuvioNavHost(
                             } else {
                                 val contentId = args?.getString("contentId").orEmpty()
                                 val contentType = args?.getString("contentType").orEmpty()
+                                val addonBaseUrl = args?.getString("addonBaseUrl")?.takeIf { it.isNotBlank() }
                                 val returnToHomeOnBack = args?.getString("returnToHomeOnBack")
                                     ?.toBooleanStrictOrNull() == true
                                 if (contentId.isNotBlank()) {
@@ -911,7 +913,7 @@ fun NuvioNavHost(
                                         Screen.Detail.createRoute(
                                             itemId = contentId,
                                             itemType = contentType,
-                                            addonBaseUrl = null,
+                                            addonBaseUrl = addonBaseUrl,
                                             returnToHomeOnBack = returnToHomeOnBack,
                                             heroBackdropUrl = args?.getString("backdrop")
                                         )
@@ -929,6 +931,7 @@ fun NuvioNavHost(
                         } else {
                             val contentId = args?.getString("contentId").orEmpty()
                             val contentType = args?.getString("contentType").orEmpty()
+                            val addonBaseUrl = args?.getString("addonBaseUrl")?.takeIf { it.isNotBlank() }
                             val returnToHomeOnBack = args?.getString("returnToHomeOnBack")
                                 ?.toBooleanStrictOrNull() == true
                             val focusSeason = args?.getString("season")?.toIntOrNull()
@@ -951,7 +954,7 @@ fun NuvioNavHost(
                                         Screen.Detail.createRoute(
                                             itemId = contentId,
                                             itemType = contentType,
-                                            addonBaseUrl = null,
+                                            addonBaseUrl = addonBaseUrl,
                                             returnFocusSeason = focusSeason,
                                             returnFocusEpisode = focusEpisode,
                                             returnToHomeOnBack = returnToHomeOnBack,

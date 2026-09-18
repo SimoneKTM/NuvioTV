@@ -458,8 +458,8 @@ private fun CalendarWideCard(
             },
         shape = CardDefaults.shape(shape = cardShape),
         colors = CardDefaults.colors(
-            containerColor = Color.Transparent,
-            focusedContainerColor = Color.Transparent
+            containerColor = NuvioTheme.colors.BackgroundCard,
+            focusedContainerColor = NuvioTheme.colors.BackgroundCard
         ),
         border = CardDefaults.border(
             focusedBorder = Border(
@@ -557,8 +557,8 @@ private fun CalendarPortraitCard(
             .onFocusChanged { isFocused = it.isFocused },
         shape = CardDefaults.shape(shape = cardShape),
         colors = CardDefaults.colors(
-            containerColor = Color.Transparent,
-            focusedContainerColor = Color.Transparent
+            containerColor = NuvioTheme.colors.BackgroundCard,
+            focusedContainerColor = NuvioTheme.colors.BackgroundCard
         ),
         border = CardDefaults.border(
             focusedBorder = Border(

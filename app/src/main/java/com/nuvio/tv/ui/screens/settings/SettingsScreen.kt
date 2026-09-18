@@ -181,6 +181,7 @@ private enum class AnimeSettingsSection {
 private enum class ExtraSettingsSection {
     Hub,
     ContentDiscovery,
+    Layout,
     Integrations,
     Tmdb,
     MdbList,
@@ -1533,6 +1534,7 @@ private fun ExtraSettingsContent(
     val extraTvdbFocusRequester = remember { FocusRequester() }
     val extraAnimeSkipFocusRequester = remember { FocusRequester() }
     val extraOpenSubtitlesFocusRequester = remember { FocusRequester() }
+    val extraLayoutFocusRequester = remember { FocusRequester() }
 
     BackHandler(enabled = selectedSection != ExtraSettingsSection.Hub) {
         onSelectSection(ExtraSettingsSection.Hub)
@@ -1544,6 +1546,7 @@ private fun ExtraSettingsContent(
         val requester = when (selectedSection) {
             ExtraSettingsSection.Hub -> hubEntryFocusRequester
             ExtraSettingsSection.ContentDiscovery -> contentDiscoveryFocusRequester
+            ExtraSettingsSection.Layout -> extraLayoutFocusRequester
             ExtraSettingsSection.Integrations -> integrationsFocusRequester
             ExtraSettingsSection.Tmdb -> extraTmdbFocusRequester
             ExtraSettingsSection.MdbList -> extraMdbListFocusRequester
@@ -1618,6 +1621,14 @@ private fun ExtraSettingsContent(
                                     onClick = { onSelectSection(ExtraSettingsSection.ContentDiscovery) },
                                     leadingIcon = Icons.Default.Explore,
                                     modifier = Modifier.focusRequester(hubEntryFocusRequester)
+                                )
+                            }
+                            item(key = "extra_hub_layout") {
+                                SettingsActionRow(
+                                    title = stringResource(R.string.extra_settings_layout_title),
+                                    subtitle = stringResource(R.string.extra_settings_layout_subtitle),
+                                    onClick = { onSelectSection(ExtraSettingsSection.Layout) },
+                                    leadingIcon = Icons.Default.GridView
                                 )
                             }
                             item(key = "extra_hub_integrations") {
@@ -1702,6 +1713,15 @@ private fun ExtraSettingsContent(
                     }
                 }
             }
+        }
+
+        ExtraSettingsSection.Layout -> {
+            LayoutSettingsContent(
+                viewModel = hiltViewModel<ExtraLayoutSettingsViewModel>(),
+                headerTitleRes = R.string.extra_settings_layout_title,
+                headerSubtitleRes = R.string.extra_settings_layout_subtitle,
+                initialFocusRequester = extraLayoutFocusRequester
+            )
         }
 
         ExtraSettingsSection.Integrations -> {
