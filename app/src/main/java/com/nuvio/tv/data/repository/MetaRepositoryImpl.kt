@@ -328,7 +328,7 @@ class MetaRepositoryImpl @Inject constructor(
 
     private fun Addon.supportsMetaType(type: String): Boolean {
         val normalizedType = when (type.lowercase()) {
-            "series", "tv", "show", "anime" -> "tv"
+            "series", "tv", "show", "anime", "sport", "live" -> "tv"
             else -> type.lowercase()
         }
         val target = normalizedType

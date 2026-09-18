@@ -433,7 +433,7 @@ override fun getStreamsFromAllAddons(
      */
     private fun Addon.supportsStreamResource(type: String, videoId: String): Boolean {
         val normalizedType = when (type.lowercase()) {
-            "series", "tv", "show", "anime" -> "tv"
+            "series", "tv", "show", "anime", "sport", "live" -> "tv"
             else -> type.lowercase()
         }
         return resources.any { resource ->
