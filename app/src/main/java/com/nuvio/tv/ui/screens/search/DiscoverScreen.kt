@@ -42,8 +42,6 @@ fun DiscoverScreen(
     val uiState by viewModel.uiState.collectAsState()
     val watchedMovieIds by viewModel.watchedMovieIds.collectAsState()
     val watchedSeriesIds by viewModel.watchedSeriesIds.collectAsState()
-    val lifecycleOwner = LocalLifecycleOwner.current
-    var pendingDiscoverRestoreOnResume by rememberSaveable { mutableStateOf(false) }
 
     val posterCardStyle = remember(uiState.posterCardWidthDp, uiState.posterCardCornerRadiusDp) {
         val computedHeightDp = (uiState.posterCardWidthDp * 1.5f).roundToInt()
@@ -60,17 +58,6 @@ fun DiscoverScreen(
         if (uiState.discoverLocation != DiscoverLocation.OFF) {
             viewModel.ensureDiscoverLoaded()
         }
-    }
-
-    val latestPendingDiscoverRestore by rememberUpdatedState(pendingDiscoverRestoreOnResume)
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME && latestPendingDiscoverRestore) {
-                pendingDiscoverRestoreOnResume = false
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Box(
@@ -91,13 +78,12 @@ fun DiscoverScreen(
                 watchedSeriesIds = watchedSeriesIds,
                 showBuiltInHeader = showBuiltInHeader,
                 onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
-                    pendingDiscoverRestoreOnResume = true
                     onNavigateToDetail(itemId, itemType, addonBaseUrl)
                 },
                 onItemLongPress = { item, addonBaseUrl ->
                     viewModel.posterOptions.show(item, addonBaseUrl)
                 },
-                onRetry = { viewModel.retryDiscover() },
+                onEvent = { viewModel.onEvent(it) },
                 modifier = Modifier.padding(top = NuvioTheme.spacing.lg)
             )
         }
@@ -107,10 +93,7 @@ fun DiscoverScreen(
             state = posterOptionsState,
             controller = viewModel.posterOptions,
             onNavigateToDetail = { id, type, addonBaseUrl ->
-                pendingDiscoverRestoreOnResume = true
-                val clickedItem = uiState.discoverMovieResults.firstOrNull { it.id == id }
-                    ?: uiState.discoverSeriesResults.firstOrNull { it.id == id }
-                    ?: uiState.discoverAnimeResults.firstOrNull { it.id == id }
+                val clickedItem = uiState.discoverResults.firstOrNull { it.id == id }
                 HeroBackdropState.update(clickedItem?.backdropUrl)
                 onNavigateToDetail(id, type, addonBaseUrl)
             }

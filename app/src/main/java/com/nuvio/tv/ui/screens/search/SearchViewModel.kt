@@ -86,7 +86,7 @@ class SearchViewModel @Inject constructor(
     private var searchRunJob: Job? = null
     private var activeSearchQuery: String? = null
     private var searchGeneration = 0L
-    private var discoverJobs: List<Job> = emptyList()
+    private var discoverJob: Job? = null
     private var catalogRowsUpdateJob: Job? = null
     private var suggestionJob: Job? = null
     private var liveSearchJob: Job? = null
@@ -95,9 +95,11 @@ class SearchViewModel @Inject constructor(
     private var hasRenderedFirstCatalog = false
     private var pendingCatalogResponses = 0
     private var hideUnreleasedContent = false
+    private var savedDiscoverKey: String? = null
 
     private companion object {
-        const val DISCOVER_LIMIT_PER_CATALOG = 50
+        const val DISCOVER_INITIAL_LIMIT = 100
+        const val DISCOVER_SHOW_MORE_BATCH = 50
         const val SUGGESTION_DEBOUNCE_MS = 150L
 
         /**
@@ -120,15 +122,14 @@ class SearchViewModel @Inject constructor(
             layoutPreferenceDataStore.discoverLocation.distinctUntilChanged().collectLatest { location ->
                 _uiState.update { it.copy(discoverLocation = location) }
                 if (location == DiscoverLocation.OFF) {
-                    discoverJobs.forEach { it.cancel() }
-                    discoverJobs = emptyList()
+                    discoverJob?.cancel()
+                    discoverJob = null
                     _uiState.update {
                         it.copy(
                             discoverInitialized = false,
                             discoverLoading = false,
-                            discoverMovieResults = emptyList(),
-                            discoverSeriesResults = emptyList(),
-                            discoverAnimeResults = emptyList()
+                            discoverResults = emptyList(),
+                            pendingDiscoverResults = emptyList()
                         )
                     }
                 }
@@ -189,20 +190,164 @@ class SearchViewModel @Inject constructor(
         viewModelScope.launch { loadDiscoverCatalogs() }
     }
 
-    fun retryDiscover() {
+    private fun onDiscoverTypeChanged(type: String) {
         val state = _uiState.value
-        if (state.discoverLocation == DiscoverLocation.OFF) return
+        val catalog = state.discoverCatalogs.firstOrNull { it.type == type }
+            ?: state.discoverCatalogs.firstOrNull()
+        savedDiscoverKey = catalog?.key
         _uiState.update {
             it.copy(
-                discoverInitialized = false,
-                discoverLoading = false,
-                discoverError = null,
-                discoverMovieResults = emptyList(),
-                discoverSeriesResults = emptyList(),
-                discoverAnimeResults = emptyList()
+                selectedDiscoverType = type,
+                selectedDiscoverCatalogKey = catalog?.key,
+                selectedDiscoverGenre = null,
+                discoverResults = emptyList(),
+                pendingDiscoverResults = emptyList(),
+                discoverPage = 1,
+                discoverHasMore = true,
+                discoverLoading = true
             )
         }
-        viewModelScope.launch { loadDiscoverCatalogs() }
+        fetchDiscoverContent(reset = true)
+    }
+
+    private fun onDiscoverCatalogChanged(catalogKey: String) {
+        savedDiscoverKey = catalogKey
+        val catalog = _uiState.value.discoverCatalogs.find { it.key == catalogKey }
+        _uiState.update {
+            it.copy(
+                selectedDiscoverCatalogKey = catalogKey,
+                selectedDiscoverGenre = null,
+                discoverResults = emptyList(),
+                pendingDiscoverResults = emptyList(),
+                discoverPage = 1,
+                discoverHasMore = true,
+                discoverLoading = true,
+                selectedDiscoverType = catalog?.type ?: it.selectedDiscoverType
+            )
+        }
+        fetchDiscoverContent(reset = true)
+    }
+
+    private fun onDiscoverGenreChanged(genre: String?) {
+        _uiState.update {
+            it.copy(
+                selectedDiscoverGenre = genre,
+                discoverResults = emptyList(),
+                pendingDiscoverResults = emptyList(),
+                discoverPage = 1,
+                discoverHasMore = true,
+                discoverLoading = true
+            )
+        }
+        fetchDiscoverContent(reset = true)
+    }
+
+    private fun loadMoreDiscoverResults() {
+        val state = _uiState.value
+        if (state.discoverLoadingMore || !state.discoverHasMore) return
+        if (state.pendingDiscoverResults.isNotEmpty()) {
+            val newVisible = state.discoverResults + state.pendingDiscoverResults
+            _uiState.update {
+                it.copy(
+                    discoverResults = newVisible,
+                    pendingDiscoverResults = emptyList(),
+                    discoverLoadingMore = false
+                )
+            }
+            if (newVisible.size >= DISCOVER_INITIAL_LIMIT) {
+                fetchDiscoverContent(reset = false)
+            }
+            return
+        }
+        fetchDiscoverContent(reset = false)
+    }
+
+    private fun fetchDiscoverContent(reset: Boolean) {
+        discoverJob?.cancel()
+        discoverJob = viewModelScope.launch {
+            val state = _uiState.value
+            val selectedKey = state.selectedDiscoverCatalogKey ?: return@launch
+            val catalog = state.discoverCatalogs.find { it.key == selectedKey } ?: return@launch
+            val addons = state.installedAddons
+            val addon = addons.find { it.id == catalog.addonId } ?: return@launch
+
+            if (reset) {
+                _uiState.update { it.copy(discoverLoading = true) }
+            } else {
+                _uiState.update { it.copy(discoverLoadingMore = true) }
+            }
+
+            val page = if (reset) 1 else state.discoverPage
+            val skip = if (reset) 0 else (page - 1) * catalog.skipStep
+            val extraArgs = mutableMapOf<String, String>()
+            state.selectedDiscoverGenre?.takeIf { it != "__default__" }?.let { extraArgs["genre"] = it }
+
+            try {
+                catalogRepository.getCatalog(
+                    addonBaseUrl = catalog.addonBaseUrl,
+                    addonId = catalog.addonId,
+                    addonName = catalog.addonName,
+                    catalogId = catalog.catalogId,
+                    catalogName = catalog.catalogName,
+                    type = catalog.type,
+                    skip = skip,
+                    skipStep = catalog.skipStep,
+                    extraArgs = extraArgs,
+                    supportsSkip = catalog.supportsSkip
+                ).collect { result ->
+                    when (result) {
+                        is NetworkResult.Success -> {
+                            val items = result.data.items
+                                .filter { item -> _uiState.value.discoverLocation != DiscoverLocation.OFF }
+                                .distinctBy { "${it.apiType}:${it.id}" }
+
+                            val visible = if (reset) {
+                                items.take(DISCOVER_INITIAL_LIMIT)
+                            } else {
+                                state.discoverResults + items.take(DISCOVER_INITIAL_LIMIT - state.discoverResults.size)
+                            }
+                            val pending = if (reset) {
+                                items.drop(DISCOVER_INITIAL_LIMIT)
+                            } else {
+                                items.drop(DISCOVER_INITIAL_LIMIT - state.discoverResults.size)
+                            }
+                            val hasMore = catalog.supportsSkip && (items.size >= catalog.skipStep || pending.isNotEmpty())
+
+                            _uiState.update {
+                                it.copy(
+                                    discoverResults = visible,
+                                    pendingDiscoverResults = pending,
+                                    discoverPage = page + 1,
+                                    discoverHasMore = hasMore,
+                                    discoverLoading = false,
+                                    discoverLoadingMore = false
+                                )
+                            }
+                        }
+                        is NetworkResult.Error -> {
+                            android.util.Log.e("SearchVM", "Discover fetch error: ${result.message}")
+                            _uiState.update {
+                                it.copy(
+                                    discoverLoading = false,
+                                    discoverLoadingMore = false
+                                )
+                            }
+                        }
+                        NetworkResult.Loading -> {}
+                    }
+                }
+            } catch (e: Exception) {
+                if (e !is CancellationException) {
+                    android.util.Log.e("SearchVM", "Discover fetch exception", e)
+                    _uiState.update {
+                        it.copy(
+                            discoverLoading = false,
+                            discoverLoadingMore = false
+                        )
+                    }
+                }
+            }
+        }
     }
 
     fun onEvent(event: SearchEvent) {
@@ -221,6 +366,10 @@ class SearchViewModel @Inject constructor(
                 cancelSearchRun()
                 performSearch(uiState.value.submittedQuery.ifBlank { uiState.value.query })
             }
+            is SearchEvent.DiscoverTypeChanged -> onDiscoverTypeChanged(event.type)
+            is SearchEvent.DiscoverCatalogChanged -> onDiscoverCatalogChanged(event.catalogKey)
+            is SearchEvent.DiscoverGenreChanged -> onDiscoverGenreChanged(event.genre)
+            SearchEvent.LoadMoreDiscoverResults -> loadMoreDiscoverResults()
         }
     }
 
@@ -727,14 +876,9 @@ class SearchViewModel @Inject constructor(
         if (_uiState.value.discoverLocation == DiscoverLocation.OFF) return
         _uiState.update { it.copy(discoverLoading = true) }
         val addons = mutableListOf<Addon>()
-        try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (e: Exception) { android.util.Log.e("SearchVM", "Failed to load regular addons", e) }
-        try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (e: Exception) { android.util.Log.e("SearchVM", "Failed to load anime addons", e) }
-        try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (e: Exception) { android.util.Log.e("SearchVM", "Failed to load extra addons", e) }
-        android.util.Log.d("SearchVM", "Discover: found ${addons.size} enabled addons (${addons.map { it.displayName }})")
-        if (addons.isEmpty()) {
-            _uiState.update { it.copy(discoverInitialized = true, discoverLoading = false) }
-            return
-        }
+        try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
+        try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
+        try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
 
         val discoverCatalogs = addons.flatMap { addon ->
             addon.catalogs
@@ -752,108 +896,41 @@ class SearchViewModel @Inject constructor(
                         addonBaseUrl = addon.baseUrl,
                         catalogId = catalog.id,
                         catalogName = catalog.name,
-                        apiType = catalog.apiType,
-                        type = normalizeDiscoverType(catalog.apiType),
-                        genres = emptyList(),
+                        type = catalog.apiType,
+                        genres = catalog.extra
+                            .firstOrNull { it.name.equals("genre", ignoreCase = true) }
+                            ?.options
+                            ?: emptyList(),
                         supportsSkip = catalog.supportsExtra("skip"),
                         skipStep = catalog.skipStep()
                     )
                 }
         }
-            .filter { catalog ->
-                catalog.type in listOf("movie", "series", "anime")
-            }
+            .filter { it.type in listOf("movie", "series", "tv") }
             .distinctBy { it.key }
 
-        android.util.Log.d("SearchVM", "Discover: ${discoverCatalogs.size} catalogs after filter: ${discoverCatalogs.map { "${it.catalogId}(${it.apiType}→${it.type})" }}")
+        val selectedKey = savedDiscoverKey?.takeIf { key -> discoverCatalogs.any { it.key == key } }
+            ?: discoverCatalogs.firstOrNull()?.key
+        val selectedType = discoverCatalogs.find { it.key == selectedKey }?.type
+            ?: discoverCatalogs.firstOrNull()?.type
+            ?: "movie"
 
         _uiState.update {
             it.copy(
                 installedAddons = addons,
                 discoverInitialized = true,
-                discoverLoading = true,
-                discoverError = null
+                discoverCatalogs = discoverCatalogs,
+                selectedDiscoverType = selectedType,
+                selectedDiscoverCatalogKey = selectedKey,
+                selectedDiscoverGenre = null
             )
         }
 
-        val movies = fetchDiscoverCatalogsForType(discoverCatalogs, "movie")
-        val series = fetchDiscoverCatalogsForType(discoverCatalogs, "series")
-        val anime = fetchDiscoverCatalogsForType(discoverCatalogs, "anime")
-
-        val hasAnyContent = movies.isNotEmpty() || series.isNotEmpty() || anime.isNotEmpty()
-        _uiState.update {
-            it.copy(
-                discoverLoading = false,
-                discoverMovieResults = movies,
-                discoverSeriesResults = series,
-                discoverAnimeResults = anime,
-                discoverError = if (hasAnyContent) null else it.discoverError
-            )
+        if (selectedKey != null) {
+            fetchDiscoverContent(reset = true)
+        } else {
+            _uiState.update { it.copy(discoverLoading = false) }
         }
-    }
-
-    private suspend fun fetchDiscoverCatalogsForType(
-        catalogs: List<DiscoverCatalog>,
-        type: String
-    ): List<MetaPreview> {
-        val typeCatalogs = catalogs.filter { it.type == type }
-        if (typeCatalogs.isEmpty()) return emptyList()
-
-        val allResults = java.util.concurrent.ConcurrentHashMap<String, MetaPreview>()
-        val firstError = java.util.concurrent.atomic.AtomicReference<String?>(null)
-
-        val jobs = typeCatalogs.map { catalog ->
-            viewModelScope.launch {
-                try {
-                    catalogRepository.getCatalog(
-                        addonBaseUrl = catalog.addonBaseUrl,
-                        addonId = catalog.addonId,
-                        addonName = catalog.addonName,
-                        catalogId = catalog.catalogId,
-                        catalogName = catalog.catalogName,
-                        type = catalog.apiType,
-                        skip = 0,
-                        skipStep = catalog.skipStep,
-                        extraArgs = emptyMap(),
-                        supportsSkip = catalog.supportsSkip
-                    ).collect { result ->
-                        when (result) {
-                            is NetworkResult.Success -> {
-                                result.data.items.forEach { item ->
-                                    if (_uiState.value.discoverLocation != DiscoverLocation.OFF) {
-                                        allResults["${item.apiType}:${item.id}"] = item
-                                    }
-                                }
-                            }
-                            is NetworkResult.Error -> {
-                                val msg = result.message ?: "Unknown error"
-                                android.util.Log.e("SearchVM", "Discover catalog ${catalog.catalogId} (${catalog.apiType}) error: $msg")
-                                firstError.compareAndSet(null, msg)
-                            }
-                            NetworkResult.Loading -> {}
-                        }
-                    }
-                } catch (e: Exception) {
-                    if (e !is CancellationException) {
-                        val msg = e.localizedMessage ?: e.javaClass.simpleName
-                        android.util.Log.e("SearchVM", "Discover catalog ${catalog.catalogId} (${catalog.apiType}) exception", e)
-                        firstError.compareAndSet(null, msg)
-                    }
-                }
-            }
-        }
-        jobs.joinAll()
-
-        // Surface the first error to the UI when all catalogs failed for this type
-        if (allResults.isEmpty() && firstError.get() != null) {
-            _uiState.update { it.copy(discoverError = firstError.get()) }
-        }
-
-        return allResults.values
-            .sortedWith(
-                compareByDescending<MetaPreview> { it.imdbRating ?: -1f }
-                    .thenBy { it.name.lowercase() }
-            )
     }
 
     private fun buildSearchTargets(addons: List<Addon>): List<Pair<Addon, CatalogDescriptor>> {

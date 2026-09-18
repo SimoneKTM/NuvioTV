@@ -10,6 +10,7 @@ import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.OpenSubtitlesManualSubtitle
 import com.nuvio.tv.domain.model.Subtitle
 import com.nuvio.tv.domain.model.enabledAddons
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import com.nuvio.tv.domain.repository.SubtitleRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +28,7 @@ class SubtitleRepositoryImpl @Inject constructor(
     private val api: AddonApi,
     private val addonRepository: AddonRepositoryImpl,
     private val animeAddonRepository: AnimeAddonRepositoryImpl,
+    private val extraAddonRepository: ExtraAddonRepository,
     private val openSubtitlesDirectRepository: OpenSubtitlesDirectRepository
 ) : SubtitleRepository {
 
@@ -54,7 +56,8 @@ class SubtitleRepositoryImpl @Inject constructor(
         val addons = try {
             val homeAddons = addonRepository.getInstalledAddons().first().enabledAddons()
             val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
-            val merged = (homeAddons + animeAddons).distinctBy { it.baseUrl.trimEnd('/').lowercase() }
+            val extraAddons = try { extraAddonRepository.getInstalledExtraAddons().first().enabledAddons() } catch (_: Exception) { emptyList() }
+            val merged = (homeAddons + animeAddons + extraAddons).distinctBy { it.baseUrl.trimEnd('/').lowercase() }
             if (sourceAddonBaseUrl != null && merged.any { matchesBaseUrl(it.baseUrl, sourceAddonBaseUrl) }) {
                 merged.sortedByDescending { matchesBaseUrl(it.baseUrl, sourceAddonBaseUrl) }
             } else {

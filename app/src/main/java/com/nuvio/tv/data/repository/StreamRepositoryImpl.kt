@@ -21,6 +21,7 @@ import com.nuvio.tv.domain.model.Stream
 import com.nuvio.tv.domain.model.StreamBehaviorHints
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import com.nuvio.tv.domain.repository.StreamRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -40,6 +41,7 @@ class StreamRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val api: AddonApi,
     private val addonRepository: AddonRepository,
+    private val extraAddonRepository: ExtraAddonRepository,
     private val pluginManager: PluginManager,
     private val tmdbService: TmdbService,
     private val debridStreamPresentation: DebridStreamPresentation,
@@ -66,17 +68,28 @@ override fun getStreamsFromAllAddons(
         emit(NetworkResult.Loading)
 
         try {
-            val addons = addonRepository.getInstalledAddons().first().enabledAddons()
+            val regularAddons = addonRepository.getInstalledAddons().first()
+            val extraAddons = try { extraAddonRepository.getInstalledExtraAddons().first() } catch (_: Exception) { emptyList() }
+            val allAddons = (regularAddons + extraAddons).distinctBy { it.baseUrl }
+            val addons = allAddons.enabledAddons()
             
             // Filter addons that support streams for this type and id
             val streamAddons = addons.filter { addon ->
                 addon.supportsStreamResource(type, videoId)
             }
 
+            // Prioritize the source addon (where the user came from)
+            val normalizedSource = sourceAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
+            val sortedAddons = if (normalizedSource.isNotEmpty()) {
+                streamAddons.sortedByDescending { it.baseUrl.trim().trimEnd('/').lowercase() == normalizedSource }
+            } else {
+                streamAddons
+            }
+
             // Convert IMDB ID to TMDB ID if needed for plugins
             val tmdbId = tmdbService.ensureTmdbId(videoId, type)
             Log.d(TAG, "Video ID: $videoId -> TMDB ID: $tmdbId (type: $type)")
-            val attemptedAddonNames = streamAddons.map { it.displayName }
+            val attemptedAddonNames = sortedAddons.map { it.displayName }
             val attemptedFailures = java.util.Collections.synchronizedList(
                 mutableListOf<StreamAttemptFailure>()
             )
@@ -89,12 +102,12 @@ override fun getStreamsFromAllAddons(
                 val resultChannel = Channel<AddonStreams>(Channel.UNLIMITED)
                 
                 // Track number of pending jobs
-                val totalJobs = streamAddons.size +
+                val totalJobs = sortedAddons.size +
                     (if (tmdbId != null) 1 else 0)
                 var completedJobs = 0
 
                 // Launch addon jobs
-                streamAddons.forEach { addon ->
+                sortedAddons.forEach { addon ->
                     launch {
                         try {
                             val streamsResult = getStreamsFromAddon(addon.baseUrl, type, videoId)

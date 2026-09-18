@@ -445,8 +445,8 @@ fun SearchScreen(
         }
     }
 
-    val hasDiscoverContent = remember(uiState.discoverMovieResults, uiState.discoverSeriesResults, uiState.discoverAnimeResults) {
-        uiState.discoverMovieResults.isNotEmpty() || uiState.discoverSeriesResults.isNotEmpty() || uiState.discoverAnimeResults.isNotEmpty()
+    val hasDiscoverContent = remember(uiState.discoverResults) {
+        uiState.discoverResults.isNotEmpty()
     }
     LaunchedEffect(focusResults, isDiscoverMode, hasDiscoverContent) {
         if (focusResults && isDiscoverMode && hasDiscoverContent) {
@@ -810,9 +810,7 @@ fun SearchScreen(
             val clickedItem = uiState.catalogRows
                 .flatMap { it.items }
                 .firstOrNull { it.id == id }
-                ?: uiState.discoverMovieResults.firstOrNull { it.id == id }
-                ?: uiState.discoverSeriesResults.firstOrNull { it.id == id }
-                ?: uiState.discoverAnimeResults.firstOrNull { it.id == id }
+                ?: uiState.discoverResults.firstOrNull { it.id == id }
             HeroBackdropState.update(clickedItem?.backdropUrl)
             onNavigateToDetail(id, type, addonBaseUrl)
         }
