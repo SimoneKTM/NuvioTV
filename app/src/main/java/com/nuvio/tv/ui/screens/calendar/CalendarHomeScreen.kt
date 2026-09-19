@@ -172,11 +172,35 @@ fun CalendarHomeScreen(
             else -> {
                 val firstSection = uiState.sections.firstOrNull()
                 val restSections = uiState.sections.drop(1)
+                val todayLabel = remember {
+                    val today = java.time.LocalDate.now()
+                    val formatter = java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", java.util.Locale.forLanguageTag("it"))
+                    today.format(formatter).replaceFirstChar { it.uppercase() }
+                }
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 120.dp)
                 ) {
+                    item(key = "calendar_date_header") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = SECTION_PADDING_HORIZONTAL, vertical = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = todayLabel,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = NuvioTheme.colors.TextPrimary
+                            )
+                            val totalItems = uiState.sections.sumOf { it.items.size }
+                            SectionBadge(count = totalItems)
+                        }
+                    }
+
                     if (firstSection != null) {
                         item(key = "hero_header") {
                             CalendarHeroSection(
