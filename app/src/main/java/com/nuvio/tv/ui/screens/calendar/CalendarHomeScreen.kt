@@ -40,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Border
@@ -628,7 +629,11 @@ private fun CalendarPortraitCard(
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
+                if (isFocused) {
+                    shadowElevation = 8f
+                }
             }
+            .zIndex(if (isFocused) 1f else 0f)
             .width(cardWidth)
             .onFocusChanged { isFocused = it.isFocused },
         shape = CardDefaults.shape(shape = cardShape),
