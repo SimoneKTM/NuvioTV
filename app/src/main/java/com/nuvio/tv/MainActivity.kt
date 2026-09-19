@@ -1837,7 +1837,7 @@ private fun ModernSidebarScaffold(
                             pendingSidebarFocusRequest = false
                             isSidebarExpanded = false
                             sidebarCollapsePending = false
-                            pendingContentFocusTransfer = currentRoute == targetRoute
+                            pendingContentFocusTransfer = true
                         },
                         activeProfileName = activeProfileName,
                         activeProfileColorHex = activeProfileColorHex,

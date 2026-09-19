@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.focusGroup
@@ -76,6 +77,7 @@ import com.nuvio.tv.ui.components.ContinueWatchingSection
 import com.nuvio.tv.ui.components.GridContinueWatchingSection
 import com.nuvio.tv.ui.components.HeroCarousel
 import com.nuvio.tv.ui.components.LoadingIndicator
+import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
 import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.PosterCardStyle
 import com.nuvio.tv.ui.components.rememberPlaceholderShimmerOffsetState
@@ -117,8 +119,8 @@ fun ExtraHomeScreen(
     var prevIsLoading by remember { mutableStateOf(true) }
     LaunchedEffect(uiState.isLoading, rows.size) {
         if (prevIsLoading && !uiState.isLoading && rows.isNotEmpty()) {
-            kotlinx.coroutines.delay(150)
-            runCatching { contentFocusRequester.requestFocus() }
+            repeat(4) { withFrameNanos { } }
+            contentFocusRequester.requestFocusAfterFrames(4)
         }
         prevIsLoading = uiState.isLoading
     }
