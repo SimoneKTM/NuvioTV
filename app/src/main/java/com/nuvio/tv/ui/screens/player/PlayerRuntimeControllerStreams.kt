@@ -74,7 +74,7 @@ internal fun PlayerRuntimeController.loadSourceStreams(forceRefresh: Boolean) {
     val seasonArg: Int?
     val episodeArg: Int?
 
-    if (contentType in listOf("series", "tv") && currentSeason != null && currentEpisode != null) {
+    if (contentType in listOf("series", "tv", "anime", "sport", "live") && currentSeason != null && currentEpisode != null) {
         type = contentType ?: return
         vid = currentVideoId ?: contentId ?: return
         seasonArg = currentSeason
@@ -209,7 +209,7 @@ private suspend fun PlayerRuntimeController.updateSourceChipsForFetchStart(
     val pluginNames = try {
         if (pluginManager.pluginsEnabled.first()) {
             val mediaType = when (type.lowercase()) {
-                "series", "tv", "show", "anime" -> "tv"
+                "series", "tv", "show", "anime", "sport", "live" -> "tv"
                 else -> type.lowercase()
             }
             val groupByRepository = pluginManager.groupStreamsByRepository.first()
@@ -292,9 +292,13 @@ private fun PlayerRuntimeController.markRemainingSourceChipsAsError() {
 }
 
 private fun com.nuvio.tv.domain.model.Addon.supportsStreamResourceForChip(type: String, videoId: String): Boolean {
+    val normalizedType = when (type.lowercase()) {
+        "series", "tv", "show", "anime", "sport", "live" -> "tv"
+        else -> type.lowercase()
+    }
     return resources.any { resource ->
         resource.name == "stream" &&
-            (resource.types.isEmpty() || resource.types.any { it.equals(type, ignoreCase = true) }) &&
+            (resource.types.isEmpty() || resource.types.any { it.equals(normalizedType, ignoreCase = true) }) &&
             run {
                 val prefixes = resource.idPrefixes?.takeIf { it.isNotEmpty() }
                     ?: idPrefixes.takeIf { it.isNotEmpty() }
@@ -593,7 +597,7 @@ internal fun PlayerRuntimeController.loadEpisodesIfNeeded() {
     val type = contentType
     val id = contentId
     if (type.isNullOrBlank() || id.isNullOrBlank()) return
-    if (type !in listOf("series", "tv")) return
+    if (type !in listOf("series", "tv", "anime", "sport", "live")) return
     if (_uiState.value.episodesAll.isNotEmpty() || _uiState.value.isLoadingEpisodes) return
 
     scope.launch {

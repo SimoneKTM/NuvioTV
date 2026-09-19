@@ -59,6 +59,7 @@ data class DiscoverCatalog(
     val catalogId: String,
     val catalogName: String,
     val type: String,
+    val apiType: String,
     val genres: List<String>,
     val supportsSkip: Boolean,
     val skipStep: Int

@@ -1218,7 +1218,7 @@ fun NuvioNavHost(
                 },
                 onNavigateToSeeAll = { catalogId, addonId, type ->
                     navController.navigate(
-                        Screen.CatalogSeeAll.createRoute(catalogId, addonId, type, fromAnime = true)
+                        Screen.CatalogSeeAll.createRoute(catalogId, addonId, type, fromExtra = true)
                     )
                 },
                 onContinueWatchingClick = { item ->
@@ -1442,6 +1442,10 @@ fun NuvioNavHost(
                 navArgument("fromAnime") {
                     type = NavType.BoolType
                     defaultValue = false
+                },
+                navArgument("fromExtra") {
+                    type = NavType.BoolType
+                    defaultValue = false
                 }
             )
         ) { backStackEntry ->
@@ -1450,6 +1454,7 @@ fun NuvioNavHost(
             val type = backStackEntry.arguments?.getString("type") ?: ""
             val fromSearch = backStackEntry.arguments?.getBoolean("fromSearch") ?: false
             val fromAnime = backStackEntry.arguments?.getBoolean("fromAnime") ?: false
+            val fromExtra = backStackEntry.arguments?.getBoolean("fromExtra") ?: false
 
             // When coming from search, get the SearchViewModel from the Search back stack entry
             // so we share the same data (existing results + pagination)
@@ -1471,6 +1476,15 @@ fun NuvioNavHost(
                 if (animeBackStackEntry != null) {
                     androidx.hilt.navigation.compose.hiltViewModel<com.nuvio.tv.ui.screens.anime.AnimeHomeViewModel>(animeBackStackEntry)
                 } else null
+            val extraBackStackEntry = androidx.compose.runtime.remember(fromExtra) {
+                if (fromExtra) {
+                    try { navController.getBackStackEntry(Screen.Extra.route) } catch (_: Exception) { null }
+                } else null
+            }
+            val extraViewModel: com.nuvio.tv.ui.screens.extra.ExtraHomeViewModel? =
+                if (extraBackStackEntry != null) {
+                    androidx.hilt.navigation.compose.hiltViewModel<com.nuvio.tv.ui.screens.extra.ExtraHomeViewModel>(extraBackStackEntry)
+                } else null
             val homeBackStackEntry = androidx.compose.runtime.remember {
                 try { navController.getBackStackEntry(Screen.Home.route) } catch (_: Exception) { null }
             }
@@ -1487,6 +1501,7 @@ fun NuvioNavHost(
                 type = type,
                 searchViewModel = searchViewModel,
                 animeViewModel = animeViewModel,
+                extraViewModel = extraViewModel,
                 viewModel = homeViewModel,
                 onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
                     navController.navigate(Screen.Detail.createRoute(itemId, itemType, addonBaseUrl))

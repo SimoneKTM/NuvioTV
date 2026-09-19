@@ -24,8 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
-import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.CardDepthSurface
+import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.MetaTrailer
 import com.nuvio.tv.domain.model.PosterShape
@@ -41,6 +41,9 @@ private data class TrailerListItem(
 @Composable
 fun TrailerSection(
     trailers: List<MetaTrailer>,
+    metaName: String = "",
+    isTvShow: Boolean = false,
+    seasonCount: Int = 0,
     upFocusRequester: FocusRequester? = null,
     sectionFocusRequester: FocusRequester? = null,
     restoreTrailerId: String? = null,
@@ -49,27 +52,39 @@ fun TrailerSection(
     onTrailerFocused: (MetaTrailer) -> Unit = {},
     onTrailerClick: (MetaTrailer) -> Unit
 ) {
-    if (trailers.isEmpty()) return
+    val validTrailers = remember(trailers) {
+        trailers.filter { it.ytId?.trim()?.isNotBlank() == true }
+    }
+    if (validTrailers.isEmpty()) return
 
-    val trailerFallbackTitle = stringResource(R.string.detail_tab_trailer)
-    val trailerItems = remember(trailers, trailerFallbackTitle) {
-        trailers.mapNotNull { trailer ->
-            val ytId = trailer.ytId?.trim().orEmpty()
-            if (ytId.isBlank()) return@mapNotNull null
-            val title = trailer.name?.takeIf { it.isNotBlank() }
-                ?: trailer.type?.takeIf { it.isNotBlank() }
-                ?: trailerFallbackTitle
+    val limitedTrailers = remember(validTrailers, isTvShow, seasonCount) {
+        if (isTvShow && seasonCount > 0) {
+            validTrailers.take(seasonCount)
+        } else {
+            validTrailers.take(1)
+        }
+    }
+
+    val title = remember(metaName) { metaName.ifBlank { null } }
+    val displayTitle = title ?: stringResource(R.string.detail_tab_trailer)
+
+    val trailerItems = remember(limitedTrailers, displayTitle) {
+        limitedTrailers.mapIndexed { index, trailer ->
+            val ytId = trailer.ytId!!.trim()
             val subtitle = buildList {
+                if (isTvShow && seasonCount > 0) {
+                    add("Stagione ${index + 1}")
+                }
                 trailer.type?.takeIf { it.isNotBlank() }?.let(::add)
                 trailer.lang?.takeIf { it.isNotBlank() }?.uppercase()?.let(::add)
-            }.joinToString(" • ")
+            }.joinToString(" \u2022 ")
 
             TrailerListItem(
                 trailer = trailer,
                 preview = MetaPreview(
                     id = ytId,
                     type = ContentType.MOVIE,
-                    name = title,
+                    name = displayTitle,
                     poster = "https://img.youtube.com/vi/$ytId/hqdefault.jpg",
                     posterShape = PosterShape.LANDSCAPE,
                     background = null,
@@ -127,7 +142,7 @@ fun TrailerSection(
         ) {
             itemsIndexed(
                 items = trailerItems,
-                key = { index, item -> item.preview.id + "|" + item.preview.name + "|" + index }
+                key = { index, item -> item.preview.id + "|" + index }
             ) { index, item ->
                 val isRestoreTarget = item.preview.id == restoreTrailerId
                 val isFirstItem = index == 0

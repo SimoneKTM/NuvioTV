@@ -11,7 +11,7 @@ import androidx.media3.common.MediaMetadata
  */
 internal fun PlayerRuntimeController.buildMediaSessionMetadata(): MediaMetadata {
     val state = _uiState.value
-    val isSeries = contentType?.lowercase() in listOf("series", "tv")
+    val isSeries = contentType?.lowercase() in listOf("series", "tv", "anime", "sport", "live")
 
     // Title: for series use the show name, for movies use the main title.
     val displayTitle = state.contentName?.takeIf { it.isNotBlank() } ?: state.title

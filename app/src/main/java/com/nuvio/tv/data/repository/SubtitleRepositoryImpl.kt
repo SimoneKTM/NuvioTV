@@ -161,12 +161,22 @@ class SubtitleRepositoryImpl @Inject constructor(
     }
 
     private fun canonicalSubtitleType(type: String): String {
-        return if (type.equals("tv", ignoreCase = true)) "series" else type.lowercase()
+        return when {
+            type.equals("tv", ignoreCase = true) -> "series"
+            type.equals("anime", ignoreCase = true) -> "series"
+            type.equals("sport", ignoreCase = true) -> "series"
+            type.equals("live", ignoreCase = true) -> "series"
+            else -> type.lowercase()
+        }
     }
     
     private fun supportsType(addon: Addon, resource: com.nuvio.tv.domain.model.AddonResource, type: String, id: String): Boolean {
+        val normalizedType = when (type.lowercase()) {
+            "series", "tv", "show", "anime", "sport", "live" -> "tv"
+            else -> type.lowercase()
+        }
         // Check if type is supported
-        if (resource.types.isNotEmpty() && resource.types.none { it.equals(type, ignoreCase = true) }) {
+        if (resource.types.isNotEmpty() && resource.types.none { it.equals(normalizedType, ignoreCase = true) }) {
             return false
         }
         

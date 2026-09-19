@@ -275,7 +275,7 @@ override fun getStreamsFromAllAddons(
 
         // Normalize media type for plugins
         val mediaType = when (type.lowercase()) {
-            "series", "tv", "show" -> "tv"
+            "series", "tv", "show", "anime", "sport", "live" -> "tv"
             else -> type.lowercase()
         }
 

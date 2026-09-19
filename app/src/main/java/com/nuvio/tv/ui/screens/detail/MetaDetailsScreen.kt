@@ -1174,11 +1174,12 @@ private fun MetaDetailsContent(
 
     // Pre-compute cast members to avoid recomputation in lazy scope
     val castMembersToShow = remember(meta.castMembers, meta.cast) {
-        if (meta.castMembers.isNotEmpty()) {
+        val members = if (meta.castMembers.isNotEmpty()) {
             meta.castMembers
         } else {
             meta.cast.map { name -> MetaCastMember(name = name) }
         }
+        members.filter { !it.photo.isNullOrBlank() }
     }
 
     fun isLeadCreditRole(role: String?): Boolean {
@@ -1864,6 +1865,9 @@ private fun MetaDetailsContent(
                             PeopleSectionTab.TRAILER -> {
                                 TrailerSection(
                                     trailers = meta.trailers,
+                                    metaName = meta.name,
+                                    isTvShow = isTvShow,
+                                    seasonCount = seasons.size,
                                     upFocusRequester = if (hasVisiblePeopleTabs) trailerTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester,
                                     sectionFocusRequester = trailerSectionFocusRequester,
                                     restoreTrailerId = if (restoreSharedTrailerFocusToken > 0) selectedSharedTrailer?.ytId else null,

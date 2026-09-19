@@ -49,8 +49,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import javax.inject.Inject
 import javax.inject.Named
 
@@ -98,7 +98,7 @@ class ExtraHomeViewModel @Inject constructor(
     val fullCatalogRows: StateFlow<List<CatalogRow>> = _fullCatalogRows.asStateFlow()
 
     private val rows = LinkedHashMap<String, CatalogRow>()
-    private val catalogLoadMutex = Mutex()
+    private val catalogSemaphore = Semaphore(MAX_CONCURRENT_CATALOG_LOADS)
     private var pendingLoads = 0
     private var lastAddons: List<Addon> = emptyList()
 
@@ -389,7 +389,7 @@ class ExtraHomeViewModel @Inject constructor(
 
         catalogsToLoad.forEach { (addon, catalog) ->
             viewModelScope.launch {
-                catalogLoadMutex.withLock {
+                catalogSemaphore.withPermit {
                     loadCatalog(addon, catalog)
                 }
             }
@@ -525,11 +525,11 @@ class ExtraHomeViewModel @Inject constructor(
         if (!shouldShowCatalog(catalog)) return
 
         viewModelScope.launch {
-            catalogLoadMutex.withLock {
+            catalogSemaphore.withPermit {
                 val current = synchronized(rows) { rows[key] }
                 val currentHasRealContent = current != null &&
                     current.items.firstOrNull()?.id?.startsWith("__placeholder_") != true
-                if (currentHasRealContent) return@withLock
+                if (currentHasRealContent) return@withPermit
                 loadCatalog(addon, catalog)
             }
         }

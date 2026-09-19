@@ -231,7 +231,9 @@ private fun DiscoverDropdownPicker(
     onSelect: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val selectedLabel = options.find { it.first == selectedValue }?.second ?: label
+    val selectedLabel = options.find { it.first == selectedValue }?.second
+        ?: options.firstOrNull()?.second
+        ?: label
 
     Box {
         androidx.compose.material3.OutlinedButton(
@@ -297,5 +299,6 @@ private fun localizedName(type: String): String = when (type.lowercase()) {
     "series" -> "Serie TV"
     "tv" -> "Serie TV"
     "anime" -> "Anime"
+    "altro" -> "Altro"
     else -> type.replaceFirstChar { it.uppercase() }
 }

@@ -60,7 +60,7 @@ internal fun PlayerRuntimeController.applyMetaDetails(meta: Meta) {
 
 internal fun PlayerRuntimeController.resolveDescription(meta: Meta): String? {
     val type = contentType
-    if (type in listOf("series", "tv") && currentSeason != null && currentEpisode != null) {
+    if (type in listOf("series", "tv", "anime", "sport", "live") && currentSeason != null && currentEpisode != null) {
         val episodeOverview = meta.videos.firstOrNull { video ->
             video.season == currentSeason && video.episode == currentEpisode
         }?.overview
@@ -95,7 +95,7 @@ private suspend fun PlayerRuntimeController.enrichDescriptionFromTmdb(id: String
 
     val tmdbId = runCatching { tmdbService.ensureTmdbId(id, type) }.getOrNull() ?: return
     val contentType = when (type.lowercase()) {
-        "series", "tv" -> ContentType.SERIES
+        "series", "tv", "anime", "sport", "live" -> ContentType.SERIES
         else -> ContentType.MOVIE
     }
     val enrichment = runCatching {
@@ -106,7 +106,7 @@ private suspend fun PlayerRuntimeController.enrichDescriptionFromTmdb(id: String
         )
     }.getOrNull() ?: return
 
-    val isSeries = type.lowercase() in listOf("series", "tv")
+    val isSeries = type.lowercase() in listOf("series", "tv", "anime", "sport", "live")
     val season = currentSeason
     val episode = currentEpisode
 

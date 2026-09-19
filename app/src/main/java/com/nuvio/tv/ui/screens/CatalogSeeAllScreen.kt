@@ -77,6 +77,7 @@ fun CatalogSeeAllScreen(
     type: String,
     searchViewModel: SearchViewModel? = null,
     animeViewModel: com.nuvio.tv.ui.screens.anime.AnimeHomeViewModel? = null,
+    extraViewModel: com.nuvio.tv.ui.screens.extra.ExtraHomeViewModel? = null,
     viewModel: HomeViewModel = hiltViewModel(),
     posterOptionsViewModel: com.nuvio.tv.ui.components.posteroptions.PosterOptionsViewModel = hiltViewModel(),
     onNavigateToDetail: (String, String, String) -> Unit,
@@ -89,6 +90,10 @@ fun CatalogSeeAllScreen(
         animeViewModel?.fullCatalogRows?.let { it.collectAsState() }
             ?: remember { mutableStateOf(emptyList()) }
     val animeFullRows by animeFullRowsState
+    val extraFullRowsState: androidx.compose.runtime.State<List<CatalogRow>> =
+        extraViewModel?.fullCatalogRows?.let { it.collectAsState() }
+            ?: remember { mutableStateOf(emptyList()) }
+    val extraFullRows by extraFullRowsState
     val computedHeightDp = (uiState.posterCardWidthDp * 1.5f).roundToInt()
     val posterCardStyle = PosterCardStyle(
         width = uiState.posterCardWidthDp.dp,
@@ -102,10 +107,12 @@ fun CatalogSeeAllScreen(
 
     val isSearchMode = searchViewModel != null
     val isAnimeMode = animeViewModel != null
+    val isExtraMode = extraViewModel != null
     val catalogKey = "${addonId}_${type}_${catalogId}"
 
     // In search mode, get the catalog row from SearchViewModel's existing results.
     // In anime mode, get it from the Anime tab's AnimeHomeViewModel.
+    // In extra mode, get it from the Extra tab's ExtraHomeViewModel.
     // Otherwise fall back to HomeViewModel's fullCatalogRows (home screen catalogs).
     val searchUiState = searchViewModel?.uiState?.collectAsState()
     val searchWatchedMovieIds = searchViewModel?.watchedMovieIds?.collectAsState()
@@ -116,17 +123,25 @@ fun CatalogSeeAllScreen(
     val animeCatalogRow = animeFullRows.find {
         it.legacyKey() == catalogKey
     }
+    val extraCatalogRow = extraFullRows.find {
+        it.legacyKey() == catalogKey
+    }
     val homeCatalogRow = fullCatalogRows.find {
         it.legacyKey() == catalogKey
     }
     val catalogRow = when {
+        isExtraMode -> extraCatalogRow
         isAnimeMode -> animeCatalogRow
         isSearchMode -> searchCatalogRow
         else -> homeCatalogRow
     }
 
-    LaunchedEffect(catalogKey, isSearchMode, isAnimeMode, catalogRow != null) {
-        if (isAnimeMode) {
+    LaunchedEffect(catalogKey, isSearchMode, isAnimeMode, isExtraMode, catalogRow != null) {
+        if (isExtraMode) {
+            if (catalogRow == null) {
+                extraViewModel?.ensureCatalogLoaded(catalogId, addonId, type)
+            }
+        } else if (isAnimeMode) {
             if (catalogRow == null) {
                 animeViewModel?.ensureCatalogLoaded(catalogId, addonId, type)
             }
@@ -163,7 +178,15 @@ fun CatalogSeeAllScreen(
                 if (total > 0 && lastVisible >= total - 10) {
                     val row = catalogRow
                     if (row != null && row.hasMore && !row.isLoading) {
-                        if (isAnimeMode) {
+                        if (isExtraMode) {
+                            extraViewModel?.onEvent(
+                                com.nuvio.tv.ui.screens.extra.ExtraHomeEvent.OnLoadMoreCatalog(
+                                    row.catalogId,
+                                    row.addonId,
+                                    row.apiType
+                                )
+                            )
+                        } else if (isAnimeMode) {
                             animeViewModel?.onEvent(
                                 com.nuvio.tv.ui.screens.anime.AnimeHomeEvent.OnLoadMoreCatalog(
                                     row.catalogId,

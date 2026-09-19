@@ -72,9 +72,9 @@ class SearchViewModel @Inject constructor(
     private fun normalizeDiscoverType(apiType: String): String {
         return when (apiType.lowercase().trim()) {
             "movie" -> "movie"
-            "series", "tv" -> "series"
+            "series", "tv" -> "tv"
             "anime" -> "anime"
-            else -> apiType.lowercase().trim()
+            else -> "altro"
         }
     }
     val watchedSeriesIds: StateFlow<Set<String>> = watchedSeriesStateHolder.fullyWatchedSeriesIds
@@ -289,7 +289,7 @@ class SearchViewModel @Inject constructor(
                     addonName = catalog.addonName,
                     catalogId = catalog.catalogId,
                     catalogName = catalog.catalogName,
-                    type = catalog.type,
+                    type = catalog.apiType,
                     skip = skip,
                     skipStep = catalog.skipStep,
                     extraArgs = extraArgs,
@@ -890,13 +890,14 @@ class SearchViewModel @Inject constructor(
                 }
                 .map { catalog ->
                     DiscoverCatalog(
-                        key = "${addon.id}_${catalog.apiType}_${catalog.id}",
+                        key = "${addon.id}_${normalizeDiscoverType(catalog.apiType)}_${catalog.id}",
                         addonId = addon.id,
                         addonName = addon.displayName,
                         addonBaseUrl = addon.baseUrl,
                         catalogId = catalog.id,
                         catalogName = catalog.name,
-                        type = catalog.apiType,
+                        type = normalizeDiscoverType(catalog.apiType),
+                        apiType = catalog.apiType,
                         genres = catalog.extra
                             .firstOrNull { it.name.equals("genre", ignoreCase = true) }
                             ?.options
@@ -906,7 +907,6 @@ class SearchViewModel @Inject constructor(
                     )
                 }
         }
-            .filter { it.type in listOf("movie", "series", "tv") }
             .distinctBy { it.key }
 
         val selectedKey = savedDiscoverKey?.takeIf { key -> discoverCatalogs.any { it.key == key } }

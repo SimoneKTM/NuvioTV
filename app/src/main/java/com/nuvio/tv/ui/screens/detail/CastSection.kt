@@ -49,6 +49,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import coil3.compose.AsyncImage
+import coil3.compose.rememberAsyncImagePainter
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import androidx.tv.material3.Border
@@ -284,6 +285,7 @@ private fun CastMemberItem(
     }
 
     var isFocused by remember { mutableStateOf(false) }
+    var imageLoadFailed by remember(photo) { mutableStateOf(false) }
     val cardDepthStyle = LocalCardDepthStyle.current
 
     Column(
@@ -327,15 +329,17 @@ private fun CastMemberItem(
                 val currentBgColor = if (isFocused) NuvioTheme.colors.FocusBackground else NuvioTheme.colors.SurfaceVariant
                 val bgPainter = remember(currentBgColor) { androidx.compose.ui.graphics.painter.ColorPainter(currentBgColor) }
 
-                if (photoModel != null) {
-                    AsyncImage(
+                if (photoModel != null && !imageLoadFailed) {
+                    val painter = rememberAsyncImagePainter(
                         model = photoModel,
+                        onSuccess = { imageLoadFailed = false },
+                        onError = { imageLoadFailed = true }
+                    )
+                    androidx.compose.foundation.Image(
+                        painter = painter,
                         contentDescription = member.name,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        placeholder = bgPainter,
-                        error = bgPainter,
-                        fallback = bgPainter
+                        contentScale = ContentScale.Crop
                     )
                 } else {
                     androidx.compose.foundation.layout.Box(

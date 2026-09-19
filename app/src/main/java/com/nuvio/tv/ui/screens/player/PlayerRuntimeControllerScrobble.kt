@@ -118,7 +118,7 @@ internal suspend fun PlayerRuntimeController.warmTraktEpisodeMappingForCurrentPl
     }
 
     val normalizedType = contentType?.lowercase()
-    if (normalizedType !in listOf("series", "tv")) {
+    if (normalizedType !in listOf("series", "tv", "anime", "sport", "live")) {
         currentTraktEpisodeMapping = null
         currentTraktEpisodeMappingKey = null
         return

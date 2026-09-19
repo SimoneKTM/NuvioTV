@@ -82,6 +82,9 @@ class CalendarRepositoryImpl @Inject constructor(
             val backdropUrl = movie.images?.fanart?.firstOrNull()?.let { url ->
                 if (url.startsWith("http")) url else "$BACKDROP_W780$url"
             }
+            val logoUrl = movie.images?.logo?.firstOrNull()?.let { url ->
+                if (url.startsWith("http")) url else "${TRAKT_IMAGE_BASE}original$url"
+            }
 
             return CalendarItem(
                 meta = MetaPreview(
@@ -92,7 +95,7 @@ class CalendarRepositoryImpl @Inject constructor(
                     poster = posterUrl,
                     posterShape = PosterShape.POSTER,
                     background = backdropUrl,
-                    logo = null,
+                    logo = logoUrl,
                     description = movie.overview,
                     releaseInfo = movie.year?.toString(),
                     imdbRating = movie.rating?.toFloat(),
@@ -118,6 +121,9 @@ class CalendarRepositoryImpl @Inject constructor(
             val backdropUrl = show.images?.fanart?.firstOrNull()?.let { url ->
                 if (url.startsWith("http")) url else "$BACKDROP_W780$url"
             }
+            val logoUrl = show.images?.logo?.firstOrNull()?.let { url ->
+                if (url.startsWith("http")) url else "${TRAKT_IMAGE_BASE}original$url"
+            }
 
             val episodeLabel = if (episode != null) {
                 val season = episode.season ?: 0
@@ -142,7 +148,7 @@ class CalendarRepositoryImpl @Inject constructor(
                     poster = posterUrl,
                     posterShape = PosterShape.POSTER,
                     background = backdropUrl,
-                    logo = null,
+                    logo = logoUrl,
                     description = episodeLabel?.let { "$it \u2022 ${show.overview ?: ""}" } ?: show.overview,
                     releaseInfo = show.year?.toString(),
                     imdbRating = show.rating?.toFloat(),
