@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FilterDrama
@@ -39,10 +40,14 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -99,6 +104,10 @@ import com.nuvio.tv.ui.util.asStable
 import com.nuvio.tv.ui.util.dpadRepeatThrottle
 import com.nuvio.tv.ui.util.localizedContentType
 import com.nuvio.tv.ui.util.localizedLanguageText
+import coil3.compose.AsyncImage
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import kotlin.math.abs
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -711,77 +720,199 @@ private fun ExtraModernHero(
     rowsViewportHeight: Dp,
     onOpen: () -> Unit
 ) {
-    val density = LocalDensity.current
     val context = LocalContext.current
-    val heroPreview = remember(item) { buildExtraHeroPreview(context, item) }
-    val liveHeroSceneState by rememberUpdatedState(
-        ModernHeroSceneState(
-            heroBackdrop = firstNonBlank(
-                item.backdropUrl,
-                item.background,
-                item.landscapePoster,
-                item.poster
-            ),
-            preview = heroPreview,
-            enrichmentActive = false,
-            shouldPlayTrailer = false,
-            trailerFirstFrameRendered = false,
-            trailerUrl = null,
-            trailerAudioUrl = null,
-            trailerPlaybackKey = null,
-            trailerMuted = true,
-            fullScreenBackdrop = fullScreenBackdrop
-        )
-    )
-    // Stable lambda reading snapshot state so ModernHeroMediaLayer's
-    // derivedStateOf picks up backdrop changes as the focused item moves.
-    val heroSceneState = remember { { liveHeroSceneState } }
-    val heroMediaWidthPx = with(density) {
-        (screenWidth * if (fullScreenBackdrop) 1f else MODERN_HERO_MEDIA_WIDTH_FRACTION).roundToPx()
+    val backdropUrl = remember(item) {
+        firstNonBlank(item.backdropUrl, item.background, item.landscapePoster, item.poster)
     }
-    val heroMediaHeightPx = with(density) {
-        (if (fullScreenBackdrop) screenHeight else heroBackdropHeight).roundToPx()
+    val typeLabel = remember(item.rawType) {
+        when (item.rawType.lowercase()) {
+            "movie" -> "Film"
+            "tv" -> "Serie TV"
+            else -> item.rawType
+        }
     }
+    val genresText = remember(item.genres) {
+        item.genres.take(3).joinToString(" \u00B7 ") { it.replaceFirstChar { c -> c.uppercase() } }
+    }
+
     Box(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxWidth()
+            .height(heroBackdropHeight)
             .clickable { onOpen() }
-            .focusProperties { canFocus = false }) {
-        val heroMediaModifier = if (fullScreenBackdrop) {
-            Modifier
-                .align(Alignment.TopStart)
-                .fillMaxWidth()
-                .height(screenHeight)
+            .focusProperties { canFocus = false }
+    ) {
+        if (backdropUrl != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(backdropUrl)
+                    .crossfade(true)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .build(),
+                contentDescription = item.name,
+                contentScale = ContentScale.Crop,
+                alignment = Alignment.TopCenter,
+                modifier = Modifier.fillMaxSize()
+            )
         } else {
-            Modifier
-                .align(Alignment.TopEnd)
-                .offset(x = NuvioTheme.spacing.huge)
-                .fillMaxWidth(MODERN_HERO_MEDIA_WIDTH_FRACTION)
-                .height(heroBackdropHeight)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                NuvioTheme.colors.Secondary.copy(alpha = 0.3f),
+                                NuvioTheme.colors.Background
+                            )
+                        )
+                    )
+            )
         }
 
-        ModernHeroScene(
-            state = heroSceneState,
-            isFullScreen = { fullScreenBackdrop },
-            bgColor = NuvioTheme.colors.Background,
-            modifier = heroMediaModifier,
-            requestWidthPx = heroMediaWidthPx,
-            requestHeightPx = heroMediaHeightPx,
-            onTrailerEnded = {},
-            onFirstFrameRendered = {}
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Transparent,
+                            NuvioTheme.colors.Background.copy(alpha = 0.5f),
+                            NuvioTheme.colors.Background
+                        )
+                    )
+                )
         )
-        HeroTitleBlock(
-            previewProvider = { heroPreview },
-            portraitMode = !useLandscapePosters,
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            NuvioTheme.colors.Background.copy(alpha = 0.6f),
+                            Color.Transparent,
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(
-                    start = 52.dp,
-                    end = NuvioTheme.spacing.xxxl,
-                    bottom = rowsViewportHeight + NuvioTheme.spacing.lg
+                .padding(start = 52.dp, end = NuvioTheme.spacing.xxxl, bottom = 24.dp)
+                .fillMaxWidth(0.55f)
+        ) {
+            item.logo?.let { logoUrl ->
+                var logoFailed by remember { mutableStateOf(false) }
+                if (!logoFailed) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(logoUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = item.name,
+                        onError = { logoFailed = true },
+                        modifier = Modifier
+                            .height(72.dp)
+                            .fillMaxWidth(),
+                        contentScale = ContentScale.Fit,
+                        alignment = Alignment.CenterStart
+                    )
+                } else {
+                    Text(
+                        text = item.name,
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            } ?: run {
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = Color.White,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
-                .fillMaxWidth(MODERN_HERO_TEXT_WIDTH_FRACTION)
-        )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                item.imdbRating?.let { rating ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
+                    ) {
+                        Text(
+                            text = "\u2605",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = NuvioTheme.colors.Secondary
+                        )
+                        val ratingText = remember(rating) { String.format(java.util.Locale.US, "%.1f", rating) }
+                        Text(
+                            text = ratingText,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+
+                val releaseYear = remember(item.releaseInfo) {
+                    item.releaseInfo?.split("-")?.firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+                }
+                releaseYear?.let { year ->
+                    Text(
+                        text = year,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                }
+
+                Text(
+                    text = typeLabel,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White.copy(alpha = 0.8f)
+                )
+            }
+
+            if (item.genres.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+                ) {
+                    item.genres.take(3).forEach { genre ->
+                        Text(
+                            text = genre,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(NuvioTheme.radii.xs))
+                                .background(Color.White.copy(alpha = 0.1f))
+                                .padding(horizontal = NuvioTheme.spacing.sm, vertical = NuvioTheme.spacing.xs)
+                        )
+                    }
+                }
+            }
+
+            item.description?.let { desc ->
+                Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
+                Text(
+                    text = desc,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.7f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
     }
 }
 
