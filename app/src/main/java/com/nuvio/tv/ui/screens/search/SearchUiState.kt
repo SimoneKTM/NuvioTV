@@ -15,10 +15,7 @@ internal fun shouldShowDiscoverInSearch(
     discoverLocation: DiscoverLocation,
     query: String,
     submittedQuery: String
-): Boolean =
-    discoverLocation == DiscoverLocation.IN_SEARCH &&
-        query.trim().length < MIN_SEARCH_QUERY_LENGTH &&
-        submittedQuery.isBlank()
+): Boolean = false
 
 @Immutable
 data class SearchUiState(
