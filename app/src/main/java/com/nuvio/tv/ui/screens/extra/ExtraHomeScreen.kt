@@ -40,6 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -57,6 +59,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
+import com.nuvio.tv.LocalContentFocusRequester
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
@@ -276,11 +279,13 @@ private fun ExtraModernContent(
             }
         }
 
+        val contentFocusRequester = LocalContentFocusRequester.current
         LazyColumn(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
                 .then(if (heroEnabled) Modifier.height(rowsViewportHeight) else Modifier.fillMaxSize())
+                .focusRequester(contentFocusRequester)
                 .dpadRepeatThrottle(),
             contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl),
             verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xl)
@@ -809,9 +814,11 @@ private fun ExtraClassicContent(
                 .fillMaxSize()
                 .background(NuvioTheme.colors.Background)
         )
+        val contentFocusRequester = LocalContentFocusRequester.current
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .focusRequester(contentFocusRequester)
                 .dpadRepeatThrottle(),
             contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
         ) {
@@ -871,9 +878,11 @@ private fun ExtraGridContent(
     onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
 ) {
+    val contentFocusRequester = LocalContentFocusRequester.current
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            .focusRequester(contentFocusRequester)
             .dpadRepeatThrottle(),
         contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
     ) {
