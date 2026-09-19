@@ -168,6 +168,7 @@ import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.ui.components.NuvioScrollDefaults
 import com.nuvio.tv.ui.components.LocalCardDepthStyle
 import com.nuvio.tv.ui.components.ProfileAvatarCircle
+import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
 import com.nuvio.tv.ui.navigation.NuvioNavHost
 import com.nuvio.tv.ui.navigation.Screen
 import com.nuvio.tv.ui.screens.account.AuthQrSignInScreen
@@ -1676,8 +1677,7 @@ private fun ModernSidebarScaffold(
         if (!showSidebar || !pendingContentFocusTransfer || isSidebarExpanded || sidebarCollapsePending) {
             return@LaunchedEffect
         }
-        repeat(2) { withFrameNanos { } }
-        runCatching { contentFocusRequester.requestFocus() }
+        contentFocusRequester.requestFocusAfterFrames(8)
         pendingContentFocusTransfer = false
     }
 

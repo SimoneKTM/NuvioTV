@@ -113,6 +113,16 @@ fun ExtraHomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val rows = uiState.rows
 
+    val contentFocusRequester = LocalContentFocusRequester.current
+    var prevIsLoading by remember { mutableStateOf(true) }
+    LaunchedEffect(uiState.isLoading, rows.size) {
+        if (prevIsLoading && !uiState.isLoading && rows.isNotEmpty()) {
+            kotlinx.coroutines.delay(150)
+            runCatching { contentFocusRequester.requestFocus() }
+        }
+        prevIsLoading = uiState.isLoading
+    }
+
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
