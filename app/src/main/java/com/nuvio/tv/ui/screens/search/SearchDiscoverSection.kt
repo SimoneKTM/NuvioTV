@@ -2,10 +2,10 @@
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
+import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,7 +25,12 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,22 +38,22 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Border
+import androidx.tv.material3.Card
+import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 
@@ -58,10 +64,7 @@ import com.nuvio.tv.ui.components.GridContentCard
 import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.components.PosterCardStyle
 
-private val DropdownSurfaceColor = Color(0xFF1E1E2E)
-private val DropdownItemHoverColor = Color(0xFF2A2A3C)
-private val ChipSurfaceColor = Color(0xFF2A2A3C)
-private val ChipSelectedColor = Color(0xFFE50914)
+private data class DiscoverOption(val label: String, val value: String)
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -92,6 +95,7 @@ internal fun DiscoverSection(
     val availableGenres = selectedCatalog?.genres ?: emptyList()
 
     val gridState = rememberLazyGridState()
+    var expandedPicker by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(uiState.discoverHasMore, uiState.pendingDiscoverResults) {
         if (uiState.discoverHasMore && uiState.pendingDiscoverResults.isEmpty()) {
@@ -106,53 +110,71 @@ internal fun DiscoverSection(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = NuvioTheme.spacing.xxxl),
-        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
     ) {
         if (showBuiltInHeader) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(R.string.discover_title),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = NuvioTheme.colors.TextPrimary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                SectionBadge(count = results.size)
-            }
+            Text(
+                text = stringResource(R.string.discover_title),
+                style = MaterialTheme.typography.headlineMedium,
+                color = NuvioTheme.colors.TextPrimary
+            )
         }
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
         ) {
-            DiscoverChip(
-                label = "Tipo",
-                options = availableTypes.map { it to localizedName(it) },
+            DiscoverDropdownPicker(
+                modifier = Modifier.weight(1f),
+                title = "Tipo",
+                value = localizedName(selectedType),
                 selectedValue = selectedType,
-                onSelect = { onEvent(SearchEvent.DiscoverTypeChanged(it)) }
+                expanded = expandedPicker == "type",
+                options = availableTypes.map { DiscoverOption(localizedName(it), it) },
+                onExpandedChange = { expandedPicker = if (it) "type" else null },
+                onSelect = {
+                    onEvent(SearchEvent.DiscoverTypeChanged(it.value))
+                    expandedPicker = null
+                }
             )
-            DiscoverChip(
-                label = "Catalogo",
-                options = catalogsForType.map { it.key to it.catalogName },
+            DiscoverDropdownPicker(
+                modifier = Modifier.weight(1f),
+                title = "Catalogo",
+                value = selectedCatalog?.catalogName ?: "Seleziona catalogo",
                 selectedValue = selectedCatalogKey,
-                onSelect = { onEvent(SearchEvent.DiscoverCatalogChanged(it)) }
+                expanded = expandedPicker == "catalog",
+                options = catalogsForType.map { DiscoverOption(it.catalogName, it.key) },
+                onExpandedChange = { expandedPicker = if (it) "catalog" else null },
+                onSelect = {
+                    onEvent(SearchEvent.DiscoverCatalogChanged(it.value))
+                    expandedPicker = null
+                }
             )
             if (availableGenres.isNotEmpty()) {
-                val genreOptions = listOf("__default__" to "Tutti") + availableGenres.map { it to it.replaceFirstChar { c -> c.uppercase() } }
-                DiscoverChip(
-                    label = "Genere",
-                    options = genreOptions,
+                DiscoverDropdownPicker(
+                    modifier = Modifier.weight(1f),
+                    title = "Genere",
+                    value = selectedGenre?.replaceFirstChar { c -> c.uppercase() } ?: "Tutti",
                     selectedValue = selectedGenre ?: "__default__",
-                    onSelect = { onEvent(SearchEvent.DiscoverGenreChanged(if (it == "__default__") null else it)) }
+                    expanded = expandedPicker == "genre",
+                    options = buildList {
+                        add(DiscoverOption("Tutti", "__default__"))
+                        addAll(availableGenres.map { DiscoverOption(it.replaceFirstChar { c -> c.uppercase() }, it) })
+                    },
+                    onExpandedChange = { expandedPicker = if (it) "genre" else null },
+                    onSelect = {
+                        onEvent(SearchEvent.DiscoverGenreChanged(if (it.value == "__default__") null else it.value))
+                        expandedPicker = null
+                    }
                 )
             }
         }
 
         if (selectedCatalog != null) {
             Text(
-                text = "${selectedCatalog.addonName} \u2022 ${localizedName(selectedType)}${selectedGenre?.let { " \u2022 $it" } ?: ""}",
-                style = MaterialTheme.typography.labelMedium,
-                color = NuvioTheme.colors.TextTertiary
+                text = "${selectedCatalog.addonName} \u2022 ${localizedName(selectedType)}${selectedGenre?.let { " \u2022 ${it.replaceFirstChar { c -> c.uppercase() }}" } ?: ""}",
+                style = MaterialTheme.typography.bodySmall,
+                color = NuvioTheme.colors.TextSecondary
             )
         }
 
@@ -161,7 +183,7 @@ internal fun DiscoverSection(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(400.dp),
+                        .padding(top = 28.dp, bottom = 28.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     LoadingIndicator()
@@ -237,83 +259,124 @@ internal fun DiscoverSection(
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-private fun DiscoverChip(
-    label: String,
-    options: List<Pair<String, String>>,
+private fun DiscoverDropdownPicker(
+    modifier: Modifier = Modifier,
+    title: String,
+    value: String,
     selectedValue: String?,
-    onSelect: (String) -> Unit
+    expanded: Boolean,
+    options: List<DiscoverOption>,
+    onExpandedChange: (Boolean) -> Unit,
+    onSelect: (DiscoverOption) -> Unit
 ) {
-    val selectedLabel = options.find { it.first == selectedValue }?.second
-        ?: options.firstOrNull()?.second
-        ?: label
-    val isSelected = options.any { it.first == selectedValue }
     var isFocused by remember { mutableStateOf(false) }
+    var anchorSize by remember { mutableStateOf(IntSize.Zero) }
 
-    Box(
-        modifier = Modifier
-            .height(36.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(
-                when {
-                    isFocused -> ChipSelectedColor.copy(alpha = 0.8f)
-                    isSelected -> ChipSelectedColor
-                    else -> ChipSurfaceColor
-                }
+    Box(modifier = modifier) {
+        Card(
+            onClick = { onExpandedChange(!expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onSizeChanged { anchorSize = it }
+                .onFocusChanged { isFocused = it.isFocused },
+            shape = CardDefaults.shape(shape = RoundedCornerShape(14.dp)),
+            colors = CardDefaults.colors(
+                containerColor = NuvioTheme.colors.BackgroundCard,
+                focusedContainerColor = NuvioTheme.colors.FocusBackground
+            ),
+            border = CardDefaults.border(
+                border = Border(
+                    border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border),
+                    shape = RoundedCornerShape(14.dp)
+                ),
+                focusedBorder = Border(
+                    border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),
+                    shape = RoundedCornerShape(14.dp)
+                )
+            ),
+            scale = CardDefaults.scale(
+                focusedScale = 1.0f,
+                pressedScale = 1.0f
             )
-            .onFocusChanged { isFocused = it.isFocused }
-            .focusable(interactionSource = remember { MutableInteractionSource() })
-            .onKeyEvent { keyEvent ->
-                if (keyEvent.type == KeyEventType.KeyUp &&
-                    (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter)
-                ) {
-                    val currentIndex = options.indexOfFirst { it.first == selectedValue }
-                    val nextIndex = if (currentIndex >= 0) (currentIndex + 1) % options.size else 0
-                    if (options.isNotEmpty()) {
-                        onSelect(options[nextIndex].first)
-                    }
-                    true
-                } else false
-            }
-            .padding(horizontal = 16.dp),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.6f)
-            )
-            Text(
-                text = selectedLabel,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xxs)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = NuvioTheme.colors.TextTertiary
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = NuvioTheme.colors.TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = if (isFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.TextSecondary
+                    )
+                }
+            }
         }
-    }
-}
 
-@Composable
-private fun SectionBadge(count: Int) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(NuvioTheme.colors.Secondary.copy(alpha = 0.2f))
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-    ) {
-        Text(
-            text = "$count",
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = NuvioTheme.colors.Secondary
-        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) },
+            modifier = Modifier
+                .width(with(LocalDensity.current) { anchorSize.width.toDp() })
+                .heightIn(max = 320.dp),
+            shape = RoundedCornerShape(14.dp),
+            containerColor = NuvioTheme.colors.BackgroundCard,
+            tonalElevation = 0.dp,
+            shadowElevation = NuvioTheme.spacing.sm,
+            border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border)
+        ) {
+            options.forEach { option ->
+                val isSelected = option.value == selectedValue
+                val itemTextColor = NuvioTheme.colors.TextPrimary
+                val itemBackgroundColor = when {
+                    isSelected -> NuvioTheme.colors.Secondary
+                    else -> Color.Transparent
+                }
+
+                DropdownMenuItem(
+                    modifier = Modifier
+                        .padding(horizontal = 6.dp, vertical = NuvioTheme.spacing.xxs)
+                        .background(
+                            color = itemBackgroundColor,
+                            shape = RoundedCornerShape(10.dp)
+                        ),
+                    text = {
+                        Text(
+                            text = option.label,
+                            color = itemTextColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    },
+                    onClick = { onSelect(option) },
+                    colors = MenuDefaults.itemColors(
+                        textColor = itemTextColor
+                    )
+                )
+            }
+        }
     }
 }
 
