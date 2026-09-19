@@ -41,7 +41,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Border
@@ -209,14 +208,19 @@ private fun CalendarHeroSection(
 ) {
     val firstItem = section.items.firstOrNull() ?: return
     var focusedIndex by remember { mutableIntStateOf(0) }
-    var userInteracted by remember { mutableStateOf(false) }
+    var userInteracting by remember { mutableStateOf(false) }
     val heroItems = remember(section.items) { section.items.take(10) }
     val focusedItem = remember(focusedIndex, section.items) {
         section.items.getOrNull(focusedIndex) ?: firstItem
     }
 
-    LaunchedEffect(heroItems.size, userInteracted) {
-        if (userInteracted || heroItems.size <= 1) return@LaunchedEffect
+    LaunchedEffect(heroItems.size, userInteracting) {
+        if (heroItems.size <= 1) return@LaunchedEffect
+        if (userInteracting) {
+            delay(8000L)
+            userInteracting = false
+            return@LaunchedEffect
+        }
         while (true) {
             delay(5000L)
             focusedIndex = (focusedIndex + 1) % heroItems.size
@@ -438,7 +442,7 @@ private fun CalendarHeroSection(
                     onFocusChange = { focused ->
                         if (focused) {
                             focusedIndex = index
-                            userInteracted = true
+                            userInteracting = true
                         }
                     }
                 )
@@ -693,7 +697,6 @@ private fun CalendarPortraitCard(
                     shadowElevation = 8f
                 }
             }
-            .zIndex(if (isFocused) 1f else 0f)
             .width(cardWidth)
             .onFocusChanged { isFocused = it.isFocused },
         shape = CardDefaults.shape(shape = cardShape),
