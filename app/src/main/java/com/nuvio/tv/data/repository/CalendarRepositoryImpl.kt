@@ -1,6 +1,9 @@
 package com.nuvio.tv.data.repository
 
 import android.util.Log
+import com.nuvio.tv.core.trakt.traktBestBackdropUrl
+import com.nuvio.tv.core.trakt.traktBestLogoUrl
+import com.nuvio.tv.core.trakt.traktBestPosterUrl
 import com.nuvio.tv.data.remote.api.TraktApi
 import com.nuvio.tv.domain.model.CalendarItem
 import com.nuvio.tv.domain.model.ContentType
@@ -76,15 +79,13 @@ class CalendarRepositoryImpl @Inject constructor(
             val releaseDate = parseDate(released)
             if (releaseDate == null || releaseDate.isBefore(today)) return null
 
-            val posterUrl = movie.images?.poster?.firstOrNull()?.let { url ->
-                if (url.startsWith("http")) url else "$POSTER_W342$url"
-            }
-            val backdropUrl = movie.images?.fanart?.firstOrNull()?.let { url ->
-                if (url.startsWith("http")) url else "$BACKDROP_W780$url"
-            }
-            val logoUrl = movie.images?.logo?.firstOrNull()?.let { url ->
-                if (url.startsWith("http")) url else "${TRAKT_IMAGE_BASE}original$url"
-            }
+            val posterUrl = movie.images.traktBestPosterUrl()
+                ?: tmdbId?.let { "${POSTER_W342}/$it" }
+            val backdropUrl = movie.images.traktBestBackdropUrl()
+                ?: tmdbId?.let { "${BACKDROP_W780}/$it" }
+            val logoUrl = movie.images.traktBestLogoUrl()
+
+            Log.d(TAG, "Movie: ${movie.title} poster=$posterUrl backdrop=$backdropUrl logo=$logoUrl")
 
             return CalendarItem(
                 meta = MetaPreview(
@@ -115,29 +116,19 @@ class CalendarRepositoryImpl @Inject constructor(
             val airDate = parseDate(firstAired ?: episode?.firstAired)
             if (airDate == null || airDate.isBefore(today)) return null
 
-            val posterUrl = show.images?.poster?.firstOrNull()?.let { url ->
-                if (url.startsWith("http")) url else "$POSTER_W342$url"
-            }
-            val backdropUrl = show.images?.fanart?.firstOrNull()?.let { url ->
-                if (url.startsWith("http")) url else "$BACKDROP_W780$url"
-            }
-            val logoUrl = show.images?.logo?.firstOrNull()?.let { url ->
-                if (url.startsWith("http")) url else "${TRAKT_IMAGE_BASE}original$url"
-            }
+            val posterUrl = show.images.traktBestPosterUrl()
+                ?: tmdbId?.let { "${POSTER_W342}/$it" }
+            val backdropUrl = show.images.traktBestBackdropUrl()
+                ?: tmdbId?.let { "${BACKDROP_W780}/$it" }
+            val logoUrl = show.images.traktBestLogoUrl()
+
+            Log.d(TAG, "Show: ${show.title} poster=$posterUrl backdrop=$backdropUrl logo=$logoUrl")
 
             val episodeLabel = if (episode != null) {
                 val season = episode.season ?: 0
                 val number = episode.number ?: 0
                 "S${season}E$number"
             } else null
-
-            val typeLabel = when (episode?.episodeType) {
-                "series_premiere" -> "Premiera serie"
-                "season_premiere" -> "Premiera stagione"
-                "season_finale" -> "Finale stagione"
-                "series_finale" -> "Finale serie"
-                else -> null
-            }
 
             return CalendarItem(
                 meta = MetaPreview(

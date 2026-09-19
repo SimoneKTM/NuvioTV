@@ -296,9 +296,12 @@ private fun com.nuvio.tv.domain.model.Addon.supportsStreamResourceForChip(type: 
         "series", "tv", "show", "anime", "sport", "live" -> "tv"
         else -> type.lowercase()
     }
+    val originalType = type.lowercase()
     return resources.any { resource ->
         resource.name == "stream" &&
-            (resource.types.isEmpty() || resource.types.any { it.equals(normalizedType, ignoreCase = true) }) &&
+            (resource.types.isEmpty() ||
+                resource.types.any { it.equals(normalizedType, ignoreCase = true) } ||
+                resource.types.any { it.equals(originalType, ignoreCase = true) }) &&
             run {
                 val prefixes = resource.idPrefixes?.takeIf { it.isNotEmpty() }
                     ?: idPrefixes.takeIf { it.isNotEmpty() }

@@ -1,9 +1,11 @@
-package com.nuvio.tv.ui.screens.search
+﻿package com.nuvio.tv.ui.screens.search
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,8 +32,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,15 +50,18 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.GridContentCard
 import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.components.PosterCardStyle
-import kotlin.math.roundToInt
+
+private val DropdownSurfaceColor = Color(0xFF1E1E2E)
+private val DropdownItemHoverColor = Color(0xFF2A2A3C)
+private val ChipSurfaceColor = Color(0xFF2A2A3C)
+private val ChipSelectedColor = Color(0xFFE50914)
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -92,7 +106,7 @@ internal fun DiscoverSection(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = NuvioTheme.spacing.xxxl),
-        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
     ) {
         if (showBuiltInHeader) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -107,16 +121,17 @@ internal fun DiscoverSection(
         }
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            DiscoverDropdownPicker(
+            DiscoverChip(
                 label = "Tipo",
                 options = availableTypes.map { it to localizedName(it) },
                 selectedValue = selectedType,
                 onSelect = { onEvent(SearchEvent.DiscoverTypeChanged(it)) }
             )
-            DiscoverDropdownPicker(
+            DiscoverChip(
                 label = "Catalogo",
                 options = catalogsForType.map { it.key to it.catalogName },
                 selectedValue = selectedCatalogKey,
@@ -124,7 +139,7 @@ internal fun DiscoverSection(
             )
             if (availableGenres.isNotEmpty()) {
                 val genreOptions = listOf("__default__" to "Tutti") + availableGenres.map { it to it.replaceFirstChar { c -> c.uppercase() } }
-                DiscoverDropdownPicker(
+                DiscoverChip(
                     label = "Genere",
                     options = genreOptions,
                     selectedValue = selectedGenre ?: "__default__",
@@ -222,57 +237,65 @@ internal fun DiscoverSection(
     }
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun DiscoverDropdownPicker(
+private fun DiscoverChip(
     label: String,
     options: List<Pair<String, String>>,
     selectedValue: String?,
     onSelect: (String) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
     val selectedLabel = options.find { it.first == selectedValue }?.second
         ?: options.firstOrNull()?.second
         ?: label
+    val isSelected = options.any { it.first == selectedValue }
+    var isFocused by remember { mutableStateOf(false) }
 
-    Box {
-        androidx.compose.material3.OutlinedButton(
-            onClick = { expanded = true },
-            modifier = Modifier.height(36.dp),
-            shape = RoundedCornerShape(8.dp),
-            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                contentColor = NuvioTheme.colors.TextPrimary
-            ),
-            border = BorderStroke(1.dp, NuvioTheme.colors.Border)
+    Box(
+        modifier = Modifier
+            .height(36.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(
+                when {
+                    isFocused -> ChipSelectedColor.copy(alpha = 0.8f)
+                    isSelected -> ChipSelectedColor
+                    else -> ChipSurfaceColor
+                }
+            )
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable(interactionSource = remember { MutableInteractionSource() })
+            .onKeyEvent { keyEvent ->
+                if (keyEvent.type == KeyEventType.KeyUp &&
+                    (keyEvent.key == Key.DirectionCenter || keyEvent.key == Key.Enter)
+                ) {
+                    val currentIndex = options.indexOfFirst { it.first == selectedValue }
+                    val nextIndex = if (currentIndex >= 0) (currentIndex + 1) % options.size else 0
+                    if (options.isNotEmpty()) {
+                        onSelect(options[nextIndex].first)
+                    }
+                    true
+                } else false
+            }
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Text(
-                text = "$label: $selectedLabel",
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.6f)
+            )
+            Text(
+                text = selectedLabel,
                 style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-        }
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            options.forEach { (value, displayName) ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = displayName,
-                            fontWeight = if (value == selectedValue) FontWeight.Bold else FontWeight.Normal,
-                            color = if (value == selectedValue) NuvioTheme.colors.Secondary else NuvioTheme.colors.TextPrimary
-                        )
-                    },
-                    onClick = {
-                        onSelect(value)
-                        expanded = false
-                    }
-                )
-            }
         }
     }
 }

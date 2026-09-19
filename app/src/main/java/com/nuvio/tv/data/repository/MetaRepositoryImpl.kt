@@ -331,10 +331,11 @@ class MetaRepositoryImpl @Inject constructor(
             "series", "tv", "show", "anime", "sport", "live" -> "tv"
             else -> type.lowercase()
         }
+        val originalType = type.lowercase()
         val target = normalizedType
         if (target.isBlank()) return false
         return resources.any { resource ->
-            resource.name == "meta" && resource.supportsType(target)
+            resource.name == "meta" && (resource.supportsType(target) || resource.supportsType(originalType))
         }
     }
 

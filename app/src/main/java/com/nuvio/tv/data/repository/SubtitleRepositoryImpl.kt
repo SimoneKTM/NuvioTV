@@ -175,8 +175,11 @@ class SubtitleRepositoryImpl @Inject constructor(
             "series", "tv", "show", "anime", "sport", "live" -> "tv"
             else -> type.lowercase()
         }
+        val originalType = type.lowercase()
         // Check if type is supported
-        if (resource.types.isNotEmpty() && resource.types.none { it.equals(normalizedType, ignoreCase = true) }) {
+        if (resource.types.isNotEmpty() &&
+            resource.types.none { it.equals(normalizedType, ignoreCase = true) } &&
+            resource.types.none { it.equals(originalType, ignoreCase = true) }) {
             return false
         }
         

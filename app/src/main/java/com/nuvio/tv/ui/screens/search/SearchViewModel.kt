@@ -70,10 +70,11 @@ class SearchViewModel @Inject constructor(
     val watchedMovieIds: StateFlow<Set<String>> = _watchedMovieIds.asStateFlow()
 
     private fun normalizeDiscoverType(apiType: String): String {
-        return when (apiType.lowercase().trim()) {
-            "movie" -> "movie"
-            "series", "tv" -> "tv"
-            "anime" -> "anime"
+        val lower = apiType.lowercase().trim()
+        return when {
+            lower == "movie" || "film" in lower || "movie" in lower -> "movie"
+            lower == "series" || lower == "tv" || "series" in lower || "tv" in lower -> "tv"
+            lower == "anime" || "anime" in lower -> "anime"
             else -> "altro"
         }
     }
@@ -879,6 +880,13 @@ class SearchViewModel @Inject constructor(
         try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
         try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
         try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+
+        android.util.Log.d("SearchVM", "loadDiscoverCatalogs: addons=${addons.size}")
+        addons.forEach { addon ->
+            addon.catalogs.forEach { catalog ->
+                android.util.Log.d("SearchVM", "  addon=${addon.displayName} catalogId=${catalog.id} catalogName=${catalog.name} type=${catalog.type} rawType=${catalog.rawType} apiType=${catalog.apiType} normalized=${normalizeDiscoverType(catalog.apiType)}")
+            }
+        }
 
         val discoverCatalogs = addons.flatMap { addon ->
             addon.catalogs

@@ -54,10 +54,7 @@ import coil3.request.crossfade
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.CalendarSection
 import com.nuvio.tv.domain.model.MetaPreview
-import com.nuvio.tv.domain.model.CardDepthSurface
 import com.nuvio.tv.ui.components.LoadingIndicator
-import com.nuvio.tv.ui.components.LocalCardDepthStyle
-import com.nuvio.tv.ui.components.nuvioCardDepth
 import com.nuvio.tv.ui.theme.NuvioTheme
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -218,15 +215,30 @@ private fun CalendarHeroSection(
                 .fillMaxWidth()
                 .height(HERO_HEIGHT)
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(focusedItem.meta.backdropUrl ?: focusedItem.meta.poster)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = focusedItem.meta.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
+            if (focusedItem.meta.backdropUrl != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(focusedItem.meta.backdropUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = focusedItem.meta.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    NuvioTheme.colors.Secondary.copy(alpha = 0.3f),
+                                    NuvioTheme.colors.Background
+                                )
+                            )
+                        )
+                )
+            }
 
             Box(
                 modifier = Modifier
@@ -466,7 +478,6 @@ private fun CalendarWideCard(
         }
     }
     val cardShape = RoundedCornerShape(12.dp)
-    val cardDepthStyle = LocalCardDepthStyle.current
     val scale by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (isFocused) 1.02f else 1f,
         label = "wideCardScale"
@@ -497,26 +508,44 @@ private fun CalendarWideCard(
         )
     ) {
         Column {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(WIDE_CARD_HEIGHT)
+            .clip(cardShape)
+    ) {
+        if (meta.backdropUrl != null) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(meta.backdropUrl)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = meta.name,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(WIDE_CARD_HEIGHT)
-                    .clip(cardShape)
-                    .nuvioCardDepth(
-                        shape = cardShape,
-                        surface = CardDepthSurface.POSTERS,
-                        style = cardDepthStyle
-                    )
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                NuvioTheme.colors.Secondary.copy(alpha = 0.4f),
+                                NuvioTheme.colors.BackgroundCard
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(meta.backdropUrl ?: meta.poster)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = meta.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                Text(
+                    text = meta.name.take(1).uppercase(),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.3f)
                 )
+            }
+        }
 
                 if (dateLabel.isNotEmpty()) {
                     Box(
@@ -586,7 +615,6 @@ private fun CalendarPortraitCard(
         meta.genres.take(2).joinToString(" \u00B7 ") { it.replaceFirstChar { c -> c.uppercase() } }
     }
     val cardShape = RoundedCornerShape(12.dp)
-    val cardDepthStyle = LocalCardDepthStyle.current
     val scale by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (isFocused) 1.02f else 1f,
         label = "portraitCardScale"
@@ -623,21 +651,39 @@ private fun CalendarPortraitCard(
                     .width(cardWidth)
                     .height(cardHeight)
                     .clip(cardShape)
-                    .nuvioCardDepth(
-                        shape = cardShape,
-                        surface = CardDepthSurface.POSTERS,
-                        style = cardDepthStyle
-                    )
             ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(meta.poster)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = meta.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
+                if (meta.poster != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(meta.poster)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = meta.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        NuvioTheme.colors.Secondary.copy(alpha = 0.4f),
+                                        NuvioTheme.colors.BackgroundCard
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = meta.name.take(1).uppercase(),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.3f)
+                        )
+                    }
+                }
 
                 if (dateLabel.isNotEmpty()) {
                     Box(
