@@ -170,14 +170,6 @@ internal fun DiscoverSection(
             }
         }
 
-        if (selectedCatalog != null) {
-            Text(
-                text = "${selectedCatalog.addonName} \u2022 ${localizedName(selectedType)}${selectedGenre?.let { " \u2022 ${it.replaceFirstChar { c -> c.uppercase() }}" } ?: ""}",
-                style = MaterialTheme.typography.bodySmall,
-                color = NuvioTheme.colors.TextSecondary
-            )
-        }
-
         when {
             uiState.discoverLoading && results.isEmpty() -> {
                 Box(
