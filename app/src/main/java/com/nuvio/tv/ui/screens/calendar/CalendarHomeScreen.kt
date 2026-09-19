@@ -288,47 +288,51 @@ private fun CalendarHeroSection(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(start = SECTION_PADDING_HORIZONTAL, end = 48.dp, bottom = 20.dp)
+                    .fillMaxWidth(0.55f)
             ) {
                 focusedItem.meta.logo?.let { logoUrl ->
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(logoUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = focusedItem.meta.name,
-                        modifier = Modifier
-                            .height(60.dp)
-                            .fillMaxWidth(0.4f)
-                            .padding(bottom = 8.dp),
-                        contentScale = ContentScale.Fit,
-                        alignment = Alignment.CenterStart
-                    )
+                    var logoLoadFailed by remember { mutableStateOf(false) }
+                    if (!logoLoadFailed) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(logoUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = focusedItem.meta.name,
+                            onError = { logoLoadFailed = true },
+                            modifier = Modifier
+                                .height(80.dp)
+                                .fillMaxWidth(),
+                            contentScale = ContentScale.Fit,
+                            alignment = Alignment.CenterStart
+                        )
+                    } else {
+                        Text(
+                            text = focusedItem.meta.name,
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = Color.White,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                } ?: run {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = focusedItem.meta.name,
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        SectionBadge(count = section.items.size)
+                    }
                 }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = focusedItem.meta.logo?.let { "" } ?: focusedItem.meta.name,
-                        style = MaterialTheme.typography.headlineLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    SectionBadge(count = section.items.size)
-                }
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    text = section.label,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Color.White.copy(alpha = 0.7f)
-                )
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                val focusedGenres = remember(focusedItem) {
-                    focusedItem.meta.genres.take(3).joinToString(" \u00B7 ") { it.replaceFirstChar { c -> c.uppercase() } }
-                }
                 val focusedTypeLabel = remember(focusedItem) {
                     when (focusedItem.meta.rawType.lowercase()) {
                         "movie" -> "Film"
@@ -337,38 +341,74 @@ private fun CalendarHeroSection(
                     }
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = focusedTypeLabel,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-                    )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     focusedItem.meta.imdbRating?.let { rating ->
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
+                        ) {
+                            Text(
+                                text = "\u2605",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = NuvioTheme.colors.Secondary
+                            )
+                            val ratingText = remember(rating) { String.format(Locale.US, "%.1f", rating) }
+                            Text(
+                                text = ratingText,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+
+                    val releaseYear = remember(focusedItem.meta.releaseInfo) {
+                        focusedItem.meta.releaseInfo?.let { releaseInfo ->
+                            releaseInfo.split("-").firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+                        }
+                    }
+                    releaseYear?.let { year ->
                         Text(
-                            text = "\u2605 ${String.format(Locale.US, "%.1f", rating)}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = NuvioTheme.colors.Secondary
+                            text = year,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.White.copy(alpha = 0.8f)
                         )
                     }
-                    if (focusedGenres.isNotEmpty()) {
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = focusedGenres,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.6f)
-                        )
+
+                    Text(
+                        text = focusedTypeLabel,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                }
+
+                if (focusedItem.meta.genres.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+                    ) {
+                        focusedItem.meta.genres.take(3).forEach { genre ->
+                            Text(
+                                text = genre,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(NuvioTheme.radii.xs))
+                                    .background(Color.White.copy(alpha = 0.1f))
+                                    .padding(horizontal = NuvioTheme.spacing.sm, vertical = NuvioTheme.spacing.xs)
+                            )
+                        }
                     }
                 }
 
                 focusedItem.meta.description?.let { desc ->
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
                     Text(
                         text = desc,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.5f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.7f),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
