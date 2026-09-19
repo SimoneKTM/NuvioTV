@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
+import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.nuvio.tv.R
@@ -59,6 +61,7 @@ import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.theme.NuvioTheme
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 private val HERO_HEIGHT = 540.dp
 private val WIDE_CARD_WIDTH = 260.dp
@@ -206,8 +209,18 @@ private fun CalendarHeroSection(
 ) {
     val firstItem = section.items.firstOrNull() ?: return
     var focusedIndex by remember { mutableIntStateOf(0) }
+    var userInteracted by remember { mutableStateOf(false) }
+    val heroItems = remember(section.items) { section.items.take(10) }
     val focusedItem = remember(focusedIndex, section.items) {
         section.items.getOrNull(focusedIndex) ?: firstItem
+    }
+
+    LaunchedEffect(heroItems.size, userInteracted) {
+        if (userInteracted || heroItems.size <= 1) return@LaunchedEffect
+        while (true) {
+            delay(5000L)
+            focusedIndex = (focusedIndex + 1) % heroItems.size
+        }
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -221,6 +234,8 @@ private fun CalendarHeroSection(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(focusedItem.meta.backdropUrl)
                         .crossfade(true)
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
                         .build(),
                     contentDescription = focusedItem.meta.name,
                     contentScale = ContentScale.Crop,
@@ -381,7 +396,10 @@ private fun CalendarHeroSection(
                         )
                     },
                     onFocusChange = { focused ->
-                        if (focused) focusedIndex = index
+                        if (focused) {
+                            focusedIndex = index
+                            userInteracted = true
+                        }
                     }
                 )
             }
@@ -520,6 +538,8 @@ private fun CalendarWideCard(
                 model = ImageRequest.Builder(LocalContext.current)
                     .data(meta.backdropUrl)
                     .crossfade(true)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.ENABLED)
                     .build(),
                 contentDescription = meta.name,
                 contentScale = ContentScale.Crop,
@@ -662,6 +682,8 @@ private fun CalendarPortraitCard(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(meta.poster)
                             .crossfade(true)
+                            .memoryCachePolicy(CachePolicy.ENABLED)
+                            .diskCachePolicy(CachePolicy.ENABLED)
                             .build(),
                         contentDescription = meta.name,
                         contentScale = ContentScale.Crop,
@@ -689,6 +711,20 @@ private fun CalendarPortraitCard(
                         )
                     }
                 }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.6f)
+                                )
+                            )
+                        )
+                )
 
                 if (dateLabel.isNotEmpty()) {
                     Box(

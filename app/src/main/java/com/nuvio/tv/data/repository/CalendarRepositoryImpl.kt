@@ -33,8 +33,8 @@ class CalendarRepositoryImpl @Inject constructor(
     companion object {
         private const val TAG = "CalendarRepo"
         private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/"
-        private const val POSTER_SIZE = "w500"
-        private const val BACKDROP_SIZE = "w780"
+        private const val POSTER_SIZE = "w780"
+        private const val BACKDROP_SIZE = "w1280"
         private const val LOGO_SIZE = "w500"
     }
 
