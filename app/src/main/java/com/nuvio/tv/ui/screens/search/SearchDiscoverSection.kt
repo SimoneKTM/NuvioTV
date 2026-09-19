@@ -276,7 +276,7 @@ private fun DiscoverDropdownPicker(
             shape = CardDefaults.shape(shape = RoundedCornerShape(14.dp)),
             colors = CardDefaults.colors(
                 containerColor = NuvioTheme.colors.BackgroundCard,
-                focusedContainerColor = NuvioTheme.colors.FocusBackground
+                focusedContainerColor = NuvioTheme.colors.BackgroundCard
             ),
             border = CardDefaults.border(
                 border = Border(
@@ -321,7 +321,7 @@ private fun DiscoverDropdownPicker(
                         imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
-                        tint = if (isFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.TextSecondary
+                        tint = if (isFocused) NuvioTheme.colors.TextTertiary else NuvioTheme.colors.TextSecondary
                     )
                 }
             }
