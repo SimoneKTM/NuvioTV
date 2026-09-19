@@ -276,7 +276,7 @@ private fun DiscoverDropdownPicker(
             shape = CardDefaults.shape(shape = RoundedCornerShape(14.dp)),
             colors = CardDefaults.colors(
                 containerColor = NuvioTheme.colors.BackgroundCard,
-                focusedContainerColor = NuvioTheme.colors.BackgroundCard
+                focusedContainerColor = NuvioTheme.colors.BackgroundCard.copy(alpha = 0.7f)
             ),
             border = CardDefaults.border(
                 border = Border(
@@ -284,7 +284,7 @@ private fun DiscoverDropdownPicker(
                     shape = RoundedCornerShape(14.dp)
                 ),
                 focusedBorder = Border(
-                    border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),
+                    border = BorderStroke(2.dp, NuvioTheme.colors.Border),
                     shape = RoundedCornerShape(14.dp)
                 )
             ),
