@@ -1,17 +1,24 @@
 package com.nuvio.tv.data.repository
 
 import android.util.Log
+import com.nuvio.tv.BuildConfig
 import com.nuvio.tv.core.trakt.traktBestBackdropUrl
 import com.nuvio.tv.core.trakt.traktBestLogoUrl
 import com.nuvio.tv.core.trakt.traktBestPosterUrl
+import com.nuvio.tv.data.remote.api.TmdbApi
 import com.nuvio.tv.data.remote.api.TraktApi
 import com.nuvio.tv.domain.model.CalendarItem
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.repository.CalendarRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -19,14 +26,16 @@ import javax.inject.Singleton
 
 @Singleton
 class CalendarRepositoryImpl @Inject constructor(
-    private val traktApi: TraktApi
+    private val traktApi: TraktApi,
+    private val tmdbApi: TmdbApi
 ) : CalendarRepository {
 
     companion object {
         private const val TAG = "CalendarRepo"
-        private const val TRAKT_IMAGE_BASE = "https://image.tmdb.org/t/p/"
-        private const val POSTER_W342 = "${TRAKT_IMAGE_BASE}w342"
-        private const val BACKDROP_W780 = "${TRAKT_IMAGE_BASE}w780"
+        private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/"
+        private const val POSTER_SIZE = "w500"
+        private const val BACKDROP_SIZE = "w780"
+        private const val LOGO_SIZE = "w500"
     }
 
     override fun getCalendarItems(): Flow<List<CalendarItem>> = flow {
@@ -65,13 +74,99 @@ class CalendarRepositoryImpl @Inject constructor(
             .sortedBy { it.releaseDate }
 
         Log.d(TAG, "Calendar: ${filteredItems.size} items after filtering (${allItems.size} raw)")
-        emit(filteredItems)
+
+        val enrichedItems = enrichItemsWithTmdbImages(filteredItems)
+        emit(enrichedItems)
+    }
+
+    private suspend fun enrichItemsWithTmdbImages(items: List<CalendarItem>): List<CalendarItem> {
+        val itemsNeedingImages = items.filter {
+            it.meta.poster == null || it.meta.background == null
+        }
+        if (itemsNeedingImages.isEmpty()) {
+            Log.d(TAG, "All items have images, no TMDB enrichment needed")
+            return items
+        }
+
+        Log.d(TAG, "Enriching ${itemsNeedingImages.size} items with TMDB images")
+
+        val enriched = coroutineScope {
+            items.map { item ->
+                async {
+                    if (item.meta.poster != null && item.meta.background != null) return@async item
+
+                    val tmdbId = extractTmdbId(item.meta.id) ?: return@async item
+                    val isMovie = item.meta.type == ContentType.MOVIE
+
+                    try {
+                        val details = withContext(Dispatchers.IO) {
+                            if (isMovie) {
+                                tmdbApi.getMovieDetails(tmdbId, BuildConfig.TMDB_API_KEY).body()
+                            } else {
+                                tmdbApi.getTvDetails(tmdbId, BuildConfig.TMDB_API_KEY).body()
+                            }
+                        }
+
+                        val poster = item.meta.poster
+                            ?: details?.posterPath?.let { "${TMDB_IMAGE_BASE}${POSTER_SIZE}$it" }
+                        val backdrop = item.meta.background
+                            ?: details?.backdropPath?.let { "${TMDB_IMAGE_BASE}${BACKDROP_SIZE}$it" }
+
+                        var logo = item.meta.logo
+                        if (logo == null) {
+                            logo = withContext(Dispatchers.IO) {
+                                try {
+                                    val imagesResponse = if (isMovie) {
+                                        tmdbApi.getMovieImages(tmdbId, BuildConfig.TMDB_API_KEY).body()
+                                    } else {
+                                        tmdbApi.getTvImages(tmdbId, BuildConfig.TMDB_API_KEY).body()
+                                    }
+                                    imagesResponse?.logos
+                                        ?.firstOrNull { it.iso6391 == "en" || it.iso6391 == null }
+                                        ?.filePath
+                                        ?.let { "${TMDB_IMAGE_BASE}${LOGO_SIZE}$it" }
+                                } catch (e: Exception) {
+                                    null
+                                }
+                            }
+                        }
+
+                        if (poster != item.meta.poster || backdrop != item.meta.background || logo != item.meta.logo) {
+                            Log.d(TAG, "Enriched: ${item.meta.name} poster=$poster backdrop=$backdrop logo=$logo")
+                        }
+
+                        item.copy(
+                            meta = item.meta.copy(
+                                poster = poster,
+                                background = backdrop,
+                                logo = logo
+                            )
+                        )
+                    } catch (e: Exception) {
+                        Log.w(TAG, "TMDB enrichment failed for ${item.meta.name}: ${e.message}")
+                        item
+                    }
+                }
+            }.awaitAll()
+        }
+
+        return enriched
+    }
+
+    private fun extractTmdbId(metaId: String): Int? {
+        val tmdbPrefix = "tmdb_movie_"
+        val tmdbTvPrefix = "tmdb_tv_"
+        val id = when {
+            metaId.startsWith(tmdbPrefix) -> metaId.removePrefix(tmdbPrefix)
+            metaId.startsWith(tmdbTvPrefix) -> metaId.removePrefix(tmdbTvPrefix)
+            else -> return null
+        }
+        return id.toIntOrNull()
     }
 
     private fun com.nuvio.tv.data.remote.dto.trakt.TraktCalendarMediaItemDto.toCalendarItem(
         today: LocalDate
     ): CalendarItem? {
-        // Movie item
         val movie = movie
         if (movie != null) {
             val tmdbId = movie.ids?.tmdb
@@ -80,9 +175,7 @@ class CalendarRepositoryImpl @Inject constructor(
             if (releaseDate == null || releaseDate.isBefore(today)) return null
 
             val posterUrl = movie.images.traktBestPosterUrl()
-                ?: tmdbId?.let { "${POSTER_W342}/$it" }
             val backdropUrl = movie.images.traktBestBackdropUrl()
-                ?: tmdbId?.let { "${BACKDROP_W780}/$it" }
             val logoUrl = movie.images.traktBestLogoUrl()
 
             Log.d(TAG, "Movie: ${movie.title} poster=$posterUrl backdrop=$backdropUrl logo=$logoUrl")
@@ -107,7 +200,6 @@ class CalendarRepositoryImpl @Inject constructor(
             )
         }
 
-        // TV show / episode item
         val show = show
         val episode = episode
         if (show != null) {
@@ -117,9 +209,7 @@ class CalendarRepositoryImpl @Inject constructor(
             if (airDate == null || airDate.isBefore(today)) return null
 
             val posterUrl = show.images.traktBestPosterUrl()
-                ?: tmdbId?.let { "${POSTER_W342}/$it" }
             val backdropUrl = show.images.traktBestBackdropUrl()
-                ?: tmdbId?.let { "${BACKDROP_W780}/$it" }
             val logoUrl = show.images.traktBestLogoUrl()
 
             Log.d(TAG, "Show: ${show.title} poster=$posterUrl backdrop=$backdropUrl logo=$logoUrl")
