@@ -5,6 +5,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Border
@@ -172,35 +174,11 @@ fun CalendarHomeScreen(
             else -> {
                 val firstSection = uiState.sections.firstOrNull()
                 val restSections = uiState.sections.drop(1)
-                val todayLabel = remember {
-                    val today = java.time.LocalDate.now()
-                    val formatter = java.time.format.DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", java.util.Locale.forLanguageTag("it"))
-                    today.format(formatter).replaceFirstChar { it.uppercase() }
-                }
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 120.dp)
                 ) {
-                    item(key = "calendar_date_header") {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = SECTION_PADDING_HORIZONTAL, vertical = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = todayLabel,
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = NuvioTheme.colors.TextPrimary
-                            )
-                            val totalItems = uiState.sections.sumOf { it.items.size }
-                            SectionBadge(count = totalItems)
-                        }
-                    }
-
                     if (firstSection != null) {
                         item(key = "hero_header") {
                             CalendarHeroSection(
@@ -238,16 +216,20 @@ private fun CalendarHeroSection(
         section.items.getOrNull(focusedIndex) ?: firstItem
     }
 
-    LaunchedEffect(heroItems.size, userInteracting) {
+    LaunchedEffect(heroItems.size) {
         if (heroItems.size <= 1) return@LaunchedEffect
+        while (true) {
+            delay(5000L)
+            if (!userInteracting) {
+                focusedIndex = (focusedIndex + 1) % heroItems.size
+            }
+        }
+    }
+
+    LaunchedEffect(userInteracting) {
         if (userInteracting) {
             delay(8000L)
             userInteracting = false
-            return@LaunchedEffect
-        }
-        while (true) {
-            delay(5000L)
-            focusedIndex = (focusedIndex + 1) % heroItems.size
         }
     }
 
@@ -447,7 +429,9 @@ private fun CalendarHeroSection(
         LazyRow(
             contentPadding = PaddingValues(start = SECTION_PADDING_HORIZONTAL, end = 48.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(top = 16.dp)
+            modifier = Modifier
+                .padding(top = 16.dp)
+                .focusGroup()
         ) {
             itemsIndexed(
                 items = section.items,
@@ -486,27 +470,35 @@ private fun CalendarSection(
             .padding(top = 24.dp)
             .animateContentSize()
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = SECTION_PADDING_HORIZONTAL),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .zIndex(1f)
         ) {
-            Text(
-                text = section.label,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = NuvioTheme.colors.TextPrimary
-            )
-            SectionBadge(count = section.items.size)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(NuvioTheme.colors.Background)
+                    .padding(horizontal = SECTION_PADDING_HORIZONTAL, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = section.label,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = NuvioTheme.colors.TextPrimary
+                )
+                SectionBadge(count = section.items.size)
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
         LazyRow(
             contentPadding = PaddingValues(horizontal = SECTION_PADDING_HORIZONTAL),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.focusGroup()
         ) {
             items(
                 items = section.items,

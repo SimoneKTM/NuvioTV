@@ -276,7 +276,7 @@ private fun DiscoverDropdownPicker(
             shape = CardDefaults.shape(shape = RoundedCornerShape(14.dp)),
             colors = CardDefaults.colors(
                 containerColor = NuvioTheme.colors.BackgroundCard,
-                focusedContainerColor = NuvioTheme.colors.BackgroundCard.copy(alpha = 0.7f)
+                focusedContainerColor = NuvioTheme.colors.Background
             ),
             border = CardDefaults.border(
                 border = Border(
