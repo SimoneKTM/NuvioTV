@@ -365,7 +365,6 @@ private fun DiscoverDropdownPicker(
                     },
                     onClick = { onSelect(option) },
                     colors = MenuDefaults.itemColors(
-                        containerColor = Color.Transparent,
                         textColor = itemTextColor
                     )
                 )
