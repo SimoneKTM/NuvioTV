@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -62,7 +63,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.delay
 
-private val HERO_HEIGHT = 540.dp
+private val HERO_HEIGHT = 320.dp
 private val WIDE_CARD_WIDTH = 260.dp
 private val WIDE_CARD_HEIGHT = 146.dp
 private val SECTION_PADDING_HORIZONTAL = 48.dp
@@ -184,7 +185,7 @@ fun CalendarHomeScreen(
 
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 120.dp)
+                        contentPadding = PaddingValues(bottom = 160.dp)
                     ) {
                         item(key = "hero_spacer") {
                             Spacer(modifier = Modifier.height(HERO_HEIGHT))
@@ -432,7 +433,7 @@ private fun CalendarHeroSection(
 
         LazyRow(
             contentPadding = PaddingValues(start = SECTION_PADDING_HORIZONTAL, end = 48.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
             modifier = Modifier
                 .padding(top = 16.dp)
                 .focusGroup()
@@ -471,7 +472,7 @@ private fun CalendarSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 24.dp)
+            .padding(top = 40.dp)
             .animateContentSize()
     ) {
         Box(
@@ -497,11 +498,11 @@ private fun CalendarSection(
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         LazyRow(
             contentPadding = PaddingValues(horizontal = SECTION_PADDING_HORIZONTAL),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
             modifier = Modifier.focusGroup()
         ) {
             items(
@@ -566,6 +567,7 @@ private fun CalendarWideCard(
         onClick = onClick,
         modifier = Modifier
             .width(WIDE_CARD_WIDTH)
+            .clipToBounds()
             .onFocusChanged {
                 isFocused = it.isFocused
                 onFocusChange(it.isFocused)
@@ -630,7 +632,7 @@ private fun CalendarWideCard(
                             .align(Alignment.TopEnd)
                             .padding(8.dp)
                             .clip(RoundedCornerShape(6.dp))
-                            .background(Color.Black.copy(alpha = 0.7f))
+                            .background(Color.Black.copy(alpha = 0.8f))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
@@ -692,13 +694,14 @@ private fun CalendarPortraitCard(
         meta.genres.take(2).joinToString(" \u00B7 ") { it.replaceFirstChar { c -> c.uppercase() } }
     }
     val cardShape = RoundedCornerShape(12.dp)
-    val cardWidth = 126.dp
-    val cardHeight = 189.dp
+    val cardWidth = 140.dp
+    val cardHeight = 210.dp
 
     TvCard(
         onClick = onClick,
         modifier = Modifier
             .width(cardWidth)
+            .clipToBounds()
             .onFocusChanged { isFocused = it.isFocused },
         shape = CardDefaults.shape(shape = cardShape),
         colors = CardDefaults.colors(
@@ -774,10 +777,10 @@ private fun CalendarPortraitCard(
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(6.dp)
+                            .padding(8.dp)
                             .clip(RoundedCornerShape(4.dp))
-                            .background(Color.Black.copy(alpha = 0.75f))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .background(Color.Black.copy(alpha = 0.8f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
                     ) {
                         Text(
                             text = dateLabel,
