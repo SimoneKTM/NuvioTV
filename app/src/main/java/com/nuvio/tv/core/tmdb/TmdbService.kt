@@ -207,6 +207,9 @@ class TmdbService @Inject constructor(
             .removePrefix("tmdb:")
             .removePrefix("movie:")
             .removePrefix("series:")
+            .removePrefix("trakt:")
+            .removePrefix("simkl:")
+            .removePrefix("kitsu:")
 
         // Stremio-style series ids can look like: tt1234567:season:episode
         // Plugins/TMDB lookup need the base external id only.

@@ -1350,10 +1350,22 @@ class MetaDetailsViewModel @Inject constructor(
                 }
 
                 val tmdbLookupType = tmdbContentType.toApiString()
-                val tmdbIdString = tmdbService.ensureTmdbId(meta.id, tmdbLookupType)
-                    ?: tmdbService.ensureTmdbId(itemId, itemType)
-                val tmdbId = tmdbIdString?.toIntOrNull()
-                val imdbId = extractImdbId(meta.id) ?: extractImdbId(itemId)
+
+                val metaIds = parseContentIds(meta.id)
+                val routeIds = parseContentIds(itemId)
+
+                var imdbId = metaIds.imdb ?: routeIds.imdb
+                var tmdbId = metaIds.tmdb ?: routeIds.tmdb
+
+                if (tmdbId == null && imdbId == null) {
+                    val tmdbIdString = tmdbService.ensureTmdbId(meta.id, tmdbLookupType)
+                        ?: tmdbService.ensureTmdbId(itemId, itemType)
+                    tmdbId = tmdbIdString?.toIntOrNull()
+                }
+
+                if (tmdbId != null && imdbId == null) {
+                    imdbId = tmdbService.tmdbToImdb(tmdbId, tmdbLookupType)
+                }
 
                 if (tmdbId == null && imdbId == null) {
                     _uiState.update { state ->
