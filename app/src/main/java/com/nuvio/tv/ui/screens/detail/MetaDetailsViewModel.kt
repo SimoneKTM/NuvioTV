@@ -1294,7 +1294,15 @@ class MetaDetailsViewModel @Inject constructor(
                 fallbackItemId = itemId,
                 fallbackItemType = itemType
             )
+        }.onFailure { e ->
+            Log.w(TAG, "MDBList ratings failed for ${meta.id}: ${e.message}")
         }.getOrNull()
+
+        if (ratingsResult == null) {
+            Log.d(TAG, "MDBList ratings: no result for ${meta.id} (disabled, no API key, or resolution failed)")
+        } else {
+            Log.d(TAG, "MDBList ratings loaded for ${meta.id}: ${ratingsResult.ratings}")
+        }
 
         _uiState.update { state ->
             state.copy(
@@ -1400,7 +1408,7 @@ class MetaDetailsViewModel @Inject constructor(
     private suspend fun enrichMeta(meta: Meta): Meta {
         val settings = tmdbSettingsDataStore.settings.first()
         if (!settings.enabled) {
-            // TVDB enrichment is independent of TMDB and must still run when TMDB is off.
+            fetchTmdbRatingOnly(meta)
             return enrichSeriesWithTvdb(meta)
         }
 
@@ -1542,6 +1550,33 @@ class MetaDetailsViewModel @Inject constructor(
         }
 
         return enrichSeriesWithTvdb(updated)
+    }
+
+    private suspend fun fetchTmdbRatingOnly(meta: Meta) {
+        try {
+            val tmdbContentType = resolveTmdbContentType(meta)
+            val tmdbLookupType = tmdbContentType.toApiString()
+            val tmdbId = tmdbService.ensureTmdbId(meta.id, tmdbLookupType)
+                ?: tmdbService.ensureTmdbId(itemId, itemType)
+                ?: return
+
+            val enrichment = withContext(Dispatchers.IO) {
+                tmdbMetadataService.fetchEnrichment(
+                    tmdbId = tmdbId,
+                    contentType = tmdbContentType,
+                    language = "en"
+                )
+            }
+
+            if (enrichment?.rating != null) {
+                Log.d(TAG, "TMDB rating fetched for ${meta.id}: ${enrichment.rating}")
+                _uiState.update { it.copy(tmdbRating = enrichment.rating.toFloat()) }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to fetch TMDB rating for ${meta.id}: ${e.message}")
+        }
     }
 
     private suspend fun enrichSeriesWithTvdb(meta: Meta): Meta {
