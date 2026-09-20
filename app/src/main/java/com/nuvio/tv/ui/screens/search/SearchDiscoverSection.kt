@@ -327,18 +327,19 @@ private fun DiscoverDropdownPicker(
             }
         }
 
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { onExpandedChange(false) },
-            modifier = Modifier
-                .width(with(LocalDensity.current) { anchorSize.width.toDp() })
-                .heightIn(max = 320.dp),
-            shape = RoundedCornerShape(14.dp),
-            containerColor = NuvioTheme.colors.BackgroundCard,
-            tonalElevation = 0.dp,
-            shadowElevation = NuvioTheme.spacing.sm,
-            border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border)
-        ) {
+        NuvioTheme {
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { onExpandedChange(false) },
+                modifier = Modifier
+                    .width(with(LocalDensity.current) { anchorSize.width.toDp() })
+                    .heightIn(max = 320.dp),
+                shape = RoundedCornerShape(14.dp),
+                containerColor = NuvioTheme.colors.BackgroundCard,
+                tonalElevation = 0.dp,
+                shadowElevation = NuvioTheme.spacing.sm,
+                border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border)
+            ) {
             options.forEach { option ->
                 val isSelected = option.value == selectedValue
                 val itemTextColor = NuvioTheme.colors.TextPrimary
@@ -364,10 +365,12 @@ private fun DiscoverDropdownPicker(
                     },
                     onClick = { onSelect(option) },
                     colors = MenuDefaults.itemColors(
+                        containerColor = Color.Transparent,
                         textColor = itemTextColor
                     )
                 )
             }
+        }
         }
     }
 }
