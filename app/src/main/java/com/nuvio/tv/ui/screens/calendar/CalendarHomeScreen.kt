@@ -2,7 +2,6 @@ package com.nuvio.tv.ui.screens.calendar
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
@@ -35,7 +34,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -557,18 +555,10 @@ private fun CalendarWideCard(
         }
     }
     val cardShape = RoundedCornerShape(12.dp)
-    val scale by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isFocused) 1.02f else 1f,
-        label = "wideCardScale"
-    )
 
     TvCard(
         onClick = onClick,
         modifier = Modifier
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
             .width(WIDE_CARD_WIDTH)
             .onFocusChanged {
                 isFocused = it.isFocused
@@ -696,23 +686,12 @@ private fun CalendarPortraitCard(
         meta.genres.take(2).joinToString(" \u00B7 ") { it.replaceFirstChar { c -> c.uppercase() } }
     }
     val cardShape = RoundedCornerShape(12.dp)
-    val scale by androidx.compose.animation.core.animateFloatAsState(
-        targetValue = if (isFocused) 1.02f else 1f,
-        label = "portraitCardScale"
-    )
     val cardWidth = 126.dp
     val cardHeight = 189.dp
 
     TvCard(
         onClick = onClick,
         modifier = Modifier
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                if (isFocused) {
-                    shadowElevation = 8f
-                }
-            }
             .width(cardWidth)
             .onFocusChanged { isFocused = it.isFocused },
         shape = CardDefaults.shape(shape = cardShape),
