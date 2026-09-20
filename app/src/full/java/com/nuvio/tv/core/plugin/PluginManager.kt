@@ -785,7 +785,7 @@ class PluginManager @Inject constructor(
         val results = enabledScraperList.mapIndexed { index, scraper ->
             async {
                 if (index > 0) {
-                    kotlinx.coroutines.delay(index * 60L)
+                    kotlinx.coroutines.delay(index * 20L)
                 }
                 executeScraperWithSingleFlight(scraper, tmdbId, mediaType, season, episode)
             }
@@ -830,7 +830,7 @@ class PluginManager @Inject constructor(
         enabledList.forEachIndexed { index, scraper ->
             launch {
                 if (index > 0) {
-                    kotlinx.coroutines.delay(index * 60L)
+                    kotlinx.coroutines.delay(index * 20L)
                 }
                 try {
                     val results = executeScraperWithSingleFlight(scraper, tmdbId, mediaType, season, episode)

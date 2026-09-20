@@ -18,7 +18,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -75,6 +74,8 @@ class CalendarRepositoryImpl @Inject constructor(
 
         Log.d(TAG, "Calendar: ${filteredItems.size} items after filtering (${allItems.size} raw)")
 
+        emit(filteredItems)
+
         val enrichedItems = enrichItemsWithTmdbImages(filteredItems)
         emit(enrichedItems)
     }
@@ -99,47 +100,50 @@ class CalendarRepositoryImpl @Inject constructor(
                     val isMovie = item.meta.type == ContentType.MOVIE
 
                     try {
-                        val details = withContext(Dispatchers.IO) {
-                            if (isMovie) {
-                                tmdbApi.getMovieDetails(tmdbId, BuildConfig.TMDB_API_KEY).body()
-                            } else {
-                                tmdbApi.getTvDetails(tmdbId, BuildConfig.TMDB_API_KEY).body()
+                        val tmdbApiKey = BuildConfig.TMDB_API_KEY
+                        val (details, logo) = coroutineScope {
+                            val detailsDeferred = async(Dispatchers.IO) {
+                                if (isMovie) {
+                                    tmdbApi.getMovieDetails(tmdbId, tmdbApiKey).body()
+                                } else {
+                                    tmdbApi.getTvDetails(tmdbId, tmdbApiKey).body()
+                                }
                             }
+                            val logoDeferred = async(Dispatchers.IO) {
+                                if (item.meta.logo == null) {
+                                    try {
+                                        val imagesResponse = if (isMovie) {
+                                            tmdbApi.getMovieImages(tmdbId, tmdbApiKey).body()
+                                        } else {
+                                            tmdbApi.getTvImages(tmdbId, tmdbApiKey).body()
+                                        }
+                                        imagesResponse?.logos
+                                            ?.firstOrNull { it.iso6391 == "en" || it.iso6391 == null }
+                                            ?.filePath
+                                            ?.let { "${TMDB_IMAGE_BASE}${LOGO_SIZE}$it" }
+                                    } catch (e: Exception) {
+                                        null
+                                    }
+                                } else null
+                            }
+                            detailsDeferred.await() to logoDeferred.await()
                         }
 
                         val poster = item.meta.poster
                             ?: details?.posterPath?.let { "${TMDB_IMAGE_BASE}${POSTER_SIZE}$it" }
                         val backdrop = item.meta.background
                             ?: details?.backdropPath?.let { "${TMDB_IMAGE_BASE}${BACKDROP_SIZE}$it" }
+                        val finalLogo = item.meta.logo ?: logo
 
-                        var logo = item.meta.logo
-                        if (logo == null) {
-                            logo = withContext(Dispatchers.IO) {
-                                try {
-                                    val imagesResponse = if (isMovie) {
-                                        tmdbApi.getMovieImages(tmdbId, BuildConfig.TMDB_API_KEY).body()
-                                    } else {
-                                        tmdbApi.getTvImages(tmdbId, BuildConfig.TMDB_API_KEY).body()
-                                    }
-                                    imagesResponse?.logos
-                                        ?.firstOrNull { it.iso6391 == "en" || it.iso6391 == null }
-                                        ?.filePath
-                                        ?.let { "${TMDB_IMAGE_BASE}${LOGO_SIZE}$it" }
-                                } catch (e: Exception) {
-                                    null
-                                }
-                            }
-                        }
-
-                        if (poster != item.meta.poster || backdrop != item.meta.background || logo != item.meta.logo) {
-                            Log.d(TAG, "Enriched: ${item.meta.name} poster=$poster backdrop=$backdrop logo=$logo")
+                        if (poster != item.meta.poster || backdrop != item.meta.background || finalLogo != item.meta.logo) {
+                            Log.d(TAG, "Enriched: ${item.meta.name} poster=$poster backdrop=$backdrop logo=$finalLogo")
                         }
 
                         item.copy(
                             meta = item.meta.copy(
                                 poster = poster,
                                 background = backdrop,
-                                logo = logo
+                                logo = finalLogo
                             )
                         )
                     } catch (e: Exception) {
