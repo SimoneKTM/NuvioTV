@@ -3225,11 +3225,11 @@
   <!-- Extra tab -->
   <string name="nav_extra">Extra</string>
   <string name="extra_settings_title">Extra</string>
-  <string name="extra_settings_subtitle">Addon, plugin e layout per Extra</string>
-  <string name="extra_settings_layout_title">Layout Extra</string>
+  <string name="extra_settings_subtitle">Layout, addon e plugin per Extra</string>
+  <string name="extra_settings_layout_title">Layout</string>
   <string name="extra_settings_layout_subtitle">Personalizza il layout della scheda Extra</string>
-  <string name="extra_settings_addons_title">Contenuti e scoperta</string>
-  <string name="extra_settings_addons_subtitle">Gestisci addon e plugin per la scheda Extra</string>
+  <string name="extra_settings_addons_title">Addon</string>
+  <string name="extra_settings_addons_subtitle">Gestisci gli addon per la scheda Extra</string>
   <string name="extra_settings_inner_addons_title">Addon</string>
   <string name="extra_settings_plugins_subtitle">Scraper per lo streaming usati per risolvere le fonti</string>
   <string name="extra_settings_show_tab_title">Mostra scheda Extra</string>
@@ -3260,7 +3260,7 @@
   <string name="extra_catalog_order_title">Riordina cataloghi</string>
   <string name="extra_catalog_order_subtitle">Controlla l\'ordine delle righe del catalogo nella scheda Extra (Classico + Moderno + Griglia).</string>
   <string name="extra_catalog_order_empty">Nessun catalogo disponibile ancora.</string>
-  <string name="settings_extra_layout_title">Layout Extra</string>
+  <string name="settings_extra_layout_title">Layout</string>
   <string name="settings_extra_layout_subtitle">Layout e aspetto della scheda Extra</string>
   <string name="extra_settings_logo_title">Icona della scheda</string>
   <string name="extra_settings_logo_subtitle">Scegli l\'icona da mostrare nella barra laterale</string>
