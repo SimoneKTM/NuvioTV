@@ -559,6 +559,24 @@ class ExtraHomeViewModel @Inject constructor(
         val heroRow = computeHeroRow(filtered)
         val heroItems = heroRow?.items.orEmpty()
         enrichExtraHeroItemsIfNeeded(heroItems)
+
+        val categoryNames = filtered.map { row ->
+            val formatted = row.catalogName.replaceFirstChar { it.uppercase() }
+            if (catalogTypeSuffixEnabled && row.rawType.isNotBlank()) {
+                val typeLabel = when (row.rawType.lowercase()) {
+                    "movie" -> "Film"
+                    "tv" -> "Serie"
+                    else -> row.rawType
+                }
+                "$formatted - $typeLabel"
+            } else {
+                formatted
+            }
+        }.distinct()
+
+        val currentSelected = _uiState.value.selectedCategory
+        val newSelected = if (currentSelected != null && currentSelected in categoryNames) currentSelected else null
+
         _uiState.update { state ->
             val updated = state.copy(
                 rows = filtered,
@@ -582,10 +600,16 @@ class ExtraHomeViewModel @Inject constructor(
                 focusedPosterBackdropExpandEnabled = focusedPosterBackdropExpandEnabled,
                 focusedPosterBackdropExpandDelaySeconds = focusedPosterBackdropExpandDelaySeconds,
                 focusedPosterBackdropTrailerEnabled = focusedPosterBackdropTrailerEnabled,
-                focusedPosterBackdropTrailerMuted = focusedPosterBackdropTrailerMuted
+                focusedPosterBackdropTrailerMuted = focusedPosterBackdropTrailerMuted,
+                categories = categoryNames,
+                selectedCategory = newSelected
             )
             if (updated == state) state else updated
         }
+    }
+
+    fun selectCategory(category: String?) {
+        _uiState.update { it.copy(selectedCategory = category) }
     }
 
     fun removeContinueWatching(item: ContinueWatchingItem) {
