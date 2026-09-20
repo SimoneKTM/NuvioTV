@@ -173,27 +173,32 @@ fun CalendarHomeScreen(
                 val firstSection = uiState.sections.firstOrNull()
                 val restSections = uiState.sections.drop(1)
 
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 120.dp)
-                ) {
+                Box(modifier = Modifier.fillMaxSize()) {
                     if (firstSection != null) {
-                        item(key = "hero_header") {
-                            CalendarHeroSection(
-                                section = firstSection,
+                        CalendarHeroSection(
+                            section = firstSection,
+                            onNavigateToDetail = onNavigateToDetail,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 120.dp)
+                    ) {
+                        item(key = "hero_spacer") {
+                            Spacer(modifier = Modifier.height(HERO_HEIGHT))
+                        }
+
+                        itemsIndexed(
+                            items = restSections,
+                            key = { _, section -> section.label }
+                        ) { _, section ->
+                            CalendarSection(
+                                section = section,
                                 onNavigateToDetail = onNavigateToDetail
                             )
                         }
-                    }
-
-                    itemsIndexed(
-                        items = restSections,
-                        key = { _, section -> section.label }
-                    ) { _, section ->
-                        CalendarSection(
-                            section = section,
-                            onNavigateToDetail = onNavigateToDetail
-                        )
                     }
                 }
             }
@@ -204,7 +209,8 @@ fun CalendarHomeScreen(
 @Composable
 private fun CalendarHeroSection(
     section: CalendarSection,
-    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String) -> Unit
+    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val firstItem = section.items.firstOrNull() ?: return
     var focusedIndex by remember { mutableIntStateOf(0) }
@@ -231,7 +237,7 @@ private fun CalendarHeroSection(
         }
     }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = modifier) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
