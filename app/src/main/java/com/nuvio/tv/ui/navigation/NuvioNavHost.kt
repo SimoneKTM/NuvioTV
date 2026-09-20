@@ -1236,6 +1236,7 @@ fun NuvioNavHost(
         composable(Screen.ExtraSettings.route) {
             com.nuvio.tv.ui.screens.extra.ExtraSettingsScreen(
                 onBackPress = { navController.popBackStack() },
+                onNavigateToExtraLayout = { navController.navigate(Screen.ExtraLayoutSettings.route) },
                 onNavigateToExtraAddons = { navController.navigate(Screen.ExtraAddonManager.route) },
                 onNavigateToPlugins = { navController.navigate(Screen.Plugins.route) }
             )
