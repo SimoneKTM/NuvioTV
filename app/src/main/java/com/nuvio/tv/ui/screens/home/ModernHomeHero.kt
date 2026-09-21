@@ -37,8 +37,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -383,25 +382,27 @@ private fun HeroTitleContent(
         var logoLoadFailed by remember(preview.logo) { mutableStateOf(false) }
         val showLogo = !preview.logo.isNullOrBlank() && !logoLoadFailed
         if (showLogo) {
-            AsyncImage(
-                model = logoModel,
-                contentDescription = preview.title,
-                onError = { logoLoadFailed = true },
+            Box(
                 modifier = Modifier
                     .height(100.dp)
                     .widthIn(min = 100.dp, max = 220.dp)
                     .fillMaxWidth()
-                    .drawBehind {
-                        drawRect(
-                            color = Color.White.copy(alpha = 0.35f),
-                            topLeft = Offset.Zero,
-                            size = size,
-                            style = Stroke(width = 2.dp.toPx())
-                        )
-                    },
-                contentScale = ContentScale.Fit,
-                alignment = Alignment.CenterStart
-            )
+                    .shadow(
+                        elevation = 12.dp,
+                        shape = RoundedCornerShape(8.dp),
+                        ambientColor = Color.White.copy(alpha = 0.3f),
+                        spotColor = Color.White.copy(alpha = 0.4f)
+                    )
+            ) {
+                AsyncImage(
+                    model = logoModel,
+                    contentDescription = preview.title,
+                    onError = { logoLoadFailed = true },
+                    modifier = Modifier.matchParentSize(),
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.CenterStart
+                )
+            }
         } else if (preview.title.isNotBlank()) {
             Text(
                 text = preview.title,
