@@ -611,6 +611,8 @@
 <string name="layout_modern_desc">Hero fisso con una singola riga attiva per una navigazione più rapida</string>
 <string name="layout_section_home">Layout Home</string>
 <string name="layout_section_home_desc">Scegli la struttura e la sorgente hero.</string>
+<string name="layout_section_extra_layout">Layout Extra</string>
+<string name="layout_section_extra_layout_desc">Scegli la struttura e la sorgente hero.</string>
 <string name="layout_section_anime_content">Contenuto Anime</string>
 <string name="layout_section_anime_content_desc">Opzioni di elenco per la scheda Anime</string>
 <string name="layout_landscape_posters">Locandine Orizzontali</string>
@@ -621,6 +623,8 @@
 <string name="layout_hero_catalogs_sub">Seleziona uno o più cataloghi per i contenuti hero.</string>
 <string name="layout_section_content">Contenuto Home</string>
 <string name="layout_section_content_desc">Controlla cosa appare nella home e nella ricerca.</string>
+<string name="layout_section_extra_content">Contenuto Extra</string>
+<string name="layout_section_extra_content_desc">Controlla cosa appare nella scheda Extra.</string>
 <string name="layout_collapse_sidebar">Riduci barra laterale</string>
 <string name="layout_collapse_sidebar_sub">Nascondi la barra laterale per impostazione predefinita; mostrala quando è a fuoco.</string>
 <string name="layout_modern_sidebar">Barra laterale Moderna</string>

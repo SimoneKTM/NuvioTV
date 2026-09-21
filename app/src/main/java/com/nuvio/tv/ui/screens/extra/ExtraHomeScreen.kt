@@ -115,6 +115,7 @@ fun ExtraHomeScreen(
 
             else -> {
                 val onRemoveContinueWatching: (ContinueWatchingItem) -> Unit = viewModel::removeContinueWatching
+                android.util.Log.d("ExtraHomeScreen", "Dispatching layout: ${uiState.homeLayout}")
                 when (uiState.homeLayout) {
                     HomeLayout.MODERN, HomeLayout.SERIES_MOVIE -> ExtraSeriesFilmContent(
                         uiState = uiState,

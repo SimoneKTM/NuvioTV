@@ -279,6 +279,7 @@ class ExtraHomeViewModel @Inject constructor(
                     blurContinueWatchingNextUp = blurNextUp
                 )
             }.distinctUntilChanged().collectLatest { snapshot ->
+                Log.d(TAG, "Layout snapshot changed: homeLayout=${snapshot.layout}")
                 layoutOrderKeys.clear()
                 layoutOrderKeys.addAll(snapshot.orderKeys)
                 layoutDisabledKeys.clear()
@@ -287,6 +288,7 @@ class ExtraHomeViewModel @Inject constructor(
                 heroCatalogKeys.addAll(snapshot.heroKeys)
                 heroSectionEnabled = snapshot.heroEnabled
                 homeLayout = snapshot.layout
+                Log.d(TAG, "homeLayout updated to: $homeLayout")
                 catalogTypeSuffixEnabled = snapshot.catalogTypeSuffixEnabled
                 hideUnreleasedContent = snapshot.hideUnreleasedContent
                 followAddonsOrder = snapshot.followAddonsOrder
@@ -545,6 +547,7 @@ class ExtraHomeViewModel @Inject constructor(
     }
 
     private fun publishRows() {
+        Log.d(TAG, "publishRows: homeLayout=$homeLayout, rows=${synchronized(rows) { rows.size }}")
         val snapshot = synchronized(rows) { rows.values.toList() }
         if (_fullCatalogRows.value != snapshot) {
             _fullCatalogRows.value = snapshot

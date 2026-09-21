@@ -536,9 +536,11 @@ open class LayoutSettingsViewModel @Inject constructor(
     }
 
     private fun selectLayout(layout: HomeLayout) {
+        android.util.Log.d("LayoutSettingsVM", "selectLayout: $layout, current=${_uiState.value.selectedLayout}, hasChosen=${_uiState.value.hasChosen}")
         if (_uiState.value.selectedLayout == layout && _uiState.value.hasChosen) return
         viewModelScope.launch {
             layoutPreferenceDataStore.setLayout(layout)
+            android.util.Log.d("LayoutSettingsVM", "setLayout saved: $layout")
         }
     }
 

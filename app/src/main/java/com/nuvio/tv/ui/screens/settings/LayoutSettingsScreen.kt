@@ -234,9 +234,19 @@ fun LayoutSettingsContent(
             item(key = "home_layout_section") {
                 CollapsibleSectionCard(
                     title = stringResource(
-                        if (animeMode) R.string.anime_layout_title else R.string.layout_section_home
+                        when {
+                            animeMode -> R.string.anime_layout_title
+                            homeOnlyLayout -> R.string.layout_section_extra_layout
+                            else -> R.string.layout_section_home
+                        }
                     ),
-                    description = stringResource(R.string.layout_section_home_desc),
+                    description = stringResource(
+                        when {
+                            animeMode -> R.string.anime_layout_title
+                            homeOnlyLayout -> R.string.layout_section_extra_layout_desc
+                            else -> R.string.layout_section_home_desc
+                        }
+                    ),
                     expanded = homeLayoutExpanded,
                     onToggle = { homeLayoutExpanded = !homeLayoutExpanded },
                     focusRequester = homeLayoutHeaderFocus,
@@ -446,8 +456,14 @@ fun LayoutSettingsContent(
             if (!essentialMode && !animeMode) {
             item(key = "home_content_section") {
                 CollapsibleSectionCard(
-                    title = stringResource(R.string.layout_section_content),
-                    description = stringResource(R.string.layout_section_content_desc),
+                    title = stringResource(
+                        if (homeOnlyLayout) R.string.layout_section_extra_content
+                        else R.string.layout_section_content
+                    ),
+                    description = stringResource(
+                        if (homeOnlyLayout) R.string.layout_section_extra_content_desc
+                        else R.string.layout_section_content_desc
+                    ),
                     expanded = homeContentExpanded,
                     onToggle = { homeContentExpanded = !homeContentExpanded },
                     focusRequester = homeContentHeaderFocus,

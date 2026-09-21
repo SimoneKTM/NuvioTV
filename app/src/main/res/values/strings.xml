@@ -1147,6 +1147,8 @@
     <string name="layout_modern_desc">Fixed hero with a single active row for faster browsing</string>
     <string name="layout_section_home">Home Layout</string>
     <string name="layout_section_home_desc">Choose structure and hero source.</string>
+    <string name="layout_section_extra_layout">Extra Layout</string>
+    <string name="layout_section_extra_layout_desc">Choose structure and hero source.</string>
     <string name="layout_section_anime_content">Anime Content</string>
     <string name="layout_section_anime_content_desc">Listing options for the Anime tab</string>
     <string name="layout_landscape_posters">Landscape Posters</string>
@@ -1157,6 +1159,8 @@
     <string name="layout_hero_catalogs_sub">Select one or more catalogs for hero content.</string>
     <string name="layout_section_content">Home Content</string>
     <string name="layout_section_content_desc">Control what appears on home and search.</string>
+    <string name="layout_section_extra_content">Extra Content</string>
+    <string name="layout_section_extra_content_desc">Control what appears in the Extra tab.</string>
     <string name="layout_collapse_sidebar">Collapse Sidebar</string>
     <string name="layout_collapse_sidebar_sub">Hide sidebar by default; show when focused.</string>
     <string name="layout_modern_sidebar">Modern Sidebar</string>
