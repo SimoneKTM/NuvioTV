@@ -1,0 +1,16 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    - cron: '0 12 */5 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          curl -s "https://rkjtnjhllwbpizidqfqn.supabase.co/rest/v1/" \
+            -H "apikey: ${{ secrets.NUVIO_SUPABASE_ANON_KEY }}" \
+            -o /dev/null -w "HTTP %{http_code}"
