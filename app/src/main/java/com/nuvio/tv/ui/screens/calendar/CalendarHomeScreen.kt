@@ -726,7 +726,7 @@ private fun CalendarPortraitCard(
     }
     val cardShape = RoundedCornerShape(12.dp)
     val cardWidth = 140.dp
-    val cardHeight = 210.dp
+    val cardHeight = 190.dp
 
     TvCard(
         onClick = onClick,
@@ -826,15 +826,8 @@ private fun CalendarPortraitCard(
             Column(
                 modifier = Modifier
                     .width(cardWidth)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                NuvioTheme.colors.BackgroundCard.copy(alpha = 0.85f),
-                                NuvioTheme.colors.BackgroundCard
-                            )
-                        )
-                    )
-                    .padding(horizontal = 4.dp, vertical = 4.dp)
+                    .background(NuvioTheme.colors.BackgroundCard)
+                    .padding(horizontal = 6.dp, vertical = 6.dp)
             ) {
                 Text(
                     text = meta.name,
