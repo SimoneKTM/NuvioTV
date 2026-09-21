@@ -1,12 +1,10 @@
 package com.nuvio.tv.ui.screens.calendar
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,12 +32,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -486,7 +481,6 @@ private fun CalendarSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 40.dp)
-            .animateContentSize()
     ) {
         Box(
             modifier = Modifier
@@ -732,102 +726,74 @@ private fun CalendarPortraitCard(
     val cardWidth = 140.dp
     val cardHeight = 210.dp
 
-    Box(
-        modifier = Modifier
-            .then(
-                if (isFocused) Modifier.drawBehind {
-                    drawRoundRect(
-                        color = Color.White.copy(alpha = 0.25f),
-                        cornerRadius = CornerRadius(14.dp.toPx()),
-                        size = size
-                    )
-                    drawRoundRect(
-                        color = Color.White,
-                        cornerRadius = CornerRadius(14.dp.toPx()),
-                        style = Stroke(width = 2.dp.toPx())
-                    )
-                } else Modifier
-            )
-            .padding(if (isFocused) 2.dp else 0.dp)
-    ) {
-    Box(
+    TvCard(
+        onClick = onClick,
         modifier = Modifier
             .width(cardWidth)
             .height(cardHeight)
-            .clip(cardShape)
-            .onFocusChanged { isFocused = it.isFocused }
-            .clickable(
-                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
+            .onFocusChanged { isFocused = it.isFocused },
+        shape = CardDefaults.shape(shape = cardShape),
+        colors = CardDefaults.colors(
+            containerColor = NuvioTheme.colors.BackgroundCard,
+            focusedContainerColor = NuvioTheme.colors.BackgroundCard
+        ),
+        border = CardDefaults.border(
+            focusedBorder = Border(
+                border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),
+                shape = cardShape
             )
-            .focusable()
+        ),
+        scale = CardDefaults.scale(focusedScale = 1f)
     ) {
-        if (meta.poster != null) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(meta.poster)
-                    .crossfade(true)
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .diskCachePolicy(CachePolicy.ENABLED)
-                    .build(),
-                contentDescription = meta.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                NuvioTheme.colors.Secondary.copy(alpha = 0.4f),
-                                NuvioTheme.colors.BackgroundCard
-                            )
-                        )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = meta.name.take(1).uppercase(),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.3f)
-                )
-            }
-        }
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.7f)
-                        )
+                .clip(cardShape)
+        ) {
+            if (meta.poster != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(meta.poster)
+                        .crossfade(true)
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .build(),
+                    contentDescription = meta.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(NuvioTheme.colors.BackgroundCard),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = meta.name.take(1).uppercase(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.3f)
                     )
-                )
-        )
+                }
+            }
 
-        if (dateLabel.isNotEmpty()) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(8.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.Black.copy(alpha = 0.8f))
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
-            ) {
-                Text(
-                    text = dateLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White
-                )
+            if (dateLabel.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.8f))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = dateLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White
+                    )
+                }
             }
         }
-    }
     }
 }
