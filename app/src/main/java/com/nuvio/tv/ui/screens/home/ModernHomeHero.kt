@@ -37,6 +37,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -381,17 +382,36 @@ private fun HeroTitleContent(
         var logoLoadFailed by remember(preview.logo) { mutableStateOf(false) }
         val showLogo = !preview.logo.isNullOrBlank() && !logoLoadFailed
         if (showLogo) {
-            AsyncImage(
-                model = logoModel,
-                contentDescription = preview.title,
-                onError = { logoLoadFailed = true },
-                modifier = Modifier
-                    .height(100.dp)
-                    .widthIn(min = 100.dp, max = 220.dp)
-                    .fillMaxWidth(),
-                contentScale = ContentScale.Fit,
-                alignment = Alignment.CenterStart
-            )
+            Box {
+                AsyncImage(
+                    model = logoModel,
+                    contentDescription = preview.title,
+                    onError = { logoLoadFailed = true },
+                    modifier = Modifier
+                        .height(100.dp)
+                        .widthIn(min = 100.dp, max = 220.dp)
+                        .fillMaxWidth()
+                        .drawBehind {
+                            drawRect(
+                                color = Color.White.copy(alpha = 0.12f),
+                                size = size
+                            )
+                        },
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.CenterStart
+                )
+                AsyncImage(
+                    model = logoModel,
+                    contentDescription = preview.title,
+                    onError = { logoLoadFailed = true },
+                    modifier = Modifier
+                        .height(100.dp)
+                        .widthIn(min = 100.dp, max = 220.dp)
+                        .fillMaxWidth(),
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.CenterStart
+                )
+            }
         } else if (preview.title.isNotBlank()) {
             Text(
                 text = preview.title,
