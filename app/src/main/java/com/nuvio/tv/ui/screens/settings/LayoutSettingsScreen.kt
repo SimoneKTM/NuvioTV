@@ -257,74 +257,43 @@ fun LayoutSettingsContent(
                         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
                 ) {
                     if (homeOnlyLayout) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-                            ) {
-                                LayoutCard(
-                                    layout = HomeLayout.MODERN,
-                                    isSelected = uiState.selectedLayout == HomeLayout.MODERN,
-                                    onClick = {
-                                        viewModel.onEvent(LayoutSettingsEvent.SelectLayout(HomeLayout.MODERN))
-                                    },
-                                    onFocused = {
-                                        focusedSection = LayoutSettingsSection.HOME_LAYOUT
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                )
-                                LayoutCard(
-                                    layout = HomeLayout.GRID,
-                                    isSelected = uiState.selectedLayout == HomeLayout.GRID,
-                                    onClick = {
-                                        viewModel.onEvent(LayoutSettingsEvent.SelectLayout(HomeLayout.GRID))
-                                    },
-                                    onFocused = {
-                                        focusedSection = LayoutSettingsSection.HOME_LAYOUT
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                )
-                                LayoutCard(
-                                    layout = HomeLayout.CLASSIC,
-                                    isSelected = uiState.selectedLayout == HomeLayout.CLASSIC,
-                                    onClick = {
-                                        viewModel.onEvent(LayoutSettingsEvent.SelectLayout(HomeLayout.CLASSIC))
-                                    },
-                                    onFocused = {
-                                        focusedSection = LayoutSettingsSection.HOME_LAYOUT
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-                            ) {
-                                LayoutCard(
-                                    layout = HomeLayout.SPORT,
-                                    isSelected = uiState.selectedLayout == HomeLayout.SPORT,
-                                    onClick = {
-                                        viewModel.onEvent(LayoutSettingsEvent.SelectLayout(HomeLayout.SPORT))
-                                    },
-                                    onFocused = {
-                                        focusedSection = LayoutSettingsSection.HOME_LAYOUT
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                )
-                                LayoutCard(
-                                    layout = HomeLayout.SERIES_MOVIE,
-                                    isSelected = uiState.selectedLayout == HomeLayout.SERIES_MOVIE,
-                                    onClick = {
-                                        viewModel.onEvent(LayoutSettingsEvent.SelectLayout(HomeLayout.SERIES_MOVIE))
-                                    },
-                                    onFocused = {
-                                        focusedSection = LayoutSettingsSection.HOME_LAYOUT
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
+                            LayoutCard(
+                                layout = HomeLayout.MODERN,
+                                isSelected = uiState.selectedLayout == HomeLayout.MODERN,
+                                onClick = {
+                                    viewModel.onEvent(LayoutSettingsEvent.SelectLayout(HomeLayout.MODERN))
+                                },
+                                onFocused = {
+                                    focusedSection = LayoutSettingsSection.HOME_LAYOUT
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            LayoutCard(
+                                layout = HomeLayout.GRID,
+                                isSelected = uiState.selectedLayout == HomeLayout.GRID,
+                                onClick = {
+                                    viewModel.onEvent(LayoutSettingsEvent.SelectLayout(HomeLayout.GRID))
+                                },
+                                onFocused = {
+                                    focusedSection = LayoutSettingsSection.HOME_LAYOUT
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                            LayoutCard(
+                                layout = HomeLayout.CLASSIC,
+                                isSelected = uiState.selectedLayout == HomeLayout.CLASSIC,
+                                onClick = {
+                                    viewModel.onEvent(LayoutSettingsEvent.SelectLayout(HomeLayout.CLASSIC))
+                                },
+                                onFocused = {
+                                    focusedSection = LayoutSettingsSection.HOME_LAYOUT
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     } else {
                     LayoutCard(
@@ -363,7 +332,7 @@ fun LayoutSettingsContent(
                     }
                     }
 
-                    if (uiState.selectedLayout == HomeLayout.MODERN || uiState.selectedLayout == HomeLayout.SERIES_MOVIE) {
+                    if (uiState.selectedLayout == HomeLayout.MODERN) {
                         CompactToggleRow(
                             title = stringResource(R.string.layout_landscape_posters),
                             subtitle = stringResource(R.string.layout_landscape_posters_sub),
@@ -379,7 +348,7 @@ fun LayoutSettingsContent(
                         )
                     }
 
-                    if (uiState.selectedLayout == HomeLayout.MODERN || uiState.selectedLayout == HomeLayout.SERIES_MOVIE) {
+                    if (uiState.selectedLayout == HomeLayout.MODERN) {
                         CompactToggleRow(
                             title = stringResource(R.string.layout_fullscreen_hero_backdrop),
                             subtitle = stringResource(R.string.layout_fullscreen_hero_backdrop_sub),
@@ -1552,14 +1521,6 @@ private fun LayoutCard(
                         modifier = Modifier.fillMaxWidth(),
                         animated = animatePreview
                     )
-                    HomeLayout.SPORT -> GridLayoutPreview(
-                        modifier = Modifier.fillMaxWidth(),
-                        animated = animatePreview
-                    )
-                    HomeLayout.SERIES_MOVIE -> ModernLayoutPreview(
-                        modifier = Modifier.fillMaxWidth(),
-                        animated = animatePreview
-                    )
                 }
             }
 
@@ -1584,8 +1545,6 @@ private fun LayoutCard(
                         HomeLayout.CLASSIC -> stringResource(R.string.layout_classic)
                         HomeLayout.GRID -> stringResource(R.string.layout_grid)
                         HomeLayout.MODERN -> stringResource(R.string.layout_modern)
-                        HomeLayout.SPORT -> stringResource(R.string.layout_sport)
-                        HomeLayout.SERIES_MOVIE -> stringResource(R.string.layout_series_movie)
                     },
                     style = MaterialTheme.typography.labelLarge,
                     color = if (isSelected || isFocused) NuvioTheme.colors.TextPrimary else NuvioTheme.colors.TextSecondary

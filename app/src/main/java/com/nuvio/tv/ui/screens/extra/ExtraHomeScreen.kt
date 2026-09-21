@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,12 +29,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,10 +39,8 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import coil3.request.crossfade
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
-import com.nuvio.tv.domain.model.HomeLayout
 import com.nuvio.tv.ui.components.ContinueWatchingCard
 import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.LoadingIndicator
@@ -115,266 +109,22 @@ fun ExtraHomeScreen(
 
             else -> {
                 val onRemoveContinueWatching: (ContinueWatchingItem) -> Unit = viewModel::removeContinueWatching
-                android.util.Log.d("ExtraHomeScreen", "Dispatching layout: ${uiState.homeLayout}")
-                when (uiState.homeLayout) {
-                    HomeLayout.MODERN, HomeLayout.SERIES_MOVIE -> ExtraSeriesFilmContent(
-                        uiState = uiState,
-                        onNavigateToDetail = onNavigateToDetail,
-                        onContinueWatchingClick = onContinueWatchingClick,
-                        onRemoveContinueWatching = onRemoveContinueWatching,
-                        onCategorySelected = viewModel::selectCategory,
-                        onLoadMoreCatalog = viewModel::loadMoreCatalogItems
-                    )
-                    HomeLayout.CLASSIC -> ExtraClassicContent(
-                        uiState = uiState,
-                        onNavigateToDetail = onNavigateToDetail,
-                        onContinueWatchingClick = onContinueWatchingClick,
-                        onRemoveContinueWatching = onRemoveContinueWatching,
-                        onCategorySelected = viewModel::selectCategory,
-                        onLoadMoreCatalog = viewModel::loadMoreCatalogItems
-                    )
-                    HomeLayout.GRID, HomeLayout.SPORT -> ExtraGridContent(
-                        uiState = uiState,
-                        onNavigateToDetail = onNavigateToDetail,
-                        onContinueWatchingClick = onContinueWatchingClick,
-                        onRemoveContinueWatching = onRemoveContinueWatching,
-                        onCategorySelected = viewModel::selectCategory,
-                        onLoadMoreCatalog = viewModel::loadMoreCatalogItems
-                    )
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun ExtraModernContent(
-    uiState: ExtraHomeUiState,
-    onNavigateToDetail: (String, String, String) -> Unit,
-    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
-    onRemoveContinueWatching: (ContinueWatchingItem) -> Unit,
-    onCategorySelected: (String?) -> Unit,
-    onLoadMoreCatalog: (String, String, String) -> Unit
-) {
-    val posterCardWidth = uiState.posterCardWidthDp.dp
-    val posterCardHeight = uiState.posterCardHeightDp.dp
-    val posterCardCornerRadius = uiState.posterCardCornerRadiusDp.dp
-
-    val filteredRows = filterByCategory(uiState)
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        if (uiState.continueWatchingItems.isNotEmpty() || uiState.upcomingItems.isNotEmpty()) {
-            ExtraCompactContinueWatchingRow(
-                items = uiState.continueWatchingItems + uiState.upcomingItems,
-                cardWidth = posterCardWidth * 1.24f,
-                cardHeight = posterCardHeight * 1.24f / 1.77f * 1.77f,
-                cornerRadius = posterCardCornerRadius,
-                blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
-                useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
-                onItemClick = onContinueWatchingClick,
-                onRemoveItem = onRemoveContinueWatching,
-                modifier = Modifier.padding(start = 48.dp, top = NuvioTheme.spacing.md)
-            )
-        }
-
-        if (uiState.categories.isNotEmpty()) {
-            ExtraCategoryChips(
-                categories = uiState.categories,
-                selectedCategory = uiState.selectedCategory,
-                onCategorySelected = onCategorySelected
-            )
-        }
-
-        androidx.compose.foundation.lazy.LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 160.dp)
-        ) {
-            filteredRows.forEach { row ->
-                item(key = "title_${row.catalogId}") {
-                    Text(
-                        text = formatCatalogName(row, uiState),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = NuvioTheme.colors.TextPrimary,
-                        modifier = Modifier.padding(start = 48.dp, top = NuvioTheme.spacing.lg, bottom = NuvioTheme.spacing.xs)
-                    )
-                }
-                item(key = "row_${row.catalogId}") {
-                    androidx.compose.foundation.lazy.LazyRow(
-                        contentPadding = PaddingValues(horizontal = 48.dp),
-                        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-                    ) {
-                        items(
-                            items = row.items.filter { !it.id.startsWith("__placeholder_") },
-                            key = { it.id }
-                        ) { item ->
-                            com.nuvio.tv.ui.components.ContentCard(
-                                item = item,
-                                posterCardStyle = PosterCardStyle(
-                                    width = posterCardWidth,
-                                    height = posterCardHeight,
-                                    cornerRadius = posterCardCornerRadius
-                                ),
-                                showLabels = uiState.posterLabelsEnabled,
-                                onClick = { onNavigateToDetail(item.id, item.apiType, row.addonBaseUrl) }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun ExtraSeriesFilmContent(
-    uiState: ExtraHomeUiState,
-    onNavigateToDetail: (String, String, String) -> Unit,
-    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
-    onRemoveContinueWatching: (ContinueWatchingItem) -> Unit,
-    onCategorySelected: (String?) -> Unit,
-    onLoadMoreCatalog: (String, String, String) -> Unit
-) {
-    val posterCardWidth = uiState.posterCardWidthDp.dp
-    val posterCardHeight = uiState.posterCardHeightDp.dp
-    val posterCardCornerRadius = uiState.posterCardCornerRadiusDp.dp
-    val filteredRows = filterByCategory(uiState)
-    val heroItem = uiState.heroItem
-
-    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-    val screenHeight = configuration.screenHeightDp.dp
-    val heroHeight = screenHeight * 0.45f
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        heroItem?.let { hero ->
-            val backdrop = hero.background ?: hero.poster
-            if (backdrop != null) {
-                coil3.compose.AsyncImage(
-                    model = coil3.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                        .data(backdrop)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = null,
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(heroHeight)
+                ExtraDaznStyleContent(
+                    uiState = uiState,
+                    onNavigateToDetail = onNavigateToDetail,
+                    onContinueWatchingClick = onContinueWatchingClick,
+                    onRemoveContinueWatching = onRemoveContinueWatching,
+                    onCategorySelected = viewModel::selectCategory,
+                    onLoadMoreCatalog = viewModel::loadMoreCatalogItems
                 )
             }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(heroHeight)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                NuvioTheme.colors.Background.copy(alpha = 0.85f),
-                                NuvioTheme.colors.Background
-                            )
-                        )
-                    )
-            )
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 52.dp, end = 48.dp, bottom = 12.dp)
-                    .fillMaxWidth(0.6f)
-            ) {
-                Text(
-                    text = hero.name,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                hero.description?.let { desc ->
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = desc,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.7f),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-
-        androidx.compose.foundation.lazy.LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = heroHeight),
-            contentPadding = PaddingValues(bottom = 160.dp),
-            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
-        ) {
-            if (uiState.continueWatchingItems.isNotEmpty() || uiState.upcomingItems.isNotEmpty()) {
-                item(key = "extra_series_cw") {
-                    ExtraCompactContinueWatchingRow(
-                        items = uiState.continueWatchingItems + uiState.upcomingItems,
-                        cardWidth = posterCardWidth * 1.24f,
-                        cardHeight = posterCardHeight * 1.24f / 1.77f * 1.77f,
-                        cornerRadius = posterCardCornerRadius,
-                        blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
-                        useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
-                        onItemClick = onContinueWatchingClick,
-                        onRemoveItem = onRemoveContinueWatching,
-                        modifier = Modifier.padding(start = 48.dp)
-                    )
-                }
-            }
-
-            if (uiState.categories.isNotEmpty()) {
-                item(key = "extra_series_chips") {
-                    ExtraCategoryChips(
-                        categories = uiState.categories,
-                        selectedCategory = uiState.selectedCategory,
-                        onCategorySelected = onCategorySelected
-                    )
-                }
-            }
-
-            filteredRows.forEach { row ->
-                item(key = "title_${row.catalogId}") {
-                    Text(
-                        text = formatCatalogName(row, uiState),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = NuvioTheme.colors.TextPrimary,
-                        modifier = Modifier.padding(start = 48.dp, top = NuvioTheme.spacing.lg, bottom = NuvioTheme.spacing.xs)
-                    )
-                }
-                item(key = "row_${row.catalogId}") {
-                    androidx.compose.foundation.lazy.LazyRow(
-                        contentPadding = PaddingValues(horizontal = 48.dp),
-                        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-                    ) {
-                        items(
-                            items = row.items.filter { !it.id.startsWith("__placeholder_") },
-                            key = { it.id }
-                        ) { item ->
-                            com.nuvio.tv.ui.components.ContentCard(
-                                item = item,
-                                posterCardStyle = PosterCardStyle(
-                                    width = posterCardWidth,
-                                    height = posterCardHeight,
-                                    cornerRadius = posterCardCornerRadius
-                                ),
-                                showLabels = uiState.posterLabelsEnabled,
-                                onClick = { onNavigateToDetail(item.id, item.apiType, row.addonBaseUrl) }
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun ExtraClassicContent(
+private fun ExtraDaznStyleContent(
     uiState: ExtraHomeUiState,
     onNavigateToDetail: (String, String, String) -> Unit,
     onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
@@ -386,86 +136,13 @@ private fun ExtraClassicContent(
     val posterCardHeight = uiState.posterCardHeightDp.dp
     val posterCardCornerRadius = uiState.posterCardCornerRadiusDp.dp
 
-    val filteredRows = filterByCategory(uiState)
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        if (uiState.continueWatchingItems.isNotEmpty() || uiState.upcomingItems.isNotEmpty()) {
-            ExtraCompactContinueWatchingRow(
-                items = uiState.continueWatchingItems + uiState.upcomingItems,
-                cardWidth = posterCardWidth * 1.24f,
-                cardHeight = posterCardHeight * 1.24f / 1.77f * 1.77f,
-                cornerRadius = posterCardCornerRadius,
-                blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
-                useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
-                onItemClick = onContinueWatchingClick,
-                onRemoveItem = onRemoveContinueWatching,
-                modifier = Modifier.padding(start = 48.dp, top = NuvioTheme.spacing.md)
-            )
+    val filteredRows = if (uiState.selectedCategory != null) {
+        uiState.rows.filter { row ->
+            formatCatalogName(row, uiState) == uiState.selectedCategory
         }
-
-        if (uiState.categories.isNotEmpty()) {
-            ExtraCategoryChips(
-                categories = uiState.categories,
-                selectedCategory = uiState.selectedCategory,
-                onCategorySelected = onCategorySelected
-            )
-        }
-
-        androidx.compose.foundation.lazy.LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 160.dp)
-        ) {
-            filteredRows.forEach { row ->
-                item(key = "title_${row.catalogId}") {
-                    Text(
-                        text = formatCatalogName(row, uiState),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = NuvioTheme.colors.TextPrimary,
-                        modifier = Modifier.padding(start = 48.dp, top = NuvioTheme.spacing.lg, bottom = NuvioTheme.spacing.xs)
-                    )
-                }
-                item(key = "row_${row.catalogId}") {
-                    androidx.compose.foundation.lazy.LazyRow(
-                        contentPadding = PaddingValues(horizontal = 48.dp),
-                        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
-                    ) {
-                        items(
-                            items = row.items.filter { !it.id.startsWith("__placeholder_") },
-                            key = { it.id }
-                        ) { item ->
-                            com.nuvio.tv.ui.components.ContentCard(
-                                item = item,
-                                posterCardStyle = PosterCardStyle(
-                                    width = posterCardWidth,
-                                    height = posterCardHeight,
-                                    cornerRadius = posterCardCornerRadius
-                                ),
-                                showLabels = uiState.posterLabelsEnabled,
-                                onClick = { onNavigateToDetail(item.id, item.apiType, row.addonBaseUrl) }
-                            )
-                        }
-                    }
-                }
-            }
-        }
+    } else {
+        uiState.rows
     }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun ExtraGridContent(
-    uiState: ExtraHomeUiState,
-    onNavigateToDetail: (String, String, String) -> Unit,
-    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
-    onRemoveContinueWatching: (ContinueWatchingItem) -> Unit,
-    onCategorySelected: (String?) -> Unit,
-    onLoadMoreCatalog: (String, String, String) -> Unit
-) {
-    val posterCardWidth = uiState.posterCardWidthDp.dp
-    val posterCardHeight = uiState.posterCardHeightDp.dp
-    val posterCardCornerRadius = uiState.posterCardCornerRadiusDp.dp
-
-    val filteredRows = filterByCategory(uiState)
 
     val allItems = filteredRows.flatMap { row ->
         row.items.filter { !it.id.startsWith("__placeholder_") }.map { it to row.addonBaseUrl }
@@ -524,16 +201,6 @@ private fun ExtraGridContent(
                 )
             }
         }
-    }
-}
-
-private fun filterByCategory(uiState: ExtraHomeUiState): List<com.nuvio.tv.domain.model.CatalogRow> {
-    return if (uiState.selectedCategory != null) {
-        uiState.rows.filter { row ->
-            formatCatalogName(row, uiState) == uiState.selectedCategory
-        }
-    } else {
-        uiState.rows
     }
 }
 

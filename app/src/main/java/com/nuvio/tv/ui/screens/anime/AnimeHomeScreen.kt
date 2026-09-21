@@ -146,8 +146,6 @@ fun AnimeHomeScreen(
                     HomeLayout.MODERN -> AnimeModernContent(uiState = uiState, enrichHeroItem = enrichHeroItem, onNavigateToDetail = onNavigateToDetail, onRemoveContinueWatching = onRemoveContinueWatching, onLoadMoreCatalog = viewModel::loadMoreCatalogItems)
                     HomeLayout.CLASSIC -> AnimeClassicContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onRemoveContinueWatching = onRemoveContinueWatching)
                     HomeLayout.GRID -> AnimeGridContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onRemoveContinueWatching = onRemoveContinueWatching)
-                    HomeLayout.SPORT -> AnimeGridContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onRemoveContinueWatching = onRemoveContinueWatching)
-                    HomeLayout.SERIES_MOVIE -> AnimeModernContent(uiState = uiState, enrichHeroItem = enrichHeroItem, onNavigateToDetail = onNavigateToDetail, onRemoveContinueWatching = onRemoveContinueWatching, onLoadMoreCatalog = viewModel::loadMoreCatalogItems)
                 }
             }
         }

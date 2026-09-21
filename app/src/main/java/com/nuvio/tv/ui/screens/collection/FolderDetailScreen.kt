@@ -772,40 +772,5 @@ private fun FollowLayoutContent(
             scrollToTopTrigger = scrollToTopTrigger,
             blockLeftOnFirstExpandedItem = true
         )
-        HomeLayout.SPORT -> GridHomeContent(
-            uiState = homeState,
-            gridFocusState = focusState,
-            onNavigateToDetail = onNavigateToDetail,
-            onContinueWatchingClick = noOpCwClick,
-            onNavigateToCatalogSeeAll = onLoadMoreCatalog,
-            onNavigateToFolderDetail = noOpFolderDetail,
-            onRemoveContinueWatching = noOpRemoveCw,
-            isCatalogItemWatched = isItemWatched,
-            catalogSeeAllLabel = loadMoreLabel,
-            posterCardStyle = posterCardStyle,
-            onSaveGridFocusState = onSaveGridFocusState
-        )
-        HomeLayout.SERIES_MOVIE -> ModernHomeContent(
-            uiState = homeState,
-            focusState = focusState,
-            enrichingItemId = enrichingItemId,
-            enrichedPreviews = enrichedPreviews,
-            failedEnrichmentIds = failedEnrichmentIds,
-            trailerPreviewUrls = trailerPreviewUrls,
-            trailerPreviewAudioUrls = trailerPreviewAudioUrls,
-            onNavigateToDetail = onNavigateToDetail,
-            onContinueWatchingClick = noOpCwClick,
-            onRequestTrailerPreview = onRequestTrailerPreview,
-            onLoadMoreCatalog = onLoadMoreCatalog,
-            onRemoveContinueWatching = noOpRemoveCw,
-            isCatalogItemWatched = isItemWatched,
-            onCatalogItemLongPress = onCatalogItemLongPress,
-            onNavigateToFolderDetail = noOpFolderDetail,
-            onItemFocus = onItemFocus,
-            onPreloadAdjacentItem = onPreloadAdjacentItem,
-            onSaveFocusState = onSaveFocusState,
-            scrollToTopTrigger = scrollToTopTrigger,
-            blockLeftOnFirstExpandedItem = true
-        )
     }
 }
