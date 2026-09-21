@@ -231,19 +231,18 @@ fun LayoutSettingsContent(
             contentPadding = PaddingValues(bottom = 18.dp),
             verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
         ) {
+            if (!homeOnlyLayout) {
             item(key = "home_layout_section") {
                 CollapsibleSectionCard(
                     title = stringResource(
                         when {
                             animeMode -> R.string.anime_layout_title
-                            homeOnlyLayout -> R.string.layout_section_extra_layout
                             else -> R.string.layout_section_home
                         }
                     ),
                     description = stringResource(
                         when {
                             animeMode -> R.string.anime_layout_title
-                            homeOnlyLayout -> R.string.layout_section_extra_layout_desc
                             else -> R.string.layout_section_home_desc
                         }
                     ),
@@ -392,6 +391,7 @@ fun LayoutSettingsContent(
                     }
                 }
             }
+            }
 
             if (animeMode) {
             item(key = "anime_content_section") {
@@ -469,6 +469,7 @@ fun LayoutSettingsContent(
                     focusRequester = homeContentHeaderFocus,
                     onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
                 ) {
+                    if (!homeOnlyLayout) {
                     if (!uiState.modernSidebarEnabled) {
                         CompactToggleRow(
                             title = stringResource(R.string.layout_collapse_sidebar),
@@ -537,6 +538,7 @@ fun LayoutSettingsContent(
                             },
                             onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
                         )
+                    }
                     }
                     CompactToggleRow(
                         title = stringResource(R.string.layout_poster_labels),

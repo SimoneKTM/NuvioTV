@@ -27,7 +27,7 @@ object ThemeColors {
     val Crimson = ThemeColorPalette(
         secondary = NuvioPrimitives.red500,
         secondaryVariant = NuvioPrimitives.red600,
-        focusRing = NuvioPrimitives.red300,
+        focusRing = NuvioPrimitives.white,
         focusBackground = Color(0xFF3D1A1A),
         backgroundCard = Color(0xFF241A1A)
     )
@@ -35,7 +35,7 @@ object ThemeColors {
     val Ocean = ThemeColorPalette(
         secondary = NuvioPrimitives.blue500,
         secondaryVariant = NuvioPrimitives.blue700,
-        focusRing = NuvioPrimitives.blue300,
+        focusRing = NuvioPrimitives.white,
         focusBackground = Color(0xFF1A2D3D),
         background = Color(0xFF0D0D0F),
         backgroundElevated = Color(0xFF1A1A1E),
@@ -45,7 +45,7 @@ object ThemeColors {
     val Violet = ThemeColorPalette(
         secondary = NuvioPrimitives.violet500,
         secondaryVariant = NuvioPrimitives.violet700,
-        focusRing = NuvioPrimitives.violet300,
+        focusRing = NuvioPrimitives.white,
         focusBackground = Color(0xFF2D1A3D),
         background = Color(0xFF0D0D0F),
         backgroundElevated = Color(0xFF1A1A1E),
@@ -55,7 +55,7 @@ object ThemeColors {
     val Emerald = ThemeColorPalette(
         secondary = NuvioPrimitives.green500,
         secondaryVariant = NuvioPrimitives.green700,
-        focusRing = NuvioPrimitives.green300,
+        focusRing = NuvioPrimitives.white,
         focusBackground = Color(0xFF1A3D1E),
         backgroundCard = Color(0xFF1A241A)
     )
@@ -63,7 +63,7 @@ object ThemeColors {
     val Amber = ThemeColorPalette(
         secondary = NuvioPrimitives.amber500,
         secondaryVariant = NuvioPrimitives.amber700,
-        focusRing = NuvioPrimitives.amber300,
+        focusRing = NuvioPrimitives.white,
         focusBackground = Color(0xFF3D2D1A),
         background = Color(0xFF0F0D0D),
         backgroundElevated = Color(0xFF1E1A1A),
@@ -73,7 +73,7 @@ object ThemeColors {
     val Rose = ThemeColorPalette(
         secondary = NuvioPrimitives.rose500,
         secondaryVariant = NuvioPrimitives.rose700,
-        focusRing = NuvioPrimitives.rose300,
+        focusRing = NuvioPrimitives.white,
         focusBackground = Color(0xFF3D1A2D),
         backgroundCard = Color(0xFF241A1F)
     )
@@ -83,7 +83,7 @@ object ThemeColors {
         secondaryVariant = NuvioPrimitives.neutral200,
         onSecondary = NuvioPrimitives.neutral925,
         onSecondaryVariant = NuvioPrimitives.neutral925,
-        focusRing = NuvioPrimitives.neutral700,
+        focusRing = NuvioPrimitives.white,
         focusBackground = Color(0xFF303030),
         backgroundCard = NuvioPrimitives.neutral850
     )

@@ -19,13 +19,15 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Explore
@@ -41,7 +43,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
@@ -267,6 +268,7 @@ private fun DiscoverDropdownPicker(
 ) {
     var isFocused by remember { mutableStateOf(false) }
     var anchorSize by remember { mutableStateOf(IntSize.Zero) }
+    val listState = rememberLazyListState()
 
     Box(modifier = modifier) {
         Card(
@@ -286,7 +288,7 @@ private fun DiscoverDropdownPicker(
                     shape = RoundedCornerShape(14.dp)
                 ),
                 focusedBorder = if (expanded) Border.None else Border(
-                    border = BorderStroke(2.dp, NuvioTheme.colors.Border),
+                    border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),
                     shape = RoundedCornerShape(14.dp)
                 )
             ),
@@ -323,7 +325,7 @@ private fun DiscoverDropdownPicker(
                         imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
-                        tint = if (isFocused) NuvioTheme.colors.TextTertiary else NuvioTheme.colors.TextSecondary
+                        tint = if (isFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.TextSecondary
                     )
                 }
             }
@@ -331,41 +333,45 @@ private fun DiscoverDropdownPicker(
 
         if (expanded) {
             val anchorHeightDp = with(LocalDensity.current) { anchorSize.height.toDp() }
-            Box(
+            Card(
+                onClick = {},
                 modifier = Modifier
                     .width(with(LocalDensity.current) { anchorSize.width.toDp() })
                     .padding(top = anchorHeightDp + 4.dp)
-                    .heightIn(max = 320.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(NuvioTheme.colors.BackgroundCard)
-                    .border(
-                        BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border),
-                        RoundedCornerShape(14.dp)
+                    .heightIn(max = 280.dp),
+                shape = CardDefaults.shape(shape = RoundedCornerShape(14.dp)),
+                colors = CardDefaults.colors(
+                    containerColor = NuvioTheme.colors.BackgroundCard
+                ),
+                border = CardDefaults.border(
+                    border = Border(
+                        border = BorderStroke(1.dp, NuvioTheme.colors.Border),
+                        shape = RoundedCornerShape(14.dp)
                     )
-                    .shadow(NuvioTheme.spacing.sm, RoundedCornerShape(14.dp))
+                ),
+                scale = CardDefaults.scale(focusedScale = 1.0f, pressedScale = 1.0f),
+                glow = CardDefaults.glow(
+                    focusedGlow = androidx.tv.material3.Glow.None
+                )
             ) {
-                Column(
-                    modifier = Modifier.padding(vertical = 4.dp)
+                LazyColumn(
+                    state = listState,
+                    contentPadding = PaddingValues(vertical = 6.dp)
                 ) {
-                    options.forEach { option ->
+                    itemsIndexed(options) { _, option ->
                         val isSelected = option.value == selectedValue
-                        val itemTextColor = NuvioTheme.colors.TextPrimary
                         var isItemFocused by remember { mutableStateOf(false) }
 
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 6.dp, vertical = NuvioTheme.spacing.xxs)
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(
-                                    color = if (isItemFocused) NuvioTheme.colors.TextSecondary.copy(alpha = 0.25f)
-                                    else Color.Transparent
-                                )
-                                .then(
-                                    if (isItemFocused) Modifier.border(
-                                        BorderStroke(1.5.dp, NuvioTheme.colors.FocusRing),
-                                        RoundedCornerShape(10.dp)
-                                    ) else Modifier
+                                    color = when {
+                                        isItemFocused -> NuvioTheme.colors.FocusRing.copy(alpha = 0.15f)
+                                        else -> Color.Transparent
+                                    }
                                 )
                                 .onFocusChanged { isItemFocused = it.isFocused }
                                 .clickable(
@@ -377,21 +383,30 @@ private fun DiscoverDropdownPicker(
                             contentAlignment = Alignment.CenterStart
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                if (isSelected) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp),
-                                        tint = NuvioTheme.colors.Secondary
-                                    )
-                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(
+                                            if (isSelected) NuvioTheme.colors.Secondary
+                                            else Color.Transparent
+                                        )
+                                        .then(
+                                            if (isSelected) Modifier else Modifier
+                                                .border(
+                                                    BorderStroke(1.5.dp, NuvioTheme.colors.TextTertiary.copy(alpha = 0.4f)),
+                                                    RoundedCornerShape(50)
+                                                )
+                                        )
+                                )
                                 Text(
                                     text = option.label,
-                                    color = if (isSelected) NuvioTheme.colors.Secondary else itemTextColor,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = if (isSelected) NuvioTheme.colors.Secondary else NuvioTheme.colors.TextPrimary,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -399,10 +414,9 @@ private fun DiscoverDropdownPicker(
                         }
                     }
                 }
+            }
         }
     }
-}
-
 }
 
 private fun localizedName(type: String): String = when (type.lowercase()) {

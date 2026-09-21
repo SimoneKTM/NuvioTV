@@ -47,6 +47,7 @@ import androidx.tv.material3.Border
 import androidx.tv.material3.Card as TvCard
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.Glow
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
@@ -742,7 +743,12 @@ private fun CalendarPortraitCard(
                 shape = cardShape
             )
         ),
-        scale = CardDefaults.scale(focusedScale = 1.05f, pressedScale = 1.05f)
+        glow = CardDefaults.glow(
+            focusedGlow = Glow(
+                elevationColor = Color.White,
+                elevation = 16.dp
+            )
+        )
     ) {
         Box(
             modifier = Modifier
