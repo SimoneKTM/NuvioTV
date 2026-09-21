@@ -681,7 +681,7 @@ private fun CalendarWideCard(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
                     color = if (isFocused) Color.White else NuvioTheme.colors.TextPrimary,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
 
