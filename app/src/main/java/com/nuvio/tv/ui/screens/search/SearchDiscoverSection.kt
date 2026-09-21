@@ -333,26 +333,17 @@ private fun DiscoverDropdownPicker(
 
         if (expanded) {
             val anchorHeightDp = with(LocalDensity.current) { anchorSize.height.toDp() }
-            Card(
-                onClick = {},
+            Box(
                 modifier = Modifier
                     .width(with(LocalDensity.current) { anchorSize.width.toDp() })
                     .padding(top = anchorHeightDp + 4.dp)
-                    .heightIn(max = 280.dp),
-                shape = CardDefaults.shape(shape = RoundedCornerShape(14.dp)),
-                colors = CardDefaults.colors(
-                    containerColor = NuvioTheme.colors.BackgroundCard
-                ),
-                border = CardDefaults.border(
-                    border = Border(
-                        border = BorderStroke(1.dp, NuvioTheme.colors.Border),
-                        shape = RoundedCornerShape(14.dp)
+                    .heightIn(max = 280.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(NuvioTheme.colors.BackgroundCard)
+                    .border(
+                        BorderStroke(1.dp, NuvioTheme.colors.Border),
+                        RoundedCornerShape(14.dp)
                     )
-                ),
-                scale = CardDefaults.scale(focusedScale = 1.0f, pressedScale = 1.0f),
-                glow = CardDefaults.glow(
-                    focusedGlow = androidx.tv.material3.Glow.None
-                )
             ) {
                 LazyColumn(
                     state = listState,
