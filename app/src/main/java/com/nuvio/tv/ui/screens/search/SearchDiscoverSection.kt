@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Explore
@@ -357,11 +358,8 @@ private fun DiscoverDropdownPicker(
                                 .padding(horizontal = 6.dp, vertical = NuvioTheme.spacing.xxs)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(
-                                    color = when {
-                                        isItemFocused -> NuvioTheme.colors.TextSecondary.copy(alpha = 0.25f)
-                                        isSelected -> NuvioTheme.colors.TextSecondary.copy(alpha = 0.12f)
-                                        else -> Color.Transparent
-                                    }
+                                    color = if (isItemFocused) NuvioTheme.colors.TextSecondary.copy(alpha = 0.25f)
+                                    else Color.Transparent
                                 )
                                 .then(
                                     if (isItemFocused) Modifier.border(
@@ -378,13 +376,26 @@ private fun DiscoverDropdownPicker(
                                 .focusable(),
                             contentAlignment = Alignment.CenterStart
                         ) {
-                            Text(
-                                text = option.label,
+                            Row(
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                color = itemTextColor,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                        tint = NuvioTheme.colors.Secondary
+                                    )
+                                }
+                                Text(
+                                    text = option.label,
+                                    color = if (isSelected) NuvioTheme.colors.Secondary else itemTextColor,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
                         }
                     }
                 }
