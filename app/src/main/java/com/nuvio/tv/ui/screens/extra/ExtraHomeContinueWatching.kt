@@ -238,7 +238,7 @@ private suspend fun ExtraHomeViewModel.buildExtraContinueWatching(snapshot: Extr
     // Render in-progress items + cached next-up immediately
     val currentSeedByContentId = extraSeeds
         .filter { it.season != null && it.episode != null }
-        .associateBy({ it.contentId }, { (it.season!! to it.episode!!) })
+        .associateBy({ it.contentId }, { it.season!! to it.episode!! })
     val cachedNextUpItems = cachedNextUp.mapNotNull { cached ->
         // Skip if this show is already in-progress (suppression)
         if (inProgressOnly.any { it.progress.contentId == cached.contentId }) return@mapNotNull null
@@ -841,7 +841,7 @@ private fun resolveExtraNextUpReleaseState(
         (nowMs - releaseTimestamp) < sixtyDaysMs
 
     return ExtraNextUpReleaseState(
-        sortTimestamp = if (isReleaseAlert) releaseTimestamp!! else seedProgress.lastWatched,
+        sortTimestamp = if (isReleaseAlert && releaseTimestamp != null) releaseTimestamp else seedProgress.lastWatched,
         releaseTimestamp = releaseTimestamp,
         isReleaseAlert = isReleaseAlert,
         isNewSeasonRelease = isReleaseAlert && seedProgress.season != null && nextSeason != seedProgress.season
