@@ -1,12 +1,16 @@
-package com.nuvio.tv.data.repository
+﻿package com.nuvio.tv.data.repository
 
 import android.util.Log
+import com.nuvio.tv.BuildConfig
 import com.nuvio.tv.data.remote.api.ImdbTapframeApi
 import com.nuvio.tv.data.remote.api.SeriesGraphApi
+import com.nuvio.tv.data.remote.api.TmdbApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
@@ -16,7 +20,8 @@ import javax.inject.Singleton
 @Singleton
 class ImdbEpisodeRatingsRepository @Inject constructor(
     private val imdbTapframeApi: ImdbTapframeApi,
-    private val seriesGraphApi: SeriesGraphApi
+    private val seriesGraphApi: SeriesGraphApi,
+    private val tmdbApi: TmdbApi
 ) {
     private data class CacheEntry(
         val ratings: Map<Pair<Int, Int>, Double>,
@@ -81,6 +86,12 @@ class ImdbEpisodeRatingsRepository @Inject constructor(
         imdbId: String?,
         tmdbId: Int?
     ): Map<Pair<Int, Int>, Double> {
+        if (tmdbId != null && tmdbId > 0) {
+            val tmdbRatings = fetchFromTmdb(tmdbId)
+            if (tmdbRatings.isNotEmpty()) return tmdbRatings
+            Log.d(tag, "TMDB episode ratings empty for tmdbId=$tmdbId, trying other sources.")
+        }
+
         if (!imdbId.isNullOrBlank()) {
             val primary = fetchFromImdbTapframe(imdbId)
             if (primary.isNotEmpty()) return primary
@@ -92,6 +103,64 @@ class ImdbEpisodeRatingsRepository @Inject constructor(
         }
 
         return emptyMap()
+    }
+
+    private suspend fun fetchFromTmdb(tmdbId: Int): Map<Pair<Int, Int>, Double> {
+        return try {
+            val apiKey = BuildConfig.TMDB_API_KEY
+            if (apiKey.isBlank()) {
+                Log.w(tag, "TMDB API key not configured")
+                return emptyMap()
+            }
+
+            val detailsResponse = tmdbApi.getTvDetails(tmdbId, apiKey)
+            if (!detailsResponse.isSuccessful) {
+                Log.w(tag, "Failed to get TV details for tmdbId=$tmdbId (${detailsResponse.code()})")
+                return emptyMap()
+            }
+            val numberOfSeasons = detailsResponse.body()?.numberOfSeasons
+            if (numberOfSeasons == null || numberOfSeasons <= 0) {
+                Log.w(tag, "No seasons found for tmdbId=$tmdbId")
+                return emptyMap()
+            }
+
+            Log.d(tag, "Fetching TMDB episode ratings for tmdbId=$tmdbId ($numberOfSeasons seasons)")
+
+            val allRatings = mutableMapOf<Pair<Int, Int>, Double>()
+
+            val seasonResults = coroutineScope {
+                (1..numberOfSeasons).map { seasonNumber ->
+                    async {
+                    try {
+                        val seasonResponse = tmdbApi.getTvSeasonDetails(tmdbId, seasonNumber, apiKey)
+                        if (!seasonResponse.isSuccessful) {
+                            Log.w(tag, "Failed to get season $seasonNumber for tmdbId=$tmdbId (${seasonResponse.code()})")
+                            return@async emptyList()
+                        }
+                        seasonResponse.body()?.episodes.orEmpty().mapNotNull { episode ->
+                            val epNum = episode.episodeNumber ?: return@mapNotNull null
+                            val rating = episode.voteAverage ?: return@mapNotNull null
+                            if (rating > 0.0) {
+                                Triple(seasonNumber, epNum, rating)
+                            } else null
+                        }
+                    } catch (e: Exception) {
+                        Log.w(tag, "Error fetching season $seasonNumber for tmdbId=$tmdbId", e)
+                        emptyList()
+                    }
+                }
+                }.awaitAll()
+            }
+            seasonResults.flatten().forEach { (season, ep, rating) ->
+                allRatings[season to ep] = rating
+            }
+
+            Log.d(tag, "TMDB: fetched ratings for ${allRatings.size} episodes across $numberOfSeasons seasons")
+            allRatings
+        } catch (e: Exception) {
+            Log.w(tag, "Error fetching TMDB episode ratings for tmdbId=$tmdbId", e)
+            emptyMap()
+        }
     }
 
     private suspend fun fetchFromImdbTapframe(imdbId: String): Map<Pair<Int, Int>, Double> {
