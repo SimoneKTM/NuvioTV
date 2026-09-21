@@ -131,16 +131,16 @@ object NuvioComponents {
             titleBottomSpacing = 14.dp
         ),
         sidebar = NuvioSidebarComponentTokens(
-            legacyCollapsedWidth = 64.dp,
-            legacyExpandedWidth = 180.dp,
-            collapsedWidth = 168.dp,
-            expandedWidth = 240.dp,
-            itemHeight = 44.dp,
-            itemWidth = 132.dp,
-            iconSize = 18.dp,
-            leadingVisual = 28.dp,
-            panelRadius = 26.dp,
-            contentGap = 10.dp
+            legacyCollapsedWidth = 54.dp,
+            legacyExpandedWidth = 150.dp,
+            collapsedWidth = 140.dp,
+            expandedWidth = 200.dp,
+            itemHeight = 38.dp,
+            itemWidth = 112.dp,
+            iconSize = 16.dp,
+            leadingVisual = 24.dp,
+            panelRadius = 22.dp,
+            contentGap = 8.dp
         ),
         dialog = NuvioDialogComponentTokens(
             maxWidth = 720.dp,

@@ -102,22 +102,22 @@ object NuvioSizes {
         ),
         sidebar = NuvioSidebarSizes(
             hiddenWidth = 0.dp,
-            compactWidth = 64.dp,
-            closedWidth = 168.dp,
-            expandedWidth = 240.dp,
-            expandedItemWidth = 132.dp,
-            railItemHeight = 44.dp,
-            leadingVisual = 28.dp
+            compactWidth = 54.dp,
+            closedWidth = 140.dp,
+            expandedWidth = 200.dp,
+            expandedItemWidth = 112.dp,
+            railItemHeight = 38.dp,
+            leadingVisual = 24.dp
         ),
         cards = NuvioCardSizes(
-            posterWidth = 126.dp,
-            posterHeight = 189.dp,
-            posterCompactWidth = 112.dp,
-            posterCompactHeight = 168.dp,
-            backdropWidth = 320.dp,
-            backdropHeight = 180.dp,
-            episodeWidth = 320.dp,
-            episodeHeight = 207.dp
+            posterWidth = 108.dp,
+            posterHeight = 162.dp,
+            posterCompactWidth = 96.dp,
+            posterCompactHeight = 144.dp,
+            backdropWidth = 280.dp,
+            backdropHeight = 158.dp,
+            episodeWidth = 280.dp,
+            episodeHeight = 180.dp
         ),
         avatars = NuvioAvatarSizes(
             sm = 34.dp,
