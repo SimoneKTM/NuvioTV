@@ -231,18 +231,19 @@ fun LayoutSettingsContent(
             contentPadding = PaddingValues(bottom = 18.dp),
             verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
         ) {
-            if (!homeOnlyLayout) {
             item(key = "home_layout_section") {
                 CollapsibleSectionCard(
                     title = stringResource(
                         when {
                             animeMode -> R.string.anime_layout_title
+                            homeOnlyLayout -> R.string.layout_section_extra_layout
                             else -> R.string.layout_section_home
                         }
                     ),
                     description = stringResource(
                         when {
                             animeMode -> R.string.anime_layout_title
+                            homeOnlyLayout -> R.string.layout_section_extra_layout_desc
                             else -> R.string.layout_section_home_desc
                         }
                     ),
@@ -390,7 +391,6 @@ fun LayoutSettingsContent(
                         }
                     }
                 }
-            }
             }
 
             if (animeMode) {
