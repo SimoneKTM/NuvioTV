@@ -345,6 +345,7 @@ private fun DiscoverDropdownPicker(
                 val itemTextColor = NuvioTheme.colors.TextPrimary
                 var isItemFocused by remember { mutableStateOf(false) }
 
+                val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -358,8 +359,12 @@ private fun DiscoverDropdownPicker(
                             }
                         )
                         .onFocusChanged { isItemFocused = it.isFocused }
-                        .clickable { onSelect(option) }
-                        .focusable(),
+                        .clickable(
+                            interactionSource = interactionSource,
+                            indication = null,
+                            onClick = { onSelect(option) }
+                        )
+                        .focusable(interactionSource = interactionSource),
                     contentAlignment = Alignment.CenterStart
                 ) {
                     Text(
