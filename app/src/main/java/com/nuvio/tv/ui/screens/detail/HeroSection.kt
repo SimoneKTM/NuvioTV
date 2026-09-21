@@ -189,17 +189,35 @@ fun HeroContentSection(
         ) {
             // Logo/Title — always visible during trailer, animates size
             if (shouldShowLogo) {
-                AsyncImage(
-                    model = logoModel,
-                    contentDescription = meta.name,
-                    onError = { logoLoadFailed = true },
+                Box(
                     modifier = Modifier
                         .height(logoHeight)
                         .fillMaxWidth(logoMaxWidth)
                         .padding(bottom = logoBottomPadding),
-                    contentScale = ContentScale.Fit,
-                    alignment = Alignment.CenterStart
-                )
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    AsyncImage(
+                        model = logoModel,
+                        contentDescription = meta.name,
+                        onError = { logoLoadFailed = true },
+                        modifier = Modifier
+                            .matchParentSize()
+                            .drawBehind {
+                                drawRect(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            Color.White.copy(alpha = 0.18f),
+                                            Color.Transparent
+                                        ),
+                                        radius = size.width * 0.7f,
+                                        center = Offset(size.width * 0.4f, size.height * 0.5f)
+                                    )
+                                )
+                            },
+                        contentScale = ContentScale.Fit,
+                        alignment = Alignment.CenterStart
+                    )
+                }
             } else {
                 // Text title hides entirely during trailer
                 AnimatedVisibility(
