@@ -74,7 +74,7 @@ private val WIDE_CARD_WIDTH = 300.dp
 private val WIDE_CARD_HEIGHT = 170.dp
 private val SECTION_PADDING_HORIZONTAL = 48.dp
 
-private const val CALENDAR_STABLE_GATE_TIMEOUT_MS = 3_000L
+private const val CALENDAR_STABLE_GATE_TIMEOUT_MS = 6_000L
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
