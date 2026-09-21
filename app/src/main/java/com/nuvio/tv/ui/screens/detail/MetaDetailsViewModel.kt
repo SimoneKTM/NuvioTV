@@ -1319,7 +1319,9 @@ class MetaDetailsViewModel @Inject constructor(
         episodeRatingsJob?.cancel()
 
         val isSeries = meta.type == ContentType.SERIES || meta.type == ContentType.TV || meta.apiType in listOf("series", "tv")
+        Log.d(TAG, "loadEpisodeRatings: meta.id=${meta.id}, type=${meta.type}, apiType=${meta.apiType}, isSeries=$isSeries")
         if (!isSeries) {
+            Log.d(TAG, "loadEpisodeRatings: not a series, skipping")
             _uiState.update {
                 it.copy(
                     episodeImdbRatings = emptyMap(),
@@ -1341,7 +1343,9 @@ class MetaDetailsViewModel @Inject constructor(
 
             try {
                 val tmdbContentType = resolveTmdbContentType(meta)
+                Log.d(TAG, "loadEpisodeRatings: tmdbContentType=$tmdbContentType")
                 if (tmdbContentType !in listOf(ContentType.SERIES, ContentType.TV)) {
+                    Log.d(TAG, "loadEpisodeRatings: content type not series, aborting")
                     _uiState.update {
                         it.copy(
                             episodeImdbRatings = emptyMap(),
@@ -1356,21 +1360,36 @@ class MetaDetailsViewModel @Inject constructor(
 
                 val metaIds = parseContentIds(meta.id)
                 val routeIds = parseContentIds(itemId)
+                Log.d(TAG, "loadEpisodeRatings: metaIds=$metaIds, routeIds=$routeIds, itemId=$itemId")
 
                 var imdbId = metaIds.imdb ?: routeIds.imdb
                 var tmdbId = metaIds.tmdb ?: routeIds.tmdb
+                Log.d(TAG, "loadEpisodeRatings: after parseContentIds: imdbId=$imdbId, tmdbId=$tmdbId")
 
                 if (tmdbId == null && imdbId == null) {
+                    Log.d(TAG, "loadEpisodeRatings: trying ensureTmdbId(meta.id=$meta.id, type=$tmdbLookupType)")
                     val tmdbIdString = tmdbService.ensureTmdbId(meta.id, tmdbLookupType)
-                        ?: tmdbService.ensureTmdbId(itemId, itemType)
-                    tmdbId = tmdbIdString?.toIntOrNull()
+                    Log.d(TAG, "loadEpisodeRatings: ensureTmdbId(meta.id) returned: $tmdbIdString")
+                    if (tmdbIdString == null) {
+                        Log.d(TAG, "loadEpisodeRatings: trying ensureTmdbId(itemId=$itemId, type=$itemType)")
+                        val tmdbIdString2 = tmdbService.ensureTmdbId(itemId, itemType)
+                        Log.d(TAG, "loadEpisodeRatings: ensureTmdbId(itemId) returned: $tmdbIdString2")
+                        tmdbId = tmdbIdString2?.toIntOrNull()
+                    } else {
+                        tmdbId = tmdbIdString.toIntOrNull()
+                    }
                 }
+
+                Log.d(TAG, "loadEpisodeRatings: after ensureTmdbId: imdbId=$imdbId, tmdbId=$tmdbId")
 
                 if (tmdbId != null && imdbId == null) {
+                    Log.d(TAG, "loadEpisodeRatings: converting tmdbToImdb for tmdbId=$tmdbId")
                     imdbId = tmdbService.tmdbToImdb(tmdbId, tmdbLookupType)
+                    Log.d(TAG, "loadEpisodeRatings: tmdbToImdb returned: $imdbId")
                 }
 
                 if (tmdbId == null && imdbId == null) {
+                    Log.w(TAG, "loadEpisodeRatings: no TMDB or IMDB ID found for ${meta.id} / $itemId")
                     _uiState.update { state ->
                         if (state.meta == null || state.meta.id != meta.id) {
                             state
@@ -1385,13 +1404,16 @@ class MetaDetailsViewModel @Inject constructor(
                     return@launch
                 }
 
+                Log.d(TAG, "loadEpisodeRatings: fetching ratings with imdbId=$imdbId, tmdbId=$tmdbId")
                 val ratings = imdbEpisodeRatingsRepository.getEpisodeRatings(
                     imdbId = imdbId,
                     tmdbId = tmdbId
                 )
+                Log.d(TAG, "loadEpisodeRatings: got ${ratings.size} ratings, keys sample=${ratings.keys.take(3)}")
 
                 _uiState.update { state ->
                     if (state.meta == null || state.meta.id != meta.id) {
+                        Log.w(TAG, "loadEpisodeRatings: meta changed during fetch, discarding results")
                         state
                     } else {
                         state.copy(
@@ -1404,7 +1426,7 @@ class MetaDetailsViewModel @Inject constructor(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                Log.w(TAG, "Failed to load episode ratings for ${meta.id}: ${error.message}")
+                Log.w(TAG, "Failed to load episode ratings for ${meta.id}: ${error.message}", error)
                 _uiState.update { state ->
                     if (state.meta == null || state.meta.id != meta.id) {
                         state
