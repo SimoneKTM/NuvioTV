@@ -75,8 +75,8 @@ data class FolderDetailUiState(
     val focusedPosterBackdropTrailerMuted: Boolean = true,
     val focusedPosterBackdropTrailerPlaybackTarget: FocusedPosterTrailerPlaybackTarget =
         FocusedPosterTrailerPlaybackTarget.HERO_MEDIA,
-    val posterCardWidthDp: Int = 108,
-    val posterCardHeightDp: Int = 162,
+    val posterCardWidthDp: Int = 126,
+    val posterCardHeightDp: Int = 189,
     val posterCardCornerRadiusDp: Int = 12,
     val tabs: List<FolderTab> = emptyList(),
     val selectedTabIndex: Int = 0,
