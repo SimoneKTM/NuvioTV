@@ -243,11 +243,10 @@ internal fun DiscoverSection(
                                 contentAlignment = Alignment.Center
                             ) {
                                 LoadingIndicator(modifier = Modifier.size(32.dp))
-                    }
+                            }
+                        }
                     }
                 }
-            }
-        }
             }
         }
     }
@@ -381,8 +380,10 @@ private fun DiscoverDropdownPicker(
                         }
                     }
                 }
-            }
         }
+    }
+}
+
 }
 
 private fun localizedName(type: String): String = when (type.lowercase()) {

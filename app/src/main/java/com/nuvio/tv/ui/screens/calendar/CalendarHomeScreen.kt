@@ -67,6 +67,8 @@ private val WIDE_CARD_WIDTH = 260.dp
 private val WIDE_CARD_HEIGHT = 146.dp
 private val SECTION_PADDING_HORIZONTAL = 48.dp
 
+private const val CALENDAR_STABLE_GATE_TIMEOUT_MS = 3_000L
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun CalendarHomeScreen(
@@ -77,6 +79,17 @@ fun CalendarHomeScreen(
     BackHandler { onBackPress() }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val dataLoaded = uiState.sections.isNotEmpty() && !uiState.isLoading
+    var gateReleased by remember { mutableStateOf(false) }
+
+    LaunchedEffect(dataLoaded) {
+        if (dataLoaded && !gateReleased) {
+            delay(CALENDAR_STABLE_GATE_TIMEOUT_MS)
+            gateReleased = true
+        }
+    }
+
+    val showContent = dataLoaded && gateReleased
 
     Box(
         modifier = Modifier
@@ -84,7 +97,7 @@ fun CalendarHomeScreen(
             .background(NuvioTheme.colors.Background)
     ) {
         when {
-            uiState.isLoading -> {
+            !showContent -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     LoadingIndicator()
                 }
@@ -577,46 +590,60 @@ private fun CalendarWideCard(
         )
     ) {
         Column {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(WIDE_CARD_HEIGHT)
-            .clip(cardShape)
-    ) {
-        if (meta.backdropUrl != null) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(meta.backdropUrl)
-                    .crossfade(true)
-                    .memoryCachePolicy(CachePolicy.ENABLED)
-                    .diskCachePolicy(CachePolicy.ENABLED)
-                    .build(),
-                contentDescription = meta.name,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize()
-            )
-        } else {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                NuvioTheme.colors.Secondary.copy(alpha = 0.4f),
-                                NuvioTheme.colors.BackgroundCard
+                    .fillMaxWidth()
+                    .height(WIDE_CARD_HEIGHT)
+                    .clip(cardShape)
+            ) {
+                if (meta.backdropUrl != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(meta.backdropUrl)
+                            .crossfade(true)
+                            .memoryCachePolicy(CachePolicy.ENABLED)
+                            .diskCachePolicy(CachePolicy.ENABLED)
+                            .build(),
+                        contentDescription = meta.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        NuvioTheme.colors.Secondary.copy(alpha = 0.4f),
+                                        NuvioTheme.colors.BackgroundCard
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = meta.name.take(1).uppercase(),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.3f)
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.Transparent,
+                                    Color.Black.copy(alpha = 0.6f)
+                                )
                             )
                         )
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = meta.name.take(1).uppercase(),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.3f)
                 )
-            }
-        }
 
                 if (dateLabel.isNotEmpty()) {
                     Box(
@@ -636,35 +663,47 @@ private fun CalendarWideCard(
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                text = meta.name,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
-                color = if (isFocused) Color.White else NuvioTheme.colors.TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 8.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                NuvioTheme.colors.BackgroundCard.copy(alpha = 0.85f),
+                                NuvioTheme.colors.BackgroundCard
+                            )
+                        )
+                    )
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = typeLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = NuvioTheme.colors.TextTertiary
+                    text = meta.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isFocused) Color.White else NuvioTheme.colors.TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                meta.imdbRating?.let { rating ->
-                    Spacer(modifier = Modifier.width(6.dp))
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = "\u2605 ${String.format(Locale.US, "%.1f", rating)}",
+                        text = typeLabel,
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = NuvioTheme.colors.Secondary
+                        color = NuvioTheme.colors.TextTertiary
                     )
+                    meta.imdbRating?.let { rating ->
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "\u2605 ${String.format(Locale.US, "%.1f", rating)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = NuvioTheme.colors.Secondary
+                        )
+                    }
                 }
             }
         }
@@ -784,24 +823,38 @@ private fun CalendarPortraitCard(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            Text(
-                text = meta.name,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
-                color = if (isFocused) Color.White else NuvioTheme.colors.TextPrimary,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            if (genresText.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(2.dp))
+            Column(
+                modifier = Modifier
+                    .width(cardWidth)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                NuvioTheme.colors.BackgroundCard.copy(alpha = 0.85f),
+                                NuvioTheme.colors.BackgroundCard
+                            )
+                        )
+                    )
+                    .padding(horizontal = 4.dp, vertical = 4.dp)
+            ) {
                 Text(
-                    text = genresText,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = NuvioTheme.colors.TextTertiary,
-                    maxLines = 1,
+                    text = meta.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isFocused) Color.White else NuvioTheme.colors.TextPrimary,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
+
+                if (genresText.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = genresText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = NuvioTheme.colors.TextTertiary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
