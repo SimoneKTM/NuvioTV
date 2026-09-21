@@ -8,6 +8,7 @@ import com.nuvio.tv.data.local.TraktSettingsDataStore
 import com.nuvio.tv.data.local.TrailerSettingsDataStore
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.collectLatest
@@ -24,7 +25,8 @@ class ExtraLayoutSettingsViewModel @Inject constructor(
     traktSettingsDataStore: TraktSettingsDataStore,
     trailerSettingsDataStore: TrailerSettingsDataStore,
     addonRepository: AddonRepository,
-    metaRepository: com.nuvio.tv.domain.repository.MetaRepository
+    metaRepository: com.nuvio.tv.domain.repository.MetaRepository,
+    private val extraAddonRepository: ExtraAddonRepository
 ) : LayoutSettingsViewModel(
     context = context,
     layoutPreferenceDataStore = layoutPreferenceDataStore,
@@ -39,7 +41,7 @@ class ExtraLayoutSettingsViewModel @Inject constructor(
     override fun loadAvailableCatalogs() {
         viewModelScope.launch {
             try {
-                addonRepository.getInstalledAddons()
+                extraAddonRepository.getInstalledExtraAddons()
                     .distinctUntilChanged()
                     .collectLatest { installedAddons ->
                         val addons = installedAddons.enabledAddons()
