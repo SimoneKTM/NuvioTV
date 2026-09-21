@@ -28,9 +28,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
@@ -242,10 +243,11 @@ internal fun DiscoverSection(
                                 contentAlignment = Alignment.Center
                             ) {
                                 LoadingIndicator(modifier = Modifier.size(32.dp))
-                            }
-                        }
+                    }
                     }
                 }
+            }
+        }
             }
         }
     }
@@ -327,58 +329,60 @@ private fun DiscoverDropdownPicker(
             }
         }
 
-        NuvioTheme {
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { onExpandedChange(false) },
+        if (expanded) {
+            Box(
                 modifier = Modifier
                     .width(with(LocalDensity.current) { anchorSize.width.toDp() })
-                    .heightIn(max = 320.dp),
-                shape = RoundedCornerShape(14.dp),
-                containerColor = NuvioTheme.colors.BackgroundCard,
-                tonalElevation = 0.dp,
-                shadowElevation = NuvioTheme.spacing.sm,
-                border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border)
-            ) {
-            options.forEach { option ->
-                val isSelected = option.value == selectedValue
-                val itemTextColor = NuvioTheme.colors.TextPrimary
-                var isItemFocused by remember { mutableStateOf(false) }
-
-                val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 6.dp, vertical = NuvioTheme.spacing.xxs)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(
-                            color = when {
-                                isItemFocused -> NuvioTheme.colors.Secondary.copy(alpha = 0.3f)
-                                isSelected -> NuvioTheme.colors.Secondary
-                                else -> Color.Transparent
-                            }
-                        )
-                        .onFocusChanged { isItemFocused = it.isFocused }
-                        .clickable(
-                            interactionSource = interactionSource,
-                            indication = null,
-                            onClick = { onSelect(option) }
-                        )
-                        .focusable(interactionSource = interactionSource),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Text(
-                        text = option.label,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                        color = itemTextColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                    .heightIn(max = 320.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(NuvioTheme.colors.BackgroundCard)
+                    .border(
+                        BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border),
+                        RoundedCornerShape(14.dp)
                     )
+                    .shadow(NuvioTheme.spacing.sm, RoundedCornerShape(14.dp))
+            ) {
+                Column(
+                    modifier = Modifier.padding(vertical = 4.dp)
+                ) {
+                    options.forEach { option ->
+                        val isSelected = option.value == selectedValue
+                        val itemTextColor = NuvioTheme.colors.TextPrimary
+                        var isItemFocused by remember { mutableStateOf(false) }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp, vertical = NuvioTheme.spacing.xxs)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    color = when {
+                                        isItemFocused -> NuvioTheme.colors.BackgroundCard.copy(alpha = 0.7f)
+                                        isSelected -> NuvioTheme.colors.BackgroundCard
+                                        else -> Color.Transparent
+                                    }
+                                )
+                                .onFocusChanged { isItemFocused = it.isFocused }
+                                .clickable(
+                                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { onSelect(option) }
+                                )
+                                .focusable(),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Text(
+                                text = option.label,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                color = itemTextColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
             }
         }
-        }
-    }
 }
 
 private fun localizedName(type: String): String = when (type.lowercase()) {
