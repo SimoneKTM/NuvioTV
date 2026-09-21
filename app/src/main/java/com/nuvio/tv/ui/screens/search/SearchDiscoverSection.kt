@@ -277,7 +277,7 @@ private fun DiscoverDropdownPicker(
             shape = CardDefaults.shape(shape = RoundedCornerShape(14.dp)),
             colors = CardDefaults.colors(
                 containerColor = NuvioTheme.colors.BackgroundCard,
-                focusedContainerColor = NuvioTheme.colors.Background
+                focusedContainerColor = NuvioTheme.colors.BackgroundCard
             ),
             border = CardDefaults.border(
                 border = Border(
@@ -329,9 +329,11 @@ private fun DiscoverDropdownPicker(
         }
 
         if (expanded) {
+            val anchorHeightDp = with(LocalDensity.current) { anchorSize.height.toDp() }
             Box(
                 modifier = Modifier
                     .width(with(LocalDensity.current) { anchorSize.width.toDp() })
+                    .padding(top = anchorHeightDp + 4.dp)
                     .heightIn(max = 320.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .background(NuvioTheme.colors.BackgroundCard)
