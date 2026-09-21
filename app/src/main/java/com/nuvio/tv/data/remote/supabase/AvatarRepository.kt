@@ -60,7 +60,11 @@ class AvatarRepository @Inject constructor(
         private const val TAG = "AvatarRepository"
 
         fun avatarImageUrl(storagePath: String): String {
-            val baseUrl = BuildConfig.AVATAR_PUBLIC_BASE_URL.trimEnd('/')
+            if (storagePath.startsWith("http://") || storagePath.startsWith("https://")) return storagePath
+            val configured = BuildConfig.AVATAR_PUBLIC_BASE_URL.trimEnd('/')
+            val baseUrl = configured.ifBlank {
+                "${BuildConfig.SUPABASE_URL.trimEnd('/')}/storage/v1/object/public/avatars"
+            }
             return if (baseUrl.isNotEmpty()) "$baseUrl/$storagePath" else storagePath
         }
 
