@@ -28,9 +28,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MenuDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -343,31 +343,33 @@ private fun DiscoverDropdownPicker(
             options.forEach { option ->
                 val isSelected = option.value == selectedValue
                 val itemTextColor = NuvioTheme.colors.TextPrimary
-                val itemBackgroundColor = when {
-                    isSelected -> NuvioTheme.colors.Secondary
-                    else -> Color.Transparent
-                }
+                var isItemFocused by remember { mutableStateOf(false) }
 
-                DropdownMenuItem(
+                Box(
                     modifier = Modifier
+                        .fillMaxWidth()
                         .padding(horizontal = 6.dp, vertical = NuvioTheme.spacing.xxs)
+                        .clip(RoundedCornerShape(10.dp))
                         .background(
-                            color = itemBackgroundColor,
-                            shape = RoundedCornerShape(10.dp)
-                        ),
-                    text = {
-                        Text(
-                            text = option.label,
-                            color = itemTextColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            color = when {
+                                isItemFocused -> NuvioTheme.colors.Secondary.copy(alpha = 0.3f)
+                                isSelected -> NuvioTheme.colors.Secondary
+                                else -> Color.Transparent
+                            }
                         )
-                    },
-                    onClick = { onSelect(option) },
-                    colors = MenuDefaults.itemColors(
-                        textColor = itemTextColor
+                        .onFocusChanged { isItemFocused = it.isFocused }
+                        .clickable { onSelect(option) }
+                        .focusable(),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Text(
+                        text = option.label,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        color = itemTextColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                )
+                }
             }
         }
         }
