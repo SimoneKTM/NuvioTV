@@ -31,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -561,7 +560,6 @@ private fun CalendarWideCard(
         onClick = onClick,
         modifier = Modifier
             .width(WIDE_CARD_WIDTH)
-            .clipToBounds()
             .onFocusChanged {
                 isFocused = it.isFocused
                 onFocusChange(it.isFocused)
@@ -695,7 +693,6 @@ private fun CalendarPortraitCard(
         onClick = onClick,
         modifier = Modifier
             .width(cardWidth)
-            .clipToBounds()
             .onFocusChanged { isFocused = it.isFocused },
         shape = CardDefaults.shape(shape = cardShape),
         colors = CardDefaults.colors(
