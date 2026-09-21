@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,7 +15,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -25,27 +28,27 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
-import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
 import com.nuvio.tv.domain.model.HomeLayout
+import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.legacyKey
 import com.nuvio.tv.ui.components.CatalogRowSection
-import com.nuvio.tv.ui.components.ContinueWatchingCard
 import com.nuvio.tv.ui.components.ContinueWatchingSection
 import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.GridContinueWatchingSection
 import com.nuvio.tv.ui.components.HeroCarousel
 import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.components.PosterCardStyle
+import com.nuvio.tv.ui.screens.home.ClassicFocusArtwork
+import com.nuvio.tv.ui.screens.home.ClassicFocusGradientBackdrop
 import com.nuvio.tv.ui.screens.home.ContinueWatchingItem
-import com.nuvio.tv.ui.screens.home.extractYearText
 import com.nuvio.tv.ui.screens.home.firstNonBlank
-import com.nuvio.tv.ui.screens.home.formatHeroRuntime
-import com.nuvio.tv.ui.screens.home.isSeriesType
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.asStable
+import com.nuvio.tv.ui.util.dpadRepeatThrottle
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -136,20 +139,19 @@ fun ExtraHomeScreen(
     }
 }
 
-@Composable
 private fun extraPosterCardStyle(uiState: ExtraHomeUiState): PosterCardStyle {
-    return remember(
-        uiState.posterCardWidthDp,
-        uiState.posterCardHeightDp,
-        uiState.posterCardCornerRadiusDp
-    ) {
-        PosterCardStyle(
-            width = uiState.posterCardWidthDp.dp,
-            height = uiState.posterCardHeightDp.dp,
-            cornerRadius = uiState.posterCardCornerRadiusDp.dp
-        )
-    }
+    return PosterCardStyle(
+        width = uiState.posterCardWidthDp.dp,
+        height = uiState.posterCardHeightDp.dp,
+        cornerRadius = uiState.posterCardCornerRadiusDp.dp
+    )
 }
+
+private fun MetaPreview.toExtraClassicFocusArtwork(): ClassicFocusArtwork =
+    ClassicFocusArtwork(
+        imageUrl = firstNonBlank(backdropUrl, background, landscapePoster, poster),
+        seed = id
+    )
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -160,80 +162,99 @@ private fun ExtraClassicContent(
     onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
 ) {
+    var focusedArtwork by remember { mutableStateOf<ClassicFocusArtwork?>(null) }
+    LaunchedEffect(uiState.classicFocusGradientEnabled) {
+        if (!uiState.classicFocusGradientEnabled) focusedArtwork = null
+    }
+    val handleMetaFocus: (MetaPreview) -> Unit = { item ->
+        if (uiState.classicFocusGradientEnabled) {
+            focusedArtwork = item.toExtraClassicFocusArtwork()
+        }
+    }
     val posterCardStyle = extraPosterCardStyle(uiState)
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(NuvioTheme.colors.Background),
-        contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
-    ) {
-        if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
-            item(key = "extra_hero") {
-                HeroCarousel(
-                    items = uiState.heroItems.asStable(),
-                    onItemClick = { item ->
-                        onNavigateToDetail(item.id, item.rawType, uiState.heroAddonBaseUrl.orEmpty())
+    Box(modifier = Modifier.fillMaxSize()) {
+        ClassicFocusGradientBackdrop(
+            artworkProvider = { focusedArtwork },
+            enabled = uiState.classicFocusGradientEnabled,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(NuvioTheme.colors.Background)
+        )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .dpadRepeatThrottle(),
+            contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
+        ) {
+            if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
+                item(key = "extra_hero") {
+                    HeroCarousel(
+                        items = uiState.heroItems.asStable(),
+                        onItemClick = { item ->
+                            onNavigateToDetail(item.id, item.rawType, uiState.heroAddonBaseUrl.orEmpty())
+                        },
+                        modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)
+                    )
+                }
+            }
+
+            if (uiState.continueWatchingItems.isNotEmpty() || uiState.upcomingItems.isNotEmpty()) {
+                item(key = "extra_continue_watching") {
+                    ContinueWatchingSection(
+                        items = uiState.continueWatchingItems,
+                        title = stringResource(R.string.continue_watching),
+                        onItemClick = onContinueWatchingClick,
+                        onRemoveItem = onRemoveContinueWatching,
+                        cardWidth = posterCardStyle.width,
+                        imageHeight = posterCardStyle.height,
+                        cardStyle = uiState.continueWatchingCardStyle,
+                        blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
+                        useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
+                        modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)
+                    )
+                }
+            }
+
+            if (uiState.upcomingItems.isNotEmpty()) {
+                item(key = "extra_upcoming") {
+                    ContinueWatchingSection(
+                        items = uiState.upcomingItems,
+                        title = stringResource(R.string.cw_upcoming),
+                        onItemClick = onContinueWatchingClick,
+                        onRemoveItem = onRemoveContinueWatching,
+                        cardWidth = posterCardStyle.width,
+                        imageHeight = posterCardStyle.height,
+                        cardStyle = uiState.continueWatchingCardStyle,
+                        blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
+                        useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
+                        modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)
+                    )
+                }
+            }
+
+            items(
+                items = uiState.rows,
+                key = { row -> row.legacyKey() }
+            ) { row ->
+                CatalogRowSection(
+                    catalogRow = row,
+                    onItemClick = onNavigateToDetail,
+                    onSeeAll = {
+                        onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
                     },
-                    modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)
+                    showSeeAll = row.hasMore || row.items.size >= 15,
+                    posterCardStyle = posterCardStyle,
+                    showPosterLabels = uiState.posterLabelsEnabled,
+                    showAddonName = uiState.catalogAddonNameEnabled,
+                    showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
+                    focusedPosterBackdropExpandEnabled = uiState.focusedPosterBackdropExpandEnabled,
+                    focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,
+                    focusedPosterBackdropTrailerEnabled = uiState.focusedPosterBackdropTrailerEnabled,
+                    focusedPosterBackdropTrailerMuted = uiState.focusedPosterBackdropTrailerMuted,
+                    onItemFocus = handleMetaFocus
                 )
             }
-        }
-
-        if (uiState.continueWatchingItems.isNotEmpty() || uiState.upcomingItems.isNotEmpty()) {
-            item(key = "extra_continue_watching") {
-                ContinueWatchingSection(
-                    items = uiState.continueWatchingItems,
-                    title = stringResource(R.string.continue_watching),
-                    onItemClick = onContinueWatchingClick,
-                    onRemoveItem = onRemoveContinueWatching,
-                    cardWidth = posterCardStyle.width,
-                    imageHeight = posterCardStyle.height,
-                    cardStyle = uiState.continueWatchingCardStyle,
-                    blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
-                    useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
-                    modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)
-                )
-            }
-        }
-
-        if (uiState.upcomingItems.isNotEmpty()) {
-            item(key = "extra_upcoming") {
-                ContinueWatchingSection(
-                    items = uiState.upcomingItems,
-                    title = stringResource(R.string.cw_upcoming),
-                    onItemClick = onContinueWatchingClick,
-                    onRemoveItem = onRemoveContinueWatching,
-                    cardWidth = posterCardStyle.width,
-                    imageHeight = posterCardStyle.height,
-                    cardStyle = uiState.continueWatchingCardStyle,
-                    blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
-                    useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
-                    modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)
-                )
-            }
-        }
-
-        items(
-            items = uiState.rows,
-            key = { row -> row.legacyKey() }
-        ) { row ->
-            CatalogRowSection(
-                catalogRow = row,
-                onItemClick = onNavigateToDetail,
-                onSeeAll = {
-                    onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
-                },
-                showSeeAll = row.hasMore || row.items.size >= 15,
-                posterCardStyle = posterCardStyle,
-                showPosterLabels = uiState.posterLabelsEnabled,
-                showAddonName = uiState.catalogAddonNameEnabled,
-                showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
-                focusedPosterBackdropExpandEnabled = uiState.focusedPosterBackdropExpandEnabled,
-                focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,
-                focusedPosterBackdropTrailerEnabled = uiState.focusedPosterBackdropTrailerEnabled,
-                focusedPosterBackdropTrailerMuted = uiState.focusedPosterBackdropTrailerMuted
-            )
         }
     }
 }
@@ -252,7 +273,7 @@ private fun ExtraModernContent(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(NuvioTheme.colors.Background),
+            .dpadRepeatThrottle(),
         contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
     ) {
         if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
@@ -339,7 +360,7 @@ private fun ExtraGridContent(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(NuvioTheme.colors.Background),
+            .dpadRepeatThrottle(),
         contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
     ) {
         if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
