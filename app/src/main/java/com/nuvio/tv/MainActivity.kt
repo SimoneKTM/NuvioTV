@@ -426,12 +426,8 @@ class MainActivity : ComponentActivity() {
             }
 
             LaunchedEffect(hasEverSelectedProfile, activeProfileHasPin, rememberLastProfileEnabled) {
-                if (rememberLastProfileEnabled && hasEverSelectedProfile && !activeProfileHasPin && !hasSelectedProfileThisSession) {
-                    hasSelectedProfileThisSession = true
-                    if (authManager.authState.value is AuthState.FullAccount) {
-                        startupSyncService.requestSyncNow()
-                    }
-                }
+                // Always show profile selection on launch for background loading
+                // rememberLastProfileEnabled is intentionally ignored here
             }
 
             var avatarCatalog by remember { mutableStateOf(emptyList<com.nuvio.tv.data.remote.supabase.AvatarCatalogItem>()) }
@@ -644,8 +640,7 @@ class MainActivity : ComponentActivity() {
                         return@Surface
                     }
 
-                    val shouldShowProfileSelection =
-                        !hasSelectedProfileThisSession && (profiles.size > 1 || activeProfileHasPin)
+                    val shouldShowProfileSelection = !hasSelectedProfileThisSession
 
                     if (shouldShowProfileSelection) {
                         ProfileSelectionScreen(
