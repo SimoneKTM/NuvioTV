@@ -473,66 +473,56 @@ private fun ExtraGridContent(
 
     val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
 
-    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = posterCardWidth),
-        state = gridState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 52.dp,
-            end = 52.dp,
-            top = NuvioTheme.spacing.md,
-            bottom = NuvioTheme.spacing.xxl
-        ),
-        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
-        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.lg)
-    ) {
+    Column(modifier = Modifier.fillMaxSize()) {
         if (uiState.continueWatchingItems.isNotEmpty() || uiState.upcomingItems.isNotEmpty()) {
-            item(key = "extra_cw_title") {
-                Text(
-                    text = stringResource(R.string.continue_watching),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = NuvioTheme.colors.TextPrimary,
-                    modifier = Modifier.padding(bottom = NuvioTheme.spacing.xs)
-                )
-            }
-            item(key = "extra_cw_row") {
-                ExtraCompactContinueWatchingRow(
-                    items = uiState.continueWatchingItems + uiState.upcomingItems,
-                    cardWidth = posterCardWidth,
-                    cardHeight = posterCardHeight,
-                    cornerRadius = posterCardCornerRadius,
-                    blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
-                    useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
-                    onItemClick = onContinueWatchingClick,
-                    onRemoveItem = onRemoveContinueWatching
-                )
-            }
+            ExtraCompactContinueWatchingRow(
+                items = uiState.continueWatchingItems + uiState.upcomingItems,
+                cardWidth = posterCardWidth,
+                cardHeight = posterCardHeight,
+                cornerRadius = posterCardCornerRadius,
+                blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
+                useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
+                onItemClick = onContinueWatchingClick,
+                onRemoveItem = onRemoveContinueWatching,
+                modifier = Modifier.padding(start = 48.dp, top = NuvioTheme.spacing.md)
+            )
         }
 
         if (uiState.categories.isNotEmpty()) {
-            item(key = "extra_categories") {
-                ExtraCategoryChips(
-                    categories = uiState.categories,
-                    selectedCategory = uiState.selectedCategory,
-                    onCategorySelected = onCategorySelected
-                )
-            }
+            ExtraCategoryChips(
+                categories = uiState.categories,
+                selectedCategory = uiState.selectedCategory,
+                onCategorySelected = onCategorySelected
+            )
         }
 
-        items(
-            items = allItems,
-            key = { (item, _) -> item.id.ifEmpty { "extra_${allItems.indexOfFirst { it.first.id == item.id }}" } }
-        ) { (item, addonBaseUrl) ->
-            com.nuvio.tv.ui.components.ContentCard(
-                item = item,
-                posterCardStyle = PosterCardStyle(
-                    width = posterCardWidth,
-                    height = posterCardHeight,
-                    cornerRadius = posterCardCornerRadius
-                ),
-                showLabels = uiState.posterLabelsEnabled,
-                onClick = { onNavigateToDetail(item.id, item.apiType, addonBaseUrl) }
-            )
+        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = posterCardWidth),
+            state = gridState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = 52.dp,
+                end = 52.dp,
+                bottom = NuvioTheme.spacing.xxl
+            ),
+            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
+            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.lg)
+        ) {
+            items(
+                items = allItems,
+                key = { (item, _) -> item.id.ifEmpty { "extra_${allItems.indexOfFirst { it.first.id == item.id }}" } }
+            ) { (item, addonBaseUrl) ->
+                com.nuvio.tv.ui.components.ContentCard(
+                    item = item,
+                    posterCardStyle = PosterCardStyle(
+                        width = posterCardWidth,
+                        height = posterCardHeight,
+                        cornerRadius = posterCardCornerRadius
+                    ),
+                    showLabels = uiState.posterLabelsEnabled,
+                    onClick = { onNavigateToDetail(item.id, item.apiType, addonBaseUrl) }
+                )
+            }
         }
     }
 }
