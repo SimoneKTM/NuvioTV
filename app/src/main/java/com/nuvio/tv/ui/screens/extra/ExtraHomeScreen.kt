@@ -109,7 +109,7 @@ fun ExtraHomeScreen(
             else -> {
                 val onRemoveContinueWatching: (ContinueWatchingItem) -> Unit = viewModel::removeContinueWatching
                 when (uiState.homeLayout) {
-                    HomeLayout.MODERN -> ExtraClassicContent(
+                    HomeLayout.MODERN -> ExtraModernContent(
                         uiState = uiState,
                         onNavigateToDetail = onNavigateToDetail,
                         onNavigateToSeeAll = onNavigateToSeeAll,
@@ -230,6 +230,93 @@ private fun ExtraClassicContent(
                 showAddonName = uiState.catalogAddonNameEnabled,
                 showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
                 focusedPosterBackdropExpandEnabled = uiState.focusedPosterBackdropExpandEnabled,
+                focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,
+                focusedPosterBackdropTrailerEnabled = uiState.focusedPosterBackdropTrailerEnabled,
+                focusedPosterBackdropTrailerMuted = uiState.focusedPosterBackdropTrailerMuted
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun ExtraModernContent(
+    uiState: ExtraHomeUiState,
+    onNavigateToDetail: (String, String, String) -> Unit,
+    onNavigateToSeeAll: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
+    onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
+) {
+    val posterCardStyle = extraPosterCardStyle(uiState)
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(NuvioTheme.colors.Background),
+        contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
+    ) {
+        if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
+            item(key = "extra_hero") {
+                HeroCarousel(
+                    items = uiState.heroItems.asStable(),
+                    onItemClick = { item ->
+                        onNavigateToDetail(item.id, item.rawType, uiState.heroAddonBaseUrl.orEmpty())
+                    },
+                    modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)
+                )
+            }
+        }
+
+        if (uiState.continueWatchingItems.isNotEmpty() || uiState.upcomingItems.isNotEmpty()) {
+            item(key = "extra_continue_watching") {
+                ContinueWatchingSection(
+                    items = uiState.continueWatchingItems,
+                    title = stringResource(R.string.continue_watching),
+                    onItemClick = onContinueWatchingClick,
+                    onRemoveItem = onRemoveContinueWatching,
+                    cardWidth = posterCardStyle.width,
+                    imageHeight = posterCardStyle.height,
+                    cardStyle = uiState.continueWatchingCardStyle,
+                    blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
+                    useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
+                    modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)
+                )
+            }
+        }
+
+        if (uiState.upcomingItems.isNotEmpty()) {
+            item(key = "extra_upcoming") {
+                ContinueWatchingSection(
+                    items = uiState.upcomingItems,
+                    title = stringResource(R.string.cw_upcoming),
+                    onItemClick = onContinueWatchingClick,
+                    onRemoveItem = onRemoveContinueWatching,
+                    cardWidth = posterCardStyle.width,
+                    imageHeight = posterCardStyle.height,
+                    cardStyle = uiState.continueWatchingCardStyle,
+                    blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
+                    useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
+                    modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)
+                )
+            }
+        }
+
+        items(
+            items = uiState.rows,
+            key = { row -> row.legacyKey() }
+        ) { row ->
+            CatalogRowSection(
+                catalogRow = row,
+                onItemClick = onNavigateToDetail,
+                onSeeAll = {
+                    onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
+                },
+                showSeeAll = row.hasMore || row.items.size >= 15,
+                posterCardStyle = posterCardStyle,
+                showPosterLabels = uiState.posterLabelsEnabled,
+                showAddonName = uiState.catalogAddonNameEnabled,
+                showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
+                focusedPosterBackdropExpandEnabled = true,
                 focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,
                 focusedPosterBackdropTrailerEnabled = uiState.focusedPosterBackdropTrailerEnabled,
                 focusedPosterBackdropTrailerMuted = uiState.focusedPosterBackdropTrailerMuted
