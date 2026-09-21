@@ -62,9 +62,9 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.delay
 
-private val HERO_HEIGHT = 320.dp
-private val WIDE_CARD_WIDTH = 260.dp
-private val WIDE_CARD_HEIGHT = 146.dp
+private val HERO_HEIGHT = 380.dp
+private val WIDE_CARD_WIDTH = 300.dp
+private val WIDE_CARD_HEIGHT = 170.dp
 private val SECTION_PADDING_HORIZONTAL = 48.dp
 
 private const val CALENDAR_STABLE_GATE_TIMEOUT_MS = 3_000L
@@ -437,22 +437,6 @@ private fun CalendarHeroSection(
             }
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = SECTION_PADDING_HORIZONTAL, end = 48.dp, top = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "Ultime Uscite",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = NuvioTheme.colors.TextPrimary
-            )
-            SectionBadge(count = section.items.size)
-        }
-
         LazyRow(
             contentPadding = PaddingValues(start = SECTION_PADDING_HORIZONTAL, end = 48.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
@@ -491,16 +475,6 @@ private fun CalendarSection(
     section: CalendarSection,
     onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String) -> Unit
 ) {
-    val nextReleaseLabel = remember(section.items) {
-        val fmt = DateTimeFormatter.ofPattern("dd MMMM yyyy", Locale.ITALIAN)
-        section.items
-            .mapNotNull { it.releaseDate }
-            .minOrNull()
-            ?.format(fmt)
-            ?.replaceFirstChar { it.uppercase() }
-            ?: ""
-    }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -520,19 +494,12 @@ private fun CalendarSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
-                    Text(
-                        text = section.label,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = NuvioTheme.colors.TextPrimary
-                    )
-                    Text(
-                        text = nextReleaseLabel,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = NuvioTheme.colors.TextTertiary
-                    )
-                }
+                Text(
+                    text = section.label,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = NuvioTheme.colors.TextPrimary
+                )
                 SectionBadge(count = section.items.size)
             }
         }
@@ -754,9 +721,6 @@ private fun CalendarPortraitCard(
     val dateLabel = remember(releaseDate) {
         releaseDate?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.ITALIAN)) ?: ""
     }
-    val genresText = remember(meta.genres) {
-        meta.genres.take(2).joinToString(" \u00B7 ") { it.replaceFirstChar { c -> c.uppercase() } }
-    }
     val cardShape = RoundedCornerShape(12.dp)
     val cardWidth = 140.dp
     val cardHeight = 210.dp
@@ -777,7 +741,8 @@ private fun CalendarPortraitCard(
                 border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),
                 shape = cardShape
             )
-        )
+        ),
+        scale = CardDefaults.scale(focusedScale = 1.05f, pressedScale = 1.05f)
     ) {
         Box(
             modifier = Modifier
@@ -846,33 +811,6 @@ private fun CalendarPortraitCard(
                         text = dateLabel,
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    text = meta.name,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
-                    color = Color.White,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                if (genresText.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = genresText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
