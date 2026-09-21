@@ -734,6 +734,24 @@ private fun CalendarPortraitCard(
 
     Box(
         modifier = Modifier
+            .then(
+                if (isFocused) Modifier.drawBehind {
+                    drawRoundRect(
+                        color = Color.White.copy(alpha = 0.25f),
+                        cornerRadius = CornerRadius(14.dp.toPx()),
+                        size = size
+                    )
+                    drawRoundRect(
+                        color = Color.White,
+                        cornerRadius = CornerRadius(14.dp.toPx()),
+                        style = Stroke(width = 2.dp.toPx())
+                    )
+                } else Modifier
+            )
+            .padding(if (isFocused) 2.dp else 0.dp)
+    ) {
+    Box(
+        modifier = Modifier
             .width(cardWidth)
             .height(cardHeight)
             .clip(cardShape)
@@ -744,20 +762,6 @@ private fun CalendarPortraitCard(
                 onClick = onClick
             )
             .focusable()
-            .then(
-                if (isFocused) Modifier.drawBehind {
-                    drawRoundRect(
-                        color = Color.White.copy(alpha = 0.25f),
-                        cornerRadius = CornerRadius(12.dp.toPx()),
-                        size = size
-                    )
-                    drawRoundRect(
-                        color = Color.White,
-                        cornerRadius = CornerRadius(12.dp.toPx()),
-                        style = Stroke(width = 2.dp.toPx())
-                    )
-                } else Modifier
-            )
     ) {
         if (meta.poster != null) {
             AsyncImage(
@@ -824,5 +828,6 @@ private fun CalendarPortraitCard(
                 )
             }
         }
+    }
     }
 }
