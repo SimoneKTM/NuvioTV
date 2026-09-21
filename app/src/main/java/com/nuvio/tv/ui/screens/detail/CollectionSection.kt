@@ -1,4 +1,4 @@
-package com.nuvio.tv.ui.screens.detail
+﻿package com.nuvio.tv.ui.screens.detail
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
@@ -64,7 +64,7 @@ fun CollectionSection(
             height = 146.dp,
             cornerRadius = NuvioTheme.spacing.md,
             focusedBorderWidth = NuvioTheme.spacing.xxs,
-            focusedScale = 1.02f
+            focusedScale = 1.0f
         )
     }
 

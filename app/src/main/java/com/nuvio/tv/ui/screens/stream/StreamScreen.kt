@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+﻿@file:OptIn(ExperimentalTvMaterial3Api::class)
 
 package com.nuvio.tv.ui.screens.stream
 
@@ -965,7 +965,7 @@ private fun ErrorState(
                 )
             ),
             shape = CardDefaults.shape(shape = RoundedCornerShape(NuvioTheme.radii.sm)),
-            scale = CardDefaults.scale(focusedScale = 1.02f)
+            scale = CardDefaults.scale(focusedScale = 1.0f)
         ) {
             Text(
                 text = stringResource(R.string.stream_retry),
@@ -1331,7 +1331,7 @@ private fun PlayerChoiceDialog(
                             )
                         ),
                         shape = CardDefaults.shape(shape = RoundedCornerShape(NuvioTheme.radii.md)),
-                        scale = CardDefaults.scale(focusedScale = 1.05f)
+                        scale = CardDefaults.scale(focusedScale = 1.0f)
                     ) {
                         Text(
                             text = stringResource(R.string.stream_player_internal),
@@ -1361,7 +1361,7 @@ private fun PlayerChoiceDialog(
                             )
                         ),
                         shape = CardDefaults.shape(shape = RoundedCornerShape(NuvioTheme.radii.md)),
-                        scale = CardDefaults.scale(focusedScale = 1.05f)
+                        scale = CardDefaults.scale(focusedScale = 1.0f)
                     ) {
                         Text(
                             text = stringResource(R.string.stream_player_external),

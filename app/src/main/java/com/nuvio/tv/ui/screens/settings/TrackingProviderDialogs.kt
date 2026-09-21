@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+﻿@file:OptIn(ExperimentalTvMaterial3Api::class)
 
 package com.nuvio.tv.ui.screens.settings
 
@@ -806,7 +806,7 @@ private fun TrackingBrandPrimaryButton(
             disabledContainerColor = Color.White.copy(alpha = 0.34f),
             disabledContentColor = Color.White.copy(alpha = 0.7f)
         ),
-        scale = ButtonDefaults.scale(focusedScale = 1.02f),
+        scale = ButtonDefaults.scale(focusedScale = 1.0f),
         shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
         contentPadding = PaddingValues(0.dp)
     ) {
@@ -857,7 +857,7 @@ private fun TrackingBrandFooterButton(
             disabledContainerColor = Color.Transparent,
             disabledContentColor = Color.White.copy(alpha = 0.38f)
         ),
-        scale = ButtonDefaults.scale(focusedScale = 1.02f),
+        scale = ButtonDefaults.scale(focusedScale = 1.0f),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
     ) {
         Box(

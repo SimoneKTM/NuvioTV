@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+﻿@file:OptIn(ExperimentalTvMaterial3Api::class)
 
 package com.nuvio.tv.ui.screens.settings
 
@@ -1062,7 +1062,7 @@ private fun SliderSettingsItemLayout(
                         )
                     ),
                     shape = CardDefaults.shape(shape = CircleShape),
-                    scale = CardDefaults.scale(focusedScale = 1.1f)
+                    scale = CardDefaults.scale(focusedScale = 1.0f)
                 ) {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -1115,7 +1115,7 @@ private fun SliderSettingsItemLayout(
                         )
                     ),
                     shape = CardDefaults.shape(shape = CircleShape),
-                    scale = CardDefaults.scale(focusedScale = 1.1f)
+                    scale = CardDefaults.scale(focusedScale = 1.0f)
                 ) {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -1503,7 +1503,7 @@ private fun ColorOption(
             ) else Border.None
         ),
         shape = CardDefaults.shape(shape = CircleShape),
-        scale = CardDefaults.scale(focusedScale = 1.15f)
+        scale = CardDefaults.scale(focusedScale = 1.0f)
     ) {
         Box(
             contentAlignment = Alignment.Center,

@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+﻿@file:OptIn(ExperimentalTvMaterial3Api::class)
 
 package com.nuvio.tv.ui.screens.livetv
 
@@ -243,7 +243,7 @@ private fun LiveTvPlaylistRow(
                 )
             ),
             shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
-            scale = CardDefaults.scale(focusedScale = 1.02f)
+            scale = CardDefaults.scale(focusedScale = 1.0f)
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = NuvioTheme.spacing.md, vertical = NuvioTheme.spacing.sm),
@@ -328,7 +328,7 @@ private fun LiveTvChannelRow(
             )
         ),
         shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
-        scale = CardDefaults.scale(focusedScale = 1.02f)
+        scale = CardDefaults.scale(focusedScale = 1.0f)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = NuvioTheme.spacing.md, vertical = NuvioTheme.spacing.sm),

@@ -1,4 +1,4 @@
-package com.nuvio.tv.ui.screens.detail
+﻿package com.nuvio.tv.ui.screens.detail
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
@@ -255,7 +255,7 @@ fun EpisodeRatingsSection(
                                     shape = RoundedCornerShape(14.dp)
                                 )
                             ),
-                            scale = CardDefaults.scale(focusedScale = 1.03f)
+                            scale = CardDefaults.scale(focusedScale = 1.0f)
                         ) {
                             Column(
                                 modifier = Modifier

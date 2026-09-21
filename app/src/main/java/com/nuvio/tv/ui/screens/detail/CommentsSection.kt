@@ -1,4 +1,4 @@
-package com.nuvio.tv.ui.screens.detail
+﻿package com.nuvio.tv.ui.screens.detail
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
@@ -509,7 +509,7 @@ private fun CommentCard(
             )
         ),
         shape = CardDefaults.shape(shape),
-        scale = CardDefaults.scale(focusedScale = 1.02f)
+        scale = CardDefaults.scale(focusedScale = 1.0f)
     ) {
         Column(
             modifier = Modifier

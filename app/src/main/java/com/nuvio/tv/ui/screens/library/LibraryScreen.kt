@@ -1,4 +1,4 @@
-package com.nuvio.tv.ui.screens.library
+﻿package com.nuvio.tv.ui.screens.library
 
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.BorderStroke
@@ -813,7 +813,7 @@ private fun CloudLibraryCard(
             border = Border(border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border), shape = RoundedCornerShape(10.dp)),
             focusedBorder = Border(border = BorderStroke(NuvioTheme.spacing.xxs, NuvioTheme.colors.FocusRing), shape = RoundedCornerShape(10.dp))
         ),
-        scale = CardDefaults.scale(focusedScale = 1.02f)
+        scale = CardDefaults.scale(focusedScale = 1.0f)
     ) {
         Column(
             modifier = Modifier

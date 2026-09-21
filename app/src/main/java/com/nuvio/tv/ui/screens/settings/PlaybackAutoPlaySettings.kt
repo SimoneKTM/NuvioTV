@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+﻿@file:OptIn(ExperimentalTvMaterial3Api::class)
 
 package com.nuvio.tv.ui.screens.settings
 
@@ -833,7 +833,7 @@ private fun StreamRegexDialog(
                                 )
                             ),
                             shape = CardDefaults.shape(androidx.compose.foundation.shape.RoundedCornerShape(20.dp)),
-                            scale = CardDefaults.scale(focusedScale = 1.02f)
+                            scale = CardDefaults.scale(focusedScale = 1.0f)
                         ) {
                             Text(
                                 text = label,

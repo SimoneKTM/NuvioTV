@@ -1,4 +1,4 @@
-package com.nuvio.tv.ui.screens.detail
+﻿package com.nuvio.tv.ui.screens.detail
 
 import com.nuvio.tv.ui.theme.NuvioMotion
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -2526,7 +2526,7 @@ private fun PeopleSectionTabButton(
                 shape = RoundedCornerShape(NuvioTheme.radii.xl)
             )
         ),
-        scale = CardDefaults.scale(focusedScale = 1.03f)
+        scale = CardDefaults.scale(focusedScale = 1.0f)
     ) {
         Text(
             text = label,

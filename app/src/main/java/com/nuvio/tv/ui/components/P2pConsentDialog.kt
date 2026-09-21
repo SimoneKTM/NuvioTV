@@ -1,4 +1,4 @@
-package com.nuvio.tv.ui.components
+﻿package com.nuvio.tv.ui.components
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
@@ -166,7 +166,7 @@ fun P2pConsentDialog(
                                 )
                             ),
                             shape = CardDefaults.shape(shape = RoundedCornerShape(NuvioTheme.radii.md)),
-                            scale = CardDefaults.scale(focusedScale = 1.05f)
+                            scale = CardDefaults.scale(focusedScale = 1.0f)
                         ) {
                             Text(
                                 text = stringResource(R.string.p2p_consent_cancel),
@@ -196,7 +196,7 @@ fun P2pConsentDialog(
                                 )
                             ),
                             shape = CardDefaults.shape(shape = RoundedCornerShape(NuvioTheme.radii.md)),
-                            scale = CardDefaults.scale(focusedScale = 1.05f)
+                            scale = CardDefaults.scale(focusedScale = 1.0f)
                         ) {
                             Text(
                                 text = stringResource(R.string.p2p_consent_enable),

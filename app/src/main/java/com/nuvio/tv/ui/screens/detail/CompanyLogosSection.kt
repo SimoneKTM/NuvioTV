@@ -1,4 +1,4 @@
-@file:OptIn(androidx.tv.material3.ExperimentalTvMaterial3Api::class)
+﻿@file:OptIn(androidx.tv.material3.ExperimentalTvMaterial3Api::class)
 
 package com.nuvio.tv.ui.screens.detail
 
@@ -146,7 +146,7 @@ private fun CompanyLogoCard(
                 shape = RoundedCornerShape(NuvioTheme.radii.sm)
             )
         ),
-        scale = CardDefaults.scale(focusedScale = 1.03f)
+        scale = CardDefaults.scale(focusedScale = 1.0f)
     ) {
         Box(
             modifier = Modifier

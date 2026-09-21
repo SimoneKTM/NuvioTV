@@ -1,4 +1,4 @@
-package com.nuvio.tv.ui.screens.collection
+﻿package com.nuvio.tv.ui.screens.collection
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
@@ -119,7 +119,7 @@ fun LiveTvSourcePickerContent(
                                 )
                             ),
                             shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
-                            scale = CardDefaults.scale(focusedScale = 1.01f)
+                            scale = CardDefaults.scale(focusedScale = 1.0f)
                         ) {
                             Row(
                                 modifier = Modifier

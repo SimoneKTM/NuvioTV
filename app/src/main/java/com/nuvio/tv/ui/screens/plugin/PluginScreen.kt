@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+﻿@file:OptIn(ExperimentalTvMaterial3Api::class)
 
 package com.nuvio.tv.ui.screens.plugin
 
@@ -339,7 +339,7 @@ private fun PluginStreamGroupingCard(
             )
         ),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.01f)
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.0f)
     ) {
         Row(
             modifier = Modifier
@@ -400,7 +400,7 @@ private fun PluginsEnabledCard(
             )
         ),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.01f)
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.0f)
     ) {
         Row(
             modifier = Modifier
@@ -598,7 +598,7 @@ private fun ManageFromPhoneCard(onClick: () -> Unit) {
             )
         ),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.01f)
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.0f)
     ) {
         Row(
             modifier = Modifier

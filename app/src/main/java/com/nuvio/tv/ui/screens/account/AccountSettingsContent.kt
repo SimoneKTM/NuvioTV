@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+﻿@file:OptIn(ExperimentalTvMaterial3Api::class)
 
 package com.nuvio.tv.ui.screens.account
 
@@ -391,7 +391,7 @@ private fun SettingsActionButton(
             )
         ),
         shape = CardDefaults.shape(shape = RoundedCornerShape(NuvioTheme.radii.sm)),
-        scale = CardDefaults.scale(focusedScale = 1.02f)
+        scale = CardDefaults.scale(focusedScale = 1.0f)
     ) {
         Row(
             modifier = Modifier
@@ -475,7 +475,7 @@ private fun SignOutSettingsButton(
             )
         ),
         shape = CardDefaults.shape(shape = RoundedCornerShape(NuvioTheme.radii.sm)),
-        scale = CardDefaults.scale(focusedScale = 1.02f)
+        scale = CardDefaults.scale(focusedScale = 1.0f)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = NuvioTheme.spacing.sm),

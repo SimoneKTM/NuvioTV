@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+﻿@file:OptIn(ExperimentalTvMaterial3Api::class)
 
 package com.nuvio.tv.ui.screens.settings
 
@@ -234,7 +234,7 @@ private fun DebugProgressIndicatorCard() {
             )
         ),
         shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
-        scale = CardDefaults.scale(focusedScale = 1.02f)
+        scale = CardDefaults.scale(focusedScale = 1.0f)
     ) {
         Column(
             modifier = Modifier
@@ -305,7 +305,7 @@ private fun DebugToggleCard(
             )
         ),
         shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
-        scale = CardDefaults.scale(focusedScale = 1.02f)
+        scale = CardDefaults.scale(focusedScale = 1.0f)
     ) {
         Row(
             modifier = Modifier
@@ -368,7 +368,7 @@ private fun DebugActionCard(
             )
         ),
         shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
-        scale = CardDefaults.scale(focusedScale = 1.02f)
+        scale = CardDefaults.scale(focusedScale = 1.0f)
     ) {
         Column(
             modifier = Modifier

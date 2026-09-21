@@ -1,4 +1,4 @@
-@file:OptIn(
+﻿@file:OptIn(
     androidx.tv.material3.ExperimentalTvMaterial3Api::class,
     androidx.compose.ui.ExperimentalComposeUiApi::class
 )
@@ -494,7 +494,7 @@ private fun EpisodeItem(
                 shape = RoundedCornerShape(NuvioTheme.radii.xl)
             )
         ),
-        scale = CardDefaults.scale(focusedScale = 1.01f),
+        scale = CardDefaults.scale(focusedScale = 1.0f),
         shape = CardDefaults.shape(shape = RoundedCornerShape(NuvioTheme.radii.xl))
     ) {
         Row(

@@ -1,4 +1,4 @@
-package com.nuvio.tv.ui.screens.addon
+﻿package com.nuvio.tv.ui.screens.addon
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
@@ -582,7 +582,7 @@ private fun ManageFromPhoneCard(
             )
         ),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.01f)
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.0f)
     ) {
         Row(
             modifier = Modifier
@@ -643,7 +643,7 @@ private fun CatalogOrderEntryCard(onClick: () -> Unit) {
             )
         ),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.01f)
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.0f)
     ) {
         Row(
             modifier = Modifier
@@ -704,7 +704,7 @@ private fun CollectionsEntryCard(onClick: () -> Unit) {
             )
         ),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.01f)
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.0f)
     ) {
         Row(
             modifier = Modifier
@@ -769,7 +769,7 @@ private fun RefreshAddonsEntryCard(
             )
         ),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.01f)
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.0f)
     ) {
         Row(
             modifier = Modifier

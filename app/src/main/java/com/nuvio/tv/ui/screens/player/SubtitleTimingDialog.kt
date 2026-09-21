@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+﻿@file:OptIn(ExperimentalTvMaterial3Api::class)
 
 package com.nuvio.tv.ui.screens.player
 
@@ -360,7 +360,7 @@ private fun CueRow(
                 shape = RoundedCornerShape(NuvioTheme.radii.md)
             )
         ),
-        scale = CardDefaults.scale(focusedScale = 1.015f, pressedScale = 1f)
+        scale = CardDefaults.scale(focusedScale = 1.0f, pressedScale = 1f)
     ) {
         Row(
             modifier = Modifier

@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+﻿@file:OptIn(ExperimentalTvMaterial3Api::class)
 
 package com.nuvio.tv.ui.screens.settings
 
@@ -909,7 +909,7 @@ private fun SupporterCard(
             )
         ),
         shape = CardDefaults.shape(RoundedCornerShape(22.dp)),
-        scale = CardDefaults.scale(focusedScale = 1.02f, pressedScale = 1f)
+        scale = CardDefaults.scale(focusedScale = 1.0f, pressedScale = 1f)
     ) {
         Row(
             modifier = Modifier
@@ -1000,7 +1000,7 @@ private fun SponsorCard(
             )
         ),
         shape = CardDefaults.shape(RoundedCornerShape(22.dp)),
-        scale = CardDefaults.scale(focusedScale = 1.02f, pressedScale = 1f)
+        scale = CardDefaults.scale(focusedScale = 1.0f, pressedScale = 1f)
     ) {
         Row(
             modifier = Modifier
@@ -1069,7 +1069,7 @@ private fun ContributorCard(
             )
         ),
         shape = CardDefaults.shape(RoundedCornerShape(22.dp)),
-        scale = CardDefaults.scale(focusedScale = 1.02f, pressedScale = 1f)
+        scale = CardDefaults.scale(focusedScale = 1.0f, pressedScale = 1f)
     ) {
         Row(
             modifier = Modifier

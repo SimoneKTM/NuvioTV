@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+﻿@file:OptIn(ExperimentalTvMaterial3Api::class)
 
 package com.nuvio.tv.ui.screens
 
@@ -192,7 +192,7 @@ private fun LayoutOptionCard(
             )
         ),
         shape = CardDefaults.shape(RoundedCornerShape(NuvioTheme.radii.xl)),
-        scale = CardDefaults.scale(focusedScale = 1.03f)
+        scale = CardDefaults.scale(focusedScale = 1.0f)
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             Column(

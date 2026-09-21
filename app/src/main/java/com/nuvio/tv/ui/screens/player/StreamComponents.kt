@@ -1,4 +1,4 @@
-@file:OptIn(
+﻿@file:OptIn(
     androidx.tv.material3.ExperimentalTvMaterial3Api::class,
     androidx.compose.ui.ExperimentalComposeUiApi::class
 )
@@ -125,7 +125,7 @@ internal fun StreamItem(
                 shape = RoundedCornerShape(NuvioTheme.radii.md)
             )
         ),
-        scale = CardDefaults.scale(focusedScale = 1.04f)
+        scale = CardDefaults.scale(focusedScale = 1.0f)
     ) {
         Row(
             modifier = Modifier
