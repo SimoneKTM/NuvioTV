@@ -1140,6 +1140,8 @@
     <string name="layout_classic">Classic View</string>
     <string name="layout_grid">Grid View</string>
     <string name="layout_modern">Modern View</string>
+    <string name="layout_sport">Vista Sport</string>
+    <string name="layout_series_movie">Vista Serie TV/Film</string>
     <string name="layout_classic_desc">Scroll through categories horizontally</string>
     <string name="layout_grid_desc">Browse everything in a vertical grid with a hero section</string>
     <string name="layout_modern_desc">Fixed hero with a single active row for faster browsing</string>

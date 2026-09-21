@@ -51,7 +51,8 @@ class StartupSyncService @Inject constructor(
     private val watchProgressPreferences: WatchProgressPreferences,
     private val profileManager: ProfileManager,
     private val startupSyncPreferences: StartupSyncPreferences,
-    private val cwEnrichmentCache: com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
+    private val cwEnrichmentCache: com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache,
+    private val calendarRepository: com.nuvio.tv.domain.repository.CalendarRepository
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var startupPullJob: Job? = null
@@ -70,6 +71,7 @@ class StartupSyncService @Inject constructor(
     private var pendingResyncIncludesProfileSettings: Boolean = false
 
     init {
+        calendarRepository.warmUp()
         scope.launch {
             authManager.authState.collect { state ->
                 when (state) {

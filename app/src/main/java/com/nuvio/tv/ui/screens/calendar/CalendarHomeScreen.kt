@@ -437,11 +437,27 @@ private fun CalendarHeroSection(
             }
         }
 
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = SECTION_PADDING_HORIZONTAL, end = 48.dp, top = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Ultime Uscite",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = NuvioTheme.colors.TextPrimary
+            )
+            SectionBadge(count = section.items.size)
+        }
+
         LazyRow(
             contentPadding = PaddingValues(start = SECTION_PADDING_HORIZONTAL, end = 48.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             modifier = Modifier
-                .padding(top = 16.dp)
+                .padding(top = 8.dp)
                 .focusGroup()
         ) {
             itemsIndexed(
@@ -475,6 +491,16 @@ private fun CalendarSection(
     section: CalendarSection,
     onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String) -> Unit
 ) {
+    val nextReleaseLabel = remember(section.items) {
+        val fmt = DateTimeFormatter.ofPattern("dd MMMM yyyy", Locale.ITALIAN)
+        section.items
+            .mapNotNull { it.releaseDate }
+            .minOrNull()
+            ?.format(fmt)
+            ?.replaceFirstChar { it.uppercase() }
+            ?: ""
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -494,12 +520,19 @@ private fun CalendarSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = section.label,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = NuvioTheme.colors.TextPrimary
-                )
+                Column {
+                    Text(
+                        text = section.label,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = NuvioTheme.colors.TextPrimary
+                    )
+                    Text(
+                        text = nextReleaseLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = NuvioTheme.colors.TextTertiary
+                    )
+                }
                 SectionBadge(count = section.items.size)
             }
         }
@@ -726,12 +759,13 @@ private fun CalendarPortraitCard(
     }
     val cardShape = RoundedCornerShape(12.dp)
     val cardWidth = 140.dp
-    val cardHeight = 190.dp
+    val cardHeight = 210.dp
 
     TvCard(
         onClick = onClick,
         modifier = Modifier
             .width(cardWidth)
+            .height(cardHeight)
             .onFocusChanged { isFocused = it.isFocused },
         shape = CardDefaults.shape(shape = cardShape),
         colors = CardDefaults.colors(
@@ -745,95 +779,88 @@ private fun CalendarPortraitCard(
             )
         )
     ) {
-        Column(
-            modifier = Modifier.width(cardWidth)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(cardShape)
         ) {
-            Box(
-                modifier = Modifier
-                    .width(cardWidth)
-                    .height(cardHeight)
-                    .clip(cardShape)
-            ) {
-                if (meta.poster != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(meta.poster)
-                            .crossfade(true)
-                            .memoryCachePolicy(CachePolicy.ENABLED)
-                            .diskCachePolicy(CachePolicy.ENABLED)
-                            .build(),
-                        contentDescription = meta.name,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        NuvioTheme.colors.Secondary.copy(alpha = 0.4f),
-                                        NuvioTheme.colors.BackgroundCard
-                                    )
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = meta.name.take(1).uppercase(),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.3f)
-                        )
-                    }
-                }
-
+            if (meta.poster != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(meta.poster)
+                        .crossfade(true)
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .build(),
+                    contentDescription = meta.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.6f)
+                                    NuvioTheme.colors.Secondary.copy(alpha = 0.4f),
+                                    NuvioTheme.colors.BackgroundCard
                                 )
                             )
-                        )
-                )
-
-                if (dateLabel.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(8.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color.Black.copy(alpha = 0.8f))
-                            .padding(horizontal = 8.dp, vertical = 3.dp)
-                    ) {
-                        Text(
-                            text = dateLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White
-                        )
-                    }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = meta.name.take(1).uppercase(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.3f)
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.7f)
+                            )
+                        )
+                    )
+            )
+
+            if (dateLabel.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.8f))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = dateLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White
+                    )
+                }
+            }
 
             Column(
                 modifier = Modifier
-                    .width(cardWidth)
-                    .background(NuvioTheme.colors.BackgroundCard)
-                    .padding(horizontal = 6.dp, vertical = 6.dp)
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
             ) {
                 Text(
                     text = meta.name,
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isFocused) Color.White else NuvioTheme.colors.TextPrimary,
+                    color = Color.White,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -843,7 +870,7 @@ private fun CalendarPortraitCard(
                     Text(
                         text = genresText,
                         style = MaterialTheme.typography.labelSmall,
-                        color = NuvioTheme.colors.TextTertiary,
+                        color = Color.White.copy(alpha = 0.7f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

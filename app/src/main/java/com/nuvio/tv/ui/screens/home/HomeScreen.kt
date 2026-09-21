@@ -386,6 +386,34 @@ fun HomeScreen(
                                 isCatalogItemWatched = isCatalogItemWatched,
                                 onCatalogItemLongPress = onCatalogItemLongPress
                             )
+
+                            HomeLayout.SPORT -> GridHomeRoute(
+                                viewModel = viewModel,
+                                uiState = uiState,
+                                posterCardStyle = posterCardStyle,
+                                onNavigateToDetail = onNavigateToDetailStable,
+                                onContinueWatchingClick = onContinueWatchingClickStable,
+                                onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginningStable,
+                                onContinueWatchingPlayManually = onContinueWatchingPlayManuallyStable,
+                                showContinueWatchingManualPlayOption = effectiveAutoplayEnabled,
+                                onNavigateToCatalogSeeAll = onNavigateToCatalogSeeAllStable,
+                                onNavigateToFolderDetail = onNavigateToFolderDetailStable,
+                                isCatalogItemWatched = isCatalogItemWatched,
+                                onCatalogItemLongPress = onCatalogItemLongPress
+                            )
+
+                            HomeLayout.SERIES_MOVIE -> ModernHomeRoute(
+                                viewModel = viewModel,
+                                uiState = uiState,
+                                onNavigateToDetail = onNavigateToDetailStable,
+                                onContinueWatchingClick = onContinueWatchingClickStable,
+                                onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginningStable,
+                                onContinueWatchingPlayManually = onContinueWatchingPlayManuallyStable,
+                                showContinueWatchingManualPlayOption = effectiveAutoplayEnabled,
+                                onNavigateToFolderDetail = onNavigateToFolderDetailStable,
+                                isCatalogItemWatched = isCatalogItemWatched,
+                                onCatalogItemLongPress = onCatalogItemLongPress
+                            )
                         }
                     }
                 }

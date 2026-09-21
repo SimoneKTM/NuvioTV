@@ -3,6 +3,7 @@ package com.nuvio.tv.ui.screens.extra
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,8 +30,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,6 +43,7 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import coil3.request.crossfade
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
 import com.nuvio.tv.domain.model.HomeLayout
@@ -110,7 +116,7 @@ fun ExtraHomeScreen(
             else -> {
                 val onRemoveContinueWatching: (ContinueWatchingItem) -> Unit = viewModel::removeContinueWatching
                 when (uiState.homeLayout) {
-                    HomeLayout.MODERN -> ExtraModernContent(
+                    HomeLayout.MODERN, HomeLayout.SERIES_MOVIE -> ExtraSeriesFilmContent(
                         uiState = uiState,
                         onNavigateToDetail = onNavigateToDetail,
                         onContinueWatchingClick = onContinueWatchingClick,
@@ -126,7 +132,7 @@ fun ExtraHomeScreen(
                         onCategorySelected = viewModel::selectCategory,
                         onLoadMoreCatalog = viewModel::loadMoreCatalogItems
                     )
-                    HomeLayout.GRID -> ExtraGridContent(
+                    HomeLayout.GRID, HomeLayout.SPORT -> ExtraGridContent(
                         uiState = uiState,
                         onNavigateToDetail = onNavigateToDetail,
                         onContinueWatchingClick = onContinueWatchingClick,
@@ -183,6 +189,152 @@ private fun ExtraModernContent(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 160.dp)
         ) {
+            filteredRows.forEach { row ->
+                item(key = "title_${row.catalogId}") {
+                    Text(
+                        text = formatCatalogName(row, uiState),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = NuvioTheme.colors.TextPrimary,
+                        modifier = Modifier.padding(start = 48.dp, top = NuvioTheme.spacing.lg, bottom = NuvioTheme.spacing.xs)
+                    )
+                }
+                item(key = "row_${row.catalogId}") {
+                    androidx.compose.foundation.lazy.LazyRow(
+                        contentPadding = PaddingValues(horizontal = 48.dp),
+                        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
+                    ) {
+                        items(
+                            items = row.items.filter { !it.id.startsWith("__placeholder_") },
+                            key = { it.id }
+                        ) { item ->
+                            com.nuvio.tv.ui.components.ContentCard(
+                                item = item,
+                                posterCardStyle = PosterCardStyle(
+                                    width = posterCardWidth,
+                                    height = posterCardHeight,
+                                    cornerRadius = posterCardCornerRadius
+                                ),
+                                showLabels = uiState.posterLabelsEnabled,
+                                onClick = { onNavigateToDetail(item.id, item.apiType, row.addonBaseUrl) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun ExtraSeriesFilmContent(
+    uiState: ExtraHomeUiState,
+    onNavigateToDetail: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
+    onRemoveContinueWatching: (ContinueWatchingItem) -> Unit,
+    onCategorySelected: (String?) -> Unit,
+    onLoadMoreCatalog: (String, String, String) -> Unit
+) {
+    val posterCardWidth = uiState.posterCardWidthDp.dp
+    val posterCardHeight = uiState.posterCardHeightDp.dp
+    val posterCardCornerRadius = uiState.posterCardCornerRadiusDp.dp
+    val filteredRows = filterByCategory(uiState)
+    val heroItem = uiState.heroItem
+
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val screenHeight = configuration.screenHeightDp.dp
+    val heroHeight = screenHeight * 0.45f
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        heroItem?.let { hero ->
+            val backdrop = hero.background ?: hero.poster
+            if (backdrop != null) {
+                coil3.compose.AsyncImage(
+                    model = coil3.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                        .data(backdrop)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(heroHeight)
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(heroHeight)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                NuvioTheme.colors.Background.copy(alpha = 0.85f),
+                                NuvioTheme.colors.Background
+                            )
+                        )
+                    )
+            )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 52.dp, end = 48.dp, bottom = 12.dp)
+                    .fillMaxWidth(0.6f)
+            ) {
+                Text(
+                    text = hero.name,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                hero.description?.let { desc ->
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = desc,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.7f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        androidx.compose.foundation.lazy.LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = heroHeight),
+            contentPadding = PaddingValues(bottom = 160.dp),
+            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+        ) {
+            if (uiState.continueWatchingItems.isNotEmpty() || uiState.upcomingItems.isNotEmpty()) {
+                item(key = "extra_series_cw") {
+                    ExtraCompactContinueWatchingRow(
+                        items = uiState.continueWatchingItems + uiState.upcomingItems,
+                        cardWidth = posterCardWidth * 1.24f,
+                        cardHeight = posterCardHeight * 1.24f / 1.77f * 1.77f,
+                        cornerRadius = posterCardCornerRadius,
+                        blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
+                        useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
+                        onItemClick = onContinueWatchingClick,
+                        onRemoveItem = onRemoveContinueWatching,
+                        modifier = Modifier.padding(start = 48.dp)
+                    )
+                }
+            }
+
+            if (uiState.categories.isNotEmpty()) {
+                item(key = "extra_series_chips") {
+                    ExtraCategoryChips(
+                        categories = uiState.categories,
+                        selectedCategory = uiState.selectedCategory,
+                        onCategorySelected = onCategorySelected
+                    )
+                }
+            }
+
             filteredRows.forEach { row ->
                 item(key = "title_${row.catalogId}") {
                     Text(
@@ -418,13 +570,16 @@ private fun ExtraCategoryChips(
     onCategorySelected: (String?) -> Unit
 ) {
     LazyRow(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusGroup(),
         contentPadding = PaddingValues(vertical = NuvioTheme.spacing.xs, horizontal = 48.dp),
         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
     ) {
         item(key = "all") {
             val isSelected = selectedCategory == null
             val chipShape = RoundedCornerShape(24.dp)
+            var focused by remember { mutableStateOf(false) }
             Box(
                 modifier = Modifier
                     .clip(chipShape)
@@ -433,12 +588,15 @@ private fun ExtraCategoryChips(
                         else Color.Transparent
                     )
                     .then(
-                        if (isSelected) Modifier
-                        else Modifier.border(
+                        if (focused || isSelected) Modifier.border(
+                            BorderStroke(2.dp, if (isSelected) NuvioTheme.colors.Secondary else NuvioTheme.colors.TextSecondary),
+                            chipShape
+                        ) else Modifier.border(
                             BorderStroke(1.dp, NuvioTheme.colors.TextSecondary.copy(alpha = 0.3f)),
                             chipShape
                         )
                     )
+                    .onFocusChanged { focused = it.isFocused }
                     .padding(horizontal = 20.dp, vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -453,6 +611,7 @@ private fun ExtraCategoryChips(
             val category = categories[index]
             val isSelected = selectedCategory == category
             val chipShape = RoundedCornerShape(24.dp)
+            var focused by remember { mutableStateOf(false) }
             Box(
                 modifier = Modifier
                     .clip(chipShape)
@@ -461,12 +620,15 @@ private fun ExtraCategoryChips(
                         else Color.Transparent
                     )
                     .then(
-                        if (isSelected) Modifier
-                        else Modifier.border(
+                        if (focused || isSelected) Modifier.border(
+                            BorderStroke(2.dp, if (isSelected) NuvioTheme.colors.Secondary else NuvioTheme.colors.TextSecondary),
+                            chipShape
+                        ) else Modifier.border(
                             BorderStroke(1.dp, NuvioTheme.colors.TextSecondary.copy(alpha = 0.3f)),
                             chipShape
                         )
                     )
+                    .onFocusChanged { focused = it.isFocused }
                     .padding(horizontal = 20.dp, vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {

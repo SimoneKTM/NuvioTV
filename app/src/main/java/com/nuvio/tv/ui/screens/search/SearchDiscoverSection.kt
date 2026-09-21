@@ -284,7 +284,7 @@ private fun DiscoverDropdownPicker(
                     border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border),
                     shape = RoundedCornerShape(14.dp)
                 ),
-                focusedBorder = Border(
+                focusedBorder = if (expanded) Border.None else Border(
                     border = BorderStroke(2.dp, NuvioTheme.colors.Border),
                     shape = RoundedCornerShape(14.dp)
                 )
@@ -358,10 +358,16 @@ private fun DiscoverDropdownPicker(
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(
                                     color = when {
-                                        isItemFocused -> NuvioTheme.colors.BackgroundCard.copy(alpha = 0.7f)
-                                        isSelected -> NuvioTheme.colors.BackgroundCard
+                                        isItemFocused -> NuvioTheme.colors.TextSecondary.copy(alpha = 0.25f)
+                                        isSelected -> NuvioTheme.colors.TextSecondary.copy(alpha = 0.12f)
                                         else -> Color.Transparent
                                     }
+                                )
+                                .then(
+                                    if (isItemFocused) Modifier.border(
+                                        BorderStroke(1.5.dp, NuvioTheme.colors.FocusRing),
+                                        RoundedCornerShape(10.dp)
+                                    ) else Modifier
                                 )
                                 .onFocusChanged { isItemFocused = it.isFocused }
                                 .clickable(

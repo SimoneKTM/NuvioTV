@@ -12,12 +12,16 @@ import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.repository.CalendarRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
@@ -37,7 +41,24 @@ class CalendarRepositoryImpl @Inject constructor(
         private const val LOGO_SIZE = "w500"
     }
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val cachedItems = MutableStateFlow<List<CalendarItem>>(emptyList())
+
+    override fun warmUp() {
+        scope.launch {
+            try {
+                getCalendarItems().collect { items ->
+                    cachedItems.value = items
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
     override fun getCalendarItems(): Flow<List<CalendarItem>> = flow {
+        val cached = cachedItems.value
+        if (cached.isNotEmpty()) {
+            emit(cached)
+        }
         val today = LocalDate.now()
         val todayStr = today.format(DateTimeFormatter.ISO_LOCAL_DATE)
         val daysAhead = 60
