@@ -202,6 +202,7 @@ val LocalSidebarExpanded = compositionLocalOf { false }
 val LocalContentFocusRequester = compositionLocalOf { FocusRequester.Default }
 
 private const val SIDEBAR_AUTO_COLLAPSE_DELAY_MS = 4_000L
+private const val MIN_STARTUP_SPLASH_MS = 900L
 
 data class DrawerItem(
     val route: String,
@@ -332,6 +333,9 @@ class MainActivity : ComponentActivity() {
     /** True until the first onResume after onCreate completes. */
     private var isFirstResumeAfterCreate = false
 
+    /** Holds the Android system splash until the first Compose frame of NuvioSplashScreen is ready. */
+    private val systemSplashReady = java.util.concurrent.atomic.AtomicBoolean(false)
+
     @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
     override fun attachBaseContext(newBase: Context) {
         val tag = LocaleCache.localeTag.takeIf { it != LocaleCache.UNSET }
@@ -352,7 +356,8 @@ class MainActivity : ComponentActivity() {
 
     @OptIn(ExperimentalFoundationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        val systemSplash = installSplashScreen()
+        systemSplash.setKeepOnScreenCondition { !systemSplashReady.get() }
         super.onCreate(savedInstanceState)
         isFirstResumeAfterCreate = true
         window?.setBackgroundDrawable(null)
@@ -376,12 +381,22 @@ class MainActivity : ComponentActivity() {
             var hasSelectedProfileThisSession by rememberSaveable { mutableStateOf(false) }
             var onboardingCompletedThisSession by remember { mutableStateOf(false) }
             var onboardingProfileSyncInProgress by remember { mutableStateOf(false) }
+            var splashMinElapsed by remember { mutableStateOf(false) }
             val hasSeenAuthQrFlow = remember(appOnboardingDataStore) {
                 appOnboardingDataStore.hasSeenAuthQrOnFirstLaunch.map<Boolean, Boolean?> { it }
             }
             val hasSeenAuthQrOnFirstLaunch by hasSeenAuthQrFlow.collectAsState(initial = null)
             val authState by authManager.authState.collectAsState()
             val context = LocalContext.current
+
+            LaunchedEffect(Unit) {
+                withFrameNanos { }
+                systemSplashReady.set(true)
+            }
+            LaunchedEffect(Unit) {
+                delay(MIN_STARTUP_SPLASH_MS)
+                splashMinElapsed = true
+            }
 
             LaunchedEffect(authSessionNoticeDataStore, context) {
                 authSessionNoticeDataStore.pendingNotice.collect { notice ->
@@ -577,12 +592,11 @@ class MainActivity : ComponentActivity() {
                         containerColor = NuvioTheme.colors.Background
                     )
                 ) {
-                    if (hasSeenAuthQrOnFirstLaunch == null) {
-                        NuvioSplashScreen()
-                        return@Surface
-                    }
-
-                    if (authState is AuthState.Loading) {
+                    if (
+                        hasSeenAuthQrOnFirstLaunch == null ||
+                        authState is AuthState.Loading ||
+                        !splashMinElapsed
+                    ) {
                         NuvioSplashScreen()
                         return@Surface
                     }
