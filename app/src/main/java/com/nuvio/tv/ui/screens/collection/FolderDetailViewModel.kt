@@ -1245,6 +1245,41 @@ class FolderDetailViewModel @Inject constructor(
             }
 
             var enrichment: com.nuvio.tv.core.tmdb.TmdbEnrichment? = null
+
+            // 1) External meta addon FIRST — use addon data as primary source.
+            //    This ensures anime/extra addon metadata (episodes, seasons, artwork)
+            //    takes priority over TMDB, just like Calendar and Library.
+            if (externalMetaEnabled) {
+                val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
+                val rawId = extractRawNumericId(item.id)
+                val metaResult = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId)
+                    .first { it is NetworkResult.Success || it is NetworkResult.Error }
+                when {
+                    metaResult is NetworkResult.Success -> {
+                        val meta = metaResult.data
+                        updateItemInTabs(item.id) { merged ->
+                            merged.copy(
+                                name = meta.name.takeIf { it.isNotBlank() } ?: merged.name,
+                                description = meta.description?.takeIf { it.isNotBlank() } ?: merged.description,
+                                background = meta.background?.takeIf { it.isNotBlank() } ?: merged.background,
+                                logo = meta.logo?.takeIf { it.isNotBlank() } ?: merged.logo,
+                                genres = meta.genres.takeIf { it.isNotEmpty() } ?: merged.genres,
+                                imdbRating = meta.imdbRating ?: merged.imdbRating,
+                                releaseInfo = meta.releaseInfo?.takeIf { it.isNotBlank() } ?: merged.releaseInfo
+                            )
+                        }
+                    }
+                    metaResult is NetworkResult.Error && metaResult.code == NetworkResult.SOURCE_SUFFICIENT_CODE -> {
+                        // Catalog already has the best available meta.
+                    }
+                    else -> {
+                        // External meta failed — will try TMDB below.
+                    }
+                }
+            }
+
+            // 2) TMDB enrichment SECOND — fills in gaps not provided by addons
+            //    (runtime, age rating, status, trailers, localized title).
             if (tmdbEnabled) {
                 val tmdbId = runCatching { tmdbService.ensureTmdbId(item.id, item.apiType) }.getOrNull()
                 if (tmdbId != null) {
@@ -1259,7 +1294,8 @@ class FolderDetailViewModel @Inject constructor(
             }
 
             if (enrichment == null && !externalMetaEnabled) {
-                // Mark as failed so the UI can show addon data immediately.
+                // No enrichment source is active — mark as failed so the hero
+                // shows addon data immediately instead of waiting indefinitely.
                 if (item.id !in _enrichedPreviews.value) {
                     _failedEnrichmentIds.value = _failedEnrichmentIds.value + item.id
                 }
@@ -1268,7 +1304,7 @@ class FolderDetailViewModel @Inject constructor(
             }
             enrichedItemIds.add(item.id)
 
-            // Apply TMDB enrichment if available.
+            // Apply TMDB enrichment to fill remaining gaps.
             if (enrichment != null) {
                 val finalEnrichment = enrichment
 
@@ -1301,10 +1337,6 @@ class FolderDetailViewModel @Inject constructor(
                             status = finalEnrichment.status ?: result.status
                         )
                     }
-                    // Propagate TMDB-fetched localized trailer YT ids onto the item
-                    // so the trailer pipeline can use them as a fallback when the
-                    // direct TMDB videos lookup misses the user locale (e.g. Trakt
-                    // list items that didn't carry trailers from their addon).
                     val enrichedYtIds = finalEnrichment.trailers.mapNotNull { it.ytId }.distinct()
                     if (enrichedYtIds.isNotEmpty() && result.trailerYtIds.isEmpty()) {
                         result = result.copy(trailerYtIds = enrichedYtIds)
@@ -1335,53 +1367,6 @@ class FolderDetailViewModel @Inject constructor(
                             apiType = refreshedItem.apiType,
                             fallbackYtId = ytFallback
                         )
-                    }
-                }
-            }
-
-            // External meta addon fallback:
-            // 1. When TMDB didn't enrich at all, OR
-            // 2. When TMDB enriched but useArtwork is off and the item still lacks a logo.
-            val artworkStillMissing = enrichment != null && !tmdbSettings.useArtwork &&
-                item.logo.isNullOrBlank()
-            val needsExternalAddon = enrichment == null || artworkStillMissing
-            if (needsExternalAddon && externalMetaEnabled) {
-                val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
-                val metaResult = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl)
-                    .first { it is NetworkResult.Success || it is NetworkResult.Error }
-                when {
-                    metaResult is NetworkResult.Success -> {
-                        val meta = metaResult.data
-                        if (artworkStillMissing) {
-                            // Only apply artwork — TMDB already provided the rest.
-                            updateItemInTabs(item.id) { merged ->
-                                merged.copy(
-                                    background = meta.background?.takeIf { it.isNotBlank() } ?: merged.background,
-                                    logo = meta.logo?.takeIf { it.isNotBlank() } ?: merged.logo
-                                )
-                            }
-                        } else {
-                            updateItemInTabs(item.id) { merged ->
-                                merged.copy(
-                                    name = meta.name.takeIf { it.isNotBlank() } ?: merged.name,
-                                    description = meta.description?.takeIf { it.isNotBlank() } ?: merged.description,
-                                    background = meta.background?.takeIf { it.isNotBlank() } ?: merged.background,
-                                    logo = meta.logo?.takeIf { it.isNotBlank() } ?: merged.logo,
-                                    genres = meta.genres.takeIf { it.isNotEmpty() } ?: merged.genres,
-                                    imdbRating = meta.imdbRating ?: merged.imdbRating,
-                                    releaseInfo = meta.releaseInfo?.takeIf { it.isNotBlank() } ?: merged.releaseInfo
-                                )
-                            }
-                        }
-                    }
-                    metaResult is NetworkResult.Error && metaResult.code == NetworkResult.SOURCE_SUFFICIENT_CODE -> {
-                        // Catalog already has the best available meta — no update needed.
-                    }
-                    else -> {
-                        // External meta also failed — mark as failed enrichment.
-                        if (item.id !in _enrichedPreviews.value) {
-                            _failedEnrichmentIds.value = _failedEnrichmentIds.value + item.id
-                        }
                     }
                 }
             }
@@ -1470,6 +1455,20 @@ class FolderDetailViewModel @Inject constructor(
     private fun extractYear(releaseInfo: String?): String? {
         if (releaseInfo.isNullOrBlank()) return null
         return Regex("\\b(19|20)\\d{2}\\b").find(releaseInfo)?.value
+    }
+
+    private fun extractRawNumericId(itemId: String): String? {
+        val raw = itemId.trim()
+        val numericId = when {
+            raw.startsWith("tmdb_tv_", ignoreCase = true) ->
+                raw.removePrefix("tmdb_tv_").removePrefix("tmdb_Tv_")
+            raw.startsWith("tmdb_movie_", ignoreCase = true) ->
+                raw.removePrefix("tmdb_movie_").removePrefix("tmdb_Movie_")
+            raw.startsWith("tmdb:", ignoreCase = true) ->
+                raw.substringAfter(':', missingDelimiterValue = "").substringBefore(':')
+            else -> null
+        }
+        return numericId?.takeIf { it.all { c -> c.isDigit() } }
     }
 
     private fun updateItemInTabs(itemId: String, transform: (MetaPreview) -> MetaPreview) {
@@ -1589,7 +1588,8 @@ class FolderDetailViewModel @Inject constructor(
                 if (!tmdbEnriched && externalMetaEnabled && item.id !in prefetchedExternalMetaIds) {
                     prefetchedExternalMetaIds.add(item.id)
                     val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
-                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl)
+                    val rawId = extractRawNumericId(item.id)
+                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId)
                         .first { it is com.nuvio.tv.core.network.NetworkResult.Success || it is com.nuvio.tv.core.network.NetworkResult.Error }
                     if (result is com.nuvio.tv.core.network.NetworkResult.Success) {
                         enrichedItemIds.add(item.id)
@@ -1625,7 +1625,8 @@ class FolderDetailViewModel @Inject constructor(
                 if (adjArtworkMissing && externalMetaEnabled) {
                     prefetchedExternalMetaIds.add(item.id)
                     val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
-                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl)
+                    val rawId = extractRawNumericId(item.id)
+                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId)
                         .first { it is com.nuvio.tv.core.network.NetworkResult.Success || it is com.nuvio.tv.core.network.NetworkResult.Error }
                     if (result is com.nuvio.tv.core.network.NetworkResult.Success) {
                         val meta = result.data
