@@ -83,6 +83,8 @@ data class LayoutSettingsUiState(
     val calendarTabVisible: Boolean = true,
     val extraTabLogoIndex: Int = 0,
     val libraryTabVisible: Boolean = true,
+    val searchIncludeExtraTab: Boolean = true,
+    val searchIncludeAnimeTab: Boolean = true,
 )
 
 data class CatalogInfo(
@@ -142,6 +144,8 @@ sealed class LayoutSettingsEvent {
     data class SetCalendarTabVisible(val visible: Boolean) : LayoutSettingsEvent()
     data class SetLibraryTabVisible(val visible: Boolean) : LayoutSettingsEvent()
     data class SetExtraTabLogoIndex(val index: Int) : LayoutSettingsEvent()
+    data class SetSearchIncludeExtraTab(val enabled: Boolean) : LayoutSettingsEvent()
+    data class SetSearchIncludeAnimeTab(val enabled: Boolean) : LayoutSettingsEvent()
     data object ResetPosterCardStyle : LayoutSettingsEvent()
     data object ResetCardDepthStyle : LayoutSettingsEvent()
 }
@@ -408,6 +412,16 @@ open class LayoutSettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            layoutPreferenceDataStore.searchIncludeExtraTab.distinctUntilChanged().collectLatest { enabled ->
+                updateUiStateIfChanged { it.copy(searchIncludeExtraTab = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            layoutPreferenceDataStore.searchIncludeAnimeTab.distinctUntilChanged().collectLatest { enabled ->
+                updateUiStateIfChanged { it.copy(searchIncludeAnimeTab = enabled) }
+            }
+        }
+        viewModelScope.launch {
             delay(0)
             loadAvailableCatalogs()
         }
@@ -462,6 +476,8 @@ open class LayoutSettingsViewModel @Inject constructor(
             is LayoutSettingsEvent.SetCalendarTabVisible -> setCalendarTabVisible(event.visible)
             is LayoutSettingsEvent.SetLibraryTabVisible -> setLibraryTabVisible(event.visible)
             is LayoutSettingsEvent.SetExtraTabLogoIndex -> setExtraTabLogoIndex(event.index)
+            is LayoutSettingsEvent.SetSearchIncludeExtraTab -> setSearchIncludeExtraTab(event.enabled)
+            is LayoutSettingsEvent.SetSearchIncludeAnimeTab -> setSearchIncludeAnimeTab(event.enabled)
             LayoutSettingsEvent.ResetPosterCardStyle -> resetPosterCardStyle()
             LayoutSettingsEvent.ResetCardDepthStyle -> resetCardDepthStyle()
         }
@@ -856,6 +872,20 @@ open class LayoutSettingsViewModel @Inject constructor(
         if (_uiState.value.extraTabLogoIndex == index) return
         viewModelScope.launch {
             layoutPreferenceDataStore.setExtraTabLogoIndex(index)
+        }
+    }
+
+    private fun setSearchIncludeExtraTab(enabled: Boolean) {
+        if (_uiState.value.searchIncludeExtraTab == enabled) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setSearchIncludeExtraTab(enabled)
+        }
+    }
+
+    private fun setSearchIncludeAnimeTab(enabled: Boolean) {
+        if (_uiState.value.searchIncludeAnimeTab == enabled) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setSearchIncludeAnimeTab(enabled)
         }
     }
 

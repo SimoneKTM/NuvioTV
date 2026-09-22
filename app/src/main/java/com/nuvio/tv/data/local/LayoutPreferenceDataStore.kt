@@ -121,6 +121,8 @@ class LayoutPreferenceDataStore @Inject constructor(
     private val calendarTabVisibleKey = booleanPreferencesKey("calendar_tab_visible")
     private val libraryTabVisibleKey = booleanPreferencesKey("library_tab_visible")
     private val extraTabLogoIndexKey = intPreferencesKey("extra_tab_logo_index")
+    private val searchIncludeExtraTabKey = booleanPreferencesKey("search_include_extra_tab")
+    private val searchIncludeAnimeTabKey = booleanPreferencesKey("search_include_anime_tab")
 
     private fun <T> profileFlow(extract: (prefs: androidx.datastore.preferences.core.Preferences) -> T): Flow<T> =
         profileManager.activeProfileId.flatMapLatest { pid ->
@@ -407,6 +409,14 @@ class LayoutPreferenceDataStore @Inject constructor(
         prefs[extraTabLogoIndexKey] ?: 0
     }
 
+    val searchIncludeExtraTab: Flow<Boolean> = profileFlow { prefs ->
+        prefs[searchIncludeExtraTabKey] ?: true
+    }
+
+    val searchIncludeAnimeTab: Flow<Boolean> = profileFlow { prefs ->
+        prefs[searchIncludeAnimeTabKey] ?: true
+    }
+
     suspend fun setMemoryOnlyVerticalScroll(enabled: Boolean) {
         store().edit { prefs ->
             prefs[memoryOnlyVerticalScrollKey] = enabled
@@ -476,6 +486,18 @@ class LayoutPreferenceDataStore @Inject constructor(
     suspend fun setExtraTabLogoIndex(index: Int) {
         store().edit { prefs ->
             prefs[extraTabLogoIndexKey] = index
+        }
+    }
+
+    suspend fun setSearchIncludeExtraTab(enabled: Boolean) {
+        store().edit { prefs ->
+            prefs[searchIncludeExtraTabKey] = enabled
+        }
+    }
+
+    suspend fun setSearchIncludeAnimeTab(enabled: Boolean) {
+        store().edit { prefs ->
+            prefs[searchIncludeAnimeTabKey] = enabled
         }
     }
 

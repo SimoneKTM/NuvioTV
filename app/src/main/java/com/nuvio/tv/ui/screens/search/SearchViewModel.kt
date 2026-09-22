@@ -96,6 +96,8 @@ class SearchViewModel @Inject constructor(
     private var hasRenderedFirstCatalog = false
     private var pendingCatalogResponses = 0
     private var hideUnreleasedContent = false
+    private var searchIncludeExtraTab = true
+    private var searchIncludeAnimeTab = true
     private var savedDiscoverKey: String? = null
 
     private companion object {
@@ -167,6 +169,16 @@ class SearchViewModel @Inject constructor(
             layoutPreferenceDataStore.hideUnreleasedContent.collectLatest { enabled ->
                 hideUnreleasedContent = enabled
                 scheduleCatalogRowsUpdate()
+            }
+        }
+        viewModelScope.launch {
+            layoutPreferenceDataStore.searchIncludeExtraTab.collectLatest { enabled ->
+                searchIncludeExtraTab = enabled
+            }
+        }
+        viewModelScope.launch {
+            layoutPreferenceDataStore.searchIncludeAnimeTab.collectLatest { enabled ->
+                searchIncludeAnimeTab = enabled
             }
         }
         viewModelScope.launch {
@@ -429,8 +441,12 @@ class SearchViewModel @Inject constructor(
 
             val addons = mutableListOf<Addon>()
             try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
-            try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
-            try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+            if (searchIncludeAnimeTab) {
+                try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
+            }
+            if (searchIncludeExtraTab) {
+                try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+            }
             if (addons.isEmpty()) {
                 return@launch
             }
@@ -574,8 +590,12 @@ class SearchViewModel @Inject constructor(
         val job = viewModelScope.launch {
             val addons = mutableListOf<Addon>()
             try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
-            try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
-            try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+            if (searchIncludeAnimeTab) {
+                try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
+            }
+            if (searchIncludeExtraTab) {
+                try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+            }
             if (addons.isEmpty()) {
                 if (generation == searchGeneration && activeSearchQuery == query) {
                     _uiState.update { it.copy(isSearching = false, error = context.getString(com.nuvio.tv.R.string.search_error_load_addons_failed)) }
@@ -878,8 +898,12 @@ class SearchViewModel @Inject constructor(
         _uiState.update { it.copy(discoverLoading = true) }
         val addons = mutableListOf<Addon>()
         try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
-        try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
-        try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+        if (searchIncludeAnimeTab) {
+            try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
+        }
+        if (searchIncludeExtraTab) {
+            try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+        }
 
         android.util.Log.d("SearchVM", "loadDiscoverCatalogs: addons=${addons.size}")
         addons.forEach { addon ->

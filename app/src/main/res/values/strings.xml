@@ -1207,6 +1207,10 @@
     <string name="layout_catalog_type_sub">Show type suffix next to catalog name (Movie/Series).</string>
     <string name="layout_hide_unreleased">Hide Unreleased Content</string>
     <string name="layout_hide_unreleased_sub">Hide movies and shows that haven\'t been released yet.</string>
+    <string name="layout_search_include_extra_tab">Include Extra tab in search</string>
+    <string name="layout_search_include_extra_tab_sub">When enabled, search results also include content from Extra addons.</string>
+    <string name="layout_search_include_anime_tab">Include Anime tab in search</string>
+    <string name="layout_search_include_anime_tab_sub">When enabled, search results also include content from Anime addons.</string>
     <string name="layout_section_detail">Detail Page</string>
     <string name="layout_section_detail_desc">Settings for the detail and episode screens.</string>
     <string name="layout_section_streams">Streams</string>

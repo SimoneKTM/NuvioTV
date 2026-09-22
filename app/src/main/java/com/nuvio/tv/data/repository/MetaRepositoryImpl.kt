@@ -10,6 +10,7 @@ import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.AddonResource
 import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.domain.repository.AnimeAddonRepository
 import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.R
@@ -19,6 +20,8 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -32,6 +35,7 @@ class MetaRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val api: AddonApi,
     private val addonRepository: AddonRepository,
+    private val animeAddonRepository: AnimeAddonRepository,
     private val extraAddonRepository: ExtraAddonRepository
 ) : MetaRepository {
     companion object {
@@ -118,8 +122,9 @@ class MetaRepositoryImpl @Inject constructor(
         emit(NetworkResult.Loading)
 
         val regularAddons = addonRepository.getInstalledAddons().first()
+        val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first()
         val extraAddons = extraAddonRepository.getInstalledExtraAddons().first()
-        val addons = regularAddons + extraAddons
+        val addons = regularAddons + animeAddons + extraAddons
 
         val requestedType = type.trim()
         val inferredType = inferCanonicalType(requestedType, id)
@@ -203,28 +208,78 @@ class MetaRepositoryImpl @Inject constructor(
         val deferred = inFlightAddonMeta.getOrPut(cacheKey) {
             repositoryScope.async {
                 try {
-                    for ((addon, candidateType) in prioritizedCandidates) {
-                        val url = buildMetaUrl(addon.baseUrl, candidateType, id)
-                        Log.d(TAG, "Trying meta addonId=${addon.id} addonName=${addon.name} type=$candidateType id=$id url=$url")
-                        when (val result = safeApiCall(context) { api.getMeta(url) }) {
-                            is NetworkResult.Success -> {
-                                val metaDto = result.data.meta
-                                if (metaDto != null) {
-                                    val meta = metaDto.toDomain(context.getString(R.string.episodes_episode))
-                                    addonMetaCache[cacheKey] = meta
-                                    metaCache[cacheKey] = meta
-                                    Log.d(TAG, "Meta fetch success addonId=${addon.id} type=$candidateType id=$id")
-                                    return@async meta
+                    val sourceUrl = sourceAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase()
+
+                    if (sourceUrl != null && sourceUrl.isNotEmpty()) {
+                        // Source addon is known: prioritize it, fall back to others
+                        val sourceCandidate = prioritizedCandidates.firstOrNull {
+                            it.first.baseUrl.trimEnd('/').lowercase() == sourceUrl
+                        }
+                        val orderedCandidates = if (sourceCandidate != null) {
+                            listOf(sourceCandidate) + prioritizedCandidates.filter { it != sourceCandidate }
+                        } else {
+                            prioritizedCandidates.toList()
+                        }
+
+                        for ((addon, candidateType) in orderedCandidates) {
+                            val url = buildMetaUrl(addon.baseUrl, candidateType, id)
+                            Log.d(TAG, "Trying meta (source-prioritized) addonId=${addon.id} addonName=${addon.name} type=$candidateType id=$id url=$url")
+                            when (val result = safeApiCall(context) { api.getMeta(url) }) {
+                                is NetworkResult.Success -> {
+                                    val metaDto = result.data.meta
+                                    if (metaDto != null) {
+                                        val meta = metaDto.toDomain(context.getString(R.string.episodes_episode))
+                                        addonMetaCache[cacheKey] = meta
+                                        metaCache[cacheKey] = meta
+                                        Log.d(TAG, "Meta fetch success addonId=${addon.id} type=$candidateType id=$id")
+                                        return@async meta
+                                    }
+                                    Log.d(TAG, "Meta response was null addonId=${addon.id} type=$candidateType id=$id")
                                 }
-                                Log.d(TAG, "Meta response was null addonId=${addon.id} type=$candidateType id=$id")
+                                is NetworkResult.Error -> { /* try next */ }
+                                NetworkResult.Loading -> { /* try next */ }
                             }
-                            is NetworkResult.Error -> {
-                                /* try next */
-                            }
-                            NetworkResult.Loading -> { /* try next */ }
+                        }
+                        null
+                    } else {
+                        // No source addon known: query all matching addons in parallel,
+                        // pick the one with the most complete videos (most seasons/episodes).
+                        // This ensures TMDB doesn't override richer data from TVDB/anime addons.
+                        val episodeLabel = context.getString(R.string.episodes_episode)
+                        val allMetaResults = coroutineScope {
+                            prioritizedCandidates.map { (addon, candidateType) ->
+                                async {
+                                    val url = buildMetaUrl(addon.baseUrl, candidateType, id)
+                                    Log.d(TAG, "Trying meta (parallel) addonId=${addon.id} addonName=${addon.name} type=$candidateType id=$id url=$url")
+                                    when (val result = safeApiCall(context) { api.getMeta(url) }) {
+                                        is NetworkResult.Success -> {
+                                            result.data.meta?.toDomain(episodeLabel)
+                                        }
+                                        else -> null
+                                    }
+                                }
+                            }.awaitAll()
+                        }
+
+                        val validResults = allMetaResults.filterNotNull()
+                        if (validResults.isEmpty()) {
+                            null
+                        } else {
+                            // Pick the Meta with the most videos (episodes/seasons).
+                            // For movies (no videos), pick the first one that has images.
+                            val best = validResults.maxByOrNull { meta ->
+                                val videoScore = meta.videos.size
+                                val imageScore = listOf(meta.poster, meta.background, meta.logo)
+                                    .count { it != null }
+                                videoScore * 10 + imageScore
+                            } ?: validResults.first()
+
+                            Log.d(TAG, "Best meta selected: ${best.name} videos=${best.videos.size} poster=${best.poster != null} bg=${best.background != null}")
+                            addonMetaCache[cacheKey] = best
+                            metaCache[cacheKey] = best
+                            best
                         }
                     }
-                    null
                 } finally {
                     inFlightAddonMeta.remove(cacheKey)
                 }

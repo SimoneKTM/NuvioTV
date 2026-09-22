@@ -542,6 +542,28 @@ fun LayoutSettingsContent(
                         },
                         onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
                     )
+                    CompactToggleRow(
+                        title = stringResource(R.string.layout_search_include_extra_tab),
+                        subtitle = stringResource(R.string.layout_search_include_extra_tab_sub),
+                        checked = uiState.searchIncludeExtraTab,
+                        onToggle = {
+                            viewModel.onEvent(
+                                LayoutSettingsEvent.SetSearchIncludeExtraTab(!uiState.searchIncludeExtraTab)
+                            )
+                        },
+                        onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
+                    )
+                    CompactToggleRow(
+                        title = stringResource(R.string.layout_search_include_anime_tab),
+                        subtitle = stringResource(R.string.layout_search_include_anime_tab_sub),
+                        checked = uiState.searchIncludeAnimeTab,
+                        onToggle = {
+                            viewModel.onEvent(
+                                LayoutSettingsEvent.SetSearchIncludeAnimeTab(!uiState.searchIncludeAnimeTab)
+                            )
+                        },
+                        onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
+                    )
                     if (uiState.selectedLayout != HomeLayout.MODERN) {
                         CompactToggleRow(
                             title = stringResource(R.string.layout_show_hero),

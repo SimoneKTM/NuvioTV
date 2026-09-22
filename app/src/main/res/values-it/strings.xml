@@ -663,6 +663,10 @@
 <string name="layout_catalog_type_sub">Mostra il suffisso del tipo accanto al nome del catalogo (Film/Serie).</string>
 <string name="layout_hide_unreleased">Nascondi Contenuti non disponibili</string>
 <string name="layout_hide_unreleased_sub">Nascondi Film e Serie TV che non sono ancora stati resi pubblici.</string>
+<string name="layout_search_include_extra_tab">Includi scheda Extra nella ricerca</string>
+<string name="layout_search_include_extra_tab_sub">Se attivo, i risultati di ricerca includono anche i contenuti dagli addon Extra.</string>
+<string name="layout_search_include_anime_tab">Includi scheda Anime nella ricerca</string>
+<string name="layout_search_include_anime_tab_sub">Se attivo, i risultati di ricerca includono anche i contenuti dagli addon Anime.</string>
 <string name="layout_section_detail">Pagina Dettagli</string>
 <string name="layout_section_detail_desc">Impostazioni per le schermate dei dettagli e degli episodi.</string>
 <string name="layout_blur_unwatched">Sfoca episodi non visti</string>
