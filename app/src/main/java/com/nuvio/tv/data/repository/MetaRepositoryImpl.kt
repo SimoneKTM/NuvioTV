@@ -55,7 +55,7 @@ class MetaRepositoryImpl @Inject constructor(
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    // In-memory cache: "type:id" -> Meta
+    // In-memory cache: "namespace:type:id" -> Meta (scoped per tab/addon)
     private val metaCache = ConcurrentHashMap<String, Meta>()
     // Separate cache for full meta fetched from addons (bypasses catalog-level cache)
     private val addonMetaCache = ConcurrentHashMap<String, Meta>()
@@ -73,7 +73,8 @@ class MetaRepositoryImpl @Inject constructor(
         namespace: String
     ): Flow<NetworkResult<Meta>> = flow {
         val ctx = context
-        val cacheKey = "$namespace:$type:$id"
+        val normalizedAddon = addonBaseUrl.trim().trimEnd('/').lowercase()
+        val cacheKey = "$namespace:$normalizedAddon:$type:$id"
         metaCache[cacheKey]?.let { cached ->
             emit(NetworkResult.Success(cached))
             return@flow
@@ -118,7 +119,7 @@ class MetaRepositoryImpl @Inject constructor(
         preferAnimeAddons: Boolean
     ): Flow<NetworkResult<Meta>> = flow {
         val ctx = context
-        val cacheKey = "$namespace:$type:$id"
+        val cacheKey = "$namespace:$type:$id:${if (preferAnimeAddons) "anime" else "std"}"
         var bypassedCachedMeta: Meta? = null
         addonMetaCache[cacheKey]?.let { cached ->
             // When caller asks for anime preference, a cached entry without a
@@ -137,7 +138,20 @@ class MetaRepositoryImpl @Inject constructor(
         val regularAddons = addonRepository.getInstalledAddons().first()
         val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first()
         val extraAddons = extraAddonRepository.getInstalledExtraAddons().first()
-        val addons = regularAddons + animeAddons + extraAddons
+        // Scope candidates by namespace so each tab only races its own addons:
+        // Home -> regular (TMDB), Anime -> anime (TVDB), Extra -> extra.
+        // Calendar (home + preferAnimeAddons) still races anime addons first.
+        val (scopedRegular, scopedAnime, scopedExtra) = when (namespace) {
+            com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME ->
+                Triple(emptyList(), animeAddons, emptyList())
+            com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA ->
+                Triple(emptyList(), emptyList(), extraAddons)
+            else -> when {
+                preferAnimeAddons -> Triple(regularAddons, animeAddons, extraAddons)
+                else -> Triple(regularAddons, emptyList(), extraAddons)
+            }
+        }
+        val addons = scopedRegular + scopedAnime + scopedExtra
 
         val requestedType = type.trim()
         val inferredType = inferCanonicalType(requestedType, id)
@@ -178,7 +192,7 @@ class MetaRepositoryImpl @Inject constructor(
         // can race them first and discover their source URL.
         if (preferAnimeAddons) {
             val alreadyCandidate = prioritizedCandidates.mapTo(hashSetOf()) { it.first.baseUrl }
-            animeAddons.forEach { addon ->
+            scopedAnime.forEach { addon ->
                 if (addon.baseUrl in alreadyCandidate) return@forEach
                 if (!addon.resources.any { it.name == "meta" }) return@forEach
                 val candidateType = when {
@@ -209,7 +223,6 @@ class MetaRepositoryImpl @Inject constructor(
                             val meta = metaDto.toDomain(episodeLabel)
                                 .copy(sourceAddonBaseUrl = addon.baseUrl)
                             addonMetaCache[cacheKey] = meta
-                            metaCache[cacheKey] = meta
                             emit(NetworkResult.Success(meta))
                             return@flow
                         } else {
@@ -263,7 +276,6 @@ class MetaRepositoryImpl @Inject constructor(
                                         val meta = metaDto.toDomain(context.getString(R.string.episodes_episode))
                                             .copy(sourceAddonBaseUrl = addon.baseUrl)
                                         addonMetaCache[cacheKey] = meta
-                                        metaCache[cacheKey] = meta
                                         Log.d(TAG, "Meta fetch success addonId=${addon.id} type=$candidateType id=$id")
                                         return@async meta
                                     }
@@ -326,9 +338,9 @@ class MetaRepositoryImpl @Inject constructor(
                         // When the caller asks for anime preference (e.g. Calendar),
                         // race anime addons first so their richer season/episode data wins.
                         val animeCandidates = if (preferAnimeAddons) {
-                            val animeUrls = animeAddons.mapTo(hashSetOf()) {
-                                it.baseUrl.trim().trimEnd('/').lowercase()
-                            }
+                        val animeUrls = scopedAnime.mapTo(hashSetOf()) {
+                            it.baseUrl.trim().trimEnd('/').lowercase()
+                        }
                             prioritizedCandidates.partition { (addon, _) ->
                                 addon.baseUrl.trim().trimEnd('/').lowercase() in animeUrls
                             }.let { (anime, rest) -> anime to rest }
@@ -349,7 +361,6 @@ class MetaRepositoryImpl @Inject constructor(
                             val (winningAddon, winningMeta) = best
                             Log.d(TAG, "Best meta selected: addonId=${winningAddon.id} name=${winningMeta.name} videos=${winningMeta.videos.size} poster=${winningMeta.poster != null} bg=${winningMeta.background != null}")
                             addonMetaCache[cacheKey] = winningMeta
-                            metaCache[cacheKey] = winningMeta
                             winningMeta
                         }
                     }
@@ -393,8 +404,16 @@ class MetaRepositoryImpl @Inject constructor(
         emit(NetworkResult.Loading)
 
         val regularAddons = addonRepository.getInstalledAddons().first()
+        val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first()
         val extraAddons = extraAddonRepository.getInstalledExtraAddons().first()
-        val addons = regularAddons + extraAddons
+        // Each namespace only queries its own addon pool (Anime tab must use TVDB addons).
+        val addons = when (namespace) {
+            com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME ->
+                animeAddons + regularAddons
+            com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA ->
+                extraAddons + regularAddons
+            else -> regularAddons + extraAddons
+        }
         val requestedType = type.trim()
         val inferredType = inferCanonicalType(requestedType, id)
         val candidate = selectPrimaryMetaCandidate(
@@ -424,7 +443,6 @@ class MetaRepositoryImpl @Inject constructor(
                             val meta = metaDto.toDomain(context.getString(R.string.episodes_episode))
                                 .copy(sourceAddonBaseUrl = addon.baseUrl)
                             primaryAddonMetaCache[cacheKey] = meta
-                            metaCache[cacheKey] = meta
                             meta
                         }
                         else -> null
