@@ -743,11 +743,16 @@ class MetaDetailsViewModel @Inject constructor(
 
                             if (preferredMeta != null) {
                                 applyMetaWithEnrichment(preferredMeta)
-                            } else if (tryApplyTmdbFallbackMeta()) {
-                                Unit
                             } else {
-                                val errorMsg = buildMetaLoadErrorMessage(result.message, metaLookupId)
-                                _uiState.update { it.copy(isLoading = false, error = errorMsg) }
+                                // Only fall back to TMDB if the item has a known source addon.
+                                // Calendar/Library items (sourceAddonBaseUrl=null) must use addon data.
+                                val hasSourceAddon = !preferredAddonBaseUrl.isNullOrBlank()
+                                if (hasSourceAddon && tryApplyTmdbFallbackMeta()) {
+                                    Unit
+                                } else {
+                                    val errorMsg = buildMetaLoadErrorMessage(result.message, metaLookupId)
+                                    _uiState.update { it.copy(isLoading = false, error = errorMsg) }
+                                }
                             }
                         }
                         NetworkResult.Loading -> {
@@ -778,7 +783,12 @@ class MetaDetailsViewModel @Inject constructor(
                         when (result) {
                             is NetworkResult.Success -> applyMetaWithEnrichment(result.data)
                             is NetworkResult.Error -> {
-                                if (!tryApplyTmdbFallbackMeta()) {
+                                // Only fall back to TMDB if the item has a known source addon.
+                                // Calendar/Library items (sourceAddonBaseUrl=null) must use addon data.
+                                val hasSourceAddon = !preferredAddonBaseUrl.isNullOrBlank()
+                                if (hasSourceAddon && tryApplyTmdbFallbackMeta()) {
+                                    Unit
+                                } else {
                                     val errorMsg = buildMetaLoadErrorMessage(result.message, metaLookupId)
                                     _uiState.update { it.copy(isLoading = false, error = errorMsg) }
                                 }
