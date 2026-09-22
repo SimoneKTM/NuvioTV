@@ -174,6 +174,7 @@ import com.nuvio.tv.ui.navigation.Screen
 import com.nuvio.tv.ui.screens.account.AuthQrSignInScreen
 import com.nuvio.tv.ui.screens.addon.EssentialAddonSetupScreen
 import com.nuvio.tv.ui.screens.profile.ProfileSelectionScreen
+import com.nuvio.tv.ui.screens.splash.NuvioSplashScreen
 import com.nuvio.tv.ui.theme.NuvioComponents
 import com.nuvio.tv.ui.theme.NuvioLayout
 import com.nuvio.tv.ui.theme.NuvioMotion
@@ -577,20 +578,12 @@ class MainActivity : ComponentActivity() {
                     )
                 ) {
                     if (hasSeenAuthQrOnFirstLaunch == null) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(NuvioTheme.colors.Background)
-                        )
+                        NuvioSplashScreen()
                         return@Surface
                     }
 
                     if (authState is AuthState.Loading) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(NuvioTheme.colors.Background)
-                        )
+                        NuvioSplashScreen()
                         return@Surface
                     }
 
@@ -656,11 +649,7 @@ class MainActivity : ComponentActivity() {
 
                     val layoutChosen = mainUiPrefs.hasChosenLayout
                     if (layoutChosen == null || !mainUiPrefs.experienceModeLoaded || installedAddons == null) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(NuvioTheme.colors.Background)
-                        )
+                        NuvioSplashScreen()
                         return@Surface
                     }
                     val effectiveExperienceMode = mainUiPrefs.experienceMode
