@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.LocaleCache
 import com.nuvio.tv.core.build.AppFeaturePolicy
 import com.nuvio.tv.core.network.NetworkResult
+import com.nuvio.tv.data.repository.toAddonQueryIds
 import com.nuvio.tv.core.tmdb.TmdbEnrichment
 import com.nuvio.tv.domain.model.FocusedPosterTrailerPlaybackTarget
 import com.nuvio.tv.domain.model.HomeLayout
@@ -517,7 +518,8 @@ internal fun HomeViewModel.onItemFocusPipeline(item: MetaPreview) {
                 item.id !in prefetchedExternalMetaIds &&
                 externalMetaPrefetchInFlightIds.add(item.id)) {
                 try {
-                    val result = metaRepository.getMetaFromAllAddons(item.apiType, item.id, item.sourceAddonBaseUrl)
+                    val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
+                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl)
                         .first { it is NetworkResult.Success || it is NetworkResult.Error }
                     when {
                         result is NetworkResult.Success -> {
@@ -621,7 +623,8 @@ internal fun HomeViewModel.preloadAdjacentItemPipeline(item: MetaPreview) {
                 externalMetaPrefetchInFlightIds.add(item.id)
             ) {
                 try {
-                    val result = metaRepository.getMetaFromAllAddons(item.apiType, item.id, item.sourceAddonBaseUrl)
+                    val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
+                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl)
                         .first { it is NetworkResult.Success || it is NetworkResult.Error }
                     when {
                         result is NetworkResult.Success -> {

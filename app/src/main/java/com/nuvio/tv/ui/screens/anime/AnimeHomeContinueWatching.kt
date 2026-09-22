@@ -48,6 +48,7 @@ import java.util.Collections
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
+import com.nuvio.tv.data.repository.buildAddonIdCandidates
 
 private const val ANIME_CW_PROGRESS_DEBOUNCE_MS = 500L
 private const val ANIME_CW_MAX_RECENT_PROGRESS_ITEMS = 300
@@ -965,48 +966,38 @@ private suspend fun AnimeHomeViewModel.resolveAnimeMetaForProgress(
         }
     }
 
-    val idCandidates = buildList {
-        add(progress.contentId)
-        if (progress.contentId.startsWith("tmdb:")) add(progress.contentId.substringAfter(':'))
-    }.distinct()
+    val idCandidates = buildAddonIdCandidates(progress.contentId, progress.contentType)
 
-    val typeCandidates = listOf(progress.contentType, "series", "tv").distinct()
     val useAllAddons = false
     val resolved = run {
         var summary: CwMetaSummary? = null
-        for (type in typeCandidates) {
-            for (candidateId in idCandidates) {
-                val result = withTimeoutOrNull(6_000L) {
-                    if (useAllAddons) {
-                        metaRepository.getMetaFromAllAddons(
-                            type = type,
-                            id = candidateId
-                        ).first { it !is NetworkResult.Loading }
-                    } else {
-                        metaRepository.getMetaFromPrimaryAddon(
-                            type = type,
-                            id = candidateId
-                        ).first { it !is NetworkResult.Loading }
-                    }
+        for ((candidateType, candidateId) in idCandidates) {
+            val result = withTimeoutOrNull(6_000L) {
+                if (useAllAddons) {
+                    metaRepository.getMetaFromAllAddons(
+                        type = candidateType,
+                        id = candidateId
+                    ).first { it !is NetworkResult.Loading }
+                } else {
+                    metaRepository.getMetaFromPrimaryAddon(
+                        type = candidateType,
+                        id = candidateId
+                    ).first { it !is NetworkResult.Loading }
                 }
-                summary = ((result as? NetworkResult.Success<*>)?.data as? Meta)?.toAnimeCwSummary()
-                if (summary != null) break
             }
+            summary = ((result as? NetworkResult.Success<*>)?.data as? Meta)?.toAnimeCwSummary()
             if (summary != null) break
         }
         // Fallback: if primary addon failed, try all addons before giving up.
         if (summary == null && !useAllAddons) {
-            for (type in typeCandidates) {
-                for (candidateId in idCandidates) {
-                    val fallbackResult = withTimeoutOrNull(6_000L) {
-                        metaRepository.getMetaFromAllAddons(
-                            type = type,
-                            id = candidateId
-                        ).first { it !is NetworkResult.Loading }
-                    }
-                    summary = ((fallbackResult as? NetworkResult.Success<*>)?.data as? Meta)?.toAnimeCwSummary()
-                    if (summary != null) break
+            for ((candidateType, candidateId) in idCandidates) {
+                val fallbackResult = withTimeoutOrNull(6_000L) {
+                    metaRepository.getMetaFromAllAddons(
+                        type = candidateType,
+                        id = candidateId
+                    ).first { it !is NetworkResult.Loading }
                 }
+                summary = ((fallbackResult as? NetworkResult.Success<*>)?.data as? Meta)?.toAnimeCwSummary()
                 if (summary != null) break
             }
         }

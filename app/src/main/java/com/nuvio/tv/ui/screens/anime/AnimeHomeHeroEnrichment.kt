@@ -7,6 +7,7 @@ import com.nuvio.tv.domain.model.MDBListSettings
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.TmdbSettings
+import com.nuvio.tv.data.repository.buildAddonIdCandidates
 import com.nuvio.tv.ui.screens.home.CwMetaSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -44,36 +45,26 @@ internal suspend fun AnimeHomeViewModel.enrichAnimeHeroItem(item: MetaPreview): 
         animeHeroEnrichmentCache.clear()
     }
 
-    val idCandidates = buildList {
-        add(item.id)
-        if (item.id.startsWith("tmdb:")) add(item.id.substringAfter(':'))
-    }.distinct()
-    val typeCandidates = buildList {
-        add(item.rawType)
-        add(item.apiType)
-        if (!item.apiType.equals(item.rawType, ignoreCase = true)) add(item.apiType)
-    }.distinct()
+    val idCandidates = buildAddonIdCandidates(item.id, item.rawType)
 
     suspend fun tryResolve(useAllAddons: Boolean): Meta? {
-        for (type in typeCandidates) {
-            for (candidateId in idCandidates) {
-                val result = runCatching {
-                    withTimeoutOrNull(ANIME_HERO_ENRICHMENT_TIMEOUT_MS) {
-                        val flow = if (useAllAddons) {
-                            metaRepository.getMetaFromAllAddons(
-                                type = type,
-                                id = candidateId,
-                                sourceAddonBaseUrl = item.sourceAddonBaseUrl
-                            )
-                        } else {
-                            metaRepository.getMetaFromPrimaryAddon(type = type, id = candidateId)
-                        }
-                        flow.first { it !is NetworkResult.Loading }
+        for ((candidateType, candidateId) in idCandidates) {
+            val result = runCatching {
+                withTimeoutOrNull(ANIME_HERO_ENRICHMENT_TIMEOUT_MS) {
+                    val flow = if (useAllAddons) {
+                        metaRepository.getMetaFromAllAddons(
+                            type = candidateType,
+                            id = candidateId,
+                            sourceAddonBaseUrl = item.sourceAddonBaseUrl
+                        )
+                    } else {
+                        metaRepository.getMetaFromPrimaryAddon(type = candidateType, id = candidateId)
                     }
-                }.getOrNull()
-                val meta = (result as? NetworkResult.Success<*>)?.data as? Meta
-                if (meta != null) return meta
-            }
+                    flow.first { it !is NetworkResult.Loading }
+                }
+            }.getOrNull()
+            val meta = (result as? NetworkResult.Success<*>)?.data as? Meta
+            if (meta != null) return meta
         }
         return null
     }

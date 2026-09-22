@@ -32,6 +32,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -42,6 +45,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
@@ -63,8 +67,13 @@ class LibraryRepositoryImpl @Inject constructor(
     private val profileManager: ProfileManager,
 ) : LibraryRepository {
 
+    companion object {
+        private const val TAG = "LibraryRepo"
+    }
+
     private val syncScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val hydratedLogoIds = mutableSetOf<String>()
+    private val enrichedAddonIds = mutableSetOf<String>()
     private var syncJob: Job? = null
     private val _isSyncingFromRemote = MutableStateFlow(false)
     var isSyncingFromRemote: Boolean
@@ -133,6 +142,62 @@ class LibraryRepositoryImpl @Inject constructor(
             }
         }
         .distinctUntilChanged()
+        .mapLatest { items ->
+            enrichLibraryItemsWithAddonData(items)
+        }
+
+    private suspend fun enrichLibraryItemsWithAddonData(items: List<LibraryEntry>): List<LibraryEntry> {
+        val itemsNeedingEnrichment = items.filter {
+            (it.poster == null || it.description == null) && it.id !in enrichedAddonIds
+        }
+        if (itemsNeedingEnrichment.isEmpty()) return items
+
+        Log.d(TAG, "Addon enrichment: ${itemsNeedingEnrichment.size} items need enrichment")
+        return coroutineScope {
+            items.map { item ->
+                async {
+                    if (item.id in enrichedAddonIds) return@async item
+                    if (item.poster != null && item.description != null) return@async item
+
+                    try {
+                        val (type, addonId) = extractAddonQueryId(item.id, item.type)
+                            ?: return@async item
+
+                        val result = metaRepository.getMetaFromAllAddons(
+                            type = type,
+                            id = addonId
+                        ).first { it !is NetworkResult.Loading }
+
+                        if (result is NetworkResult.Success) {
+                            val addonMeta = result.data
+                            enrichedAddonIds.add(item.id)
+                            val updated = item.copy(
+                                poster = item.poster ?: addonMeta.poster,
+                                background = item.background ?: addonMeta.background,
+                                logo = item.logo ?: addonMeta.logo,
+                                description = item.description ?: addonMeta.description,
+                                imdbRating = item.imdbRating ?: addonMeta.imdbRating
+                            )
+                            if (updated != item) {
+                                Log.d(TAG, "Addon enriched library: ${item.name} poster=${updated.poster != item.poster} bg=${updated.background != item.background}")
+                            }
+                            updated
+                        } else {
+                            enrichedAddonIds.add(item.id)
+                            item
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Addon enrichment failed for ${item.name}: ${e.message}")
+                        item
+                    }
+                }
+            }.awaitAll()
+        }
+    }
+
+    private fun extractAddonQueryId(metaId: String, rawType: String): Pair<String, String>? {
+        return toAddonQueryIds(metaId, rawType)
+    }
 
     override val listTabs: Flow<List<LibraryListTab>> = sourceMode
         .flatMapLatest { mode ->

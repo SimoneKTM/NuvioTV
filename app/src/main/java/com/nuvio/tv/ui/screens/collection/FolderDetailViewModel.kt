@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.R
 import com.nuvio.tv.core.build.AppFeaturePolicy
 import com.nuvio.tv.core.network.NetworkResult
+import com.nuvio.tv.data.repository.toAddonQueryIds
 import com.nuvio.tv.core.tmdb.TmdbCollectionSourceResolver
 import com.nuvio.tv.core.util.hasNoReleaseInfo
 import com.nuvio.tv.core.util.isUnreleased
@@ -1345,7 +1346,8 @@ class FolderDetailViewModel @Inject constructor(
                 item.logo.isNullOrBlank()
             val needsExternalAddon = enrichment == null || artworkStillMissing
             if (needsExternalAddon && externalMetaEnabled) {
-                val metaResult = metaRepository.getMetaFromAllAddons(item.apiType, item.id, item.sourceAddonBaseUrl)
+                val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
+                val metaResult = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl)
                     .first { it is NetworkResult.Success || it is NetworkResult.Error }
                 when {
                     metaResult is NetworkResult.Success -> {
@@ -1586,7 +1588,8 @@ class FolderDetailViewModel @Inject constructor(
                 }
                 if (!tmdbEnriched && externalMetaEnabled && item.id !in prefetchedExternalMetaIds) {
                     prefetchedExternalMetaIds.add(item.id)
-                    val result = metaRepository.getMetaFromAllAddons(item.apiType, item.id, item.sourceAddonBaseUrl)
+                    val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
+                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl)
                         .first { it is com.nuvio.tv.core.network.NetworkResult.Success || it is com.nuvio.tv.core.network.NetworkResult.Error }
                     if (result is com.nuvio.tv.core.network.NetworkResult.Success) {
                         enrichedItemIds.add(item.id)
@@ -1621,7 +1624,8 @@ class FolderDetailViewModel @Inject constructor(
                     item.logo.isNullOrBlank() && item.id !in prefetchedExternalMetaIds
                 if (adjArtworkMissing && externalMetaEnabled) {
                     prefetchedExternalMetaIds.add(item.id)
-                    val result = metaRepository.getMetaFromAllAddons(item.apiType, item.id, item.sourceAddonBaseUrl)
+                    val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
+                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl)
                         .first { it is com.nuvio.tv.core.network.NetworkResult.Success || it is com.nuvio.tv.core.network.NetworkResult.Error }
                     if (result is com.nuvio.tv.core.network.NetworkResult.Success) {
                         val meta = result.data

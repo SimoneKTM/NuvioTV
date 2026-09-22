@@ -27,6 +27,7 @@ import com.nuvio.tv.data.remote.dto.trakt.TraktWatchedMovieItemDto
 import com.nuvio.tv.data.remote.dto.trakt.TraktWatchedShowItemDto
 import com.nuvio.tv.domain.model.WatchProgress
 import com.nuvio.tv.domain.repository.MetaRepository
+import com.nuvio.tv.data.repository.buildAddonIdCandidates
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -2850,27 +2851,11 @@ class TraktProgressService @Inject constructor(
         contentId: String,
         contentType: String
     ): ContentMetadata? {
-        val typeCandidates = buildList {
-            val normalized = contentType.lowercase()
-            if (normalized.isNotBlank()) add(normalized)
-            if (normalized in listOf("series", "tv")) {
-                add("series")
-                add("tv")
-            } else {
-                add("movie")
-            }
-        }.distinct()
+        val idCandidates = buildAddonIdCandidates(contentId, contentType)
 
-        val idCandidates = buildList {
-            add(contentId)
-            if (contentId.startsWith("tmdb:")) add(contentId.substringAfter(':'))
-            if (contentId.startsWith("trakt:")) add(contentId.substringAfter(':'))
-        }.distinct()
-
-        for (type in typeCandidates) {
-            for (candidateId in idCandidates) {
+        for ((candidateType, candidateId) in idCandidates) {
                 val result = withTimeoutOrNull(3500) {
-                    metaRepository.getMetaFromAllAddons(type = type, id = candidateId)
+                    metaRepository.getMetaFromAllAddons(type = candidateType, id = candidateId)
                         .dropWhile { it is NetworkResult.Loading }
                         .firstOrNull()
                 } ?: continue
@@ -2897,7 +2882,7 @@ class TraktProgressService @Inject constructor(
                 // show a progress bar for Trakt-sourced movies).
                 val needsTmdb = contentId.startsWith("tt") &&
                     ((addonBackdrop == null && addonPoster == null) ||
-                     (addonRuntimeMs == 0L && type == "movie"))
+                     (addonRuntimeMs == 0L && candidateType == "movie"))
                 val tmdbImages = if (needsTmdb) {
                     tmdbService.fetchImdbImages(contentId, contentType)
                 } else null
@@ -2914,7 +2899,6 @@ class TraktProgressService @Inject constructor(
                     episodes = episodes,
                     runtimeMs = runtimeMs
                 )
-            }
         }
         return null
     }

@@ -12,6 +12,8 @@ import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.repository.CalendarRepository
+import com.nuvio.tv.domain.repository.MetaRepository
+import com.nuvio.tv.core.network.NetworkResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,6 +22,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -30,7 +33,8 @@ import javax.inject.Singleton
 @Singleton
 class CalendarRepositoryImpl @Inject constructor(
     private val traktApi: TraktApi,
-    private val tmdbApi: TmdbApi
+    private val tmdbApi: TmdbApi,
+    private val metaRepository: MetaRepository
 ) : CalendarRepository {
 
     companion object {
@@ -98,7 +102,8 @@ class CalendarRepositoryImpl @Inject constructor(
         emit(filteredItems)
 
         val enrichedItems = enrichItemsWithTmdbImages(filteredItems)
-        emit(enrichedItems)
+        val addonEnrichedItems = enrichItemsWithAddonData(enrichedItems)
+        emit(addonEnrichedItems)
     }
 
     private suspend fun enrichItemsWithTmdbImages(items: List<CalendarItem>): List<CalendarItem> {
@@ -176,6 +181,50 @@ class CalendarRepositoryImpl @Inject constructor(
         }
 
         return enriched
+    }
+
+    private suspend fun enrichItemsWithAddonData(items: List<CalendarItem>): List<CalendarItem> {
+        Log.d(TAG, "Enriching ${items.size} items with addon data")
+        return coroutineScope {
+            items.map { item ->
+                async {
+                    try {
+                        val (type, addonId) = extractAddonQueryId(item.meta.id, item.meta.rawType)
+                            ?: return@async item
+
+                        val result = metaRepository.getMetaFromAllAddons(
+                            type = type,
+                            id = addonId,
+                            sourceAddonBaseUrl = item.meta.sourceAddonBaseUrl
+                        ).first { it !is NetworkResult.Loading }
+
+                        if (result is NetworkResult.Success) {
+                            val addonMeta = result.data
+                            val updatedMeta = item.meta.copy(
+                                poster = item.meta.poster ?: addonMeta.poster,
+                                background = item.meta.background ?: addonMeta.background,
+                                logo = item.meta.logo ?: addonMeta.logo,
+                                description = item.meta.description ?: addonMeta.description,
+                                imdbRating = item.meta.imdbRating ?: addonMeta.imdbRating
+                            )
+                            if (updatedMeta != item.meta) {
+                                Log.d(TAG, "Addon enriched: ${item.meta.name} poster=${updatedMeta.poster != item.meta.poster} bg=${updatedMeta.background != item.meta.background} logo=${updatedMeta.logo != item.meta.logo}")
+                            }
+                            item.copy(meta = updatedMeta)
+                        } else {
+                            item
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Addon enrichment failed for ${item.meta.name}: ${e.message}")
+                        item
+                    }
+                }
+            }.awaitAll()
+        }
+    }
+
+    private fun extractAddonQueryId(metaId: String, rawType: String): Pair<String, String>? {
+        return toAddonQueryIds(metaId, rawType)
     }
 
     private fun extractTmdbId(metaId: String): Int? {

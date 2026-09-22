@@ -45,6 +45,7 @@ import java.util.Collections
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
+import com.nuvio.tv.data.repository.buildAddonIdCandidates
 
 private const val CW_MAX_RECENT_PROGRESS_ITEMS = 300
 private const val CW_MAX_NEXT_UP_LOOKUPS = 32
@@ -2279,86 +2280,76 @@ private suspend fun HomeViewModel.resolveMetaForProgress(
         }
     }
 
-    val idCandidates = buildList {
-        add(progress.contentId)
-        if (progress.contentId.startsWith("tmdb:")) add(progress.contentId.substringAfter(':'))
-    }.distinct()
+    val idCandidates = buildAddonIdCandidates(progress.contentId, progress.contentType)
 
-    val typeCandidates = listOf(progress.contentType, "series", "tv").distinct()
     val useAllAddons = externalMetaPrefetchEnabled
     val resolved = run {
         var summary: CwMetaSummary? = null
         var attempts = 0
-        for (type in typeCandidates) {
-            for (candidateId in idCandidates) {
-                attempts += 1
-                val attemptStartedAtMs = SystemClock.elapsedRealtime()
-                val result = withTimeoutOrNull(6_000L) {
-                    if (useAllAddons) {
-                        metaRepository.getMetaFromAllAddons(
-                            type = type,
-                            id = candidateId
-                        ).first { it !is NetworkResult.Loading }
-                    } else {
-                        metaRepository.getMetaFromPrimaryAddon(
-                            type = type,
-                            id = candidateId
-                        ).first { it !is NetworkResult.Loading }
-                    }
+        for ((candidateType, candidateId) in idCandidates) {
+            attempts += 1
+            val attemptStartedAtMs = SystemClock.elapsedRealtime()
+            val result = withTimeoutOrNull(6_000L) {
+                if (useAllAddons) {
+                    metaRepository.getMetaFromAllAddons(
+                        type = candidateType,
+                        id = candidateId
+                    ).first { it !is NetworkResult.Loading }
+                } else {
+                    metaRepository.getMetaFromPrimaryAddon(
+                        type = candidateType,
+                        id = candidateId
+                    ).first { it !is NetworkResult.Loading }
                 }
-                val attemptElapsedMs = SystemClock.elapsedRealtime() - attemptStartedAtMs
-                if (result == null) {
-                    debug?.recordMetaTimeout()
+            }
+            val attemptElapsedMs = SystemClock.elapsedRealtime() - attemptStartedAtMs
+            if (result == null) {
+                debug?.recordMetaTimeout()
+                debug?.recordMetaAttempt(
+                    progress = progress,
+                    type = candidateType,
+                    candidateId = candidateId,
+                    elapsedMs = attemptElapsedMs,
+                    outcome = "timeout"
+                )
+                continue
+            }
+            when (result) {
+                is NetworkResult.Success<*> -> {
                     debug?.recordMetaAttempt(
                         progress = progress,
-                        type = type,
+                        type = candidateType,
                         candidateId = candidateId,
                         elapsedMs = attemptElapsedMs,
-                        outcome = "timeout"
+                        outcome = "success"
                     )
-                    continue
                 }
-                when (result) {
-                    is NetworkResult.Success<*> -> {
-                        debug?.recordMetaAttempt(
-                            progress = progress,
-                            type = type,
-                            candidateId = candidateId,
-                            elapsedMs = attemptElapsedMs,
-                            outcome = "success"
-                        )
-                    }
-                    is NetworkResult.Error -> {
-                        debug?.recordMetaError()
-                        debug?.recordMetaAttempt(
-                            progress = progress,
-                            type = type,
-                            candidateId = candidateId,
-                            elapsedMs = attemptElapsedMs,
-                            outcome = "error:${result.code ?: "unknown"}"
-                        )
-                    }
-                    NetworkResult.Loading -> Unit
+                is NetworkResult.Error -> {
+                    debug?.recordMetaError()
+                    debug?.recordMetaAttempt(
+                        progress = progress,
+                        type = candidateType,
+                        candidateId = candidateId,
+                        elapsedMs = attemptElapsedMs,
+                        outcome = "error:${result.code ?: "unknown"}"
+                    )
                 }
-                summary = ((result as? NetworkResult.Success<*>)?.data as? Meta)?.toCwSummary()
-                if (summary != null) break
+                NetworkResult.Loading -> Unit
             }
+            summary = ((result as? NetworkResult.Success<*>)?.data as? Meta)?.toCwSummary()
             if (summary != null) break
         }
         // Fallback: if primary addon failed, try all addons before giving up.
         if (summary == null && !useAllAddons) {
-            for (type in typeCandidates) {
-                for (candidateId in idCandidates) {
-                    attempts += 1
-                    val fallbackResult = withTimeoutOrNull(6_000L) {
-                        metaRepository.getMetaFromAllAddons(
-                            type = type,
-                            id = candidateId
-                        ).first { it !is NetworkResult.Loading }
-                    }
-                    summary = ((fallbackResult as? NetworkResult.Success<*>)?.data as? Meta)?.toCwSummary()
-                    if (summary != null) break
+            for ((candidateType, candidateId) in idCandidates) {
+                attempts += 1
+                val fallbackResult = withTimeoutOrNull(6_000L) {
+                    metaRepository.getMetaFromAllAddons(
+                        type = candidateType,
+                        id = candidateId
+                    ).first { it !is NetworkResult.Loading }
                 }
+                summary = ((fallbackResult as? NetworkResult.Success<*>)?.data as? Meta)?.toCwSummary()
                 if (summary != null) break
             }
         }
@@ -2428,35 +2419,29 @@ private suspend fun HomeViewModel.resolveBadgeEpisodes(
         synchronized(cwBadgeEpisodeCache) { cwBadgeEpisodeCache[cacheKey] = null }
         return null
     }
-    val idCandidates = buildList {
-        add(contentId)
-        if (contentId.startsWith("tmdb:")) add(contentId.substringAfter(':'))
-    }.distinct()
-    val typeCandidates = listOf(contentType, "series", "tv").distinct()
+    val idCandidates = buildAddonIdCandidates(contentId, contentType)
     val useAllAddons = externalMetaPrefetchEnabled
 
-    for (type in typeCandidates) {
-        for (candidateId in idCandidates) {
-            val result = withTimeoutOrNull(2_500L) {
-                if (useAllAddons) {
-                    metaRepository.getMetaFromAllAddons(type = type, id = candidateId)
-                        .first { it !is NetworkResult.Loading }
-                } else {
-                    metaRepository.getMetaFromPrimaryAddon(type = type, id = candidateId)
-                        .first { it !is NetworkResult.Loading }
-                }
-            } ?: continue
-            val meta = (result as? NetworkResult.Success<*>)?.data as? Meta ?: continue
-            val summary = meta.toCwSummary()
-            val episodes = summary.watchableEpisodes()
-                .mapNotNull { v -> v.season?.let { s -> v.episode?.let { e -> s to e } } }
-                .toSet()
-            summary.earliestRevalidationMs()?.let { ms ->
-                cwBadgeNextSeasonMs[contentId] = ms
+    for ((candidateType, candidateId) in idCandidates) {
+        val result = withTimeoutOrNull(2_500L) {
+            if (useAllAddons) {
+                metaRepository.getMetaFromAllAddons(type = candidateType, id = candidateId)
+                    .first { it !is NetworkResult.Loading }
+            } else {
+                metaRepository.getMetaFromPrimaryAddon(type = candidateType, id = candidateId)
+                    .first { it !is NetworkResult.Loading }
             }
-            synchronized(cwBadgeEpisodeCache) { cwBadgeEpisodeCache[cacheKey] = episodes }
-            return episodes
+        } ?: continue
+        val meta = (result as? NetworkResult.Success<*>)?.data as? Meta ?: continue
+        val summary = meta.toCwSummary()
+        val episodes = summary.watchableEpisodes()
+            .mapNotNull { v -> v.season?.let { s -> v.episode?.let { e -> s to e } } }
+            .toSet()
+        summary.earliestRevalidationMs()?.let { ms ->
+            cwBadgeNextSeasonMs[contentId] = ms
         }
+        synchronized(cwBadgeEpisodeCache) { cwBadgeEpisodeCache[cacheKey] = episodes }
+        return episodes
     }
     synchronized(cwBadgeEpisodeCache) { cwBadgeEpisodeCache[cacheKey] = null }
     return null

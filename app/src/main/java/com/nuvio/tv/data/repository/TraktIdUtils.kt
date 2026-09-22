@@ -131,3 +131,90 @@ internal fun resolveEffectiveContentId(contentId: String, videoId: String?): Str
         else -> contentId
     }
 }
+
+/**
+ * Converts any content ID format to a pair of (type, addonId) suitable for
+ * Stremio addon meta queries: `/meta/{type}/{id}.json`.
+ *
+ * Handles all known prefix formats:
+ * - `tmdb_tv_12345` → `("tv", "12345")`
+ * - `tmdb_movie_550` → `("movie", "550")`
+ * - `trakt_tv_12345` → `("tv", "12345")`
+ * - `trakt_movie_550` → `("movie", "550")`
+ * - `tmdb:12345` → `("tv", "12345")` or `("movie", "12345")` based on [rawType]
+ * - `trakt:12345` → `("tv", "12345")` or `("movie", "12345")` based on [rawType]
+ * - `tt1234567` → `("tv", "tt1234567")` (IMDB IDs passed as-is, best addon compat)
+ * - bare numeric `12345` → `("tv", "12345")` or `("movie", "12345")` based on [rawType]
+ *
+ * @param rawId The raw content ID in any format
+ * @param rawType The content type string ("tv", "series", "movie", etc.)
+ * @return Pair of (type, addonId) or null if the ID cannot be converted
+ */
+internal fun toAddonQueryIds(rawId: String, rawType: String): Pair<String, String>? {
+    val tmdbTvPrefix = "tmdb_tv_"
+    val tmdbMoviePrefix = "tmdb_movie_"
+    val traktTvPrefix = "trakt_tv_"
+    val traktMoviePrefix = "trakt_movie_"
+    val tmdbColonPrefix = "tmdb:"
+    val traktColonPrefix = "trakt:"
+
+    val canonicalType = when (rawType.lowercase()) {
+        "tv", "series", "show", "anime" -> "tv"
+        "movie" -> "movie"
+        else -> null
+    } ?: return null
+
+    return when {
+        rawId.startsWith(tmdbTvPrefix) -> {
+            val numericId = rawId.removePrefix(tmdbTvPrefix).toIntOrNull() ?: return null
+            "tv" to numericId.toString()
+        }
+        rawId.startsWith(tmdbMoviePrefix) -> {
+            val numericId = rawId.removePrefix(tmdbMoviePrefix).toIntOrNull() ?: return null
+            "movie" to numericId.toString()
+        }
+        rawId.startsWith(traktTvPrefix) -> {
+            val numericId = rawId.removePrefix(traktTvPrefix).toIntOrNull() ?: return null
+            "tv" to numericId.toString()
+        }
+        rawId.startsWith(traktMoviePrefix) -> {
+            val numericId = rawId.removePrefix(traktMoviePrefix).toIntOrNull() ?: return null
+            "movie" to numericId.toString()
+        }
+        rawId.startsWith(tmdbColonPrefix) -> {
+            val numericId = rawId.removePrefix(tmdbColonPrefix).toIntOrNull() ?: return null
+            canonicalType to numericId.toString()
+        }
+        rawId.startsWith(traktColonPrefix) -> {
+            val numericId = rawId.removePrefix(traktColonPrefix).toIntOrNull() ?: return null
+            canonicalType to numericId.toString()
+        }
+        rawId.startsWith("tt") -> {
+            canonicalType to rawId
+        }
+        else -> {
+            canonicalType to rawId
+        }
+    }
+}
+
+/**
+ * Builds a list of addon-compatible ID candidates from a raw content ID.
+ * Tries the most likely format first (bare numeric / IMDB) then falls back
+ * to the original ID. Use this when iterating addon queries.
+ */
+internal fun buildAddonIdCandidates(rawId: String, rawType: String): List<Pair<String, String>> {
+    val query = toAddonQueryIds(rawId, rawType) ?: return emptyList()
+    val (type, addonId) = query
+    val candidates = mutableListOf(type to addonId)
+    // If the addonId differs from the raw ID, also try the raw ID as last resort
+    if (addonId != rawId) {
+        val canonicalType = when (rawType.lowercase()) {
+            "tv", "series", "show", "anime" -> "tv"
+            "movie" -> "movie"
+            else -> rawType
+        }
+        candidates.add(canonicalType to rawId)
+    }
+    return candidates.distinct()
+}

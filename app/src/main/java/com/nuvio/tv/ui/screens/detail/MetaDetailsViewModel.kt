@@ -866,12 +866,18 @@ class MetaDetailsViewModel @Inject constructor(
             else -> null
         } ?: return raw
 
-        // Use a short timeout so a blocked TMDB API doesn't stall the detail screen.
-        return kotlinx.coroutines.withTimeoutOrNull(5_000L) {
+        // Try TMDB → IMDB first (best addon compatibility).
+        val imdbId = kotlinx.coroutines.withTimeoutOrNull(5_000L) {
             tmdbService.tmdbToImdb(tmdbNumericId, itemType)
-        }
-            ?.takeIf { it.isNotBlank() }
-            ?: raw
+        }?.takeIf { it.isNotBlank() }
+
+        if (imdbId != null) return imdbId
+
+        // Fallback: return bare numeric ID so addons can try their own TMDB lookup.
+        // Previously this returned the raw prefixed ID (e.g. "tmdb_tv_12345") which
+        // addons cannot resolve. Bare "12345" matches the standard Stremio addon
+        // protocol for TMDB-based meta queries.
+        return tmdbNumericId.toString()
     }
 
     private fun buildMetaLoadErrorMessage(originalMessage: String?, lookupId: String): String {

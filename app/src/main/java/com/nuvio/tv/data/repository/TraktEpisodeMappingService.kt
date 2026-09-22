@@ -6,6 +6,7 @@ import com.nuvio.tv.data.remote.api.TraktApi
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.Video
 import com.nuvio.tv.domain.repository.MetaRepository
+import com.nuvio.tv.data.repository.buildAddonIdCandidates
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.dropWhile
@@ -380,27 +381,13 @@ class TraktEpisodeMappingService @Inject constructor(
     }
 
     private suspend fun fetchSeriesMeta(contentId: String, contentType: String): Meta? {
-        val typeCandidates = buildList {
-            val normalized = contentType.lowercase()
-            if (normalized.isNotBlank()) add(normalized)
-            if (normalized in listOf("series", "tv")) {
-                add("series")
-                add("tv")
-            }
-        }.distinct()
-        if (typeCandidates.isEmpty()) return null
+        val idCandidates = buildAddonIdCandidates(contentId, contentType)
+        if (idCandidates.isEmpty()) return null
 
-        val idCandidates = buildList {
-            add(contentId)
-            if (contentId.startsWith("tmdb:")) add(contentId.substringAfter(':'))
-            if (contentId.startsWith("trakt:")) add(contentId.substringAfter(':'))
-        }.distinct()
-
-        for (type in typeCandidates) {
-            for (candidateId in idCandidates) {
+        for ((candidateType, candidateId) in idCandidates) {
                 val result = try {
                     withTimeoutOrNull(8000) {
-                        metaRepository.getMetaFromAllAddons(type = type, id = candidateId)
+                        metaRepository.getMetaFromAllAddons(type = candidateType, id = candidateId)
                             .dropWhile { it is NetworkResult.Loading }
                             .firstOrNull()
                     }
@@ -411,7 +398,6 @@ class TraktEpisodeMappingService @Inject constructor(
                 if (meta.videos.any { it.season != null && it.episode != null }) {
                     return meta
                 }
-            }
         }
         return null
     }

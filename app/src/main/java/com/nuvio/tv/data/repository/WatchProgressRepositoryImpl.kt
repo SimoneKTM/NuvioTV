@@ -22,6 +22,7 @@ import com.nuvio.tv.core.tracking.mergeWatchedEpisodeProjection
 import com.nuvio.tv.core.tracking.TrackingProviderId
 import com.nuvio.tv.core.tracking.TrackingRefreshIntent
 import com.nuvio.tv.core.tracking.buildTrackingMediaReference
+import com.nuvio.tv.data.repository.buildAddonIdCandidates
 import com.nuvio.tv.core.tracking.effectiveWatchProgressSource
 import com.nuvio.tv.core.tracking.providerId
 import com.nuvio.tv.domain.repository.MetaRepository
@@ -198,27 +199,11 @@ class WatchProgressRepositoryImpl @Inject constructor(
         contentId: String,
         contentType: String
     ): ContentMetadata? {
-        val typeCandidates = buildList {
-            val normalized = contentType.lowercase()
-            if (normalized.isNotBlank()) add(normalized)
-            if (normalized in listOf("series", "tv")) {
-                add("series")
-                add("tv")
-            } else {
-                add("movie")
-            }
-        }.distinct()
+        val idCandidates = buildAddonIdCandidates(contentId, contentType)
 
-        val idCandidates = buildList {
-            add(contentId)
-            if (contentId.startsWith("tmdb:")) add(contentId.substringAfter(':'))
-            if (contentId.startsWith("trakt:")) add(contentId.substringAfter(':'))
-        }.distinct()
-
-        for (type in typeCandidates) {
-            for (candidateId in idCandidates) {
+        for ((candidateType, candidateId) in idCandidates) {
                 val result = withTimeoutOrNull(3500) {
-                    metaRepository.getMetaFromPrimaryAddon(type = type, id = candidateId)
+                    metaRepository.getMetaFromPrimaryAddon(type = candidateType, id = candidateId)
                         .first { it !is NetworkResult.Loading }
                 } ?: continue
 
@@ -243,7 +228,6 @@ class WatchProgressRepositoryImpl @Inject constructor(
                     episodes = episodes,
                     runtimeMs = parseRuntimeToMs(meta.runtime)
                 )
-            }
         }
         return null
     }
