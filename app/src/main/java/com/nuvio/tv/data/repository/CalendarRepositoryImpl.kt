@@ -240,7 +240,8 @@ class CalendarRepositoryImpl @Inject constructor(
                     type = candidateType,
                     id = candidateId,
                     sourceAddonBaseUrl = item.meta.sourceAddonBaseUrl,
-                    rawId = rawNumericId
+                    rawId = rawNumericId,
+                    preferAnimeAddons = true
                 ).first { it !is NetworkResult.Loading }
             } ?: continue
 
@@ -257,7 +258,8 @@ class CalendarRepositoryImpl @Inject constructor(
                     description = item.meta.description ?: addonMeta.description,
                     imdbRating = addonMeta.imdbRating ?: item.meta.imdbRating,
                     genres = if (addonMeta.genres.isNotEmpty()) addonMeta.genres else item.meta.genres,
-                    releaseInfo = addonMeta.releaseInfo ?: item.meta.releaseInfo
+                    releaseInfo = addonMeta.releaseInfo ?: item.meta.releaseInfo,
+                    sourceAddonBaseUrl = addonMeta.sourceAddonBaseUrl ?: item.meta.sourceAddonBaseUrl
                 )
                 if (updatedMeta != item.meta) {
                     Log.d(TAG, "Addon enriched: ${item.meta.name} name=${updatedMeta.name != item.meta.name} poster=${updatedMeta.poster != item.meta.poster} bg=${updatedMeta.background != item.meta.background} logo=${updatedMeta.logo != item.meta.logo}")
