@@ -37,7 +37,8 @@ class CalendarRepositoryImpl @Inject constructor(
 
     companion object {
         private const val TAG = "CalendarRepo"
-        private const val ADDON_ENRICHMENT_TIMEOUT_MS = 6_000L
+        // Long enough for the anime-first race + backup race (each addon capped at 5s).
+        private const val ADDON_ENRICHMENT_TIMEOUT_MS = 12_000L
         private const val ADDON_ENRICHMENT_CONCURRENCY = 4
     }
 
@@ -124,11 +125,14 @@ class CalendarRepositoryImpl @Inject constructor(
                     semaphore.withPermit {
                         try {
                             val enriched = resolveAddonMetaForItem(item)
-                            enrichedAddonIds.add(item.meta.id)
+                            // Success returns a copied item; failures return the
+                            // original reference and stay eligible for a later load.
+                            if (enriched !== item) {
+                                enrichedAddonIds.add(item.meta.id)
+                            }
                             enriched
                         } catch (e: Exception) {
                             Log.w(TAG, "Addon enrichment failed for ${item.meta.name}: ${e.message}")
-                            enrichedAddonIds.add(item.meta.id)
                             item
                         }
                     }
