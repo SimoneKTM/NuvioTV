@@ -102,8 +102,7 @@ class CalendarRepositoryImpl @Inject constructor(
         emit(filteredItems)
 
         val enrichedItems = enrichItemsWithTmdbImages(filteredItems)
-        val addonEnrichedItems = enrichItemsWithAddonData(enrichedItems)
-        emit(addonEnrichedItems)
+        emit(enrichedItems)
     }
 
     private suspend fun enrichItemsWithTmdbImages(items: List<CalendarItem>): List<CalendarItem> {
