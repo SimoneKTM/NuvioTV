@@ -60,6 +60,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -221,13 +222,7 @@ class MetaDetailsViewModel @Inject constructor(
 
     private fun observeAnimeLayoutSource() {
         viewModelScope.launch {
-            val normalizedSource = preferredAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
-            animeAddonRepository.getInstalledAnimeAddons()
-                .map { addons ->
-                    normalizedSource.isNotEmpty() && addons.any { addon ->
-                        addon.baseUrl.trim().trimEnd('/').lowercase() == normalizedSource
-                    }
-                }
+            resolveAnimeLayoutSource()
                 .distinctUntilChanged()
                 .collectLatest { active ->
                     animeLayoutActive.value = active
@@ -237,18 +232,49 @@ class MetaDetailsViewModel @Inject constructor(
 
     private fun observeExtraLayoutSource() {
         viewModelScope.launch {
-            val normalizedSource = preferredAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
-            extraAddonRepository.getInstalledExtraAddons()
-                .map { addons ->
-                    normalizedSource.isNotEmpty() && addons.any { addon ->
-                        addon.baseUrl.trim().trimEnd('/').lowercase() == normalizedSource
-                    }
-                }
+            resolveExtraLayoutSource()
                 .distinctUntilChanged()
                 .collectLatest { active ->
                     extraLayoutActive.value = active
                 }
         }
+    }
+
+    /**
+     * One-shot provenance check for [preferredAddonBaseUrl].
+     * [loadMeta] must await this before reading [metaNamespace] — the async
+     * observers above race the first load and make Anime/Extra search hits
+     * query the HOME (or ALL) pool instead of their own tab.
+     */
+    private suspend fun resolveLayoutSource() {
+        animeLayoutActive.value = resolveAnimeLayoutSource().first()
+        extraLayoutActive.value = if (animeLayoutActive.value) {
+            false
+        } else {
+            resolveExtraLayoutSource().first()
+        }
+    }
+
+    private fun resolveAnimeLayoutSource(): Flow<Boolean> {
+        val normalizedSource = preferredAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
+        if (normalizedSource.isEmpty()) return flowOf(false)
+        return animeAddonRepository.getInstalledAnimeAddons()
+            .map { addons ->
+                addons.any { addon ->
+                    addon.baseUrl.trim().trimEnd('/').lowercase() == normalizedSource
+                }
+            }
+    }
+
+    private fun resolveExtraLayoutSource(): Flow<Boolean> {
+        val normalizedSource = preferredAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
+        if (normalizedSource.isEmpty()) return flowOf(false)
+        return extraAddonRepository.getInstalledExtraAddons()
+            .map { addons ->
+                addons.any { addon ->
+                    addon.baseUrl.trim().trimEnd('/').lowercase() == normalizedSource
+                }
+            }
     }
 
     private fun observeHideUnreleasedContent() {
@@ -681,6 +707,7 @@ class MetaDetailsViewModel @Inject constructor(
 
     private fun loadMeta() {
         viewModelScope.launch {
+            resolveLayoutSource()
             cancelCommentsRequests()
             _uiState.update {
                 it.copy(

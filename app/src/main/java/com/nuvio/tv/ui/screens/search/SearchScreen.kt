@@ -371,8 +371,12 @@ fun SearchScreen(
             .flatMap { row -> row.items.map { SearchGridEntry(it, row.addonBaseUrl) } }
             .filter { !it.item.id.startsWith("__placeholder_") }
             .filter { entry ->
+                // Anime/TVDB catalogs often return only a portrait poster.
+                // Requiring a backdrop hid every hit from the Anime tab.
                 val item = entry.item
-                !item.background.isNullOrBlank() || !item.landscapePoster.isNullOrBlank()
+                !item.poster.isNullOrBlank() ||
+                    !item.background.isNullOrBlank() ||
+                    !item.landscapePoster.isNullOrBlank()
             }
             .distinctBy { it.key() }
             .sortedWith(
