@@ -184,10 +184,23 @@ class CalendarRepositoryImpl @Inject constructor(
     }
 
     private suspend fun enrichItemsWithAddonData(items: List<CalendarItem>): List<CalendarItem> {
-        Log.d(TAG, "Enriching ${items.size} items with addon data")
+        val itemsNeedingEnrichment = items.filter {
+            it.meta.poster == null || it.meta.background == null || it.meta.logo == null ||
+                it.meta.description == null || it.meta.imdbRating == null
+        }
+        if (itemsNeedingEnrichment.isEmpty()) {
+            Log.d(TAG, "All items have complete data, skipping addon enrichment")
+            return items
+        }
+        Log.d(TAG, "Enriching ${itemsNeedingEnrichment.size}/${items.size} items with addon data")
         return coroutineScope {
             items.map { item ->
                 async {
+                    if (item.meta.poster != null && item.meta.background != null && item.meta.logo != null &&
+                        item.meta.description != null && item.meta.imdbRating != null
+                    ) {
+                        return@async item
+                    }
                     try {
                         val (type, addonId) = extractAddonQueryId(item.meta.id, item.meta.rawType)
                             ?: return@async item
