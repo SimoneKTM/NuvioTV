@@ -173,7 +173,7 @@ fun CatalogPickerContent(
                                 null
                             }
                             Text(
-                                text = listOfNotNull("${catalog.type} - ${catalog.addonName}", animeBadge, extraBadge, supportingGenreText).joinToString(" • "),
+                                text = listOfNotNull("${catalog.type} - ${catalog.addonName}", supportingGenreText, animeBadge, extraBadge).joinToString(" • "),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = NuvioTheme.colors.TextTertiary
                             )
