@@ -161,7 +161,10 @@ class CollectionEditorViewModel @Inject constructor(
             val availableCatalogs = addons.flatMap { addon ->
                 addon.catalogs
                     .filter { catalog ->
-                        catalog.extra.none { extra -> extra.isRequired && !extra.name.equals("genre", ignoreCase = true) }
+                        val isSearchOnly = catalog.extra.any {
+                            it.name.equals("search", ignoreCase = true) && it.isRequired
+                        } || catalog.extraRequired.any { it.equals("search", ignoreCase = true) }
+                        !isSearchOnly
                     }
                     .map { catalog ->
                         val genreExtra = catalog.extra.firstOrNull { it.name.equals("genre", ignoreCase = true) }
@@ -172,7 +175,8 @@ class CollectionEditorViewModel @Inject constructor(
                             catalogId = catalog.id,
                             catalogName = catalog.name,
                             genreOptions = genreExtra?.options.orEmpty(),
-                            genreRequired = genreExtra?.isRequired == true,
+                            genreRequired = genreExtra?.isRequired == true ||
+                                catalog.extraRequired.any { it.equals("genre", ignoreCase = true) },
                             animeAddon = addon.id in animeAddonIds,
                             extraAddon = addon.id in extraAddonIds
                         )

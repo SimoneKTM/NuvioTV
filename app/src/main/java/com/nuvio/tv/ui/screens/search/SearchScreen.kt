@@ -370,6 +370,10 @@ fun SearchScreen(
         uiState.catalogRows
             .flatMap { row -> row.items.map { SearchGridEntry(it, row.addonBaseUrl) } }
             .filter { !it.item.id.startsWith("__placeholder_") }
+            .filter { entry ->
+                val item = entry.item
+                !item.background.isNullOrBlank() || !item.landscapePoster.isNullOrBlank()
+            }
             .distinctBy { it.key() }
             .sortedWith(
                 compareByDescending<SearchGridEntry> { it.item.imdbRating ?: -1f }
