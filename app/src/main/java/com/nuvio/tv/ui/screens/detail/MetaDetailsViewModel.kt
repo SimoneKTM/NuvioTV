@@ -176,6 +176,8 @@ class MetaDetailsViewModel @Inject constructor(
         get() = when {
             animeLayoutActive.value -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME
             extraLayoutActive.value -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA
+            preferredAddonBaseUrl.isNullOrBlank() ->
+                com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
             else -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_HOME
         }
 

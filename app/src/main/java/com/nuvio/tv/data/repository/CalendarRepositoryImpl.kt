@@ -149,6 +149,7 @@ class CalendarRepositoryImpl @Inject constructor(
                     id = candidateId,
                     sourceAddonBaseUrl = item.meta.sourceAddonBaseUrl,
                     rawId = rawNumericId,
+                    namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL,
                     preferAnimeAddons = true
                 ).first { it !is NetworkResult.Loading }
             } ?: continue

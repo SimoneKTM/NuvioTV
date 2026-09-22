@@ -164,6 +164,30 @@ class FolderDetailViewModel @Inject constructor(
             else -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_HOME
         }
 
+    /**
+     * Namespace for a single item based on the collection source that provided
+     * it (mixed-source folders: an Anime catalog always uses TVDB metadata
+     * even when the folder itself was opened from Home). Falls back to the
+     * global "all" namespace when the item's source is unknown.
+     */
+    private fun metaNamespaceForItem(item: MetaPreview): String {
+        val matchingSources = _uiState.value.tabs
+            .filter { tab ->
+                !tab.isAllTab && tab.catalogRow?.items?.any { it.id == item.id } == true
+            }
+            .mapNotNull { it.source as? AddonCatalogCollectionSource }
+        return when {
+            matchingSources.any { it.extraAddon } ->
+                com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA
+            matchingSources.any { it.animeAddon } ->
+                com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME
+            matchingSources.isNotEmpty() ->
+                com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_HOME
+            else ->
+                com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
+        }
+    }
+
     private suspend fun installedAddons(): List<com.nuvio.tv.domain.model.Addon> =
         (addonRepository.getInstalledAddons().first().enabledAddons() +
             animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons() +
@@ -1291,7 +1315,7 @@ class FolderDetailViewModel @Inject constructor(
             if (externalMetaEnabled) {
                 val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
                 val rawId = extractRawNumericId(item.id)
-                val metaResult = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId, metaNamespace)
+                val metaResult = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId, metaNamespaceForItem(item))
                     .first { it is NetworkResult.Success || it is NetworkResult.Error }
                 when {
                     metaResult is NetworkResult.Success -> {
@@ -1628,7 +1652,7 @@ class FolderDetailViewModel @Inject constructor(
                     prefetchedExternalMetaIds.add(item.id)
                     val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
                     val rawId = extractRawNumericId(item.id)
-                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId, metaNamespace)
+                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId, metaNamespaceForItem(item))
                         .first { it is com.nuvio.tv.core.network.NetworkResult.Success || it is com.nuvio.tv.core.network.NetworkResult.Error }
                     if (result is com.nuvio.tv.core.network.NetworkResult.Success) {
                         enrichedItemIds.add(item.id)
@@ -1665,7 +1689,7 @@ class FolderDetailViewModel @Inject constructor(
                     prefetchedExternalMetaIds.add(item.id)
                     val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
                     val rawId = extractRawNumericId(item.id)
-                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId, metaNamespace)
+                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId, metaNamespaceForItem(item))
                         .first { it is com.nuvio.tv.core.network.NetworkResult.Success || it is com.nuvio.tv.core.network.NetworkResult.Error }
                     if (result is com.nuvio.tv.core.network.NetworkResult.Success) {
                         val meta = result.data

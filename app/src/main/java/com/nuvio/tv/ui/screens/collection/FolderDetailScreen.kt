@@ -124,6 +124,13 @@ fun FolderDetailScreen(
     val trailerPreviewAudioUrls by viewModel.trailerPreviewAudioUrls.collectAsStateWithLifecycle()
     val scrollToTopTrigger by viewModel.scrollToTopTrigger.collectAsStateWithLifecycle()
 
+    fun sourceAddonBaseUrlFor(itemId: String, fallback: String): String {
+        val sourceRow = uiState.tabs.firstOrNull { tab ->
+            !tab.isAllTab && tab.catalogRow?.items?.any { it.id == itemId } == true
+        }?.catalogRow
+        return sourceRow?.addonBaseUrl?.takeIf { it.isNotBlank() } ?: fallback
+    }
+
     fun itemClick(id: String, type: String, addonBaseUrl: String) {
         if (type == "channel") {
             val channel = uiState.tabs.firstNotNullOfOrNull { tab ->
@@ -134,12 +141,12 @@ fun FolderDetailScreen(
                 return
             }
         }
-        onNavigateToDetail(id, type, addonBaseUrl)
+        onNavigateToDetail(id, type, sourceAddonBaseUrlFor(id, addonBaseUrl))
     }
 
     val itemLongPress: (MetaPreview, String) -> Unit = { item, addonBaseUrl ->
         if (item.apiType != "channel") {
-            viewModel.posterOptions.show(item, addonBaseUrl)
+            viewModel.posterOptions.show(item, sourceAddonBaseUrlFor(item.id, addonBaseUrl))
         }
     }
 

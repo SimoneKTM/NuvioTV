@@ -132,7 +132,6 @@ import kotlinx.coroutines.flow.map
 import kotlin.math.roundToInt
 
 internal enum class SettingsCategory {
-    EXPERIENCE,
     ACCOUNT,
     PROFILES,
     ANIME,
@@ -170,7 +169,6 @@ private enum class AnimeSettingsSection {
     ContentDiscovery,
     Layout,
     Integrations,
-    ConnectedServices,
     Tmdb,
     MdbList,
     Tvdb,
@@ -213,18 +211,12 @@ private val extraLogoOptions = listOf(
     ExtraLogoOption("Cuffie", Icons.Default.Headphones)
 )
 
-internal enum class SettingsSectionDestination {
-    Inline,
-    External
-}
-
 internal data class SettingsSectionSpec(
     val category: SettingsCategory,
     val title: String,
     val icon: ImageVector? = null,
     @param:RawRes val rawIconRes: Int? = null,
-    val subtitle: String,
-    val destination: SettingsSectionDestination
+    val subtitle: String
 )
 
 private const val SETTINGS_DETAIL_FOCUS_DELAY_MS = 120L
@@ -240,109 +232,102 @@ private sealed interface ExperienceModeLoadState {
 @Composable
 private fun rememberSettingsSectionSpecs() = listOf(
     SettingsSectionSpec(
-        category = SettingsCategory.EXPERIENCE,
-        title = stringResource(R.string.settings_experience),
-        icon = Icons.Default.Tune,
-        subtitle = stringResource(R.string.settings_experience_subtitle),
-        destination = SettingsSectionDestination.Inline
-    ),
-    SettingsSectionSpec(
         category = SettingsCategory.ACCOUNT,
         title = stringResource(R.string.settings_account),
         icon = Icons.Default.Person,
         subtitle = stringResource(R.string.settings_account_subtitle),
-        destination = SettingsSectionDestination.Inline
+
     ),
     SettingsSectionSpec(
         category = SettingsCategory.PROFILES,
         title = stringResource(R.string.settings_profiles),
         icon = Icons.Default.People,
         subtitle = stringResource(R.string.settings_profiles_subtitle),
-        destination = SettingsSectionDestination.Inline
+
     ),
     SettingsSectionSpec(
         category = SettingsCategory.ANIME,
         title = stringResource(R.string.nav_anime),
         icon = Icons.Default.FilterDrama,
         subtitle = stringResource(R.string.settings_anime_subtitle),
-        destination = SettingsSectionDestination.Inline
+
     ),
     SettingsSectionSpec(
         category = SettingsCategory.EXTRA,
         title = stringResource(R.string.nav_extra),
         icon = Icons.Default.Star,
         subtitle = stringResource(R.string.extra_settings_subtitle),
-        destination = SettingsSectionDestination.Inline
+
     ),
     SettingsSectionSpec(
         category = SettingsCategory.APPEARANCE,
         title = stringResource(R.string.appearance_title),
         icon = Icons.Default.Palette,
         subtitle = stringResource(R.string.appearance_subtitle),
-        destination = SettingsSectionDestination.Inline
+
     ),
     SettingsSectionSpec(
         category = SettingsCategory.LAYOUT,
         title = stringResource(R.string.settings_layout),
         icon = Icons.Default.GridView,
         subtitle = stringResource(R.string.settings_layout_subtitle),
-        destination = SettingsSectionDestination.Inline
+
     ),
     SettingsSectionSpec(
         category = SettingsCategory.CONTENT_DISCOVERY,
         title = stringResource(R.string.settings_content_discovery),
         icon = Icons.Default.Explore,
         subtitle = stringResource(R.string.settings_content_discovery_subtitle),
-        destination = SettingsSectionDestination.Inline
+
     ),
     SettingsSectionSpec(
         category = SettingsCategory.INTEGRATION,
         title = stringResource(R.string.settings_integration),
         icon = Icons.Default.Link,
         subtitle = "",
-        destination = SettingsSectionDestination.Inline
+
     ),
     SettingsSectionSpec(
         category = SettingsCategory.LIBRARY,
         title = stringResource(R.string.settings_library_title),
         icon = Icons.Default.Sync,
         subtitle = stringResource(R.string.settings_library_subtitle),
-        destination = SettingsSectionDestination.Inline
+
     ),
     SettingsSectionSpec(
         category = SettingsCategory.PLAYBACK,
         title = stringResource(R.string.settings_playback),
         icon = Icons.Rounded.PlayArrow,
         subtitle = stringResource(R.string.settings_playback_subtitle),
-        destination = SettingsSectionDestination.Inline
+
     ),
     SettingsSectionSpec(
         category = SettingsCategory.LIVE_TV,
         title = stringResource(R.string.nav_live_tv),
         icon = Icons.Default.LiveTv,
         subtitle = stringResource(R.string.settings_live_tv_subtitle),
-        destination = SettingsSectionDestination.Inline
+
     ),
     SettingsSectionSpec(
         category = SettingsCategory.ABOUT,
         title = stringResource(R.string.about_title),
         icon = Icons.Default.Info,
         subtitle = stringResource(R.string.settings_about_subtitle),
-        destination = SettingsSectionDestination.Inline
+
     ),
     SettingsSectionSpec(
         category = SettingsCategory.ADVANCED,
         title = stringResource(R.string.settings_advanced),
         icon = Icons.Default.Build,
         subtitle = stringResource(R.string.settings_advanced_subtitle),
-        destination = SettingsSectionDestination.Inline
+
     ),
     SettingsSectionSpec(
         category = SettingsCategory.DEBUG,
         title = stringResource(R.string.settings_debug),
         icon = Icons.Default.BugReport,
         subtitle = stringResource(R.string.settings_debug_subtitle),
-        destination = SettingsSectionDestination.Inline
+
     )
 )
 
@@ -357,8 +342,6 @@ fun SettingsScreen(
     onNavigateToManageProfiles: () -> Unit = {},
     onNavigateToSupportersContributors: () -> Unit = {},
     onNavigateToLicensesAttributions: () -> Unit = {},
-    onNavigateToLiveTv: () -> Unit = {},
-    onNavigateToVpn: () -> Unit = {},
     profileViewModel: ProfileSettingsViewModel = hiltViewModel(),
     experienceModeViewModel: ExperienceModeSettingsViewModel = hiltViewModel()
 ) {
@@ -386,7 +369,6 @@ fun SettingsScreen(
     val visibleSections = remember(isPrimaryProfileActive, isEssentialMode, allSectionSpecs) {
         allSectionSpecs.filter { section ->
             when (section.category) {
-                SettingsCategory.EXPERIENCE -> false
                 SettingsCategory.DEBUG -> BuildConfig.IS_DEBUG_BUILD && !isEssentialMode
                 SettingsCategory.PROFILES -> isPrimaryProfileActive
                 SettingsCategory.ACCOUNT -> isPrimaryProfileActive
@@ -412,7 +394,6 @@ fun SettingsScreen(
     val contentFocusRequesters = remember {
         mapOf(
             SettingsCategory.APPEARANCE to FocusRequester(),
-            SettingsCategory.EXPERIENCE to FocusRequester(),
             SettingsCategory.PROFILES to FocusRequester(),
             SettingsCategory.ANIME to FocusRequester(),
             SettingsCategory.EXTRA to FocusRequester(),
@@ -442,7 +423,6 @@ fun SettingsScreen(
     val animeContentDiscoveryFocusRequester = remember { FocusRequester() }
     val animeLayoutFocusRequester = remember { FocusRequester() }
     val animeIntegrationsFocusRequester = remember { FocusRequester() }
-    val animeConnectedServicesFocusRequester = remember { FocusRequester() }
     val animeTmdbFocusRequester = remember { FocusRequester() }
     val animeMdbListFocusRequester = remember { FocusRequester() }
     val animeTvdbFocusRequester = remember { FocusRequester() }
@@ -518,20 +498,13 @@ fun SettingsScreen(
             val railListState = rememberLazyListState()
 
             val onSectionClick: (SettingsSectionSpec) -> Unit = { section ->
-                if (section.destination == SettingsSectionDestination.External) {
-                    when (section.category) {
-                        SettingsCategory.ACCOUNT -> onNavigateToAuthQrSignIn()
-                        else -> Unit
-                    }
-                } else {
-                    if (section.category == SettingsCategory.INTEGRATION) {
-                        integrationSection = IntegrationSettingsSection.Hub
-                    }
-                    allowDetailAutofocus = true
-                    selectedCategory = section.category
-                    pendingContentFocusCategory = section.category
-                    pendingContentFocusRequestId += 1L
+                if (section.category == SettingsCategory.INTEGRATION) {
+                    integrationSection = IntegrationSettingsSection.Hub
                 }
+                allowDetailAutofocus = true
+                selectedCategory = section.category
+                pendingContentFocusCategory = section.category
+                pendingContentFocusRequestId += 1L
             }
 
             if (isHorizonStyle) {
@@ -630,9 +603,7 @@ fun SettingsScreen(
                                     focusRequester = railFocusRequesters[section.category],
                                     onClick = { onSectionClick(section) },
                                     onFocused = {
-                                        if (section.destination == SettingsSectionDestination.Inline) {
-                                            focusedTabCategory = section.category
-                                        }
+                                        focusedTabCategory = section.category
                                     },
                                     onFocusedTabPositioned = { tabCoordinates ->
                                         topBarCoordinates?.let { container ->
@@ -707,7 +678,6 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                                 animeContentDiscoveryFocusRequester = animeContentDiscoveryFocusRequester,
                                 animeLayoutFocusRequester = animeLayoutFocusRequester,
                                 animeIntegrationsFocusRequester = animeIntegrationsFocusRequester,
-                                animeConnectedServicesFocusRequester = animeConnectedServicesFocusRequester,
                                 animeTmdbFocusRequester = animeTmdbFocusRequester,
                                 animeMdbListFocusRequester = animeMdbListFocusRequester,
                                 animeTvdbFocusRequester = animeTvdbFocusRequester,
@@ -725,8 +695,6 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                                 onNavigateToAuthQrSignIn = onNavigateToAuthQrSignIn,
                                 onNavigateToSupportersContributors = onNavigateToSupportersContributors,
                                 onNavigateToLicensesAttributions = onNavigateToLicensesAttributions,
-                                onNavigateToLiveTv = onNavigateToLiveTv,
-                                onNavigateToVpn = onNavigateToVpn,
                                 onCategoryChange = { selectedCategory = it }
                             )
                         }
@@ -886,7 +854,6 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                         animeContentDiscoveryFocusRequester = animeContentDiscoveryFocusRequester,
                         animeLayoutFocusRequester = animeLayoutFocusRequester,
                         animeIntegrationsFocusRequester = animeIntegrationsFocusRequester,
-                        animeConnectedServicesFocusRequester = animeConnectedServicesFocusRequester,
                         animeTmdbFocusRequester = animeTmdbFocusRequester,
                         animeMdbListFocusRequester = animeMdbListFocusRequester,
                         animeTvdbFocusRequester = animeTvdbFocusRequester,
@@ -904,8 +871,6 @@ integrationAnimeSkipFocusRequester = integrationAnimeSkipFocusRequester,
                         onNavigateToAuthQrSignIn = onNavigateToAuthQrSignIn,
                         onNavigateToSupportersContributors = onNavigateToSupportersContributors,
                         onNavigateToLicensesAttributions = onNavigateToLicensesAttributions,
-                        onNavigateToLiveTv = onNavigateToLiveTv,
-                        onNavigateToVpn = onNavigateToVpn,
                         onCategoryChange = { selectedCategory = it }
                     )
                 }
@@ -941,7 +906,6 @@ private fun SettingsDetailPane(
     animeContentDiscoveryFocusRequester: FocusRequester,
     animeLayoutFocusRequester: FocusRequester,
     animeIntegrationsFocusRequester: FocusRequester,
-    animeConnectedServicesFocusRequester: FocusRequester,
     animeTmdbFocusRequester: FocusRequester,
     animeMdbListFocusRequester: FocusRequester,
     animeTvdbFocusRequester: FocusRequester,
@@ -960,19 +924,9 @@ private fun SettingsDetailPane(
     onNavigateToAuthQrSignIn: () -> Unit,
     onNavigateToSupportersContributors: () -> Unit,
     onNavigateToLicensesAttributions: () -> Unit,
-    onNavigateToLiveTv: () -> Unit,
-    onNavigateToVpn: () -> Unit,
     onCategoryChange: (SettingsCategory) -> Unit
 ) {
     when (selectedCategory) {
-        SettingsCategory.EXPERIENCE -> EssentialAdvancedSettingsContent(
-            experienceModeViewModel = experienceModeViewModel,
-            initialFocusRequester = if (allowDetailAutofocus) {
-                contentFocusRequesters[SettingsCategory.EXPERIENCE]
-            } else {
-                null
-            }
-        )
         SettingsCategory.PROFILES -> ProfileSettingsContent(
             onManageProfiles = onNavigateToManageProfiles,
             initialFocusRequester = if (allowDetailAutofocus) {
@@ -994,7 +948,6 @@ private fun SettingsDetailPane(
             contentDiscoveryFocusRequester = animeContentDiscoveryFocusRequester,
             layoutFocusRequester = animeLayoutFocusRequester,
             integrationsFocusRequester = animeIntegrationsFocusRequester,
-            connectedServicesFocusRequester = animeConnectedServicesFocusRequester,
             tmdbFocusRequester = animeTmdbFocusRequester,
             mdbListFocusRequester = animeMdbListFocusRequester,
             tvdbFocusRequester = animeTvdbFocusRequester,
@@ -1046,9 +999,7 @@ private fun SettingsDetailPane(
                     contentFocusRequesters[SettingsCategory.PLAYBACK]
                 } else {
                     null
-                },
-                onNavigateToLiveTv = onNavigateToLiveTv,
-                onNavigateToVpn = onNavigateToVpn
+                }
             )
         }
         SettingsCategory.ADVANCED -> if (isEssentialMode) {
@@ -1114,8 +1065,7 @@ private fun SettingsDetailPane(
                 contentFocusRequesters[SettingsCategory.LIVE_TV]
             } else {
                 null
-            },
-            onNavigateToLiveTv = onNavigateToLiveTv
+            }
         )
         SettingsCategory.CONTENT_DISCOVERY -> ContentDiscoverySettingsContent(
             onNavigateToAddons = onNavigateToAddons,
@@ -1274,7 +1224,6 @@ private fun AnimeSettingsContent(
     contentDiscoveryFocusRequester: FocusRequester,
     layoutFocusRequester: FocusRequester,
     integrationsFocusRequester: FocusRequester,
-    connectedServicesFocusRequester: FocusRequester,
     tmdbFocusRequester: FocusRequester,
     mdbListFocusRequester: FocusRequester,
     tvdbFocusRequester: FocusRequester,
@@ -1294,7 +1243,6 @@ private fun AnimeSettingsContent(
             AnimeSettingsSection.ContentDiscovery -> contentDiscoveryFocusRequester
             AnimeSettingsSection.Layout -> layoutFocusRequester
             AnimeSettingsSection.Integrations -> integrationsFocusRequester
-            AnimeSettingsSection.ConnectedServices -> connectedServicesFocusRequester
             AnimeSettingsSection.Tmdb -> tmdbFocusRequester
             AnimeSettingsSection.MdbList -> mdbListFocusRequester
             AnimeSettingsSection.Tvdb -> tvdbFocusRequester
@@ -1476,13 +1424,6 @@ private fun AnimeSettingsContent(
                     }
                 }
             }
-        }
-
-        AnimeSettingsSection.ConnectedServices -> {
-            ConnectedServicesSettingsContent(
-                initialFocusRequester = connectedServicesFocusRequester,
-                autoFocusEnabled = autoFocusEnabled
-            )
         }
 
         AnimeSettingsSection.Tmdb -> {
@@ -1821,8 +1762,7 @@ private fun ExtraSettingsContent(
 
 @Composable
 private fun LiveTvSettingsContent(
-    initialFocusRequester: FocusRequester?,
-    onNavigateToLiveTv: () -> Unit
+    initialFocusRequester: FocusRequester?
 ) {
     Column(
         modifier = Modifier.fillMaxSize(),

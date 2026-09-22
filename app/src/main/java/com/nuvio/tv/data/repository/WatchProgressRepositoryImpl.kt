@@ -203,7 +203,11 @@ class WatchProgressRepositoryImpl @Inject constructor(
 
         for ((candidateType, candidateId) in idCandidates) {
                 val result = withTimeoutOrNull(3500) {
-                    metaRepository.getMetaFromPrimaryAddon(type = candidateType, id = candidateId)
+                    metaRepository.getMetaFromPrimaryAddon(
+                        type = candidateType,
+                        id = candidateId,
+                        namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
+                    )
                         .first { it !is NetworkResult.Loading }
                 } ?: continue
 

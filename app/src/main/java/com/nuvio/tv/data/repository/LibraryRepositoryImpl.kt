@@ -165,7 +165,9 @@ class LibraryRepositoryImpl @Inject constructor(
 
                         val result = metaRepository.getMetaFromAllAddons(
                             type = type,
-                            id = addonId
+                            id = addonId,
+                            sourceAddonBaseUrl = item.addonBaseUrl?.takeIf { it.isNotBlank() },
+                            namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
                         ).first { it !is NetworkResult.Loading }
 
                         if (result is NetworkResult.Success) {
@@ -431,7 +433,11 @@ class LibraryRepositoryImpl @Inject constructor(
         items.take(20).forEach { entry ->
             hydratedLogoIds.add(entry.id)
             runCatching {
-                val result = metaRepository.getMetaFromPrimaryAddon(entry.type, entry.id)
+                val result = metaRepository.getMetaFromPrimaryAddon(
+                    entry.type,
+                    entry.id,
+                    com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
+                )
                     .firstOrNull { it is NetworkResult.Success }
                 val logo = (result as? NetworkResult.Success)?.data?.logo
                 if (logo != null) {

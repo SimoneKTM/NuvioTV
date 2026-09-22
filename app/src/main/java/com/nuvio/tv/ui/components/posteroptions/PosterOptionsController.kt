@@ -504,7 +504,11 @@ class PosterOptionsController @Inject constructor(
             item.apiType.equals("anime", ignoreCase = true)
         ) "series" else item.apiType
         var episodes: List<Video> = emptyList()
-        metaRepository.getMetaFromPrimaryAddon(type, item.id)
+        metaRepository.getMetaFromPrimaryAddon(
+            type,
+            item.id,
+            com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
+        )
             .collect { networkResult ->
                 if (networkResult is NetworkResult.Success) {
                     episodes = networkResult.data.videos

@@ -112,9 +112,7 @@ fun PlaybackSettingsScreen(
 @Composable
 fun PlaybackSettingsContent(
     viewModel: PlaybackSettingsViewModel = hiltViewModel(),
-    initialFocusRequester: FocusRequester? = null,
-    onNavigateToLiveTv: () -> Unit = {},
-    onNavigateToVpn: () -> Unit = {}
+    initialFocusRequester: FocusRequester? = null
 ) {
     val playerSettings by viewModel.playerSettings.collectAsStateWithLifecycle(initialValue = PlayerSettings())
     val torrentSettings by viewModel.torrentSettingsFlow.collectAsStateWithLifecycle(
@@ -395,9 +393,7 @@ fun PlaybackSettingsContent(
                 onSetEnableHttp2 = { enabled ->
                     coroutineScope.launch { viewModel.setEnableHttp2(enabled) }
                     memoryUsageTrigger++
-                },
-                onNavigateToLiveTv = onNavigateToLiveTv,
-                onNavigateToVpn = onNavigateToVpn
+                }
             )
         }
 

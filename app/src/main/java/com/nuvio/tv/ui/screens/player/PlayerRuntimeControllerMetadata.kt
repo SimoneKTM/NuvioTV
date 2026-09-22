@@ -21,7 +21,8 @@ internal fun PlayerRuntimeController.fetchMetaDetails(id: String?, type: String?
             val result = metaRepository.getMetaFromAllAddons(
                 type = type,
                 id = id,
-                sourceAddonBaseUrl = playbackSourceAddonBaseUrl
+                sourceAddonBaseUrl = playbackSourceAddonBaseUrl,
+                namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
             ).first { it !is NetworkResult.Loading }
         ) {
             is NetworkResult.Success -> {

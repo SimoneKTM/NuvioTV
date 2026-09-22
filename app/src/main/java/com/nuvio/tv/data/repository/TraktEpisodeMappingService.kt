@@ -387,7 +387,11 @@ class TraktEpisodeMappingService @Inject constructor(
         for ((candidateType, candidateId) in idCandidates) {
                 val result = try {
                     withTimeoutOrNull(8000) {
-                        metaRepository.getMetaFromAllAddons(type = candidateType, id = candidateId)
+                        metaRepository.getMetaFromAllAddons(
+                            type = candidateType,
+                            id = candidateId,
+                            namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
+                        )
                             .dropWhile { it is NetworkResult.Loading }
                             .firstOrNull()
                     }

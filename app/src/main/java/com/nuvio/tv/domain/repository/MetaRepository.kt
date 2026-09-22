@@ -33,5 +33,7 @@ interface MetaRepository {
         const val META_NAMESPACE_HOME = "home"
         const val META_NAMESPACE_ANIME = "anime"
         const val META_NAMESPACE_EXTRA = "extra"
+        /** Global namespace: searches regular + anime + extra addon pools. */
+        const val META_NAMESPACE_ALL = "all"
     }
 }

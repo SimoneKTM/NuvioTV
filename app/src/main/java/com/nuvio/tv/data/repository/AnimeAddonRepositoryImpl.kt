@@ -140,7 +140,11 @@ class AnimeAddonRepositoryImpl @Inject constructor(
                     }
                     if (fresh != cached) {
                         emit(fresh)
+                    } else if (cached.isEmpty()) {
+                        emit(emptyList())
                     }
+                } else if (cached.isEmpty()) {
+                    emit(emptyList())
                 }
             }.flowOn(Dispatchers.IO)
         }

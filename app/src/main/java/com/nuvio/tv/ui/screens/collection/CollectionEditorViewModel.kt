@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.R
 import com.nuvio.tv.core.sync.CollectionSyncService
+import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.core.tmdb.TmdbCollectionSourceResolver
 import com.nuvio.tv.core.trakt.TraktPublicListSearchResult
 import com.nuvio.tv.core.trakt.TraktPublicListSourceResolver
@@ -35,6 +36,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -131,6 +134,7 @@ class CollectionEditorViewModel @Inject constructor(
     private val addonRepository: AddonRepository,
     private val animeAddonRepository: AnimeAddonRepository,
     private val extraAddonRepository: ExtraAddonRepository,
+    private val profileManager: ProfileManager,
     private val liveTvSettingsDataStore: com.nuvio.tv.data.local.LiveTvSettingsDataStore,
     private val tmdbCollectionSourceResolver: TmdbCollectionSourceResolver,
     private val traktPublicListSourceResolver: TraktPublicListSourceResolver,
@@ -150,78 +154,142 @@ class CollectionEditorViewModel @Inject constructor(
 
     private fun loadData() {
         viewModelScope.launch {
-            val animeAddonIds = animeAddonRepository.getInstalledAnimeAddons().first()
-                .enabledAddons().mapTo(mutableSetOf()) { it.id }
-            val extraAddonIds = extraAddonRepository.getInstalledExtraAddons().first()
-                .enabledAddons().mapTo(mutableSetOf()) { it.id }
-            val addons = (addonRepository.getInstalledAddons().first().enabledAddons() +
-                animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons() +
-                extraAddonRepository.getInstalledExtraAddons().first().enabledAddons())
-                .distinctBy { it.id }
-            val availableCatalogs = addons.flatMap { addon ->
-                addon.catalogs
-                    .filter { catalog ->
-                        val isSearchOnly = catalog.extra.any {
-                            it.name.equals("search", ignoreCase = true) && it.isRequired
-                        } || catalog.extraRequired.any { it.equals("search", ignoreCase = true) }
-                        !isSearchOnly
-                    }
-                    .map { catalog ->
-                        val genreExtra = catalog.extra.firstOrNull { it.name.equals("genre", ignoreCase = true) }
-                        AvailableCatalog(
-                            addonId = addon.id,
-                            addonName = addon.displayName,
-                            type = catalog.apiType,
-                            catalogId = catalog.id,
-                            catalogName = catalog.name,
-                            genreOptions = genreExtra?.options.orEmpty(),
-                            genreRequired = genreExtra?.isRequired == true ||
-                                catalog.extraRequired.any { it.equals("genre", ignoreCase = true) },
-                            animeAddon = addon.id in animeAddonIds,
-                            extraAddon = addon.id in extraAddonIds
-                        )
-                    }
+            try {
+                profileManager.activeProfileReady.first { it }
+            } catch (_: Exception) {
             }
-            val addonCatalogInfoByKey = addons.flatMap { addon ->
-                addon.catalogs.map { catalog ->
-                    "${addon.id}|${catalog.apiType}|${catalog.id}" to
-                        AddonCatalogInfo(catalogName = catalog.name, addonName = addon.displayName)
-                }
-            }.toMap()
 
-            if (collectionIdArg.isNotBlank()) {
-                val collections = collectionsDataStore.collections.first()
-                val existing = collections.find { it.id == collectionIdArg }
-                if (existing != null) {
-                    _uiState.update {
-                        it.copy(
-                            isNew = false,
-                            collectionId = existing.id,
-                            title = existing.title,
-                            backdropImageUrl = existing.backdropImageUrl ?: "",
-                            pinToTop = existing.pinToTop,
-                            focusGlowEnabled = existing.focusGlowEnabled,
-                            viewMode = existing.viewMode,
-                            showAllTab = existing.showAllTab,
-                            folders = existing.folders,
-                            availableCatalogs = availableCatalogs,
-                            addonCatalogInfoByKey = addonCatalogInfoByKey,
-                            isLoading = false
-                        )
-                    }
-                    return@launch
+            val homeAddons = MutableStateFlow<List<com.nuvio.tv.domain.model.Addon>>(emptyList())
+            val animeAddons = MutableStateFlow<List<com.nuvio.tv.domain.model.Addon>>(emptyList())
+            val extraAddons = MutableStateFlow<List<com.nuvio.tv.domain.model.Addon>>(emptyList())
+
+            launch {
+                try {
+                    addonRepository.getInstalledAddons().collect { homeAddons.value = it }
+                } catch (_: Exception) {
+                }
+            }
+            launch {
+                try {
+                    animeAddonRepository.getInstalledAnimeAddons().collect { animeAddons.value = it }
+                } catch (_: Exception) {
+                }
+            }
+            launch {
+                try {
+                    extraAddonRepository.getInstalledExtraAddons().collect { extraAddons.value = it }
+                } catch (_: Exception) {
                 }
             }
 
-            _uiState.update {
-                it.copy(
-                    isNew = true,
-                    collectionId = collectionsDataStore.generateId(),
-                    availableCatalogs = availableCatalogs,
-                    addonCatalogInfoByKey = addonCatalogInfoByKey,
-                    isLoading = false
-                )
+            var collectionLoaded = false
+            combine(homeAddons, animeAddons, extraAddons) { home, anime, extra ->
+                Triple(home, anime, extra)
             }
+                .distinctUntilChanged()
+                .collect { (home, anime, extra) ->
+                    val homeEnabled = home.enabledAddons()
+                    val animeEnabled = anime.enabledAddons()
+                    val extraEnabled = extra.enabledAddons()
+                    val animeAddonIds = animeEnabled.mapTo(mutableSetOf()) { it.id }
+                    val extraAddonIds = extraEnabled.mapTo(mutableSetOf()) { it.id }
+                    // Anime/Extra first so they win id collisions against Home
+                    // (same addon id with a stale/empty Home manifest must not drop them).
+                    val addons = (animeEnabled + extraEnabled + homeEnabled)
+                        .groupBy { it.id }
+                        .map { (_, group) ->
+                            group.maxByOrNull { it.catalogs.size } ?: group.first()
+                        }
+                    val availableCatalogs = addons.flatMap { addon ->
+                        addon.catalogs
+                            .filter { catalog ->
+                                val isSearchOnly = catalog.extra.any {
+                                    it.name.equals("search", ignoreCase = true) && it.isRequired
+                                } || catalog.extraRequired.any { it.equals("search", ignoreCase = true) }
+                                val isHidden = catalog.name.lowercase() in HIDDEN_PICKER_CATALOGS
+                                !isSearchOnly && !isHidden
+                            }
+                            .map { catalog ->
+                                val genreExtra = catalog.extra.firstOrNull { it.name.equals("genre", ignoreCase = true) }
+                                AvailableCatalog(
+                                    addonId = addon.id,
+                                    addonName = addon.displayName,
+                                    type = catalog.apiType,
+                                    catalogId = catalog.id,
+                                    catalogName = catalog.name,
+                                    genreOptions = genreExtra?.options.orEmpty(),
+                                    genreRequired = genreExtra?.isRequired == true ||
+                                        catalog.extraRequired.any { it.equals("genre", ignoreCase = true) },
+                                    animeAddon = addon.id in animeAddonIds,
+                                    extraAddon = addon.id in extraAddonIds
+                                )
+                            }
+                    }
+                    val addonCatalogInfoByKey = addons.flatMap { addon ->
+                        addon.catalogs.map { catalog ->
+                            "${addon.id}|${catalog.apiType}|${catalog.id}" to
+                                AddonCatalogInfo(catalogName = catalog.name, addonName = addon.displayName)
+                        }
+                    }.toMap()
+
+                    android.util.Log.d(
+                        "CollectionEditorVM",
+                        "catalogs home=${homeEnabled.size} anime=${animeEnabled.size} extra=${extraEnabled.size} " +
+                            "picker=${availableCatalogs.size} animeFlagged=${availableCatalogs.count { it.animeAddon }} " +
+                            "extraFlagged=${availableCatalogs.count { it.extraAddon }}"
+                    )
+
+                    if (!collectionLoaded) {
+                        collectionLoaded = true
+                        loadCollection(availableCatalogs, addonCatalogInfoByKey)
+                    } else {
+                        _uiState.update {
+                            it.copy(
+                                availableCatalogs = availableCatalogs,
+                                addonCatalogInfoByKey = addonCatalogInfoByKey
+                            )
+                        }
+                    }
+                }
+        }
+    }
+
+    private suspend fun loadCollection(
+        availableCatalogs: List<AvailableCatalog>,
+        addonCatalogInfoByKey: Map<String, AddonCatalogInfo>
+    ) {
+        if (collectionIdArg.isNotBlank()) {
+            val collections = collectionsDataStore.collections.first()
+            val existing = collections.find { it.id == collectionIdArg }
+            if (existing != null) {
+                _uiState.update {
+                    it.copy(
+                        isNew = false,
+                        collectionId = existing.id,
+                        title = existing.title,
+                        backdropImageUrl = existing.backdropImageUrl ?: "",
+                        pinToTop = existing.pinToTop,
+                        focusGlowEnabled = existing.focusGlowEnabled,
+                        viewMode = existing.viewMode,
+                        showAllTab = existing.showAllTab,
+                        folders = existing.folders,
+                        availableCatalogs = availableCatalogs,
+                        addonCatalogInfoByKey = addonCatalogInfoByKey,
+                        isLoading = false
+                    )
+                }
+                return
+            }
+        }
+
+        _uiState.update {
+            it.copy(
+                isNew = true,
+                collectionId = collectionsDataStore.generateId(),
+                availableCatalogs = availableCatalogs,
+                addonCatalogInfoByKey = addonCatalogInfoByKey,
+                isLoading = false
+            )
         }
     }
 
@@ -1226,6 +1294,13 @@ class CollectionEditorViewModel @Inject constructor(
     }
 
 }
+
+private val HIDDEN_PICKER_CATALOGS = setOf(
+    "voice actor roles",
+    "anime genre",
+    "calendar videos",
+    "last videos"
+)
 
 private fun String.isTraktListIdentifierInput(): Boolean {
     val normalized = trim()

@@ -1100,15 +1100,7 @@ fun NuvioNavHost(
                 },
                 onNavigateToLicensesAttributions = {
                     navController.navigate(Screen.LicensesAttributions.route)
-                },
-                onNavigateToLiveTv = { navController.navigate(Screen.LiveTv.route) },
-                onNavigateToVpn = { navController.navigate(Screen.VpnSettings.route) }
-            )
-        }
-
-        composable(Screen.VpnSettings.route) {
-            com.nuvio.tv.ui.screens.settings.VpnSettingsScreen(
-                onBackPress = { navController.popBackStack() }
+                }
             )
         }
 

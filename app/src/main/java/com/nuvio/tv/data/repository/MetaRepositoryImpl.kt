@@ -138,19 +138,22 @@ class MetaRepositoryImpl @Inject constructor(
         val regularAddons = addonRepository.getInstalledAddons().first()
         val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first()
         val extraAddons = extraAddonRepository.getInstalledExtraAddons().first()
-        // Scope candidates by namespace so each tab only races its own addons:
-        // Home -> regular (TMDB), Anime -> anime (TVDB), Extra -> extra.
-        // Calendar (home + preferAnimeAddons) still races anime addons first.
-        val (scopedRegular, scopedAnime, scopedExtra) = when (namespace) {
+        // Strict namespace isolation: each tab only races its own addon pool.
+        // Home -> regular only (TMDB), Anime -> anime only (TVDB),
+        // Extra -> extra only, all -> every pool (global screens).
+        val scoped: Triple<List<Addon>, List<Addon>, List<Addon>> = when (namespace) {
             com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME ->
                 Triple(emptyList(), animeAddons, emptyList())
             com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA ->
                 Triple(emptyList(), emptyList(), extraAddons)
+            com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL ->
+                Triple(regularAddons, animeAddons, extraAddons)
             else -> when {
-                preferAnimeAddons -> Triple(regularAddons, animeAddons, extraAddons)
-                else -> Triple(regularAddons, emptyList(), extraAddons)
+                preferAnimeAddons -> Triple(regularAddons, animeAddons, emptyList())
+                else -> Triple(regularAddons, emptyList(), emptyList())
             }
         }
+        val (scopedRegular, scopedAnime, scopedExtra) = scoped
         val addons = scopedRegular + scopedAnime + scopedExtra
 
         val requestedType = type.trim()
@@ -406,62 +409,80 @@ class MetaRepositoryImpl @Inject constructor(
         val regularAddons = addonRepository.getInstalledAddons().first()
         val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first()
         val extraAddons = extraAddonRepository.getInstalledExtraAddons().first()
-        // Each namespace only queries its own addon pool (Anime tab must use TVDB addons).
+        // Strict namespace isolation: each namespace only queries its own
+        // addon pool with no cross-fallbacks (Home -> TMDB, Anime -> TVDB,
+        // Extra -> extra addons). "all" unions every pool for global screens
+        // (Library, Search, Discover, Calendar).
         val addons = when (namespace) {
             com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME ->
-                animeAddons + regularAddons
+                animeAddons
             com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA ->
-                extraAddons + regularAddons
-            else -> regularAddons + extraAddons
+                extraAddons
+            com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL ->
+                regularAddons + animeAddons + extraAddons
+            else -> regularAddons
         }
         val requestedType = type.trim()
         val inferredType = inferCanonicalType(requestedType, id)
-        val candidate = selectPrimaryMetaCandidate(
+        val candidates = buildOrderedPrimaryCandidates(
             addons = addons,
             requestedType = requestedType,
             inferredType = inferredType
         )
 
-        if (candidate == null) {
+        if (candidates.isEmpty()) {
             emit(NetworkResult.Error(context.getString(R.string.error_meta_no_supported_addon, requestedType)))
             return@flow
         }
 
-        val (addon, candidateType) = candidate
-        val url = buildMetaUrl(addon.baseUrl, candidateType, id)
-        Log.d(
-            TAG,
-            "Trying primary meta addonId=${addon.id} addonName=${addon.name} type=$candidateType id=$id url=$url"
-        )
+        val attemptedAddonNames = mutableListOf<String>()
+        val attemptedFailures = mutableListOf<MetaAttemptFailure>()
+        var successMeta: Meta? = null
 
-        val deferred = inFlightPrimaryMeta.getOrPut(cacheKey) {
-            repositoryScope.async {
-                try {
-                    when (val result = safeApiCall(context) { api.getMeta(url) }) {
-                        is NetworkResult.Success -> {
-                            val metaDto = result.data.meta ?: return@async null
-                            val meta = metaDto.toDomain(context.getString(R.string.episodes_episode))
-                                .copy(sourceAddonBaseUrl = addon.baseUrl)
-                            primaryAddonMetaCache[cacheKey] = meta
-                            meta
+        for ((addon, candidateType) in candidates) {
+            val attemptKey = "$cacheKey:${addon.baseUrl}"
+            val url = buildMetaUrl(addon.baseUrl, candidateType, id)
+            Log.d(
+                TAG,
+                "Trying primary meta addonId=${addon.id} addonName=${addon.name} type=$candidateType id=$id url=$url"
+            )
+
+            val deferred = inFlightPrimaryMeta.getOrPut(attemptKey) {
+                repositoryScope.async {
+                    try {
+                        when (val result = safeApiCall(context) { api.getMeta(url) }) {
+                            is NetworkResult.Success -> {
+                                val metaDto = result.data.meta ?: return@async null
+                                metaDto.toDomain(context.getString(R.string.episodes_episode))
+                                    .copy(sourceAddonBaseUrl = addon.baseUrl)
+                            }
+                            else -> null
                         }
-                        else -> null
+                    } finally {
+                        inFlightPrimaryMeta.remove(attemptKey)
                     }
-                } finally {
-                    inFlightPrimaryMeta.remove(cacheKey)
                 }
             }
+
+            val meta = deferred.await()
+            if (meta != null) {
+                primaryAddonMetaCache[cacheKey] = meta
+                successMeta = meta
+                break
+            }
+            attemptedAddonNames += addon.displayName
+            attemptedFailures += buildMissingMetaFailure(addon)
         }
 
-        val meta = deferred.await()
-        if (meta != null) {
-            emit(NetworkResult.Success(meta))
+        val resultMeta = successMeta
+        if (resultMeta != null) {
+            emit(NetworkResult.Success(resultMeta))
         } else {
             emit(NetworkResult.Error(buildAggregateFailureMessage(
                 type = requestedType,
                 id = id,
-                attemptedAddonNames = listOf(addon.displayName),
-                failures = listOf(buildMissingMetaFailure(addon))
+                attemptedAddonNames = attemptedAddonNames,
+                failures = attemptedFailures
             )))
         }
     }
@@ -509,32 +530,38 @@ class MetaRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun selectPrimaryMetaCandidate(
+    private fun buildOrderedPrimaryCandidates(
         addons: List<Addon>,
         requestedType: String,
         inferredType: String
-    ): Pair<Addon, String>? {
+    ): List<Pair<Addon, String>> {
+        val ordered = linkedMapOf<String, Pair<Addon, String>>()
+        fun addCandidate(addon: Addon, candidateType: String) {
+            ordered.putIfAbsent(addon.baseUrl.trim().trimEnd('/').lowercase(), addon to candidateType)
+        }
         addons.forEach { addon ->
             if (addon.supportsMetaType(requestedType)) {
-                return addon to requestedType
+                addCandidate(addon, requestedType)
             }
         }
         if (!inferredType.equals(requestedType, ignoreCase = true)) {
             addons.forEach { addon ->
                 if (addon.supportsMetaType(inferredType)) {
-                    return addon to inferredType
+                    addCandidate(addon, inferredType)
                 }
             }
         }
-        val topMetaAddon = addons.firstOrNull { addon ->
+        addons.firstOrNull { addon ->
             addon.resources.any { it.name == "meta" }
-        } ?: return null
-        val fallbackType = when {
-            topMetaAddon.supportsMetaType(requestedType) -> requestedType
-            topMetaAddon.supportsMetaType(inferredType) -> inferredType
-            else -> inferredType.ifBlank { requestedType }
+        }?.let { topMetaAddon ->
+            val fallbackType = when {
+                topMetaAddon.supportsMetaType(requestedType) -> requestedType
+                topMetaAddon.supportsMetaType(inferredType) -> inferredType
+                else -> inferredType.ifBlank { requestedType }
+            }
+            addCandidate(topMetaAddon, fallbackType)
         }
-        return topMetaAddon to fallbackType
+        return ordered.values.toList()
     }
 
     private fun encodePathSegment(value: String): String {

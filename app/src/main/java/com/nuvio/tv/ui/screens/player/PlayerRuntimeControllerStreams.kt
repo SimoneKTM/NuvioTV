@@ -607,7 +607,12 @@ internal fun PlayerRuntimeController.loadEpisodesIfNeeded() {
         _uiState.update { it.copy(isLoadingEpisodes = true, episodesError = null) }
 
         when (
-            val result = metaRepository.getMetaFromAllAddons(type = type, id = id)
+            val result = metaRepository.getMetaFromAllAddons(
+                type = type,
+                id = id,
+                sourceAddonBaseUrl = playbackSourceAddonBaseUrl,
+                namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
+            )
                 .first { it !is NetworkResult.Loading }
         ) {
             is NetworkResult.Success -> {

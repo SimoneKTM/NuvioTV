@@ -1043,7 +1043,8 @@ class StreamScreenViewModel @Inject constructor(
         val result = metaRepository.getMetaFromAllAddons(
             type = contentType,
             id = metaId,
-            sourceAddonBaseUrl = sourceAddonBaseUrl
+            sourceAddonBaseUrl = sourceAddonBaseUrl,
+            namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
         ).first { it !is NetworkResult.Loading }
         val meta = (result as? NetworkResult.Success)?.data ?: return null
         val video = meta.videos.firstOrNull { it.id == videoId } ?: return null
@@ -1073,7 +1074,8 @@ class StreamScreenViewModel @Inject constructor(
             val result = metaRepository.getMetaFromAllAddons(
                 type = contentType,
                 id = metaId,
-                sourceAddonBaseUrl = sourceAddonBaseUrl
+                sourceAddonBaseUrl = sourceAddonBaseUrl,
+                namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
             ).first { it !is NetworkResult.Loading }
 
             if (result !is NetworkResult.Success) return@launch

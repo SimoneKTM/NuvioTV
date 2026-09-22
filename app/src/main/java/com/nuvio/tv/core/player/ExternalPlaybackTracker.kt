@@ -640,7 +640,11 @@ class ExternalPlaybackTracker @Inject constructor(
     private suspend fun fetchRuntimeMsFromMeta(metadata: ExternalPlaybackMetadata): Long {
         val fetched = withTimeoutOrNull(META_FETCH_TIMEOUT_MS) {
             metaRepository
-                .getMetaFromAllAddons(type = metadata.contentType, id = metadata.contentId)
+                .getMetaFromAllAddons(
+                    type = metadata.contentType,
+                    id = metadata.contentId,
+                    namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
+                )
                 .first { it !is NetworkResult.Loading }
         }
         val meta = (fetched as? NetworkResult.Success)?.data ?: return 0L
@@ -809,7 +813,11 @@ class ExternalPlaybackTracker @Inject constructor(
     ): ExternalNextEpisodeSnapshot {
         val result = withTimeoutOrNull(META_FETCH_TIMEOUT_MS) {
             metaRepository
-                .getMetaFromAllAddons(type = metadata.contentType, id = metadata.contentId)
+                .getMetaFromAllAddons(
+                    type = metadata.contentType,
+                    id = metadata.contentId,
+                    namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
+                )
                 .first { it !is NetworkResult.Loading }
         }
         val meta = (result as? NetworkResult.Success)?.data

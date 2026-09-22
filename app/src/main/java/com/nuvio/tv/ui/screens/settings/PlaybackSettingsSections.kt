@@ -86,8 +86,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 private enum class PlaybackSection {
     GENERAL,
@@ -206,9 +204,7 @@ internal fun PlaybackSettingsSections(
     onSetVodCacheSizeMb: (Int) -> Unit,
     onResetBufferSettingsToDefaults: () -> Unit,
     onSetEnableHttp2: (Boolean) -> Unit,
-    onResetNetworkSettingsToDefaults: () -> Unit,
-    onNavigateToLiveTv: () -> Unit = {},
-    onNavigateToVpn: () -> Unit = {}
+    onResetNetworkSettingsToDefaults: () -> Unit
 ) {
     var generalExpanded by rememberSaveable { mutableStateOf(false) }
     var afrExpanded by rememberSaveable { mutableStateOf(false) }
