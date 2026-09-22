@@ -2,6 +2,7 @@ package com.nuvio.tv.data.repository
 
 import android.util.Log
 import com.nuvio.tv.data.remote.api.TraktApi
+import com.nuvio.tv.data.remote.dto.trakt.TraktCalendarMediaItemDto
 import com.nuvio.tv.domain.model.CalendarItem
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.MetaPreview
@@ -9,21 +10,26 @@ import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.repository.CalendarRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.core.network.NetworkResult
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withTimeoutOrNull
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -40,6 +46,8 @@ class CalendarRepositoryImpl @Inject constructor(
         // Long enough for the anime-first race + backup race (each addon capped at 5s).
         private const val ADDON_ENRICHMENT_TIMEOUT_MS = 12_000L
         private const val ADDON_ENRICHMENT_CONCURRENCY = 4
+        // Trakt calendars documented maximum is 33 days.
+        private const val TRAKT_MAX_DAYS = 33
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -47,14 +55,19 @@ class CalendarRepositoryImpl @Inject constructor(
     // Attempted-once set (like LibraryRepositoryImpl.enrichedAddonIds) so we
     // don't re-query addons for items that already succeeded or failed.
     private val enrichedAddonIds = ConcurrentHashMap.newKeySet<String>()
+    private var warmUpJob: Job? = null
 
     override fun warmUp() {
-        scope.launch {
+        if (warmUpJob?.isActive == true) return
+        warmUpJob = scope.launch {
             try {
                 getCalendarItems().collect { items ->
                     cachedItems.value = items
                 }
-            } catch (_: Exception) {}
+            } catch (_: CancellationException) {
+            } catch (e: Exception) {
+                Log.w(TAG, "warmUp failed: ${e.message}")
+            }
         }
     }
 
@@ -63,17 +76,22 @@ class CalendarRepositoryImpl @Inject constructor(
         if (cached.isNotEmpty()) {
             emit(cached)
         }
+
         val today = LocalDate.now()
         val todayStr = today.format(DateTimeFormatter.ISO_LOCAL_DATE)
-        val daysAhead = 60
 
         val allItems = mutableListOf<CalendarItem>()
+        var fetchFailed = false
 
         try {
+            // fullimages gives poster/backdrop immediately so cards are not
+            // letter-placeholders while addon enrichment runs. Addon meta
+            // remains the primary source and overrides these on success.
             val response = traktApi.getCalendarMedia(
                 target = "all",
                 startDate = todayStr,
-                days = daysAhead
+                days = TRAKT_MAX_DAYS,
+                extended = "fullimages"
             )
 
             if (response.isSuccessful) {
@@ -81,31 +99,51 @@ class CalendarRepositoryImpl @Inject constructor(
                 Log.d(TAG, "Trakt calendar media: ${body.size} items")
 
                 for (item in body) {
-                    val calendarItem = item.toCalendarItem(today) ?: continue
+                    val calendarItem = item.toCalendarItem() ?: continue
                     allItems.add(calendarItem)
                 }
             } else {
+                fetchFailed = true
                 Log.w(TAG, "Trakt calendar media failed: ${response.code()} ${response.message()}")
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
+            fetchFailed = true
             Log.e(TAG, "Failed to fetch Trakt calendar media", e)
         }
 
+        if (fetchFailed) {
+            // Keep whatever cache the UI is already showing instead of
+            // overwriting it with an empty list (which forced an infinite spinner).
+            if (cached.isNotEmpty()) {
+                return@flow
+            }
+            throw IllegalStateException("Trakt calendar request failed")
+        }
+
         val filteredItems = allItems
-            .filter { it.releaseDate != null && !it.releaseDate.isBefore(today) }
-            .distinctBy { it.meta.id }
+            .filter { item ->
+                val date = item.releaseDate ?: return@filter false
+                // Trakt dates are UTC; keep yesterday-UTC items so Italian
+                // evenings around midnight are not dropped.
+                !date.isBefore(today.minusDays(1))
+            }
+            .distinctBy { "${it.meta.id}:${it.releaseDate}" }
             .sortedBy { it.releaseDate }
 
         Log.d(TAG, "Calendar: ${filteredItems.size} items after filtering (${allItems.size} raw)")
 
+        cachedItems.value = filteredItems
         emit(filteredItems)
 
         // Addon metadata only — same source as Library / Home / Anime / Extra.
         // Uses MetaRepository's shared addonMetaCache so data already saved
         // while browsing other tabs is returned instantly. No TMDB here.
         val addonEnrichedItems = enrichItemsWithAddonData(filteredItems)
+        cachedItems.value = addonEnrichedItems
         emit(addonEnrichedItems)
-    }
+    }.flowOn(Dispatchers.IO)
 
     private suspend fun enrichItemsWithAddonData(items: List<CalendarItem>): List<CalendarItem> {
         // Attempt every item once (not gated on "missing fields") so addon
@@ -125,12 +163,21 @@ class CalendarRepositoryImpl @Inject constructor(
                     semaphore.withPermit {
                         try {
                             val enriched = resolveAddonMetaForItem(item)
-                            // Success returns a copied item; failures return the
-                            // original reference and stay eligible for a later load.
+                            // Mark only when the addon added artwork or a source
+                            // URL — a no-op success stays eligible for retry so
+                            // letter-cards can still pick up images later.
                             if (enriched !== item) {
-                                enrichedAddonIds.add(item.meta.id)
+                                val gainedArtwork = enriched.meta.poster != item.meta.poster ||
+                                    enriched.meta.background != item.meta.background ||
+                                    enriched.meta.logo != item.meta.logo ||
+                                    !enriched.meta.sourceAddonBaseUrl.isNullOrBlank()
+                                if (gainedArtwork) {
+                                    enrichedAddonIds.add(item.meta.id)
+                                }
                             }
                             enriched
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             Log.w(TAG, "Addon enrichment failed for ${item.meta.name}: ${e.message}")
                             item
@@ -153,7 +200,7 @@ class CalendarRepositoryImpl @Inject constructor(
                     id = candidateId,
                     sourceAddonBaseUrl = item.meta.sourceAddonBaseUrl,
                     rawId = rawNumericId,
-                    namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL,
+                    namespace = MetaRepository.META_NAMESPACE_ALL,
                     preferAnimeAddons = true
                 ).first { it !is NetworkResult.Loading }
             } ?: continue
@@ -197,30 +244,56 @@ class CalendarRepositoryImpl @Inject constructor(
         return numericId?.takeIf { it.all { c -> c.isDigit() } }
     }
 
-    private fun com.nuvio.tv.data.remote.dto.trakt.TraktCalendarMediaItemDto.toCalendarItem(
-        today: LocalDate
-    ): CalendarItem? {
+    /**
+     * Prefer IMDB (best addon compatibility), then TMDB, then Trakt.
+     * Bare numeric fallbacks are avoided so addons can resolve the title.
+     */
+    private fun buildContentId(
+        imdb: String?,
+        tmdb: Int?,
+        trakt: Int?,
+        kind: String
+    ): String {
+        val imdbId = imdb?.trim()?.takeIf { it.isNotBlank() }
+        if (imdbId != null) return imdbId
+        if (tmdb != null) return "tmdb_${kind}_$tmdb"
+        return "trakt_${kind}_${trakt ?: 0}"
+    }
+
+    private fun firstImageOrNull(images: List<String>?): String? =
+        images?.firstOrNull { it.isNotBlank() }
+
+    private fun TraktCalendarMediaItemDto.toCalendarItem(): CalendarItem? {
         val movie = movie
         if (movie != null) {
-            val tmdbId = movie.ids?.tmdb
-            val id = if (tmdbId != null) "tmdb_movie_$tmdbId" else "trakt_movie_${movie.ids?.trakt ?: 0}"
+            val id = buildContentId(
+                imdb = movie.ids?.imdb,
+                tmdb = movie.ids?.tmdb,
+                trakt = movie.ids?.trakt,
+                kind = "movie"
+            )
             val releaseDate = parseDate(released)
-            if (releaseDate == null || releaseDate.isBefore(today)) return null
+            // Keep undated items only when we have a title; drop long-past dates.
+            if (releaseDate != null && releaseDate.isBefore(LocalDate.now(ZoneOffset.UTC).minusDays(1))) {
+                return null
+            }
 
+            val images = movie.images
             return CalendarItem(
                 meta = MetaPreview(
                     id = id,
                     type = ContentType.MOVIE,
                     rawType = "movie",
                     name = movie.title ?: "",
-                    poster = null,
+                    poster = firstImageOrNull(images?.poster),
                     posterShape = PosterShape.POSTER,
-                    background = null,
-                    logo = null,
-                    description = null,
-                    releaseInfo = null,
-                    imdbRating = null,
-                    genres = emptyList(),
+                    background = firstImageOrNull(images?.fanart),
+                    logo = firstImageOrNull(images?.logo),
+                    description = movie.overview,
+                    releaseInfo = movie.year?.toString(),
+                    imdbRating = movie.rating?.toFloat(),
+                    genres = movie.genres.orEmpty(),
+                    imdbId = movie.ids?.imdb,
                     sourceAddonBaseUrl = null
                 ),
                 releaseDate = releaseDate
@@ -230,10 +303,16 @@ class CalendarRepositoryImpl @Inject constructor(
         val show = show
         val episode = episode
         if (show != null) {
-            val tmdbId = show.ids?.tmdb
-            val id = if (tmdbId != null) "tmdb_tv_$tmdbId" else "trakt_tv_${show.ids?.trakt ?: 0}"
+            val id = buildContentId(
+                imdb = show.ids?.imdb,
+                tmdb = show.ids?.tmdb,
+                trakt = show.ids?.trakt,
+                kind = "tv"
+            )
             val airDate = parseDate(firstAired ?: episode?.firstAired)
-            if (airDate == null || airDate.isBefore(today)) return null
+            if (airDate != null && airDate.isBefore(LocalDate.now(ZoneOffset.UTC).minusDays(1))) {
+                return null
+            }
 
             val episodeLabel = if (episode != null) {
                 val season = episode.season ?: 0
@@ -241,20 +320,22 @@ class CalendarRepositoryImpl @Inject constructor(
                 "S${season}E$number"
             } else null
 
+            val images = show.images
             return CalendarItem(
                 meta = MetaPreview(
                     id = id,
                     type = ContentType.SERIES,
                     rawType = "tv",
                     name = show.title ?: "",
-                    poster = null,
+                    poster = firstImageOrNull(images?.poster),
                     posterShape = PosterShape.POSTER,
-                    background = null,
-                    logo = null,
+                    background = firstImageOrNull(images?.fanart),
+                    logo = firstImageOrNull(images?.logo),
                     description = episodeLabel,
-                    releaseInfo = null,
-                    imdbRating = null,
-                    genres = emptyList(),
+                    releaseInfo = show.year?.toString(),
+                    imdbRating = show.rating?.toFloat(),
+                    genres = show.genres.orEmpty(),
+                    imdbId = show.ids?.imdb,
                     sourceAddonBaseUrl = null
                 ),
                 releaseDate = airDate
@@ -266,10 +347,20 @@ class CalendarRepositoryImpl @Inject constructor(
 
     private fun parseDate(dateStr: String?): LocalDate? {
         if (dateStr.isNullOrBlank()) return null
-        return try {
-            LocalDate.parse(dateStr.take(10))
-        } catch (e: Exception) {
-            null
+        val raw = dateStr.trim()
+        // Full timestamp (Trakt UTC) → local calendar date so Italian evenings
+        // around midnight keep the correct release day.
+        if (raw.length > 10 && (raw.contains('T') || raw.endsWith('Z'))) {
+            val normalized = when {
+                raw.endsWith("Z") || raw.contains('+') -> raw
+                else -> raw + "Z"
+            }
+            runCatching {
+                Instant.parse(normalized)
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDate()
+            }.getOrNull()?.let { return it }
         }
+        return runCatching { LocalDate.parse(raw.take(10)) }.getOrNull()
     }
 }

@@ -177,9 +177,10 @@ class MetaDetailsViewModel @Inject constructor(
         get() = when {
             animeLayoutActive.value -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME
             extraLayoutActive.value -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA
-            preferredAddonBaseUrl.isNullOrBlank() ->
-                com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
-            else -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_HOME
+            // Blank source (Calendar/Library/Search open): race Home+Anime+Extra.
+            // Non-blank source still races every pool with that addon prioritized
+            // so any poster click can resolve metadata from all installed catalogs.
+            else -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
         }
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -781,10 +782,9 @@ class MetaDetailsViewModel @Inject constructor(
                             if (preferredMeta != null) {
                                 applyMetaWithEnrichment(preferredMeta)
                             } else {
-                                // Only fall back to TMDB if the item has a known source addon.
-                                // Calendar/Library items (sourceAddonBaseUrl=null) must use addon data.
-                                val hasSourceAddon = !preferredAddonBaseUrl.isNullOrBlank()
-                                if (hasSourceAddon && tryApplyTmdbFallbackMeta()) {
+                                // Addons (Home+Anime+Extra) are the primary source;
+                                // TMDB is only a last resort when they all miss.
+                                if (tryApplyTmdbFallbackMeta()) {
                                     Unit
                                 } else {
                                     val errorMsg = buildMetaLoadErrorMessage(result.message, metaLookupId)
@@ -821,10 +821,9 @@ class MetaDetailsViewModel @Inject constructor(
                         when (result) {
                             is NetworkResult.Success -> applyMetaWithEnrichment(result.data)
                             is NetworkResult.Error -> {
-                                // Only fall back to TMDB if the item has a known source addon.
-                                // Calendar/Library items (sourceAddonBaseUrl=null) must use addon data.
-                                val hasSourceAddon = !preferredAddonBaseUrl.isNullOrBlank()
-                                if (hasSourceAddon && tryApplyTmdbFallbackMeta()) {
+                                // Addons (Home+Anime+Extra) are the primary source;
+                                // TMDB is only a last resort when they all miss.
+                                if (tryApplyTmdbFallbackMeta()) {
                                     Unit
                                 } else {
                                     val errorMsg = buildMetaLoadErrorMessage(result.message, metaLookupId)
@@ -907,30 +906,44 @@ class MetaDetailsViewModel @Inject constructor(
         val isTmdbFormat = raw.startsWith("tmdb:", ignoreCase = true) ||
             raw.startsWith("tmdb_tv_", ignoreCase = true) ||
             raw.startsWith("tmdb_movie_", ignoreCase = true)
-        if (!isTmdbFormat) return raw
+        // Calendar fallback IDs (trakt_tv_*) are not addon-compatible — strip to
+        // bare numeric so Stremio-style meta routes can still be attempted.
+        val isTraktFormat = raw.startsWith("trakt_tv_", ignoreCase = true) ||
+            raw.startsWith("trakt_movie_", ignoreCase = true) ||
+            raw.startsWith("trakt:", ignoreCase = true)
+        if (!isTmdbFormat && !isTraktFormat) return raw
 
-        val tmdbNumericId = when {
+        val numericId = when {
             raw.startsWith("tmdb:", ignoreCase = true) ->
+                raw.substringAfter(':', missingDelimiterValue = "").substringBefore(':').toIntOrNull()
+            raw.startsWith("trakt:", ignoreCase = true) ->
                 raw.substringAfter(':', missingDelimiterValue = "").substringBefore(':').toIntOrNull()
             raw.startsWith("tmdb_tv_", ignoreCase = true) ->
                 raw.removePrefix("tmdb_tv_").removePrefix("tmdb_Tv_").toIntOrNull()
             raw.startsWith("tmdb_movie_", ignoreCase = true) ->
                 raw.removePrefix("tmdb_movie_").removePrefix("tmdb_Movie_").toIntOrNull()
+            raw.startsWith("trakt_tv_", ignoreCase = true) ->
+                raw.removePrefix("trakt_tv_").removePrefix("trakt_Tv_").toIntOrNull()
+            raw.startsWith("trakt_movie_", ignoreCase = true) ->
+                raw.removePrefix("trakt_movie_").removePrefix("trakt_Movie_").toIntOrNull()
             else -> null
         } ?: return raw
 
+        if (isTraktFormat && !isTmdbFormat) {
+            // No reliable TMDB↔IMDB bridge for a raw Trakt id; addons get the
+            // bare number (best-effort) rather than an unparsable prefix.
+            return numericId.toString()
+        }
+
         // Try TMDB → IMDB first (best addon compatibility).
         val imdbId = kotlinx.coroutines.withTimeoutOrNull(5_000L) {
-            tmdbService.tmdbToImdb(tmdbNumericId, itemType)
+            tmdbService.tmdbToImdb(numericId, itemType)
         }?.takeIf { it.isNotBlank() }
 
         if (imdbId != null) return imdbId
 
         // Fallback: return bare numeric ID so addons can try their own TMDB lookup.
-        // Previously this returned the raw prefixed ID (e.g. "tmdb_tv_12345") which
-        // addons cannot resolve. Bare "12345" matches the standard Stremio addon
-        // protocol for TMDB-based meta queries.
-        return tmdbNumericId.toString()
+        return numericId.toString()
     }
 
     private fun extractRawNumericId(itemId: String): String? {

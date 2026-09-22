@@ -2,10 +2,9 @@ package com.nuvio.tv.ui.screens.calendar
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusGroup
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,8 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,10 +27,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -48,7 +51,6 @@ import androidx.tv.material3.Border
 import androidx.tv.material3.Card as TvCard
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.Glow
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
@@ -59,6 +61,8 @@ import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.CalendarSection
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.ui.components.LoadingIndicator
+import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
+import com.nuvio.tv.ui.screens.home.HeroBackdropState
 import com.nuvio.tv.ui.theme.NuvioTheme
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -79,7 +83,21 @@ fun CalendarHomeScreen(
     BackHandler { onBackPress() }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val showContent = uiState.sections.isNotEmpty() && !uiState.isLoading
+    val firstCardFocusRequester = remember { FocusRequester() }
+
+    // Error/empty must be reachable: only show the spinner while loading with
+    // nothing to display yet (previous logic hid both states forever).
+    val showContent = uiState.sections.isNotEmpty()
+    val showSpinner = uiState.isLoading && !showContent
+    val showError = !showSpinner && !showContent && uiState.error != null
+    val showEmpty = !showSpinner && !showError && !showContent && uiState.hasLoaded
+
+    LaunchedEffect(showContent, uiState.sections.size) {
+        if (showContent && uiState.sections.all { true }) {
+            delay(50)
+            runCatching { firstCardFocusRequester.requestFocusAfterFrames(2) }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -87,90 +105,26 @@ fun CalendarHomeScreen(
             .background(NuvioTheme.colors.Background)
     ) {
         when {
-            !showContent -> {
+            showSpinner -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     LoadingIndicator()
                 }
             }
-            uiState.error != null -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = stringResource(R.string.calendar_error),
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = NuvioTheme.colors.TextPrimary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = uiState.error ?: "",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = NuvioTheme.colors.TextSecondary
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        TvCard(
-                            onClick = { viewModel.onEvent(CalendarHomeEvent.OnRetry) },
-                            shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
-                            colors = CardDefaults.colors(
-                                containerColor = NuvioTheme.colors.Secondary,
-                                focusedContainerColor = NuvioTheme.colors.Secondary
-                            ),
-                            border = CardDefaults.border(
-                                focusedBorder = Border(
-                                    border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                            )
-                        ) {
-                            Text(
-                                text = stringResource(R.string.action_retry),
-                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
+            showError -> {
+                CalendarMessageState(
+                    title = stringResource(R.string.calendar_error),
+                    subtitle = uiState.error ?: "",
+                    onRetry = { viewModel.onEvent(CalendarHomeEvent.OnRetry) },
+                    focusRequester = firstCardFocusRequester
+                )
             }
-            uiState.sections.isEmpty() -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = stringResource(R.string.calendar_empty_title),
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = NuvioTheme.colors.TextPrimary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = stringResource(R.string.calendar_empty_subtitle),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = NuvioTheme.colors.TextSecondary
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        TvCard(
-                            onClick = { viewModel.onEvent(CalendarHomeEvent.OnRetry) },
-                            shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
-                            colors = CardDefaults.colors(
-                                containerColor = NuvioTheme.colors.Secondary,
-                                focusedContainerColor = NuvioTheme.colors.Secondary
-                            ),
-                            border = CardDefaults.border(
-                                focusedBorder = Border(
-                                    border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                            )
-                        ) {
-                            Text(
-                                text = stringResource(R.string.action_retry),
-                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
+            showEmpty -> {
+                CalendarMessageState(
+                    title = stringResource(R.string.calendar_empty_title),
+                    subtitle = stringResource(R.string.calendar_empty_subtitle),
+                    onRetry = { viewModel.onEvent(CalendarHomeEvent.OnRetry) },
+                    focusRequester = firstCardFocusRequester
+                )
             }
             else -> {
                 val firstSection = uiState.sections.firstOrNull()
@@ -184,7 +138,8 @@ fun CalendarHomeScreen(
                         item(key = "hero_header") {
                             CalendarHeroSection(
                                 section = firstSection,
-                                onNavigateToDetail = onNavigateToDetail
+                                onNavigateToDetail = onNavigateToDetail,
+                                initialFocusRequester = firstCardFocusRequester
                             )
                         }
                     }
@@ -204,25 +159,92 @@ fun CalendarHomeScreen(
     }
 }
 
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun CalendarMessageState(
+    title: String,
+    subtitle: String,
+    onRetry: () -> Unit,
+    focusRequester: FocusRequester
+) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                color = NuvioTheme.colors.TextPrimary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = NuvioTheme.colors.TextSecondary
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            TvCard(
+                onClick = onRetry,
+                modifier = Modifier.focusRequester(focusRequester),
+                shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
+                colors = CardDefaults.colors(
+                    containerColor = NuvioTheme.colors.Secondary,
+                    focusedContainerColor = NuvioTheme.colors.Secondary
+                ),
+                border = CardDefaults.border(
+                    focusedBorder = Border(
+                        border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                )
+            ) {
+                Text(
+                    text = stringResource(R.string.action_retry),
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+            LaunchedEffect(Unit) {
+                delay(50)
+                runCatching { focusRequester.requestFocusAfterFrames(2) }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun CalendarHeroSection(
     section: CalendarSection,
-    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String) -> Unit
+    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String) -> Unit,
+    initialFocusRequester: FocusRequester
 ) {
     val firstItem = section.items.firstOrNull() ?: return
-    var focusedIndex by remember { mutableIntStateOf(0) }
+    var focusedIndex by rememberSaveable(section.label) { mutableIntStateOf(0) }
     var userInteracting by remember { mutableStateOf(false) }
-    val heroItems = remember(section.items) { section.items.take(10) }
-    val focusedItem = remember(focusedIndex, section.items) {
-        section.items.getOrNull(focusedIndex) ?: firstItem
+    // Use the full row for rotation so backdrop index always matches the
+    // focused card (previous take(10) desynced with >10 items).
+    val heroItems = section.items
+    val focusedItem = heroItems.getOrNull(focusedIndex) ?: firstItem
+    val heroRowState = rememberLazyListState()
+    val firstWideCardRequester = remember { FocusRequester() }
+
+    // Keep Detail's hero backdrop in sync with the calendar hero so back/nav
+    // does not inherit a stale Home backdrop.
+    LaunchedEffect(focusedItem.meta.backdropUrl) {
+        HeroBackdropState.update(focusedItem.meta.backdropUrl)
     }
 
-    LaunchedEffect(heroItems.size) {
+    LaunchedEffect(heroItems.size, userInteracting) {
         if (heroItems.size <= 1) return@LaunchedEffect
         while (true) {
             delay(5000L)
             if (!userInteracting) {
                 focusedIndex = (focusedIndex + 1) % heroItems.size
+                val next = focusedIndex
+                if (next < heroItems.size) {
+                    runCatching { heroRowState.scrollToItem(next) }
+                }
             }
         }
     }
@@ -302,7 +324,7 @@ private fun CalendarHeroSection(
                     .fillMaxWidth(0.55f)
             ) {
                 focusedItem.meta.logo?.let { logoUrl ->
-                    var logoLoadFailed by remember { mutableStateOf(false) }
+                    var logoLoadFailed by remember(logoUrl) { mutableStateOf(false) }
                     if (!logoLoadFailed) {
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
@@ -347,7 +369,7 @@ private fun CalendarHeroSection(
                 val focusedTypeLabel = remember(focusedItem) {
                     when (focusedItem.meta.rawType.lowercase()) {
                         "movie" -> "Film"
-                        "tv" -> "Serie TV"
+                        "tv", "series" -> "Serie TV"
                         else -> focusedItem.meta.rawType
                     }
                 }
@@ -428,24 +450,28 @@ private fun CalendarHeroSection(
         }
 
         LazyRow(
+            state = heroRowState,
             contentPadding = PaddingValues(start = SECTION_PADDING_HORIZONTAL, end = 48.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             modifier = Modifier
                 .padding(top = 8.dp)
                 .focusGroup()
+                .focusRestorer { firstWideCardRequester }
         ) {
             itemsIndexed(
-                items = section.items,
+                items = heroItems,
                 key = { _, it -> it.meta.id }
             ) { index, calendarItem ->
                 CalendarWideCard(
                     meta = calendarItem.meta,
                     releaseDate = calendarItem.releaseDate,
                     onClick = {
+                        // Always open Detail with a blank source addon so the
+                        // detail page races Home + Anime + Extra meta pools.
                         onNavigateToDetail(
                             calendarItem.meta.id,
                             calendarItem.meta.apiType,
-                            calendarItem.meta.sourceAddonBaseUrl ?: ""
+                            ""
                         )
                     },
                     onFocusChange = { focused ->
@@ -453,18 +479,24 @@ private fun CalendarHeroSection(
                             focusedIndex = index
                             userInteracting = true
                         }
-                    }
+                    },
+                    focusRequester = if (index == 0) firstWideCardRequester else null,
+                    initialFocusRequester = if (index == 0) initialFocusRequester else null
                 )
             }
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class, ExperimentalTvMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun CalendarSection(
     section: CalendarSection,
     onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String) -> Unit
 ) {
+    val rowState = rememberLazyListState()
+    val firstPosterRequester = remember(section.label) { FocusRequester() }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -496,14 +528,17 @@ private fun CalendarSection(
         Spacer(modifier = Modifier.height(16.dp))
 
         LazyRow(
+            state = rowState,
             contentPadding = PaddingValues(horizontal = SECTION_PADDING_HORIZONTAL),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
-            modifier = Modifier.focusGroup()
+            modifier = Modifier
+                .focusGroup()
+                .focusRestorer { firstPosterRequester }
         ) {
-            items(
+            itemsIndexed(
                 items = section.items,
-                key = { it.meta.id }
-            ) { calendarItem ->
+                key = { _, it -> it.meta.id }
+            ) { index, calendarItem ->
                 CalendarPortraitCard(
                     meta = calendarItem.meta,
                     releaseDate = calendarItem.releaseDate,
@@ -511,9 +546,10 @@ private fun CalendarSection(
                         onNavigateToDetail(
                             calendarItem.meta.id,
                             calendarItem.meta.apiType,
-                            calendarItem.meta.sourceAddonBaseUrl ?: ""
+                            ""
                         )
-                    }
+                    },
+                    focusRequester = if (index == 0) firstPosterRequester else null
                 )
             }
         }
@@ -543,28 +579,44 @@ private fun CalendarWideCard(
     meta: MetaPreview,
     releaseDate: java.time.LocalDate?,
     onClick: () -> Unit,
-    onFocusChange: (Boolean) -> Unit = {}
+    onFocusChange: (Boolean) -> Unit = {},
+    focusRequester: FocusRequester? = null,
+    initialFocusRequester: FocusRequester? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val dateLabel = remember(releaseDate) {
-        releaseDate?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.ITALIAN)) ?: ""
+        releaseDate?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.getDefault())) ?: ""
     }
     val typeLabel = remember(meta.rawType) {
         when (meta.rawType.lowercase()) {
             "movie" -> "Film"
-            "tv" -> "Serie TV"
+            "tv", "series" -> "Serie TV"
             else -> meta.rawType
         }
     }
     val cardShape = RoundedCornerShape(12.dp)
 
+    // Share the same FocusRequester instance for restorer + initial grab.
+    val requester = focusRequester ?: remember { FocusRequester() }
+
+    LaunchedEffect(initialFocusRequester, requester) {
+        if (initialFocusRequester != null) {
+            delay(50)
+            runCatching { requester.requestFocusAfterFrames(2) }
+        }
+    }
+
     TvCard(
         onClick = onClick,
         modifier = Modifier
             .width(WIDE_CARD_WIDTH)
+            .focusRequester(requester)
             .onFocusChanged {
                 isFocused = it.isFocused
                 onFocusChange(it.isFocused)
+                if (it.isFocused) {
+                    HeroBackdropState.update(meta.backdropUrl)
+                }
             },
         shape = CardDefaults.shape(shape = cardShape),
         colors = CardDefaults.colors(
@@ -612,7 +664,7 @@ private fun CalendarWideCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = meta.name.take(1).uppercase(),
+                            text = meta.name.take(1).uppercase(Locale.getDefault()),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.3f)
@@ -704,11 +756,12 @@ private fun CalendarWideCard(
 private fun CalendarPortraitCard(
     meta: MetaPreview,
     releaseDate: java.time.LocalDate?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    focusRequester: FocusRequester? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val dateLabel = remember(releaseDate) {
-        releaseDate?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.ITALIAN)) ?: ""
+        releaseDate?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.getDefault())) ?: ""
     }
     val cardShape = RoundedCornerShape(12.dp)
     val cardWidth = 140.dp
@@ -719,7 +772,16 @@ private fun CalendarPortraitCard(
         modifier = Modifier
             .width(cardWidth)
             .height(cardHeight)
-            .onFocusChanged { isFocused = it.isFocused },
+            .then(
+                if (focusRequester != null) Modifier.focusRequester(focusRequester)
+                else Modifier
+            )
+            .onFocusChanged {
+                isFocused = it.isFocused
+                if (it.isFocused) {
+                    HeroBackdropState.update(meta.backdropUrl)
+                }
+            },
         shape = CardDefaults.shape(shape = cardShape),
         colors = CardDefaults.colors(
             containerColor = NuvioTheme.colors.BackgroundCard,
@@ -758,7 +820,7 @@ private fun CalendarPortraitCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = meta.name.take(1).uppercase(),
+                        text = meta.name.take(1).uppercase(Locale.getDefault()),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.3f)

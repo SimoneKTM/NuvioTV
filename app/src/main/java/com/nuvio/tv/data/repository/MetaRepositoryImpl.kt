@@ -42,6 +42,18 @@ class MetaRepositoryImpl @Inject constructor(
     companion object {
         private const val TAG = "MetaRepository"
         private const val RACE_META_TIMEOUT_MS = 5_000L
+
+        /**
+         * Calendar/Library query with "tv" while Detail navigates with
+         * "series" — normalize so both share the same addonMetaCache entry.
+         */
+        fun metaCacheType(type: String): String {
+            val normalized = type.trim().lowercase()
+            return when (normalized) {
+                "series", "show", "tv", "anime" -> "tv"
+                else -> normalized
+            }
+        }
     }
 
     private enum class MetaFailureKind {
@@ -76,7 +88,7 @@ class MetaRepositoryImpl @Inject constructor(
     ): Flow<NetworkResult<Meta>> = flow {
         val ctx = context
         val normalizedAddon = addonBaseUrl.trim().trimEnd('/').lowercase()
-        val cacheKey = "$namespace:$normalizedAddon:$type:$id"
+        val cacheKey = "$namespace:$normalizedAddon:${metaCacheType(type)}:$id"
         metaCache[cacheKey]?.let { cached ->
             emit(NetworkResult.Success(cached))
             return@flow
@@ -122,7 +134,8 @@ class MetaRepositoryImpl @Inject constructor(
     ): Flow<NetworkResult<Meta>> = flow {
         val ctx = context
         val mode = if (preferAnimeAddons) "anime" else "std"
-        val cacheKey = "$namespace:$type:$id:$mode"
+        val cacheType = metaCacheType(type)
+        val cacheKey = "$namespace:$cacheType:$id:$mode"
         var bypassedCachedMeta: Meta? = null
         // Global screens must reuse whatever Home/Anime/Extra already fetched
         // for the same content so Calendar/Library show identical addon metadata.
@@ -132,7 +145,7 @@ class MetaRepositoryImpl @Inject constructor(
                 com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME,
                 com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA,
                 com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
-            ).flatMap { ns -> listOf("$ns:$type:$id:std", "$ns:$type:$id:anime") }
+            ).flatMap { ns -> listOf("$ns:$cacheType:$id:std", "$ns:$cacheType:$id:anime") }
             val shared = sharedKeys.firstNotNullOfOrNull { key -> addonMetaCache[key] }
             // Reuse tab cache only when it already has artwork — that is what
             // Calendar/Library need and keeps the same images as Home/Anime/Extra.
@@ -431,7 +444,7 @@ class MetaRepositoryImpl @Inject constructor(
         namespace: String
     ): Flow<NetworkResult<Meta>> = flow {
         val ctx = context
-        val cacheKey = "$namespace:$type:$id"
+        val cacheKey = "$namespace:${metaCacheType(type)}:$id"
         primaryAddonMetaCache[cacheKey]?.let { cached ->
             emit(NetworkResult.Success(cached))
             return@flow
