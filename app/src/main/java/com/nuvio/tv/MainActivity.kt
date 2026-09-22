@@ -202,7 +202,7 @@ val LocalSidebarExpanded = compositionLocalOf { false }
 val LocalContentFocusRequester = compositionLocalOf { FocusRequester.Default }
 
 private const val SIDEBAR_AUTO_COLLAPSE_DELAY_MS = 4_000L
-private const val MIN_STARTUP_SPLASH_MS = 10_000L
+private const val MIN_STARTUP_SPLASH_MS = 5_000L
 
 data class DrawerItem(
     val route: String,

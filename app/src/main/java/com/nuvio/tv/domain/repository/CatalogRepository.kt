@@ -17,4 +17,9 @@ interface CatalogRepository {
         extraArgs: Map<String, String> = emptyMap(),
         supportsSkip: Boolean = false
     ): Flow<NetworkResult<CatalogRow>>
+
+    /** Preloads first-page Home/Anime/Extra catalogs into the in-memory cache. */
+    fun warmUp()
+
+    fun clearCache()
 }
