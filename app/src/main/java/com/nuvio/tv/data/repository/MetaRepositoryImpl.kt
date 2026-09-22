@@ -110,7 +110,8 @@ class MetaRepositoryImpl @Inject constructor(
     override fun getMetaFromAllAddons(
         type: String,
         id: String,
-        sourceAddonBaseUrl: String?
+        sourceAddonBaseUrl: String?,
+        rawId: String?
     ): Flow<NetworkResult<Meta>> = flow {
         val ctx = context
         val cacheKey = "$type:$id"
@@ -245,18 +246,31 @@ class MetaRepositoryImpl @Inject constructor(
                         // No source addon known: query all matching addons in parallel,
                         // pick the one with the most complete videos (most seasons/episodes).
                         // This ensures TMDB doesn't override richer data from TVDB/anime addons.
+                        // When rawId differs from id (e.g. resolved IMDB vs original TMDB numeric),
+                        // also try the raw ID so addons that can't resolve IMDB still get a chance.
                         val episodeLabel = context.getString(R.string.episodes_episode)
+                        val candidateIds = buildList {
+                            add(id)
+                            if (!rawId.isNullOrBlank() && rawId != id) {
+                                add(rawId)
+                            }
+                        }
                         val allMetaResults = coroutineScope {
                             prioritizedCandidates.map { (addon, candidateType) ->
                                 async {
-                                    val url = buildMetaUrl(addon.baseUrl, candidateType, id)
-                                    Log.d(TAG, "Trying meta (parallel) addonId=${addon.id} addonName=${addon.name} type=$candidateType id=$id url=$url")
-                                    when (val result = safeApiCall(context) { api.getMeta(url) }) {
-                                        is NetworkResult.Success -> {
-                                            result.data.meta?.toDomain(episodeLabel)
+                                    var bestForAddon: Meta? = null
+                                    for (candidateId in candidateIds) {
+                                        if (bestForAddon != null) break
+                                        val url = buildMetaUrl(addon.baseUrl, candidateType, candidateId)
+                                        Log.d(TAG, "Trying meta (parallel) addonId=${addon.id} addonName=${addon.name} type=$candidateType id=$candidateId url=$url")
+                                        when (val result = safeApiCall(context) { api.getMeta(url) }) {
+                                            is NetworkResult.Success -> {
+                                                result.data.meta?.toDomain(episodeLabel)?.let { bestForAddon = it }
+                                            }
+                                            else -> { /* try next ID */ }
                                         }
-                                        else -> null
                                     }
+                                    bestForAddon
                                 }
                             }.awaitAll()
                         }

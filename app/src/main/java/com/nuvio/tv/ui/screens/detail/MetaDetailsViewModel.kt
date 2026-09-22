@@ -713,6 +713,9 @@ class MetaDetailsViewModel @Inject constructor(
             if (metaLookupId != itemId) {
                 _effectiveContentId.value = metaLookupId
             }
+            // Extract raw TMDB numeric ID from the original itemId so addons that can't
+            // resolve IMDB (e.g. anime/TVDB addons) can still find the content.
+            val rawTmdbNumericId = extractRawNumericId(itemId)
             val preferExternal = activeLayoutDataStore.preferExternalMetaAddonDetail.first()
 
             if (preferExternal) {
@@ -720,7 +723,8 @@ class MetaDetailsViewModel @Inject constructor(
                 metaRepository.getMetaFromAllAddons(
                     type = itemType,
                     id = metaLookupId,
-                    sourceAddonBaseUrl = preferredAddonBaseUrl
+                    sourceAddonBaseUrl = preferredAddonBaseUrl,
+                    rawId = rawTmdbNumericId
                 ).collect { result ->
                     when (result) {
                         is NetworkResult.Success -> {
@@ -768,7 +772,8 @@ class MetaDetailsViewModel @Inject constructor(
                     metaRepository.getMetaFromAllAddons(
                         type = itemType,
                         id = metaLookupId,
-                        sourceAddonBaseUrl = preferredAddonBaseUrl
+                        sourceAddonBaseUrl = preferredAddonBaseUrl,
+                        rawId = rawTmdbNumericId
                     ).collect { result ->
                         when (result) {
                             is NetworkResult.Success -> applyMetaWithEnrichment(result.data)
@@ -878,6 +883,20 @@ class MetaDetailsViewModel @Inject constructor(
         // addons cannot resolve. Bare "12345" matches the standard Stremio addon
         // protocol for TMDB-based meta queries.
         return tmdbNumericId.toString()
+    }
+
+    private fun extractRawNumericId(itemId: String): String? {
+        val raw = itemId.trim()
+        val numericId = when {
+            raw.startsWith("tmdb_tv_", ignoreCase = true) ->
+                raw.removePrefix("tmdb_tv_").removePrefix("tmdb_Tv_")
+            raw.startsWith("tmdb_movie_", ignoreCase = true) ->
+                raw.removePrefix("tmdb_movie_").removePrefix("tmdb_Movie_")
+            raw.startsWith("tmdb:", ignoreCase = true) ->
+                raw.substringAfter(':', missingDelimiterValue = "").substringBefore(':')
+            else -> null
+        }
+        return numericId?.takeIf { it.all { c -> c.isDigit() } }
     }
 
     private fun buildMetaLoadErrorMessage(originalMessage: String?, lookupId: String): String {
