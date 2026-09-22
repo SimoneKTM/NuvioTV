@@ -69,8 +69,6 @@ private val WIDE_CARD_WIDTH = 300.dp
 private val WIDE_CARD_HEIGHT = 170.dp
 private val SECTION_PADDING_HORIZONTAL = 48.dp
 
-private const val CALENDAR_STABLE_GATE_TIMEOUT_MS = 6_000L
-
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun CalendarHomeScreen(
@@ -81,17 +79,7 @@ fun CalendarHomeScreen(
     BackHandler { onBackPress() }
 
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val dataLoaded = uiState.sections.isNotEmpty() && !uiState.isLoading
-    var gateReleased by remember { mutableStateOf(false) }
-
-    LaunchedEffect(dataLoaded) {
-        if (dataLoaded && !gateReleased) {
-            delay(CALENDAR_STABLE_GATE_TIMEOUT_MS)
-            gateReleased = true
-        }
-    }
-
-    val showContent = dataLoaded && gateReleased
+    val showContent = uiState.sections.isNotEmpty() && !uiState.isLoading
 
     Box(
         modifier = Modifier

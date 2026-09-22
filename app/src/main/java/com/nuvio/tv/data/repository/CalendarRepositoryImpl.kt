@@ -1,11 +1,6 @@
 package com.nuvio.tv.data.repository
 
 import android.util.Log
-import com.nuvio.tv.BuildConfig
-import com.nuvio.tv.core.trakt.traktBestBackdropUrl
-import com.nuvio.tv.core.trakt.traktBestLogoUrl
-import com.nuvio.tv.core.trakt.traktBestPosterUrl
-import com.nuvio.tv.data.remote.api.TmdbApi
 import com.nuvio.tv.data.remote.api.TraktApi
 import com.nuvio.tv.domain.model.CalendarItem
 import com.nuvio.tv.domain.model.ContentType
@@ -37,16 +32,11 @@ import javax.inject.Singleton
 @Singleton
 class CalendarRepositoryImpl @Inject constructor(
     private val traktApi: TraktApi,
-    private val tmdbApi: TmdbApi,
     private val metaRepository: MetaRepository
 ) : CalendarRepository {
 
     companion object {
         private const val TAG = "CalendarRepo"
-        private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/"
-        private const val POSTER_SIZE = "w780"
-        private const val BACKDROP_SIZE = "w1280"
-        private const val LOGO_SIZE = "w500"
         private const val ADDON_ENRICHMENT_TIMEOUT_MS = 6_000L
         private const val ADDON_ENRICHMENT_CONCURRENCY = 4
     }
@@ -82,8 +72,7 @@ class CalendarRepositoryImpl @Inject constructor(
             val response = traktApi.getCalendarMedia(
                 target = "all",
                 startDate = todayStr,
-                days = daysAhead,
-                extended = "fullimages"
+                days = daysAhead
             )
 
             if (response.isSuccessful) {
@@ -110,92 +99,11 @@ class CalendarRepositoryImpl @Inject constructor(
 
         emit(filteredItems)
 
-        // 1) Addon metadata FIRST — same as Library / Home / Anime.
-        //    Uses MetaRepository's shared addonMetaCache so data already saved
-        //    while browsing Home/Anime tabs is returned instantly.
+        // Addon metadata only — same source as Library / Home / Anime / Extra.
+        // Uses MetaRepository's shared addonMetaCache so data already saved
+        // while browsing other tabs is returned instantly. No TMDB here.
         val addonEnrichedItems = enrichItemsWithAddonData(filteredItems)
         emit(addonEnrichedItems)
-
-        // 2) TMDB SECOND — only fills remaining image gaps (poster/background/logo).
-        val enrichedItems = enrichItemsWithTmdbImages(addonEnrichedItems)
-        emit(enrichedItems)
-    }
-
-    private suspend fun enrichItemsWithTmdbImages(items: List<CalendarItem>): List<CalendarItem> {
-        val itemsNeedingImages = items.filter {
-            it.meta.poster == null || it.meta.background == null
-        }
-        if (itemsNeedingImages.isEmpty()) {
-            Log.d(TAG, "All items have images, no TMDB enrichment needed")
-            return items
-        }
-
-        Log.d(TAG, "Enriching ${itemsNeedingImages.size} items with TMDB images")
-
-        val enriched = coroutineScope {
-            items.map { item ->
-                async {
-                    if (item.meta.poster != null && item.meta.background != null) return@async item
-
-                    val tmdbId = extractTmdbId(item.meta.id) ?: return@async item
-                    val isMovie = item.meta.type == ContentType.MOVIE
-
-                    try {
-                        val tmdbApiKey = BuildConfig.TMDB_API_KEY
-                        val (details, logo) = coroutineScope {
-                            val detailsDeferred = async(Dispatchers.IO) {
-                                if (isMovie) {
-                                    tmdbApi.getMovieDetails(tmdbId, tmdbApiKey).body()
-                                } else {
-                                    tmdbApi.getTvDetails(tmdbId, tmdbApiKey).body()
-                                }
-                            }
-                            val logoDeferred = async(Dispatchers.IO) {
-                                if (item.meta.logo == null) {
-                                    try {
-                                        val imagesResponse = if (isMovie) {
-                                            tmdbApi.getMovieImages(tmdbId, tmdbApiKey).body()
-                                        } else {
-                                            tmdbApi.getTvImages(tmdbId, tmdbApiKey).body()
-                                        }
-                                        imagesResponse?.logos
-                                            ?.firstOrNull { it.iso6391 == "en" || it.iso6391 == null }
-                                            ?.filePath
-                                            ?.let { "${TMDB_IMAGE_BASE}${LOGO_SIZE}$it" }
-                                    } catch (e: Exception) {
-                                        null
-                                    }
-                                } else null
-                            }
-                            detailsDeferred.await() to logoDeferred.await()
-                        }
-
-                        val poster = item.meta.poster
-                            ?: details?.posterPath?.let { "${TMDB_IMAGE_BASE}${POSTER_SIZE}$it" }
-                        val backdrop = item.meta.background
-                            ?: details?.backdropPath?.let { "${TMDB_IMAGE_BASE}${BACKDROP_SIZE}$it" }
-                        val finalLogo = item.meta.logo ?: logo
-
-                        if (poster != item.meta.poster || backdrop != item.meta.background || finalLogo != item.meta.logo) {
-                            Log.d(TAG, "Enriched: ${item.meta.name} poster=$poster backdrop=$backdrop logo=$finalLogo")
-                        }
-
-                        item.copy(
-                            meta = item.meta.copy(
-                                poster = poster,
-                                background = backdrop,
-                                logo = finalLogo
-                            )
-                        )
-                    } catch (e: Exception) {
-                        Log.w(TAG, "TMDB enrichment failed for ${item.meta.name}: ${e.message}")
-                        item
-                    }
-                }
-            }.awaitAll()
-        }
-
-        return enriched
     }
 
     private suspend fun enrichItemsWithAddonData(items: List<CalendarItem>): List<CalendarItem> {
@@ -248,8 +156,8 @@ class CalendarRepositoryImpl @Inject constructor(
             if (result is NetworkResult.Success) {
                 val addonMeta = result.data
                 // Addon is the primary source: prefer its values when present.
-                // Description keeps Trakt's when set — it carries the calendar
-                // episode label ("S1E5 • overview") which addons don't provide.
+                // Description keeps Trakt's episode label ("S1E5") when set —
+                // it is calendar context addons don't provide.
                 val updatedMeta = item.meta.copy(
                     name = addonMeta.name.ifBlank { item.meta.name },
                     poster = addonMeta.poster ?: item.meta.poster,
@@ -284,17 +192,6 @@ class CalendarRepositoryImpl @Inject constructor(
         return numericId?.takeIf { it.all { c -> c.isDigit() } }
     }
 
-    private fun extractTmdbId(metaId: String): Int? {
-        val tmdbPrefix = "tmdb_movie_"
-        val tmdbTvPrefix = "tmdb_tv_"
-        val id = when {
-            metaId.startsWith(tmdbPrefix) -> metaId.removePrefix(tmdbPrefix)
-            metaId.startsWith(tmdbTvPrefix) -> metaId.removePrefix(tmdbTvPrefix)
-            else -> return null
-        }
-        return id.toIntOrNull()
-    }
-
     private fun com.nuvio.tv.data.remote.dto.trakt.TraktCalendarMediaItemDto.toCalendarItem(
         today: LocalDate
     ): CalendarItem? {
@@ -305,26 +202,20 @@ class CalendarRepositoryImpl @Inject constructor(
             val releaseDate = parseDate(released)
             if (releaseDate == null || releaseDate.isBefore(today)) return null
 
-            val posterUrl = movie.images.traktBestPosterUrl()
-            val backdropUrl = movie.images.traktBestBackdropUrl()
-            val logoUrl = movie.images.traktBestLogoUrl()
-
-            Log.d(TAG, "Movie: ${movie.title} poster=$posterUrl backdrop=$backdropUrl logo=$logoUrl")
-
             return CalendarItem(
                 meta = MetaPreview(
                     id = id,
                     type = ContentType.MOVIE,
                     rawType = "movie",
                     name = movie.title ?: "",
-                    poster = posterUrl,
+                    poster = null,
                     posterShape = PosterShape.POSTER,
-                    background = backdropUrl,
-                    logo = logoUrl,
-                    description = movie.overview,
-                    releaseInfo = movie.year?.toString(),
-                    imdbRating = movie.rating?.toFloat(),
-                    genres = movie.genres ?: emptyList(),
+                    background = null,
+                    logo = null,
+                    description = null,
+                    releaseInfo = null,
+                    imdbRating = null,
+                    genres = emptyList(),
                     sourceAddonBaseUrl = null
                 ),
                 releaseDate = releaseDate
@@ -339,12 +230,6 @@ class CalendarRepositoryImpl @Inject constructor(
             val airDate = parseDate(firstAired ?: episode?.firstAired)
             if (airDate == null || airDate.isBefore(today)) return null
 
-            val posterUrl = show.images.traktBestPosterUrl()
-            val backdropUrl = show.images.traktBestBackdropUrl()
-            val logoUrl = show.images.traktBestLogoUrl()
-
-            Log.d(TAG, "Show: ${show.title} poster=$posterUrl backdrop=$backdropUrl logo=$logoUrl")
-
             val episodeLabel = if (episode != null) {
                 val season = episode.season ?: 0
                 val number = episode.number ?: 0
@@ -357,14 +242,14 @@ class CalendarRepositoryImpl @Inject constructor(
                     type = ContentType.SERIES,
                     rawType = "tv",
                     name = show.title ?: "",
-                    poster = posterUrl,
+                    poster = null,
                     posterShape = PosterShape.POSTER,
-                    background = backdropUrl,
-                    logo = logoUrl,
-                    description = episodeLabel?.let { "$it \u2022 ${show.overview ?: ""}" } ?: show.overview,
-                    releaseInfo = show.year?.toString(),
-                    imdbRating = show.rating?.toFloat(),
-                    genres = show.genres ?: emptyList(),
+                    background = null,
+                    logo = null,
+                    description = episodeLabel,
+                    releaseInfo = null,
+                    imdbRating = null,
+                    genres = emptyList(),
                     sourceAddonBaseUrl = null
                 ),
                 releaseDate = airDate
