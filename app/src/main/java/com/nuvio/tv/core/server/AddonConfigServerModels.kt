@@ -42,7 +42,8 @@ data class CatalogInfo(
     val addonName: String,
     val type: String,
     val isDisabled: Boolean,
-    val animeAddon: Boolean = false
+    val animeAddon: Boolean = false,
+    val extraAddon: Boolean = false
 )
 
 data class CollectionInfo(
@@ -77,7 +78,8 @@ data class CatalogSourceInfo(
     val type: String,
     val catalogId: String,
     val genre: String? = null,
-    val animeAddon: Boolean = false
+    val animeAddon: Boolean = false,
+    val extraAddon: Boolean = false
 )
 
 data class CollectionSourceInfo(
@@ -87,6 +89,7 @@ data class CollectionSourceInfo(
     val catalogId: String? = null,
     val genre: String? = null,
     val animeAddon: Boolean = false,
+    val extraAddon: Boolean = false,
     val tmdbSourceType: String? = null,
     val title: String? = null,
     val tmdbId: Int? = null,
@@ -183,5 +186,6 @@ private fun CatalogSourceInfo.toCollectionSourceInfo() = CollectionSourceInfo(
     addonId = addonId,
     type = type,
     catalogId = catalogId,
-    genre = genre
+    genre = genre,
+    extraAddon = extraAddon
 )

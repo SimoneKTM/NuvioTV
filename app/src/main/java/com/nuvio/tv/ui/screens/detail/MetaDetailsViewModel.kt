@@ -172,6 +172,13 @@ class MetaDetailsViewModel @Inject constructor(
             else -> layoutPreferenceDataStore
         }
 
+    private val metaNamespace: String
+        get() = when {
+            animeLayoutActive.value -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME
+            extraLayoutActive.value -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA
+            else -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_HOME
+        }
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private fun <T> layoutFlow(selector: (LayoutPreferenceDataStore) -> Flow<T>): Flow<T> =
         animeLayoutActive.flatMapLatest { animeActive ->
@@ -724,7 +731,8 @@ class MetaDetailsViewModel @Inject constructor(
                     type = itemType,
                     id = metaLookupId,
                     sourceAddonBaseUrl = preferredAddonBaseUrl,
-                    rawId = rawTmdbNumericId
+                    rawId = rawTmdbNumericId,
+                    namespace = metaNamespace
                 ).collect { result ->
                     when (result) {
                         is NetworkResult.Success -> {
@@ -734,7 +742,7 @@ class MetaDetailsViewModel @Inject constructor(
                             // 2) Fallback: try originating addon if meta addons failed
                             val preferred = preferredAddonBaseUrl?.takeIf { it.isNotBlank() }
                             val preferredMeta: Meta? = preferred?.let { baseUrl ->
-                                when (val fallbackResult = metaRepository.getMeta(addonBaseUrl = baseUrl, type = itemType, id = metaLookupId)
+                                when (val fallbackResult = metaRepository.getMeta(addonBaseUrl = baseUrl, type = itemType, id = metaLookupId, namespace = metaNamespace)
                                     .first { it !is NetworkResult.Loading }) {
                                     is NetworkResult.Success -> fallbackResult.data
                                     else -> null
@@ -764,7 +772,7 @@ class MetaDetailsViewModel @Inject constructor(
                 // Original: prefer catalog addon
                 val preferred = preferredAddonBaseUrl?.takeIf { it.isNotBlank() }
                 val preferredMeta: Meta? = preferred?.let { baseUrl ->
-                    when (val result = metaRepository.getMeta(addonBaseUrl = baseUrl, type = itemType, id = metaLookupId)
+                    when (val result = metaRepository.getMeta(addonBaseUrl = baseUrl, type = itemType, id = metaLookupId, namespace = metaNamespace)
                         .first { it !is NetworkResult.Loading }) {
                         is NetworkResult.Success -> result.data
                         else -> null
@@ -778,7 +786,8 @@ class MetaDetailsViewModel @Inject constructor(
                         type = itemType,
                         id = metaLookupId,
                         sourceAddonBaseUrl = preferredAddonBaseUrl,
-                        rawId = rawTmdbNumericId
+                        rawId = rawTmdbNumericId,
+                        namespace = metaNamespace
                     ).collect { result ->
                         when (result) {
                             is NetworkResult.Success -> applyMetaWithEnrichment(result.data)

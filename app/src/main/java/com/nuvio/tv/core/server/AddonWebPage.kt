@@ -1035,6 +1035,10 @@ ${tabButtons}
     color: rgba(210, 130, 200, 0.95);
     border-color: rgba(210, 130, 200, 0.3);
   }
+  .source-provider-extra {
+    color: rgba(130, 210, 170, 0.95);
+    border-color: rgba(130, 210, 170, 0.3);
+  }
 
   /* ── Shared small buttons ── */
   .btn-icon {
@@ -1381,7 +1385,8 @@ function addonSourceFromCatalog(src) {
     type: src.type,
     catalogId: src.catalogId,
     genre: src.genre || null,
-    animeAddon: !!src.animeAddon
+    animeAddon: !!src.animeAddon,
+    extraAddon: !!src.extraAddon
   };
 }
 
@@ -1401,7 +1406,8 @@ function getFolderSources(folder) {
         type: src.type,
         catalogId: src.catalogId,
         genre: src.genre || null,
-        animeAddon: !!src.animeAddon
+        animeAddon: !!src.animeAddon,
+        extraAddon: !!src.extraAddon
       };
     });
   return folder.sources;
@@ -1640,7 +1646,7 @@ async function loadState() {
     availableCatalogs = catalogs.map(function(c) {
       return { key: c.key, addonName: c.addonName, catalogName: c.catalogName, type: c.type,
         addonId: c.key.split('_')[0] || '', catalogId: c.key.split('_').slice(2).join('_') || '',
-        animeAddon: !!c.animeAddon };
+        animeAddon: !!c.animeAddon, extraAddon: !!c.extraAddon };
     });
     buildUnifiedCatalogList();
     setConnectionLost(false);
@@ -2325,7 +2331,7 @@ function addCatalogSourceByVal(ci, fi, val) {
   if (parts.length < 3) return;
   var key = parts[0] + '_' + parts[1] + '_' + parts[2];
   var match = availableCatalogs.find(function(c) { return c.key === key; });
-  var src = { addonId: parts[0], type: parts[1], catalogId: parts[2], animeAddon: !!(match && match.animeAddon) };
+  var src = { addonId: parts[0], type: parts[1], catalogId: parts[2], animeAddon: !!(match && match.animeAddon), extraAddon: !!(match && match.extraAddon) };
   var folder = collections[ci].folders[fi];
   var existing = getFolderSources(folder);
   var dup = existing.some(function(s) { return s.addonId === src.addonId && s.type === src.type && s.catalogId === src.catalogId; });
@@ -3026,7 +3032,7 @@ function renderCollections() {
         var isFirstSrc = (si === 0);
         var isLastSrc = (si === activeSources.length - 1);
         var provider = String(src.provider || 'addon').toLowerCase();
-        var providerLabel = provider === 'tmdb' ? '<span class="source-provider">TMDB</span>' : (provider === 'trakt' ? '<span class="source-provider">TRAKT</span>' : (src.animeAddon ? '<span class="source-provider source-provider-anime">ANIME</span>' : ''));
+        var providerLabel = provider === 'tmdb' ? '<span class="source-provider">TMDB</span>' : (provider === 'trakt' ? '<span class="source-provider">TRAKT</span>' : (src.extraAddon ? '<span class="source-provider source-provider-extra">EXTRA</span>' : (src.animeAddon ? '<span class="source-provider source-provider-anime">ANIME</span>' : '')));
         sourcesHtml +=
           '<div class="source-item">' +
             '<button class="btn-icon" onclick="moveCatalogSource(' + ci + ',' + fi + ',' + si + ',-1)"' + (isFirstSrc ? ' disabled' : '') + '>' +
@@ -3060,7 +3066,7 @@ function renderCollections() {
         var parts = val.split('::');
         var alreadyAdded = existingSources.some(function(s) { return s.addonId === parts[0] && s.type === parts[1] && s.catalogId === parts[2]; });
         var label = c.catalogName + ' - ' + localizedCatalogType(c.type) + ' (' + c.addonName + ')';
-        var animeBadge = c.animeAddon ? '<span class="source-provider source-provider-anime" style="flex-shrink:0">ANIME</span>' : '';
+        var animeBadge = c.extraAddon ? '<span class="source-provider source-provider-extra" style="flex-shrink:0">EXTRA</span>' : (c.animeAddon ? '<span class="source-provider source-provider-anime" style="flex-shrink:0">ANIME</span>' : '');
         if (alreadyAdded) {
           sourceListHtml += '<div class="source-item" data-label="' + escapeAttr(label) + '" style="padding:0.4rem 0.75rem;opacity:0.4">' +
             '<span class="source-label">' + escapeHtml(label) + '</span>' + animeBadge +

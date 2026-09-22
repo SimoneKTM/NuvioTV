@@ -280,7 +280,8 @@ class ExtraSettingsViewModel @Inject constructor(
                 addonName = catalog.addonName,
                 type = catalog.typeLabel,
                 isDisabled = catalog.isDisabled,
-                animeAddon = false
+                animeAddon = false,
+                extraAddon = true
             )
         }
         val collectionInfos = currentCollections.map { col ->

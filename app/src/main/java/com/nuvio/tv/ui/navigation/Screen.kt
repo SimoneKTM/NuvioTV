@@ -192,12 +192,18 @@ sealed class Screen(val route: String) {
         }
     }
 
-    data object FolderDetail : Screen("folder_detail/{collectionId}/{folderId}") {
+    data object FolderDetail : Screen("folder_detail/{collectionId}/{folderId}?fromAnime={fromAnime}&fromExtra={fromExtra}") {
         private fun encode(value: String): String =
             URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 
-        fun createRoute(collectionId: String, folderId: String): String {
-            return "folder_detail/${encode(collectionId)}/${encode(folderId)}"
+        fun createRoute(
+            collectionId: String,
+            folderId: String,
+            fromAnime: Boolean = false,
+            fromExtra: Boolean = false
+        ): String {
+            return "folder_detail/${encode(collectionId)}/${encode(folderId)}" +
+                "?fromAnime=$fromAnime&fromExtra=$fromExtra"
         }
     }
 

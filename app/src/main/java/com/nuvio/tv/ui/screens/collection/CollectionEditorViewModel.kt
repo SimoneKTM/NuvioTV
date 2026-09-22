@@ -30,6 +30,7 @@ import com.nuvio.tv.domain.model.TraktCollectionSource
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.domain.repository.AnimeAddonRepository
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -97,7 +98,8 @@ data class AvailableCatalog(
     val catalogName: String,
     val genreOptions: List<String> = emptyList(),
     val genreRequired: Boolean = false,
-    val animeAddon: Boolean = false
+    val animeAddon: Boolean = false,
+    val extraAddon: Boolean = false
 )
 
 data class AddonCatalogInfo(
@@ -128,6 +130,7 @@ class CollectionEditorViewModel @Inject constructor(
     private val collectionsDataStore: CollectionsDataStore,
     private val addonRepository: AddonRepository,
     private val animeAddonRepository: AnimeAddonRepository,
+    private val extraAddonRepository: ExtraAddonRepository,
     private val liveTvSettingsDataStore: com.nuvio.tv.data.local.LiveTvSettingsDataStore,
     private val tmdbCollectionSourceResolver: TmdbCollectionSourceResolver,
     private val traktPublicListSourceResolver: TraktPublicListSourceResolver,
@@ -149,8 +152,11 @@ class CollectionEditorViewModel @Inject constructor(
         viewModelScope.launch {
             val animeAddonIds = animeAddonRepository.getInstalledAnimeAddons().first()
                 .enabledAddons().mapTo(mutableSetOf()) { it.id }
+            val extraAddonIds = extraAddonRepository.getInstalledExtraAddons().first()
+                .enabledAddons().mapTo(mutableSetOf()) { it.id }
             val addons = (addonRepository.getInstalledAddons().first().enabledAddons() +
-                animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons())
+                animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons() +
+                extraAddonRepository.getInstalledExtraAddons().first().enabledAddons())
                 .distinctBy { it.id }
             val availableCatalogs = addons.flatMap { addon ->
                 addon.catalogs
@@ -167,7 +173,8 @@ class CollectionEditorViewModel @Inject constructor(
                             catalogName = catalog.name,
                             genreOptions = genreExtra?.options.orEmpty(),
                             genreRequired = genreExtra?.isRequired == true,
-                            animeAddon = addon.id in animeAddonIds
+                            animeAddon = addon.id in animeAddonIds,
+                            extraAddon = addon.id in extraAddonIds
                         )
                     }
             }
@@ -383,7 +390,8 @@ class CollectionEditorViewModel @Inject constructor(
                 type = catalog.type,
                 catalogId = catalog.catalogId,
                 genre = defaultGenre,
-                animeAddon = catalog.animeAddon
+                animeAddon = catalog.animeAddon,
+                extraAddon = catalog.extraAddon
             )
             if (folder.sources.any { it is AddonCatalogCollectionSource && it.addonId == source.addonId && it.type == source.type && it.catalogId == source.catalogId }) {
                 return@update state
@@ -445,7 +453,8 @@ class CollectionEditorViewModel @Inject constructor(
                     type = catalog.type,
                     catalogId = catalog.catalogId,
                     genre = defaultGenre,
-                    animeAddon = catalog.animeAddon
+                    animeAddon = catalog.animeAddon,
+                    extraAddon = catalog.extraAddon
                 )
             }
             state.copy(

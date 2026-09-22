@@ -55,10 +55,15 @@ internal suspend fun ExtraHomeViewModel.enrichExtraHeroItem(item: MetaPreview): 
                         metaRepository.getMetaFromAllAddons(
                             type = candidateType,
                             id = candidateId,
-                            sourceAddonBaseUrl = item.sourceAddonBaseUrl
+                            sourceAddonBaseUrl = item.sourceAddonBaseUrl,
+                            namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA
                         )
                     } else {
-                        metaRepository.getMetaFromPrimaryAddon(type = candidateType, id = candidateId)
+                        metaRepository.getMetaFromPrimaryAddon(
+                            type = candidateType,
+                            id = candidateId,
+                            namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA
+                        )
                     }
                     flow.first { it !is NetworkResult.Loading }
                 }

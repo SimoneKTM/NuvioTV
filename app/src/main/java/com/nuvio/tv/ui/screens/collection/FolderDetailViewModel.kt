@@ -111,10 +111,19 @@ class FolderDetailViewModel @Inject constructor(
     private val collectionsDataStore: CollectionsDataStore,
     private val addonRepository: AddonRepository,
     private val animeAddonRepository: AnimeAddonRepository,
+    private val extraAddonRepository: com.nuvio.tv.domain.repository.ExtraAddonRepository,
     private val catalogRepository: CatalogRepository,
     private val liveTvSettingsDataStore: com.nuvio.tv.data.local.LiveTvSettingsDataStore,
     private val liveTvRepository: com.nuvio.tv.data.repository.LiveTvRepository,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
+    @javax.inject.Named("anime_layout")
+    private val animeLayoutPreferenceDataStore: LayoutPreferenceDataStore,
+    @javax.inject.Named("extra_layout")
+    private val extraLayoutPreferenceDataStore: LayoutPreferenceDataStore,
+    @javax.inject.Named("anime_tmdb")
+    private val animeTmdbSettingsDataStore: com.nuvio.tv.data.local.TmdbSettingsDataStore,
+    @javax.inject.Named("extra_tmdb")
+    private val extraTmdbSettingsDataStore: com.nuvio.tv.data.local.TmdbSettingsDataStore,
     private val watchProgressRepository: WatchProgressRepository,
     private val watchedSeriesStateHolder: com.nuvio.tv.data.local.WatchedSeriesStateHolder,
     private val tmdbService: com.nuvio.tv.core.tmdb.TmdbService,
@@ -131,21 +140,49 @@ class FolderDetailViewModel @Inject constructor(
 
     private val collectionId: String = savedStateHandle["collectionId"] ?: ""
     private val folderId: String = savedStateHandle["folderId"] ?: ""
+    private val fromAnime: Boolean = savedStateHandle["fromAnime"] ?: false
+    private val fromExtra: Boolean = savedStateHandle["fromExtra"] ?: false
+
+    private val activeLayoutDataStore: LayoutPreferenceDataStore
+        get() = when {
+            fromAnime -> animeLayoutPreferenceDataStore
+            fromExtra -> extraLayoutPreferenceDataStore
+            else -> layoutPreferenceDataStore
+        }
+
+    private val activeTmdbSettingsDataStore: com.nuvio.tv.data.local.TmdbSettingsDataStore
+        get() = when {
+            fromAnime -> animeTmdbSettingsDataStore
+            fromExtra -> extraTmdbSettingsDataStore
+            else -> tmdbSettingsDataStore
+        }
+
+    private val metaNamespace: String
+        get() = when {
+            fromAnime -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME
+            fromExtra -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA
+            else -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_HOME
+        }
 
     private suspend fun installedAddons(): List<com.nuvio.tv.domain.model.Addon> =
         (addonRepository.getInstalledAddons().first().enabledAddons() +
-            animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons())
+            animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons() +
+            extraAddonRepository.getInstalledExtraAddons().first().enabledAddons())
             .distinctBy { it.id }
 
     private fun resolveAddonForSource(
         source: AddonCatalogCollectionSource,
         addons: List<com.nuvio.tv.domain.model.Addon>,
-        animeAddons: List<com.nuvio.tv.domain.model.Addon>
+        animeAddons: List<com.nuvio.tv.domain.model.Addon>,
+        extraAddons: List<com.nuvio.tv.domain.model.Addon> = emptyList()
     ): com.nuvio.tv.domain.model.Addon? {
-        return if (source.animeAddon) {
-            animeAddons.find { it.id == source.addonId } ?: addons.find { it.id == source.addonId }
-        } else {
-            addons.find { it.id == source.addonId }
+        return when {
+            source.extraAddon ->
+                extraAddons.find { it.id == source.addonId } ?: addons.find { it.id == source.addonId }
+            source.animeAddon ->
+                animeAddons.find { it.id == source.addonId } ?: addons.find { it.id == source.addonId }
+            else ->
+                addons.find { it.id == source.addonId }
         }
     }
 
@@ -252,24 +289,25 @@ class FolderDetailViewModel @Inject constructor(
 
             val addons = installedAddons()
             val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
+            val extraAddons = extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()
             val liveTvPlaylists = liveTvSettingsDataStore.playlists.first()
-            val homeLayout = layoutPreferenceDataStore.selectedLayout.first()
-            val posterLabelsEnabled = layoutPreferenceDataStore.posterLabelsEnabled.first()
-            val catalogAddonNameEnabled = layoutPreferenceDataStore.catalogAddonNameEnabled.first()
-            val catalogTypeSuffixEnabled = layoutPreferenceDataStore.catalogTypeSuffixEnabled.first()
-            val hideUnreleasedContent = layoutPreferenceDataStore.hideUnreleasedContent.first()
-            val showFullReleaseDate = layoutPreferenceDataStore.showFullReleaseDate.first()
-            val modernLandscapePosters = layoutPreferenceDataStore.modernLandscapePostersEnabled.first()
-            val modernFullScreenBackdrop = layoutPreferenceDataStore.modernHeroFullScreenBackdropEnabled.first()
-            val focusedPosterBackdropExpandEnabled = layoutPreferenceDataStore.focusedPosterBackdropExpandEnabled.first()
-            val focusedPosterBackdropExpandDelaySeconds = layoutPreferenceDataStore.focusedPosterBackdropExpandDelaySeconds.first()
-            val focusedPosterBackdropTrailerEnabled = layoutPreferenceDataStore.focusedPosterBackdropTrailerEnabled.first()
-            val focusedPosterBackdropTrailerMuted = layoutPreferenceDataStore.focusedPosterBackdropTrailerMuted.first()
+            val homeLayout = activeLayoutDataStore.selectedLayout.first()
+            val posterLabelsEnabled = activeLayoutDataStore.posterLabelsEnabled.first()
+            val catalogAddonNameEnabled = activeLayoutDataStore.catalogAddonNameEnabled.first()
+            val catalogTypeSuffixEnabled = activeLayoutDataStore.catalogTypeSuffixEnabled.first()
+            val hideUnreleasedContent = activeLayoutDataStore.hideUnreleasedContent.first()
+            val showFullReleaseDate = activeLayoutDataStore.showFullReleaseDate.first()
+            val modernLandscapePosters = activeLayoutDataStore.modernLandscapePostersEnabled.first()
+            val modernFullScreenBackdrop = activeLayoutDataStore.modernHeroFullScreenBackdropEnabled.first()
+            val focusedPosterBackdropExpandEnabled = activeLayoutDataStore.focusedPosterBackdropExpandEnabled.first()
+            val focusedPosterBackdropExpandDelaySeconds = activeLayoutDataStore.focusedPosterBackdropExpandDelaySeconds.first()
+            val focusedPosterBackdropTrailerEnabled = activeLayoutDataStore.focusedPosterBackdropTrailerEnabled.first()
+            val focusedPosterBackdropTrailerMuted = activeLayoutDataStore.focusedPosterBackdropTrailerMuted.first()
             val focusedPosterBackdropTrailerPlaybackTarget =
-                layoutPreferenceDataStore.focusedPosterBackdropTrailerPlaybackTarget.first()
-            val posterCardWidthDp = layoutPreferenceDataStore.posterCardWidthDp.first()
-            val posterCardHeightDp = layoutPreferenceDataStore.posterCardHeightDp.first()
-            val posterCardCornerRadiusDp = layoutPreferenceDataStore.posterCardCornerRadiusDp.first()
+                activeLayoutDataStore.focusedPosterBackdropTrailerPlaybackTarget.first()
+            val posterCardWidthDp = activeLayoutDataStore.posterCardWidthDp.first()
+            val posterCardHeightDp = activeLayoutDataStore.posterCardHeightDp.first()
+            val posterCardCornerRadiusDp = activeLayoutDataStore.posterCardCornerRadiusDp.first()
             val nonLiveTvSources = folder.sources.filterNot { it is LiveTvCollectionSource }
             val showAll = (collection?.showAllTab ?: true) && nonLiveTvSources.size >= 2
 
@@ -285,7 +323,7 @@ class FolderDetailViewModel @Inject constructor(
             val sourceTabs = folder.sources.map { source ->
                 val (name, typeLabel, rawType) = when (source) {
                     is AddonCatalogCollectionSource -> {
-                        val addon = resolveAddonForSource(source, addons, animeAddons)
+                        val addon = resolveAddonForSource(source, addons, animeAddons, extraAddons)
                         val catalog = addon?.catalogs?.find { it.id == source.catalogId && it.apiType == source.type }
                             ?: addon?.catalogs?.find { it.id == source.catalogId.substringBefore(",") && it.apiType == source.type }
                             ?: addons.firstNotNullOfOrNull { a -> a.catalogs.find { it.id == source.catalogId && it.apiType == source.type } }
@@ -305,7 +343,7 @@ class FolderDetailViewModel @Inject constructor(
                 val placeholderRow = if (useShimmerPlaceholders) {
                     val (placeholderAddonId, placeholderCatalogId, placeholderBaseUrl) = when (source) {
                         is AddonCatalogCollectionSource -> {
-                            val baseUrl = resolveAddonForSource(source, addons, animeAddons)?.baseUrl ?: ""
+                            val baseUrl = resolveAddonForSource(source, addons, animeAddons, extraAddons)?.baseUrl ?: ""
                             Triple(source.addonId, source.catalogId, baseUrl)
                         }
                         is LiveTvCollectionSource -> Triple("livetv_${source.playlistId}", source.playlistId, "")
@@ -548,11 +586,11 @@ class FolderDetailViewModel @Inject constructor(
         val needsModernPresentation = _uiState.value.homeLayout == HomeLayout.MODERN
         if (needsModernPresentation) {
             viewModelScope.launch(kotlinx.coroutines.Dispatchers.Default) {
-                val tmdbSettings = tmdbSettingsDataStore.settings.first()
+                val tmdbSettings = activeTmdbSettingsDataStore.settings.first()
                 val currentHomeLayout = _uiState.value.homeLayout
                 val tmdbEnabledForModern = tmdbSettings.enabled &&
                     (currentHomeLayout != HomeLayout.MODERN || tmdbSettings.modernHomeEnabled)
-                val externalMetaEnabled = layoutPreferenceDataStore.preferExternalMetaAddonDetail.first()
+                val externalMetaEnabled = activeLayoutDataStore.preferExternalMetaAddonDetail.first()
                 val computedHeroEnrichmentEnabled = tmdbEnabledForModern || externalMetaEnabled
                 val modernPresentation = buildModernHomePresentation(
                     input = ModernHomePresentationInput(
@@ -731,7 +769,8 @@ class FolderDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val addons = installedAddons()
             val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
-            val addon = resolveAddonForSource(source, addons, animeAddons)
+            val extraAddons = extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()
+            val addon = resolveAddonForSource(source, addons, animeAddons, extraAddons)
 
             if (addon == null) {
                 _uiState.update { state ->
@@ -1221,11 +1260,11 @@ class FolderDetailViewModel @Inject constructor(
         enrichFocusJob?.cancel()
         enrichFocusJob = viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             kotlinx.coroutines.delay(350)
-            val tmdbSettings = tmdbSettingsDataStore.settings.first()
+            val tmdbSettings = activeTmdbSettingsDataStore.settings.first()
             val homeLayout = _uiState.value.homeLayout
             val tmdbEnabled = tmdbSettings.enabled &&
                 (homeLayout != HomeLayout.MODERN || tmdbSettings.modernHomeEnabled)
-            val externalMetaEnabled = layoutPreferenceDataStore.preferExternalMetaAddonDetail.first()
+            val externalMetaEnabled = activeLayoutDataStore.preferExternalMetaAddonDetail.first()
 
             // Only signal enriching if at least one source is active and we're
             // in modern follow-layout mode — prevents hero from hiding indefinitely
@@ -1252,7 +1291,7 @@ class FolderDetailViewModel @Inject constructor(
             if (externalMetaEnabled) {
                 val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
                 val rawId = extractRawNumericId(item.id)
-                val metaResult = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId)
+                val metaResult = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId, metaNamespace)
                     .first { it is NetworkResult.Success || it is NetworkResult.Error }
                 when {
                     metaResult is NetworkResult.Success -> {
@@ -1511,11 +1550,11 @@ class FolderDetailViewModel @Inject constructor(
             if (pendingAdjacentPrefetchItemId != item.id) return@launch
             if (item.id in prefetchedTmdbIds || item.id in prefetchedExternalMetaIds) return@launch
 
-            val tmdbSettings = tmdbSettingsDataStore.settings.first()
+            val tmdbSettings = activeTmdbSettingsDataStore.settings.first()
             val homeLayout = _uiState.value.homeLayout
             val tmdbEnabled = tmdbSettings.enabled &&
                 (homeLayout != HomeLayout.MODERN || tmdbSettings.modernHomeEnabled)
-            val externalMetaEnabled = layoutPreferenceDataStore.preferExternalMetaAddonDetail.first()
+            val externalMetaEnabled = activeLayoutDataStore.preferExternalMetaAddonDetail.first()
 
             if (!tmdbEnabled && !externalMetaEnabled) return@launch
 
@@ -1589,7 +1628,7 @@ class FolderDetailViewModel @Inject constructor(
                     prefetchedExternalMetaIds.add(item.id)
                     val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
                     val rawId = extractRawNumericId(item.id)
-                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId)
+                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId, metaNamespace)
                         .first { it is com.nuvio.tv.core.network.NetworkResult.Success || it is com.nuvio.tv.core.network.NetworkResult.Error }
                     if (result is com.nuvio.tv.core.network.NetworkResult.Success) {
                         enrichedItemIds.add(item.id)
@@ -1626,7 +1665,7 @@ class FolderDetailViewModel @Inject constructor(
                     prefetchedExternalMetaIds.add(item.id)
                     val (queryType, queryId) = toAddonQueryIds(item.id, item.apiType) ?: (item.apiType to item.id)
                     val rawId = extractRawNumericId(item.id)
-                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId)
+                    val result = metaRepository.getMetaFromAllAddons(queryType, queryId, item.sourceAddonBaseUrl, rawId, metaNamespace)
                         .first { it is com.nuvio.tv.core.network.NetworkResult.Success || it is com.nuvio.tv.core.network.NetworkResult.Error }
                     if (result is com.nuvio.tv.core.network.NetworkResult.Success) {
                         val meta = result.data

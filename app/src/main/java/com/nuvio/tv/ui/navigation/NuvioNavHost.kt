@@ -1375,7 +1375,15 @@ fun NuvioNavHost(
             route = Screen.FolderDetail.route,
             arguments = listOf(
                 navArgument("collectionId") { type = NavType.StringType },
-                navArgument("folderId") { type = NavType.StringType }
+                navArgument("folderId") { type = NavType.StringType },
+                navArgument("fromAnime") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                },
+                navArgument("fromExtra") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
             )
         ) {
             com.nuvio.tv.ui.screens.collection.FolderDetailScreen(

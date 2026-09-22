@@ -976,12 +976,14 @@ private suspend fun AnimeHomeViewModel.resolveAnimeMetaForProgress(
                 if (useAllAddons) {
                     metaRepository.getMetaFromAllAddons(
                         type = candidateType,
-                        id = candidateId
+                        id = candidateId,
+                        namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME
                     ).first { it !is NetworkResult.Loading }
                 } else {
                     metaRepository.getMetaFromPrimaryAddon(
                         type = candidateType,
-                        id = candidateId
+                        id = candidateId,
+                        namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME
                     ).first { it !is NetworkResult.Loading }
                 }
             }
@@ -994,7 +996,8 @@ private suspend fun AnimeHomeViewModel.resolveAnimeMetaForProgress(
                 val fallbackResult = withTimeoutOrNull(6_000L) {
                     metaRepository.getMetaFromAllAddons(
                         type = candidateType,
-                        id = candidateId
+                        id = candidateId,
+                        namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME
                     ).first { it !is NetworkResult.Loading }
                 }
                 summary = ((fallbackResult as? NetworkResult.Success<*>)?.data as? Meta)?.toAnimeCwSummary()

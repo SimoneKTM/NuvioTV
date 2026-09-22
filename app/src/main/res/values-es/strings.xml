@@ -1819,6 +1819,7 @@
     <string name="collections_delete_confirm_subtitle">Esta acción eliminará la colección de forma permanente.</string>
     <string name="collections_delete_confirm_title">¿Eliminar esta colección?</string>
     <string name="collections_editor_add_catalog">Añadir catálogo</string>
+    <string name="collections_editor_extra_badge">Extra</string>
     <string name="collections_editor_add_folder">Añadir carpeta</string>
     <string name="collections_editor_add_source">Añadir fuente</string>
     <string name="collections_editor_add_tmdb_source">Añadir fuente de TMDB</string>

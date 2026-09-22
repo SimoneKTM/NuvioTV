@@ -234,6 +234,7 @@ class CollectionsDataStore @Inject constructor(
         val catalogId: String? = null,
         val genre: String? = null,
         val animeAddon: Boolean = false,
+        val extraAddon: Boolean = false,
         val tmdbSourceType: String? = null,
         val title: String? = null,
         val tmdbId: Int? = null,
@@ -268,7 +269,8 @@ class CollectionsDataStore @Inject constructor(
         val type: String,
         val catalogId: String,
         val genre: String? = null,
-        val animeAddon: Boolean = false
+        val animeAddon: Boolean = false,
+        val extraAddon: Boolean = false
     )
 
     private fun Collection.toSerializable() = SerializableCollection(
@@ -299,7 +301,8 @@ class CollectionsDataStore @Inject constructor(
                         type = source.type,
                         catalogId = source.catalogId,
                         genre = source.genre,
-                        animeAddon = source.animeAddon
+                        animeAddon = source.animeAddon,
+                        extraAddon = source.extraAddon
                     )
                 }
             )
@@ -314,7 +317,8 @@ class CollectionsDataStore @Inject constructor(
                 type = type,
                 catalogId = catalogId,
                 genre = genre,
-                animeAddon = animeAddon
+                animeAddon = animeAddon,
+                extraAddon = extraAddon
             )
             is TmdbCollectionSource -> SerializableSource(
                 provider = "tmdb",
@@ -386,7 +390,8 @@ class CollectionsDataStore @Inject constructor(
                             type = source.type,
                             catalogId = source.catalogId,
                             genre = source.genre,
-                            animeAddon = source.animeAddon
+                            animeAddon = source.animeAddon,
+                            extraAddon = source.extraAddon
                         )
                     }
             )
@@ -448,7 +453,8 @@ class CollectionsDataStore @Inject constructor(
                     type = sourceType,
                     catalogId = sourceCatalogId,
                     genre = genre,
-                    animeAddon = animeAddon
+                    animeAddon = animeAddon,
+                    extraAddon = extraAddon
                 )
             }
         }

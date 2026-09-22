@@ -55,10 +55,15 @@ internal suspend fun AnimeHomeViewModel.enrichAnimeHeroItem(item: MetaPreview): 
                         metaRepository.getMetaFromAllAddons(
                             type = candidateType,
                             id = candidateId,
-                            sourceAddonBaseUrl = item.sourceAddonBaseUrl
+                            sourceAddonBaseUrl = item.sourceAddonBaseUrl,
+                            namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME
                         )
                     } else {
-                        metaRepository.getMetaFromPrimaryAddon(type = candidateType, id = candidateId)
+                        metaRepository.getMetaFromPrimaryAddon(
+                            type = candidateType,
+                            id = candidateId,
+                            namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME
+                        )
                     }
                     flow.first { it !is NetworkResult.Loading }
                 }

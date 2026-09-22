@@ -2729,6 +2729,7 @@
     <string name="collections_editor_no_livetv_playlists">No IPTV playlists available. Add one in the IPTV settings first.</string>
     <string name="collections_editor_livetv_source_type">IPTV</string>
     <string name="collections_editor_anime_badge">Anime</string>
+    <string name="collections_editor_extra_badge">Extra</string>
     <string name="collections_editor_save_source">Save Source</string>
     <string name="collections_editor_tmdb_collection">TMDB Collection</string>
     <string name="collections_editor_tmdb_default_list">TMDB List</string>

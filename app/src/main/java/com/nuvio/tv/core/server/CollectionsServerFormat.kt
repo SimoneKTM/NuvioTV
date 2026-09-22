@@ -36,7 +36,8 @@ internal fun collectionsToServerFormat(cols: List<Collection>): List<CollectionI
                             type = src.type,
                             catalogId = src.catalogId,
                             genre = src.genre,
-                            animeAddon = src.animeAddon
+                            animeAddon = src.animeAddon,
+                            extraAddon = src.extraAddon
                         )
                     },
                     sources = folder.sources.map { source ->
@@ -47,7 +48,8 @@ internal fun collectionsToServerFormat(cols: List<Collection>): List<CollectionI
                                 type = source.type,
                                 catalogId = source.catalogId,
                                 genre = source.genre,
-                                animeAddon = source.animeAddon
+                                animeAddon = source.animeAddon,
+                                extraAddon = source.extraAddon
                             )
                             is TmdbCollectionSource -> CollectionSourceInfo(
                                 provider = "tmdb",

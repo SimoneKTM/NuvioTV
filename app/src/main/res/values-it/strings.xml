@@ -1743,6 +1743,7 @@
   <string name="collections_editor_no_livetv_playlists">Nessuna playlist IPTV disponibile. Aggiungine una nelle impostazioni IPTV.</string>
   <string name="collections_editor_livetv_source_type">IPTV</string>
   <string name="collections_editor_anime_badge">Anime</string>
+  <string name="collections_editor_extra_badge">Extra</string>
   <string name="collections_editor_save_source">Salva sorgente</string>
   <string name="collections_editor_tmdb_collection">Collezione TMDB</string>
   <string name="collections_editor_tmdb_help_presets">Scegli una sorgente predefinita. Puoi modificarla o rimuoverla dopo l\'aggiunta.</string>

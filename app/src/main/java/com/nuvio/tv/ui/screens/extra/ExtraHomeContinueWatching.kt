@@ -979,12 +979,14 @@ private suspend fun ExtraHomeViewModel.resolveExtraMetaForProgress(
                 if (useAllAddons) {
                     metaRepository.getMetaFromAllAddons(
                         type = candidateType,
-                        id = candidateId
+                        id = candidateId,
+                        namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA
                     ).first { it !is NetworkResult.Loading }
                 } else {
                     metaRepository.getMetaFromPrimaryAddon(
                         type = candidateType,
-                        id = candidateId
+                        id = candidateId,
+                        namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA
                     ).first { it !is NetworkResult.Loading }
                 }
             }
@@ -997,7 +999,8 @@ private suspend fun ExtraHomeViewModel.resolveExtraMetaForProgress(
                 val fallbackResult = withTimeoutOrNull(6_000L) {
                     metaRepository.getMetaFromAllAddons(
                         type = candidateType,
-                        id = candidateId
+                        id = candidateId,
+                        namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA
                     ).first { it !is NetworkResult.Loading }
                 }
                 summary = ((fallbackResult as? NetworkResult.Success<*>)?.data as? Meta)?.toExtraCwSummary()

@@ -69,10 +69,11 @@ class MetaRepositoryImpl @Inject constructor(
     override fun getMeta(
         addonBaseUrl: String,
         type: String,
-        id: String
+        id: String,
+        namespace: String
     ): Flow<NetworkResult<Meta>> = flow {
         val ctx = context
-        val cacheKey = "$type:$id"
+        val cacheKey = "$namespace:$type:$id"
         metaCache[cacheKey]?.let { cached ->
             emit(NetworkResult.Success(cached))
             return@flow
@@ -111,10 +112,11 @@ class MetaRepositoryImpl @Inject constructor(
         type: String,
         id: String,
         sourceAddonBaseUrl: String?,
-        rawId: String?
+        rawId: String?,
+        namespace: String
     ): Flow<NetworkResult<Meta>> = flow {
         val ctx = context
-        val cacheKey = "$type:$id"
+        val cacheKey = "$namespace:$type:$id"
         addonMetaCache[cacheKey]?.let { cached ->
             emit(NetworkResult.Success(cached))
             return@flow
@@ -319,10 +321,11 @@ class MetaRepositoryImpl @Inject constructor(
 
     override fun getMetaFromPrimaryAddon(
         type: String,
-        id: String
+        id: String,
+        namespace: String
     ): Flow<NetworkResult<Meta>> = flow {
         val ctx = context
-        val cacheKey = "$type:$id"
+        val cacheKey = "$namespace:$type:$id"
         primaryAddonMetaCache[cacheKey]?.let { cached ->
             emit(NetworkResult.Success(cached))
             return@flow
