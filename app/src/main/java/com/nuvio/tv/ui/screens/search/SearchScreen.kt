@@ -79,7 +79,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -365,24 +364,24 @@ fun SearchScreen(
         }
     }
 
-    // Single mixed grid of every result (movies + series), ordered by popularity.
-    val mergedResults = remember(uiState.catalogRows) {
-        uiState.catalogRows
+    // Single mixed grid of every result (movies + series): best title match first,
+    // popular franchises ahead of deep cuts, sequels after their original in release order.
+    val mergedResults = remember(uiState.catalogRows, trimmedQuery) {
+        val entries = uiState.catalogRows
             .flatMap { row -> row.items.map { SearchGridEntry(it, row.addonBaseUrl) } }
             .filter { !it.item.id.startsWith("__placeholder_") }
             .filter { entry ->
-                // Anime/TVDB catalogs often return only a portrait poster.
-                // Requiring a backdrop hid every hit from the Anime tab.
+                // Drop hits with no artwork at all: the card has nothing to render.
+                // Poster-only is enough (Anime/TVDB catalogs often have no backdrop).
                 val item = entry.item
                 !item.poster.isNullOrBlank() ||
                     !item.background.isNullOrBlank() ||
                     !item.landscapePoster.isNullOrBlank()
             }
             .distinctBy { it.key() }
-            .sortedWith(
-                compareByDescending<SearchGridEntry> { it.item.imdbRating ?: -1f }
-                    .thenBy { it.item.name.lowercase() }
-            )
+        val entryByKey = entries.associateBy { it.key() }
+        rankSearchResults(trimmedQuery, entries.map { it.item })
+            .mapNotNull { item -> entryByKey["${item.apiType}:${item.id}"] }
     }
 
     val isDiscoverMode = remember(uiState.discoverLocation, trimmedQuery, trimmedSubmittedQuery) {
@@ -687,17 +686,10 @@ fun SearchScreen(
             initialFirstVisibleItemIndex = savedResultsScroll?.first ?: 0,
             initialFirstVisibleItemScrollOffset = savedResultsScroll?.second ?: 0
         )
-        // Number of result columns in the full-width (keyboard collapsed) grid, used to keep the
-        // ghost skeleton up until roughly two rows of real results have arrived.
-        val maxGridWidth = LocalConfiguration.current.screenWidthDp.dp + NuvioTheme.spacing.md
-        val resultsColumns = remember(posterCardStyle) {
-            val cols = maxGridWidth / (posterCardStyle.width + NuvioTheme.spacing.md)
-            cols.toInt().coerceAtLeast(1)
-        }
-        // While a search is still in flight and only a handful of real results have trickled in,
-        // keep the full ghost-poster skeleton instead of showing a sparse grid with one poster.
+        // Skeleton only while there is nothing real to show. Once any hit arrives the grid
+        // takes over even if slower catalogs are still loading (footer covers the rest).
         val showGhostSkeleton = (hasPendingUnsubmittedQuery || uiState.isSearching) &&
-            mergedResults.size < resultsColumns * 2
+            mergedResults.isEmpty()
 
         Box(
             modifier = Modifier

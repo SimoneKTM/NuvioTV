@@ -2446,6 +2446,7 @@
     <string name="calendar_this_week">This week</string>
     <string name="calendar_next_week">Next week</string>
     <string name="calendar_items_count">items</string>
+    <string name="calendar_not_in_catalog">Not in catalog</string>
     <string name="calendar_tab_visibility_title">Show Calendar tab</string>
     <string name="calendar_tab_visibility_subtitle">Show or hide the Calendar tab in the sidebar</string>
     <string name="extra_settings_title">Extra</string>

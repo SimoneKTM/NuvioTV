@@ -1159,7 +1159,8 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                 // visible flash of addon data being replaced by TMDB data.
                 debug.markPhase("enrichment-grace")
                 val tmdbEnrichCw = currentTmdbSettings.enabled && currentTmdbSettings.enrichContinueWatching
-                val enrichmentDelayMs = if (tmdbEnrichCw) 0L else remainingContinueWatchingEnrichmentGraceMs()
+                val tvdbEnrichCw = currentTvdbSettings.enabled && currentTvdbSettings.hasApiKey
+                val enrichmentDelayMs = if (tmdbEnrichCw || tvdbEnrichCw) 0L else remainingContinueWatchingEnrichmentGraceMs()
                 debug.recordEnrichmentDelay(enrichmentDelayMs)
                 if (enrichmentDelayMs > 0L) {
                     delay(enrichmentDelayMs)
@@ -1846,6 +1847,8 @@ private suspend fun HomeViewModel.enrichInProgressItem(
     debug: CwDebugSession? = null
 ): ContinueWatchingItem.InProgress = coroutineScope {
     val shouldEnrichTmdb = currentTmdbSettings.enabled && currentTmdbSettings.enrichContinueWatching
+    val shouldEnrichTvdb = currentTvdbSettings.enabled && currentTvdbSettings.hasApiKey &&
+        isSeriesTypeCW(item.progress.contentType)
 
     // Start TMDB ID resolve early (cache hit = instant, cache miss = network)
     val tmdbIdDeferred = if (shouldEnrichTmdb) {
@@ -1881,6 +1884,26 @@ private suspend fun HomeViewModel.enrichInProgressItem(
     } else null
     val imdbRating = tmdbData?.rating?.toFloat() ?: meta.imdbRating
     val settings = currentTmdbSettings
+
+    // TVDB fills blanks after TMDB (TMDB wins).
+    var tvdbName: String? = null
+    var tvdbDescription: String? = null
+    var tvdbBackground: String? = null
+    if (shouldEnrichTvdb) {
+        val tvdbPreview = runCatching {
+            tvdbMetadataService.enrichPreview(
+                itemId = item.progress.contentId,
+                name = meta.name ?: item.progress.name,
+                apiType = item.progress.contentType,
+                settings = currentTvdbSettings
+            )
+        }.getOrNull()
+        if (tvdbPreview != null) {
+            tvdbDescription = tvdbPreview.description
+            tvdbBackground = tvdbPreview.background
+        }
+    }
+
     item.copy(
         progress = item.progress.copy(
             videoId = if (item.progress.source != WatchProgress.SOURCE_LOCAL && video != null) {
@@ -1890,7 +1913,7 @@ private suspend fun HomeViewModel.enrichInProgressItem(
             },
             name = if (settings.useBasicInfo) tmdbData?.name ?: meta.name else meta.name,
             poster = item.progress.poster ?: meta.poster.normalizeImageUrl() ?: if (settings.useArtwork) tmdbData?.poster.normalizeImageUrl() else null,
-            backdrop = if (settings.useArtwork) tmdbData?.backdrop.normalizeImageUrl() ?: meta.backdropUrl.normalizeImageUrl() ?: item.progress.backdrop else meta.backdropUrl.normalizeImageUrl() ?: item.progress.backdrop,
+            backdrop = if (settings.useArtwork) tmdbData?.backdrop.normalizeImageUrl() ?: meta.backdropUrl.normalizeImageUrl() ?: tvdbBackground ?: item.progress.backdrop else meta.backdropUrl.normalizeImageUrl() ?: item.progress.backdrop,
             logo = if (settings.useArtwork) tmdbData?.logo.normalizeImageUrl() ?: meta.logo.normalizeImageUrl() ?: item.progress.logo else meta.logo.normalizeImageUrl() ?: item.progress.logo,
             episodeTitle = if (settings.useEpisodes) tmdbData?.episodeTitle
                 ?: video?.title?.takeIf { it.isNotBlank() }
@@ -1899,6 +1922,7 @@ private suspend fun HomeViewModel.enrichInProgressItem(
         ),
         episodeDescription = if (settings.useEpisodes) tmdbData?.overview
             ?: video?.overview?.takeIf { it.isNotBlank() }
+            ?: tvdbDescription
             ?: meta.description?.takeIf { it.isNotBlank() }
             ?: item.episodeDescription
         else video?.overview?.takeIf { it.isNotBlank() }
@@ -1922,6 +1946,8 @@ private suspend fun HomeViewModel.enrichNextUpItem(
 ): ContinueWatchingItem.NextUp = coroutineScope {
     val progressSeed = item.info.toProgressSeed()
     val shouldEnrichTmdb = currentTmdbSettings.enabled && currentTmdbSettings.enrichContinueWatching
+    val shouldEnrichTvdb = currentTvdbSettings.enabled && currentTvdbSettings.hasApiKey &&
+        isSeriesTypeCW(progressSeed.contentType)
 
     // Start TMDB ID resolve early (cache hit = instant, cache miss = network)
     val tmdbIdDeferred = if (shouldEnrichTmdb) {
@@ -1967,10 +1993,29 @@ private suspend fun HomeViewModel.enrichNextUpItem(
     )
 
     val settings = currentTmdbSettings
+
+    // TVDB fills blanks after TMDB (TMDB wins).
+    var tvdbDescription: String? = null
+    var tvdbBackground: String? = null
+    if (shouldEnrichTvdb) {
+        val tvdbPreview = runCatching {
+            tvdbMetadataService.enrichPreview(
+                itemId = progressSeed.contentId,
+                name = meta.name ?: item.info.name,
+                apiType = progressSeed.contentType,
+                settings = currentTvdbSettings
+            )
+        }.getOrNull()
+        if (tvdbPreview != null) {
+            tvdbDescription = tvdbPreview.description
+            tvdbBackground = tvdbPreview.background
+        }
+    }
+
     val enrichedInfo = item.info.copy(
         name = if (settings.useBasicInfo) tmdbData?.name ?: meta.name else meta.name,
         poster = item.info.poster ?: meta.poster.normalizeImageUrl() ?: if (settings.useArtwork) tmdbData?.poster else null,
-        backdrop = if (settings.useArtwork) tmdbData?.backdrop ?: meta.backdropUrl.normalizeImageUrl() ?: item.info.backdrop else meta.backdropUrl.normalizeImageUrl() ?: item.info.backdrop,
+        backdrop = if (settings.useArtwork) tmdbData?.backdrop ?: meta.backdropUrl.normalizeImageUrl() ?: tvdbBackground ?: item.info.backdrop else meta.backdropUrl.normalizeImageUrl() ?: item.info.backdrop,
         logo = if (settings.useArtwork) tmdbData?.logo ?: meta.logo.normalizeImageUrl() ?: item.info.logo else meta.logo.normalizeImageUrl() ?: item.info.logo,
         season = video?.season ?: item.info.season,
         episode = video?.episode ?: item.info.episode,
@@ -1981,6 +2026,7 @@ private suspend fun HomeViewModel.enrichNextUpItem(
         else video?.title?.takeIf { it.isNotBlank() } ?: item.info.episodeTitle,
         episodeDescription = if (settings.useEpisodes) tmdbData?.overview
             ?: video?.overview?.takeIf { it.isNotBlank() }
+            ?: tvdbDescription
             ?: item.info.episodeDescription
         else video?.overview?.takeIf { it.isNotBlank() } ?: item.info.episodeDescription,
         thumbnail = if (settings.useEpisodes) tmdbData?.thumbnail ?: video?.thumbnail.normalizeImageUrl() ?: item.info.thumbnail else video?.thumbnail.normalizeImageUrl() ?: item.info.thumbnail,

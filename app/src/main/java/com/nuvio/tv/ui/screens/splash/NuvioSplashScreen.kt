@@ -69,3 +69,21 @@ fun NuvioSplashScreen(
         )
     }
 }
+
+/** Full-screen black with a centered loading circle — shown while Home data warms after profile select. */
+@Composable
+fun StartupLoadingScreen(
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF0D0D0D)),
+        contentAlignment = Alignment.Center
+    ) {
+        LoadingIndicator(
+            modifier = Modifier.size(56.dp),
+            color = NuvioTheme.colors.TextSecondary
+        )
+    }
+}

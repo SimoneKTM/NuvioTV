@@ -17,9 +17,11 @@ import com.nuvio.tv.data.local.PlayerSettingsDataStore
 import com.nuvio.tv.data.local.StartupAuthNotice
 import com.nuvio.tv.data.local.MDBListSettingsDataStore
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
+import com.nuvio.tv.data.local.TvdbSettingsDataStore
 import com.nuvio.tv.data.local.TraktSettingsDataStore
 import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 import com.nuvio.tv.data.trailer.TrailerService
+import com.nuvio.tv.data.tvdb.TvdbMetadataService
 import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
@@ -33,6 +35,7 @@ import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.data.repository.MDBListRepository
 import com.nuvio.tv.domain.model.MDBListSettings
 import com.nuvio.tv.domain.model.TmdbSettings
+import com.nuvio.tv.domain.model.TvdbSettings
 import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.domain.repository.CatalogRepository
 import com.nuvio.tv.domain.repository.LibraryRepository
@@ -71,11 +74,13 @@ class HomeViewModel @Inject constructor(
     internal val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     internal val playerSettingsDataStore: PlayerSettingsDataStore,
     internal val tmdbSettingsDataStore: TmdbSettingsDataStore,
+    internal val tvdbSettingsDataStore: TvdbSettingsDataStore,
     internal val mdbListSettingsDataStore: MDBListSettingsDataStore,
     internal val traktSettingsDataStore: TraktSettingsDataStore,
     internal val authSessionNoticeDataStore: AuthSessionNoticeDataStore,
     internal val tmdbService: TmdbService,
     internal val tmdbMetadataService: TmdbMetadataService,
+    internal val tvdbMetadataService: TvdbMetadataService,
     internal val mdbListRepository: MDBListRepository,
     internal val trailerService: TrailerService,
     internal val watchedSeriesStateHolder: com.nuvio.tv.data.local.WatchedSeriesStateHolder,
@@ -186,6 +191,7 @@ class HomeViewModel @Inject constructor(
     internal var trailerPreviewRequestVersion: Long = 0L
     internal var trailerPreviewJob: Job? = null
     internal var currentTmdbSettings: TmdbSettings = TmdbSettings()
+    internal var currentTvdbSettings: TvdbSettings = TvdbSettings()
     internal var currentMdbListSettings: MDBListSettings = MDBListSettings()
     internal var heroEnrichmentJob: Job? = null
     internal var lastHeroEnrichmentSignature: String? = null
@@ -197,6 +203,7 @@ class HomeViewModel @Inject constructor(
     internal var externalMetaPrefetchJob: Job? = null
     internal var pendingExternalMetaPrefetchItemId: String? = null
     internal val prefetchedTmdbIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    internal val prefetchedTvdbIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
     internal val cwMetaCache = Collections.synchronizedMap(mutableMapOf<String, CwMetaSummary?>())
     internal val cwMetaNegativeCacheTimestamps = ConcurrentHashMap<String, Long>()
     /** Ultra-light cache for badge evaluation: contentId → set of aired (season, episode) pairs. */
@@ -301,6 +308,7 @@ class HomeViewModel @Inject constructor(
             loadCustomCatalogTitles()
             observeLibraryState()
             observeTmdbSettings()
+            observeTvdbSettings()
             observeMdbListSettings()
             observeBlurUnwatchedEpisodes()
             observeProgressSourceChanges()
@@ -514,6 +522,7 @@ class HomeViewModel @Inject constructor(
     private fun loadCustomCatalogTitles() = loadCustomCatalogTitlesPipeline()
 
     private fun observeTmdbSettings() = observeTmdbSettingsPipeline()
+    private fun observeTvdbSettings() = observeTvdbSettingsPipeline()
 
     private fun observeMdbListSettings() {
         viewModelScope.launch {

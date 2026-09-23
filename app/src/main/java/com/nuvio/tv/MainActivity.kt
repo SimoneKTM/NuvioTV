@@ -175,6 +175,7 @@ import com.nuvio.tv.ui.screens.account.AuthQrSignInScreen
 import com.nuvio.tv.ui.screens.addon.EssentialAddonSetupScreen
 import com.nuvio.tv.ui.screens.profile.ProfileSelectionScreen
 import com.nuvio.tv.ui.screens.splash.NuvioSplashScreen
+import com.nuvio.tv.ui.screens.splash.StartupLoadingScreen
 import com.nuvio.tv.ui.theme.NuvioComponents
 import com.nuvio.tv.ui.theme.NuvioLayout
 import com.nuvio.tv.ui.theme.NuvioMotion
@@ -203,6 +204,7 @@ val LocalContentFocusRequester = compositionLocalOf { FocusRequester.Default }
 
 private const val SIDEBAR_AUTO_COLLAPSE_DELAY_MS = 4_000L
 private const val MIN_STARTUP_SPLASH_MS = 5_000L
+private const val MIN_POST_PROFILE_LOADING_MS = 600L
 
 data class DrawerItem(
     val route: String,
@@ -281,6 +283,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var startupSyncService: StartupSyncService
+
+    @Inject
+    lateinit var startupHomePreloader: com.nuvio.tv.core.sync.StartupHomePreloader
 
     @Inject
     lateinit var androidTvChannelSyncService: com.nuvio.tv.core.sync.androidtv.AndroidTvChannelSyncService
@@ -377,11 +382,15 @@ class MainActivity : ComponentActivity() {
         val launchContentType = intent?.getStringExtra("contentType")
         captureDeepLinkIntent(intent)
 
+        // Warm Home data during the 5s splash + profile selection.
+        startupHomePreloader.ensureStarted()
+
         setContent {
             var hasSelectedProfileThisSession by rememberSaveable { mutableStateOf(false) }
             var onboardingCompletedThisSession by remember { mutableStateOf(false) }
             var onboardingProfileSyncInProgress by remember { mutableStateOf(false) }
             var splashMinElapsed by remember { mutableStateOf(false) }
+            var postProfileMinElapsed by remember { mutableStateOf(false) }
             val hasSeenAuthQrFlow = remember(appOnboardingDataStore) {
                 appOnboardingDataStore.hasSeenAuthQrOnFirstLaunch.map<Boolean, Boolean?> { it }
             }
@@ -396,6 +405,15 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(Unit) {
                 delay(MIN_STARTUP_SPLASH_MS)
                 splashMinElapsed = true
+            }
+            LaunchedEffect(hasSelectedProfileThisSession) {
+                if (hasSelectedProfileThisSession) {
+                    postProfileMinElapsed = false
+                    delay(MIN_POST_PROFILE_LOADING_MS)
+                    postProfileMinElapsed = true
+                } else {
+                    postProfileMinElapsed = false
+                }
             }
 
             LaunchedEffect(authSessionNoticeDataStore, context) {
@@ -673,6 +691,16 @@ class MainActivity : ComponentActivity() {
                         effectiveExperienceMode == ExperienceMode.ESSENTIAL &&
                             installedAddons.orEmpty().isEmpty() &&
                             !mainUiPrefs.addonSetupSkipped
+
+                    // After profile select, hold a black loading screen until Home data is warm
+                    // (or timeout in the preloader). Skip for onboarding flows that don't open Home.
+                    val willEnterMainApp = !needsExperienceSelection && !needsEssentialAddonSetup && layoutChosen
+                    val homePreloadReady by startupHomePreloader.ready.collectAsState()
+                    if (willEnterMainApp && (!homePreloadReady || !postProfileMinElapsed)) {
+                        StartupLoadingScreen()
+                        return@Surface
+                    }
+
                     val pendingDeepLink by pendingDeepLinkUrl.collectAsState()
 
                     LaunchedEffect(pendingDeepLink) {

@@ -465,6 +465,7 @@ private fun CalendarHeroSection(
                 CalendarWideCard(
                     meta = calendarItem.meta,
                     releaseDate = calendarItem.releaseDate,
+                    notInCatalog = calendarItem.notInCatalog,
                     onClick = {
                         // Always open Detail with a blank source addon so the
                         // detail page races Home + Anime + Extra meta pools.
@@ -542,6 +543,7 @@ private fun CalendarSection(
                 CalendarPortraitCard(
                     meta = calendarItem.meta,
                     releaseDate = calendarItem.releaseDate,
+                    notInCatalog = calendarItem.notInCatalog,
                     onClick = {
                         onNavigateToDetail(
                             calendarItem.meta.id,
@@ -578,6 +580,7 @@ private fun SectionBadge(count: Int) {
 private fun CalendarWideCard(
     meta: MetaPreview,
     releaseDate: java.time.LocalDate?,
+    notInCatalog: Boolean = false,
     onClick: () -> Unit,
     onFocusChange: (Boolean) -> Unit = {},
     focusRequester: FocusRequester? = null,
@@ -746,6 +749,22 @@ private fun CalendarWideCard(
                         )
                     }
                 }
+
+                if (notInCatalog) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = stringResource(R.string.calendar_not_in_catalog),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color.Black.copy(alpha = 0.75f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
             }
         }
     }
@@ -756,6 +775,7 @@ private fun CalendarWideCard(
 private fun CalendarPortraitCard(
     meta: MetaPreview,
     releaseDate: java.time.LocalDate?,
+    notInCatalog: Boolean = false,
     onClick: () -> Unit,
     focusRequester: FocusRequester? = null
 ) {
@@ -841,6 +861,26 @@ private fun CalendarPortraitCard(
                         text = dateLabel,
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White
+                    )
+                }
+            }
+
+            if (notInCatalog) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 6.dp, vertical = 6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.8f))
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.calendar_not_in_catalog),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

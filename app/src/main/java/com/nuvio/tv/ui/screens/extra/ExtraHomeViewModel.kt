@@ -12,7 +12,9 @@ import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.data.local.MDBListSettingsDataStore
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
+import com.nuvio.tv.data.local.ExtraTvdbSettingsDataStore
 import com.nuvio.tv.data.repository.MDBListRepository
+import com.nuvio.tv.data.tvdb.TvdbMetadataService
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
@@ -24,6 +26,7 @@ import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.model.TmdbSettings
+import com.nuvio.tv.domain.model.TvdbSettings
 import com.nuvio.tv.domain.model.mergeCatalogPage
 import com.nuvio.tv.domain.model.nextCatalogSkip
 import com.nuvio.tv.domain.model.skipStep
@@ -65,8 +68,10 @@ class ExtraHomeViewModel @Inject constructor(
     @Named("extra_cw_cache") internal val extraCwEnrichmentCache: ContinueWatchingEnrichmentCache,
     @Named("extra_tmdb") internal val extraTmdbSettingsDataStore: TmdbSettingsDataStore,
     @Named("extra_mdblist") internal val extraMdbListSettingsDataStore: MDBListSettingsDataStore,
+    internal val extraTvdbSettingsDataStore: ExtraTvdbSettingsDataStore,
     internal val tmdbService: TmdbService,
     internal val tmdbMetadataService: TmdbMetadataService,
+    internal val tvdbMetadataService: TvdbMetadataService,
     internal val mdbListRepository: MDBListRepository
 ) : ViewModel() {
 
@@ -91,6 +96,7 @@ class ExtraHomeViewModel @Inject constructor(
     internal var extraCwPipelineJob: Job? = null
     internal var currentExtraTmdbSettings: TmdbSettings = TmdbSettings()
     internal var currentExtraMdbListSettings: MDBListSettings = MDBListSettings()
+    internal var currentExtraTvdbSettings: TvdbSettings = TvdbSettings()
     internal var extraHeroEnrichmentJob: Job? = null
     internal var lastExtraHeroEnrichmentSignature: String? = null
     val uiState: StateFlow<ExtraHomeUiState> = _uiState.asStateFlow()
@@ -147,14 +153,16 @@ class ExtraHomeViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 extraTmdbSettingsDataStore.settings,
-                extraMdbListSettingsDataStore.settings
-            ) { tmdb, mdb ->
-                tmdb to mdb
+                extraMdbListSettingsDataStore.settings,
+                extraTvdbSettingsDataStore.settings
+            ) { tmdb, mdb, tvdb ->
+                Triple(tmdb, mdb, tvdb)
             }
                 .distinctUntilChanged()
-                .collectLatest { (tmdb, mdb) ->
+                .collectLatest { (tmdb, mdb, tvdb) ->
                     currentExtraTmdbSettings = tmdb
                     currentExtraMdbListSettings = mdb
+                    currentExtraTvdbSettings = tvdb
                     lastExtraHeroEnrichmentSignature = null
                     enrichExtraHeroItemsIfNeeded(_uiState.value.heroItems)
                 }
@@ -165,7 +173,8 @@ class ExtraHomeViewModel @Inject constructor(
         val tmdbEnabled = currentExtraTmdbSettings.enabled
         val mdbEnabled = currentExtraMdbListSettings.enabled &&
             currentExtraMdbListSettings.apiKey.isNotBlank()
-        if (heroItems.isEmpty() || (!tmdbEnabled && !mdbEnabled)) {
+        val tvdbEnabled = currentExtraTvdbSettings.enabled && currentExtraTvdbSettings.hasApiKey
+        if (heroItems.isEmpty() || (!tmdbEnabled && !mdbEnabled && !tvdbEnabled)) {
             lastExtraHeroEnrichmentSignature = null
             return
         }

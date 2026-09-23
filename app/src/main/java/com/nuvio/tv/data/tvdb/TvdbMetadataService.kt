@@ -3,12 +3,15 @@ package com.nuvio.tv.data.tvdb
 import android.util.Log
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MetaCastMember
+import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.MetaTrailer
 import com.nuvio.tv.domain.model.TvdbSettings
 import com.nuvio.tv.domain.model.Video
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.URI
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,6 +27,20 @@ class TvdbMetadataService @Inject constructor(
         val trailers: List<MetaTrailer> = emptyList()
     )
 
+    /** Lightweight fields TVDB can fill on a Home MetaPreview. */
+    data class PreviewEnrichment(
+        val description: String? = null,
+        val background: String? = null
+    )
+
+    // In-memory caches (parity with TmdbMetadataService)
+    private val seriesExtendedCache = ConcurrentHashMap<String, TvdbApi.TvdbSeriesExtended>()
+    private val seriesExtendedInFlight = ConcurrentHashMap<String, CompletableDeferred<TvdbApi.TvdbSeriesExtended?>>()
+    private val seriesIdCache = ConcurrentHashMap<String, String>()
+    private val seriesIdInFlight = ConcurrentHashMap<String, CompletableDeferred<String?>>()
+    private val episodeCache = ConcurrentHashMap<String, Map<Pair<Int, Int>, TvdbEpisodeEnrichment>>()
+    private val previewCache = ConcurrentHashMap<String, PreviewEnrichment>()
+
     suspend fun enrichSeries(meta: Meta, fallbackItemId: String, settings: TvdbSettings): EnrichmentResult {
         if (!settings.enabled || !settings.hasApiKey) return EnrichmentResult(meta)
         val apiKey = settings.apiKey.trim()
@@ -31,10 +48,10 @@ class TvdbMetadataService @Inject constructor(
 
         return withContext(Dispatchers.Default) {
             try {
-                val seriesId = findSeriesId(apiKey, meta, fallbackItemId) ?: return@withContext EnrichmentResult(meta)
+                val seriesId = findSeriesId(apiKey, fallbackItemId, meta.name) ?: return@withContext EnrichmentResult(meta)
                 val apiLanguage = settings.language.takeIf { it.isNotBlank() }?.trim()
 
-                val extended = api.getSeriesExtended(apiKey, seriesId, language = apiLanguage)
+                val extended = getSeriesExtendedCached(apiKey, seriesId, apiLanguage)
                     ?: return@withContext EnrichmentResult(meta)
 
                 val needsEpisodes = settings.useEpisodes || settings.useSeasonPosters
@@ -172,12 +189,132 @@ class TvdbMetadataService @Inject constructor(
         }
     }
 
+    /**
+     * Lightweight enrichment for Home MetaPreview items (focus/hero/CW).
+     * Fills description/background when blank. Series only — movies return null.
+     */
+    suspend fun enrichPreview(
+        itemId: String,
+        name: String,
+        apiType: String,
+        settings: TvdbSettings
+    ): PreviewEnrichment? {
+        if (!settings.enabled || !settings.hasApiKey) return null
+        if (apiType !in listOf("series", "tv")) return null
+        val apiKey = settings.apiKey.trim()
+        if (apiKey.isBlank()) return null
+
+        val cacheKey = "$itemId:$name:${settings.language}"
+        previewCache[cacheKey]?.let { return it }
+
+        return withContext(Dispatchers.Default) {
+            try {
+                val seriesId = findSeriesId(apiKey, itemId, name) ?: return@withContext null
+                val apiLanguage = settings.language.takeIf { it.isNotBlank() }?.trim()
+                val extended = getSeriesExtendedCached(apiKey, seriesId, apiLanguage)
+                    ?: return@withContext null
+
+                val result = PreviewEnrichment(
+                    description = if (settings.useBasicInfo) {
+                        extended.overview?.takeIf { it.isNotBlank() }
+                    } else null,
+                    background = if (settings.useArtwork) {
+                        extended.image?.takeIf { it.isNotBlank() }
+                    } else null
+                )
+                if (result.description != null || result.background != null) {
+                    previewCache[cacheKey] = result
+                }
+                result
+            } catch (e: Exception) {
+                Log.w(tag, "TVDB preview enrichment failed: ${e.message}")
+                null
+            }
+        }
+    }
+
+    /** Apply a PreviewEnrichment to a MetaPreview, filling only blank fields (TMDB wins). */
+    fun applyPreviewToItem(item: MetaPreview, enrichment: PreviewEnrichment?): MetaPreview {
+        if (enrichment == null) return item
+        var merged = item
+        if (merged.description.isNullOrBlank() && !enrichment.description.isNullOrBlank()) {
+            merged = merged.copy(description = enrichment.description)
+        }
+        if (merged.background.isNullOrBlank() && !enrichment.background.isNullOrBlank()) {
+            merged = merged.copy(background = enrichment.background)
+        }
+        return merged
+    }
+
+    private suspend fun getSeriesExtendedCached(
+        apiKey: String,
+        seriesId: String,
+        language: String?
+    ): TvdbApi.TvdbSeriesExtended? {
+        val cacheKey = "$seriesId:${language ?: "default"}"
+        seriesExtendedCache[cacheKey]?.let { return it }
+        seriesExtendedInFlight[cacheKey]?.let { return it.await() }
+
+        val deferred = CompletableDeferred<TvdbApi.TvdbSeriesExtended?>()
+        seriesExtendedInFlight.putIfAbsent(cacheKey, deferred)?.let { existing ->
+            return existing.await()
+        }
+        try {
+            val result = api.getSeriesExtended(apiKey, seriesId, language = language)
+            if (result != null) {
+                seriesExtendedCache[cacheKey] = result
+            }
+            deferred.complete(result)
+            return result
+        } catch (e: Exception) {
+            deferred.complete(null)
+            throw e
+        } finally {
+            seriesExtendedInFlight.remove(cacheKey)
+        }
+    }
+
+    private suspend fun findSeriesId(apiKey: String, fallbackItemId: String, name: String?): String? {
+        val idCacheKey = "$fallbackItemId:${name.orEmpty()}"
+        seriesIdCache[idCacheKey]?.let { return it }
+
+        val remoteResult = tryRemoteIdSearch(apiKey, fallbackItemId)
+        if (remoteResult != null) {
+            seriesIdCache[idCacheKey] = remoteResult
+            return remoteResult
+        }
+
+        val searchName = name?.takeIf { it.isNotBlank() } ?: return null
+
+        val results = api.searchSeries(apiKey, searchName)
+        if (results.isNotEmpty()) {
+            seriesIdCache[idCacheKey] = results.first().id
+            return results.first().id
+        }
+
+        val simplifiedName = searchName
+            .replace(Regex("\\s*\\(\\d{4}\\)\\s*$"), "")
+            .trim()
+        if (simplifiedName != searchName) {
+            val retryResults = api.searchSeries(apiKey, simplifiedName)
+            if (retryResults.isNotEmpty()) {
+                seriesIdCache[idCacheKey] = retryResults.first().id
+                return retryResults.first().id
+            }
+        }
+
+        return null
+    }
+
     private suspend fun fetchEpisodeEnrichment(
         apiKey: String,
         seriesId: Int,
         seasonPosterMap: Map<Int, String?>,
         language: String? = null
     ): Map<Pair<Int, Int>, TvdbEpisodeEnrichment> {
+        val cacheKey = "$seriesId:${language ?: "default"}:${seasonPosterMap.hashCode()}"
+        episodeCache[cacheKey]?.let { return it }
+
         val result = mutableMapOf<Pair<Int, Int>, TvdbEpisodeEnrichment>()
         var page = 0
         while (true) {
@@ -198,6 +335,7 @@ class TvdbMetadataService @Inject constructor(
             val next = response.links?.next ?: break
             page = next
         }
+        episodeCache[cacheKey] = result
         return result
     }
 
@@ -209,30 +347,6 @@ class TvdbMetadataService @Inject constructor(
         val airDate: String? = null,
         val runtimeMinutes: Int? = null
     )
-
-    private suspend fun findSeriesId(apiKey: String, meta: Meta, fallbackItemId: String): String? {
-        val remoteResult = tryRemoteIdSearch(apiKey, fallbackItemId)
-        if (remoteResult != null) return remoteResult
-
-        val name = meta.name.takeIf { it.isNotBlank() } ?: return null
-
-        val results = api.searchSeries(apiKey, name)
-        if (results.isNotEmpty()) {
-            return results.first().id
-        }
-
-        val simplifiedName = name
-            .replace(Regex("\\s*\\(\\d{4}\\)\\s*$"), "")
-            .trim()
-        if (simplifiedName != name) {
-            val retryResults = api.searchSeries(apiKey, simplifiedName)
-            if (retryResults.isNotEmpty()) {
-                return retryResults.first().id
-            }
-        }
-
-        return null
-    }
 
     private suspend fun tryRemoteIdSearch(apiKey: String, itemId: String): String? {
         val remoteId = when {

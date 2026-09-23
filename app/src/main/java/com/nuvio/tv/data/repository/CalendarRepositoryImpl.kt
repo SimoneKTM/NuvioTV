@@ -5,11 +5,15 @@ import com.nuvio.tv.data.remote.api.TraktApi
 import com.nuvio.tv.data.remote.dto.trakt.TraktCalendarMediaItemDto
 import com.nuvio.tv.domain.model.CalendarItem
 import com.nuvio.tv.domain.model.ContentType
+import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.repository.CalendarRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.core.network.NetworkResult
+import com.nuvio.tv.core.trakt.traktBestBackdropUrl
+import com.nuvio.tv.core.trakt.traktBestLogoUrl
+import com.nuvio.tv.core.trakt.traktBestPosterUrl
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -84,14 +88,14 @@ class CalendarRepositoryImpl @Inject constructor(
         var fetchFailed = false
 
         try {
-            // fullimages gives poster/backdrop immediately so cards are not
-            // letter-placeholders while addon enrichment runs. Addon meta
-            // remains the primary source and overrides these on success.
+            // extended=full returns images on /calendars/*/media (fullimages
+            // returns none). Trakt image URLs are scheme-less media.trakt.tv
+            // paths — traktBest* helpers normalize them to https.
             val response = traktApi.getCalendarMedia(
                 target = "all",
                 startDate = todayStr,
                 days = TRAKT_MAX_DAYS,
-                extended = "fullimages"
+                extended = "full"
             )
 
             if (response.isSuccessful) {
@@ -193,41 +197,95 @@ class CalendarRepositoryImpl @Inject constructor(
         if (candidates.isEmpty()) return item
         val rawNumericId = extractRawNumericId(item.meta.id)
 
-        for ((candidateType, candidateId) in candidates) {
-            val result = withTimeoutOrNull(ADDON_ENRICHMENT_TIMEOUT_MS) {
-                metaRepository.getMetaFromAllAddons(
-                    type = candidateType,
-                    id = candidateId,
-                    sourceAddonBaseUrl = item.meta.sourceAddonBaseUrl,
-                    rawId = rawNumericId,
-                    namespace = MetaRepository.META_NAMESPACE_ALL,
-                    preferAnimeAddons = true
-                ).first { it !is NetworkResult.Loading }
-            } ?: continue
+        // Always interrogate all 3 tab pools (no genre gate): Home, Anime,
+        // Extra. Richest answer wins (ties keep the first / Home). No ALL
+        // fallback — titles missing from every tab are flagged notInCatalog.
+        val tabNamespaces = listOf(
+            MetaRepository.META_NAMESPACE_HOME,
+            MetaRepository.META_NAMESPACE_ANIME,
+            MetaRepository.META_NAMESPACE_EXTRA
+        )
 
-            if (result is NetworkResult.Success) {
-                val addonMeta = result.data
-                // Addon is the primary source: prefer its values when present.
-                // Description keeps Trakt's episode label ("S1E5") when set —
-                // it is calendar context addons don't provide.
-                val updatedMeta = item.meta.copy(
-                    name = addonMeta.name.ifBlank { item.meta.name },
-                    poster = addonMeta.poster ?: item.meta.poster,
-                    background = addonMeta.background ?: item.meta.background,
-                    logo = addonMeta.logo ?: item.meta.logo,
-                    description = item.meta.description ?: addonMeta.description,
-                    imdbRating = addonMeta.imdbRating ?: item.meta.imdbRating,
-                    genres = if (addonMeta.genres.isNotEmpty()) addonMeta.genres else item.meta.genres,
-                    releaseInfo = addonMeta.releaseInfo ?: item.meta.releaseInfo,
-                    sourceAddonBaseUrl = addonMeta.sourceAddonBaseUrl ?: item.meta.sourceAddonBaseUrl
-                )
-                if (updatedMeta != item.meta) {
-                    Log.d(TAG, "Addon enriched: ${item.meta.name} name=${updatedMeta.name != item.meta.name} poster=${updatedMeta.poster != item.meta.poster} bg=${updatedMeta.background != item.meta.background} logo=${updatedMeta.logo != item.meta.logo}")
+        var bestNamespace: String? = null
+        var bestMeta: Meta? = null
+        var bestScore = -1
+
+        for (namespace in tabNamespaces) {
+            for ((candidateType, candidateId) in candidates) {
+                val result = withTimeoutOrNull(ADDON_ENRICHMENT_TIMEOUT_MS) {
+                    metaRepository.getMetaFromAllAddons(
+                        type = candidateType,
+                        id = candidateId,
+                        sourceAddonBaseUrl = item.meta.sourceAddonBaseUrl,
+                        rawId = rawNumericId,
+                        namespace = namespace,
+                        preferAnimeAddons = namespace == MetaRepository.META_NAMESPACE_ANIME
+                    ).first { it !is NetworkResult.Loading }
+                } ?: continue
+
+                if (result is NetworkResult.Success) {
+                    val score = metaRichnessScore(result.data)
+                    if (score > bestScore) {
+                        bestScore = score
+                        bestNamespace = namespace
+                        bestMeta = result.data
+                    }
                 }
-                return item.copy(meta = updatedMeta)
             }
         }
-        return item
+
+        val winner = bestMeta
+        return if (winner != null) {
+            mergeAddonMeta(item, winner, bestNamespace ?: MetaRepository.META_NAMESPACE_HOME)
+        } else {
+            // No tab knows this title: keep Trakt data and flag the card.
+            enrichedAddonIds.add(item.meta.id)
+            item.copy(notInCatalog = true)
+        }
+    }
+
+    private fun metaRichnessScore(meta: Meta): Int {
+        var score = 0
+        if (!meta.poster.isNullOrBlank()) score++
+        if (!meta.background.isNullOrBlank()) score++
+        if (!meta.logo.isNullOrBlank()) score++
+        if (!meta.sourceAddonBaseUrl.isNullOrBlank()) score++
+        if (meta.genres.isNotEmpty()) score++
+        if (meta.imdbRating != null) score++
+        if (!meta.releaseInfo.isNullOrBlank()) score++
+        return score
+    }
+
+    private fun mergeAddonMeta(
+        item: CalendarItem,
+        addonMeta: Meta,
+        namespace: String
+    ): CalendarItem {
+        // Addon is the primary source: prefer its values when present.
+        // Description keeps Trakt's episode label ("S1E5") when set —
+        // it is calendar context addons don't provide.
+        val updatedMeta = item.meta.copy(
+            name = addonMeta.name.ifBlank { item.meta.name },
+            poster = addonMeta.poster ?: item.meta.poster,
+            background = addonMeta.background ?: item.meta.background,
+            logo = addonMeta.logo ?: item.meta.logo,
+            description = item.meta.description ?: addonMeta.description,
+            imdbRating = addonMeta.imdbRating ?: item.meta.imdbRating,
+            genres = if (addonMeta.genres.isNotEmpty()) addonMeta.genres else item.meta.genres,
+            releaseInfo = addonMeta.releaseInfo ?: item.meta.releaseInfo,
+            sourceAddonBaseUrl = addonMeta.sourceAddonBaseUrl ?: item.meta.sourceAddonBaseUrl
+        )
+        if (updatedMeta != item.meta) {
+            Log.d(
+                TAG,
+                "Addon enriched ($namespace): ${item.meta.name} " +
+                    "name=${updatedMeta.name != item.meta.name} " +
+                    "poster=${updatedMeta.poster != item.meta.poster} " +
+                    "bg=${updatedMeta.background != item.meta.background} " +
+                    "logo=${updatedMeta.logo != item.meta.logo}"
+            )
+        }
+        return item.copy(meta = updatedMeta)
     }
 
     private fun extractRawNumericId(metaId: String): String? {
@@ -260,9 +318,6 @@ class CalendarRepositoryImpl @Inject constructor(
         return "trakt_${kind}_${trakt ?: 0}"
     }
 
-    private fun firstImageOrNull(images: List<String>?): String? =
-        images?.firstOrNull { it.isNotBlank() }
-
     private fun TraktCalendarMediaItemDto.toCalendarItem(): CalendarItem? {
         val movie = movie
         if (movie != null) {
@@ -285,10 +340,10 @@ class CalendarRepositoryImpl @Inject constructor(
                     type = ContentType.MOVIE,
                     rawType = "movie",
                     name = movie.title ?: "",
-                    poster = firstImageOrNull(images?.poster),
+                    poster = images.traktBestPosterUrl(),
                     posterShape = PosterShape.POSTER,
-                    background = firstImageOrNull(images?.fanart),
-                    logo = firstImageOrNull(images?.logo),
+                    background = images.traktBestBackdropUrl(),
+                    logo = images.traktBestLogoUrl(),
                     description = movie.overview,
                     releaseInfo = movie.year?.toString(),
                     imdbRating = movie.rating?.toFloat(),
@@ -327,10 +382,10 @@ class CalendarRepositoryImpl @Inject constructor(
                     type = ContentType.SERIES,
                     rawType = "tv",
                     name = show.title ?: "",
-                    poster = firstImageOrNull(images?.poster),
+                    poster = images.traktBestPosterUrl(),
                     posterShape = PosterShape.POSTER,
-                    background = firstImageOrNull(images?.fanart),
-                    logo = firstImageOrNull(images?.logo),
+                    background = images.traktBestBackdropUrl(),
+                    logo = images.traktBestLogoUrl(),
                     description = episodeLabel,
                     releaseInfo = show.year?.toString(),
                     imdbRating = show.rating?.toFloat(),

@@ -12,7 +12,9 @@ import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.data.local.MDBListSettingsDataStore
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
+import com.nuvio.tv.data.local.AnimeTvdbSettingsDataStore
 import com.nuvio.tv.data.repository.MDBListRepository
+import com.nuvio.tv.data.tvdb.TvdbMetadataService
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
@@ -24,6 +26,7 @@ import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.model.TmdbSettings
+import com.nuvio.tv.domain.model.TvdbSettings
 import com.nuvio.tv.domain.model.mergeCatalogPage
 import com.nuvio.tv.domain.model.nextCatalogSkip
 import com.nuvio.tv.domain.model.skipStep
@@ -64,8 +67,10 @@ class AnimeHomeViewModel @Inject constructor(
     @Named("anime_cw_cache") internal val animeCwEnrichmentCache: ContinueWatchingEnrichmentCache,
     @Named("anime_tmdb") internal val animeTmdbSettingsDataStore: TmdbSettingsDataStore,
     @Named("anime_mdblist") internal val animeMdbListSettingsDataStore: MDBListSettingsDataStore,
+    internal val animeTvdbSettingsDataStore: AnimeTvdbSettingsDataStore,
     internal val tmdbService: TmdbService,
     internal val tmdbMetadataService: TmdbMetadataService,
+    internal val tvdbMetadataService: TvdbMetadataService,
     internal val mdbListRepository: MDBListRepository
 ) : ViewModel() {
 
@@ -90,6 +95,7 @@ class AnimeHomeViewModel @Inject constructor(
     internal var animeCwPipelineJob: Job? = null
     internal var currentAnimeTmdbSettings: TmdbSettings = TmdbSettings()
     internal var currentAnimeMdbListSettings: MDBListSettings = MDBListSettings()
+    internal var currentAnimeTvdbSettings: TvdbSettings = TvdbSettings()
     internal var animeHeroEnrichmentJob: Job? = null
     internal var lastAnimeHeroEnrichmentSignature: String? = null
     val uiState: StateFlow<AnimeHomeUiState> = _uiState.asStateFlow()
@@ -137,14 +143,16 @@ class AnimeHomeViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 animeTmdbSettingsDataStore.settings,
-                animeMdbListSettingsDataStore.settings
-            ) { tmdb, mdb ->
-                tmdb to mdb
+                animeMdbListSettingsDataStore.settings,
+                animeTvdbSettingsDataStore.settings
+            ) { tmdb, mdb, tvdb ->
+                Triple(tmdb, mdb, tvdb)
             }
                 .distinctUntilChanged()
-                .collectLatest { (tmdb, mdb) ->
+                .collectLatest { (tmdb, mdb, tvdb) ->
                     currentAnimeTmdbSettings = tmdb
                     currentAnimeMdbListSettings = mdb
+                    currentAnimeTvdbSettings = tvdb
                     // Settings changed — allow hero items to re-enrich with the new selection.
                     lastAnimeHeroEnrichmentSignature = null
                     enrichAnimeHeroItemsIfNeeded(_uiState.value.heroItems)
@@ -156,7 +164,8 @@ class AnimeHomeViewModel @Inject constructor(
         val tmdbEnabled = currentAnimeTmdbSettings.enabled
         val mdbEnabled = currentAnimeMdbListSettings.enabled &&
             currentAnimeMdbListSettings.apiKey.isNotBlank()
-        if (heroItems.isEmpty() || (!tmdbEnabled && !mdbEnabled)) {
+        val tvdbEnabled = currentAnimeTvdbSettings.enabled && currentAnimeTvdbSettings.hasApiKey
+        if (heroItems.isEmpty() || (!tmdbEnabled && !mdbEnabled && !tvdbEnabled)) {
             lastAnimeHeroEnrichmentSignature = null
             return
         }

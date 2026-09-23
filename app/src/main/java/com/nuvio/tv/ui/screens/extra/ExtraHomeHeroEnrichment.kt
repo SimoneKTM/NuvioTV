@@ -83,8 +83,11 @@ internal suspend fun ExtraHomeViewModel.enrichExtraHeroItem(item: MetaPreview): 
 private suspend fun ExtraHomeViewModel.applyExtraHeroExternalEnrichment(item: MetaPreview): MetaPreview {
     val tmdbSettings = currentExtraTmdbSettings
     val mdbSettings = currentExtraMdbListSettings
+    val tvdbSettings = currentExtraTvdbSettings
+    val tvdbEnabled = tvdbSettings.enabled && tvdbSettings.hasApiKey
     if (!tmdbSettings.enabled &&
-        !(mdbSettings.enabled && mdbSettings.apiKey.isNotBlank())
+        !(mdbSettings.enabled && mdbSettings.apiKey.isNotBlank()) &&
+        !tvdbEnabled
     ) {
         return item
     }
@@ -95,13 +98,26 @@ private suspend fun ExtraHomeViewModel.applyExtraHeroExternalEnrichment(item: Me
         tmdbSettings = tmdbSettings,
         mdbSettings = mdbSettings
     )
-    return applyExtraTmdbToPreview(
+    var preview = applyExtraTmdbToPreview(
         item = item,
         enrichment = enrichment,
         settings = tmdbSettings
-    ).let { preview ->
-        if (mdbRating != null) preview.copy(imdbRating = mdbRating.toFloat()) else preview
+    ).let { p ->
+        if (mdbRating != null) p.copy(imdbRating = mdbRating.toFloat()) else p
     }
+    // TVDB fills blanks after TMDB (TMDB wins).
+    if (tvdbEnabled && item.apiType in listOf("series", "tv")) {
+        val tvdbPreview = runCatching {
+            tvdbMetadataService.enrichPreview(
+                itemId = item.id,
+                name = item.name,
+                apiType = item.apiType,
+                settings = tvdbSettings
+            )
+        }.getOrNull()
+        preview = tvdbMetadataService.applyPreviewToItem(preview, tvdbPreview)
+    }
+    return preview
 }
 
 internal suspend fun ExtraHomeViewModel.applyExtraExternalEnrichmentToCwMeta(
@@ -110,9 +126,12 @@ internal suspend fun ExtraHomeViewModel.applyExtraExternalEnrichmentToCwMeta(
 ): CwMetaSummary {
     val tmdbSettings = currentExtraTmdbSettings
     val mdbSettings = currentExtraMdbListSettings
+    val tvdbSettings = currentExtraTvdbSettings
     val tmdbEnabled = tmdbSettings.enabled && tmdbSettings.enrichContinueWatching
     val mdbEnabled = mdbSettings.enabled && mdbSettings.apiKey.isNotBlank()
-    if (!tmdbEnabled && !mdbEnabled) return summary
+    val tvdbEnabled = tvdbSettings.enabled && tvdbSettings.hasApiKey &&
+        itemType in listOf("series", "tv")
+    if (!tmdbEnabled && !mdbEnabled && !tvdbEnabled) return summary
 
     val contentType = when (itemType.lowercase()) {
         "movie", "film" -> ContentType.MOVIE
@@ -154,6 +173,23 @@ internal suspend fun ExtraHomeViewModel.applyExtraExternalEnrichmentToCwMeta(
     }
     if (mdbRating != null) {
         enriched = enriched.copy(imdbRating = mdbRating.toFloat())
+    }
+    // TVDB fills blanks after TMDB (TMDB wins).
+    if (tvdbEnabled) {
+        val tvdbPreview = runCatching {
+            tvdbMetadataService.enrichPreview(
+                itemId = summary.id,
+                name = summary.name,
+                apiType = itemType,
+                settings = tvdbSettings
+            )
+        }.getOrNull()
+        if (tvdbPreview != null) {
+            enriched = enriched.copy(
+                description = enriched.description ?: tvdbPreview.description,
+                backdropUrl = enriched.backdropUrl ?: tvdbPreview.background
+            )
+        }
     }
     return enriched
 }
@@ -270,6 +306,10 @@ internal fun ExtraHomeViewModel.extraHeroEnrichmentSignature(
         append(tmdbSettings.useReleaseDates)
         append(':')
         append(mdbEnabled)
+        append(':')
+        append(currentExtraTvdbSettings.enabled)
+        append(':')
+        append(currentExtraTvdbSettings.language)
         append("::")
         append(itemSignature)
     }

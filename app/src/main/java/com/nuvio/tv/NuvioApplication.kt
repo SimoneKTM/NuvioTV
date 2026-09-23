@@ -37,6 +37,7 @@ import javax.inject.Inject
 class NuvioApplication : Application(), SingletonImageLoader.Factory {
 
     @Inject lateinit var startupSyncService: StartupSyncService
+    @Inject lateinit var startupHomePreloader: com.nuvio.tv.core.sync.StartupHomePreloader
     @Inject lateinit var androidTvChannelSyncService: AndroidTvChannelSyncService
     @Inject lateinit var sentrySettingsDataStore: SentrySettingsDataStore
     @Inject lateinit var simklAnimeIdPreferenceHolder: SimklAnimeIdPreferenceHolder
@@ -84,6 +85,8 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             SentryInitializer.start(this, sentrySettingsDataStore)
             PluginRuntimeHooks.onApplicationCreate(this)
             androidTvChannelSyncService.start()
+            // Warm Home catalogs/CW/layout while the splash + profile UI is up.
+            startupHomePreloader.ensureStarted()
         }
     }
 

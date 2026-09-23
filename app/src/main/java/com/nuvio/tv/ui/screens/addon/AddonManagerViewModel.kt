@@ -40,6 +40,8 @@ import com.nuvio.tv.domain.model.ExperienceMode
 import com.nuvio.tv.domain.model.TmdbCollectionSourceType
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.domain.repository.AnimeAddonRepository
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +60,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AddonManagerViewModel @Inject constructor(
     private val addonRepository: AddonRepository,
+    private val animeAddonRepository: AnimeAddonRepository,
+    private val extraAddonRepository: ExtraAddonRepository,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val experienceModeDataStore: ExperienceModeDataStore,
     private val collectionsDataStore: CollectionsDataStore,
@@ -92,6 +96,8 @@ class AddonManagerViewModel @Inject constructor(
     private var disabledHomeCatalogKeys: Set<String> = emptySet()
     private var followAddonsOrderEnabled: Boolean = false
     private var currentCollections: List<Collection> = emptyList()
+    private var animeInstalledAddons: List<Addon> = emptyList()
+    private var extraInstalledAddons: List<Addon> = emptyList()
 
     init {
         observeInstalledAddons()
@@ -253,9 +259,10 @@ class AddonManagerViewModel @Inject constructor(
             context = context,
             webConfigMode = webConfigMode,
             currentPageStateProvider = {
-                val addons = _uiState.value.installedAddons
+                val animeIds = animeAddonIds()
+                val extraIds = extraAddonIds()
                 val orderedCatalogs = buildOrderedCatalogEntries(
-                    addons = addons.enabledAddons(),
+                    addons = allCatalogAddons(),
                     savedOrderKeys = homeCatalogOrderKeys,
                     disabledKeys = disabledHomeCatalogKeys
                 )
@@ -267,7 +274,9 @@ class AddonManagerViewModel @Inject constructor(
                         catalogName = catalog.catalogName,
                         addonName = catalog.addonName,
                         type = catalog.typeLabel,
-                        isDisabled = catalog.isDisabled
+                        isDisabled = catalog.isDisabled,
+                        animeAddon = catalog.addonId in animeIds,
+                        extraAddon = catalog.addonId in extraIds
                     )
                 }
                 val collectionInfos = currentCollections.map { col ->
@@ -490,7 +499,7 @@ class AddonManagerViewModel @Inject constructor(
         val currentUrls = _uiState.value.installedAddons.map { normalizeUrlForComparison(it.baseUrl) }.toSet()
         val proposedNormalized = change.proposedUrls.map { normalizeUrlForComparison(it) }.toSet()
         val currentCatalogEntries = buildOrderedCatalogEntries(
-            addons = _uiState.value.installedAddons.enabledAddons(),
+            addons = allCatalogAddons(),
             savedOrderKeys = homeCatalogOrderKeys,
             disabledKeys = disabledHomeCatalogKeys
         )
@@ -644,11 +653,12 @@ class AddonManagerViewModel @Inject constructor(
         validUrls: List<String>
     ) {
         val validUrlSet = validUrls.map { normalizeUrlForComparison(it) }.toSet()
-        val targetAddons = _uiState.value.installedAddons.filter { addon ->
-            addon.enabled && normalizeUrlForComparison(addon.baseUrl) in validUrlSet
-        }
         val availableCatalogEntries = buildOrderedCatalogEntries(
-            addons = targetAddons,
+            addons = allCatalogAddons().filter { addon ->
+                addon.id in animeAddonIds() ||
+                    addon.id in extraAddonIds() ||
+                    normalizeUrlForComparison(addon.baseUrl) in validUrlSet
+            },
             savedOrderKeys = homeCatalogOrderKeys,
             disabledKeys = disabledHomeCatalogKeys
         )
@@ -723,7 +733,36 @@ class AddonManagerViewModel @Inject constructor(
                     }
                 }
         }
+        viewModelScope.launch {
+            try {
+                animeAddonRepository.getInstalledAnimeAddons().collect { animeInstalledAddons = it }
+            } catch (_: Exception) {
+            }
+        }
+        viewModelScope.launch {
+            try {
+                extraAddonRepository.getInstalledExtraAddons().collect { extraInstalledAddons = it }
+            } catch (_: Exception) {
+            }
+        }
     }
+
+    /** Home + Anime + Extra enabled addons, Anime/Extra first so they win id collisions. */
+    private fun allCatalogAddons(): List<Addon> {
+        val animeIds = animeInstalledAddons.mapTo(mutableSetOf()) { it.id }
+        val extraIds = extraInstalledAddons.mapTo(mutableSetOf()) { it.id }
+        return (extraInstalledAddons + animeInstalledAddons + _uiState.value.installedAddons)
+            .enabledAddons()
+            .groupBy { it.id }
+            .map { (_, group) -> group.maxByOrNull { it.catalogs.size } ?: group.first() }
+            .sortedByDescending { it.id in animeIds || it.id in extraIds }
+    }
+
+    private fun animeAddonIds(): Set<String> =
+        animeInstalledAddons.mapTo(mutableSetOf()) { it.id }
+
+    private fun extraAddonIds(): Set<String> =
+        extraInstalledAddons.mapTo(mutableSetOf()) { it.id }
 
     override fun onCleared() {
         super.onCleared()
@@ -785,7 +824,8 @@ class AddonManagerViewModel @Inject constructor(
                                 ),
                                 catalogName = catalog.name,
                                 addonName = addon.displayName,
-                                typeLabel = catalog.apiType
+                                typeLabel = catalog.apiType,
+                                addonId = addon.id
                             )
                         )
                     }
@@ -809,6 +849,7 @@ class AddonManagerViewModel @Inject constructor(
         val catalogName: String,
         val addonName: String,
         val typeLabel: String,
-        val isDisabled: Boolean = false
+        val isDisabled: Boolean = false,
+        val addonId: String = ""
     )
 }

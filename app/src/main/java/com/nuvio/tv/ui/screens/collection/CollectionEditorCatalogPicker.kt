@@ -157,18 +157,13 @@ fun CatalogPickerContent(
                                 style = MaterialTheme.typography.titleSmall,
                                 color = NuvioTheme.colors.TextPrimary
                             )
-                            val animeBadge = if (catalog.animeAddon) {
-                                stringResource(R.string.collections_editor_anime_badge)
-                            } else {
-                                null
-                            }
                             val extraBadge = if (catalog.extraAddon) {
                                 stringResource(R.string.collections_editor_extra_badge)
                             } else {
                                 null
                             }
                             Text(
-                                text = listOfNotNull("${catalog.type} - ${catalog.addonName}", animeBadge, extraBadge).joinToString(" • "),
+                                text = listOfNotNull("${catalog.type} - ${catalog.addonName}", extraBadge).joinToString(" • "),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = NuvioTheme.colors.TextTertiary
                             )

@@ -3285,6 +3285,7 @@
   <string name="calendar_this_week">Questa settimana</string>
   <string name="calendar_next_week">Prossima settimana</string>
   <string name="calendar_items_count">elementi</string>
+  <string name="calendar_not_in_catalog">Non Presente Nel Catalogo</string>
   <string name="calendar_tab_visibility_title">Mostra scheda Calendario</string>
   <string name="calendar_tab_visibility_subtitle">Mostra o nascondi la scheda Calendario nella barra laterale</string>
 </resources>

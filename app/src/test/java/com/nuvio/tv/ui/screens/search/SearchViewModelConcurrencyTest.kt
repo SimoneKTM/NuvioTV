@@ -169,6 +169,9 @@ class SearchViewModelConcurrencyTest {
 
         override fun warmUp() = Unit
 
+        override val warmComplete: kotlinx.coroutines.flow.StateFlow<Boolean> =
+            kotlinx.coroutines.flow.MutableStateFlow(true)
+
         override fun clearCache() = Unit
 
         private fun row(addon: Addon, query: String): CatalogRow = CatalogRow(

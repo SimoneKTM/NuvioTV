@@ -127,6 +127,32 @@ internal fun HomeViewModel.observeTmdbSettingsPipeline() {
     }
 }
 
+internal fun HomeViewModel.observeTvdbSettingsPipeline() {
+    viewModelScope.launch {
+        tvdbSettingsDataStore.settings
+            .distinctUntilChanged()
+            .collectLatest { settings ->
+                val languageChanged = currentTvdbSettings.language != settings.language
+                val enabledChanged = currentTvdbSettings.enabled != settings.enabled
+                currentTvdbSettings = settings
+                if (languageChanged || enabledChanged) {
+                    prefetchedTvdbIds.clear()
+                    _enrichedPreviews.value = emptyMap()
+                    _lastEnrichedPreview.value = null
+                    lastHeroEnrichmentSignature = null
+                    lastHeroEnrichedItems = emptyList()
+                }
+                val tvdbEnabledForLayout = settings.enabled && settings.hasApiKey
+                val tmdbEnabledForLayout = currentTmdbSettings.enabled &&
+                    (_uiState.value.homeLayout != HomeLayout.MODERN || currentTmdbSettings.modernHomeEnabled)
+                _uiState.update {
+                    it.copy(heroEnrichmentEnabled = tmdbEnabledForLayout || tvdbEnabledForLayout || externalMetaPrefetchEnabled)
+                }
+                scheduleUpdateCatalogRows()
+            }
+    }
+}
+
 @OptIn(FlowPreview::class)
 internal fun HomeViewModel.observeInstalledAddonsPipeline() {
     viewModelScope.launch {
@@ -881,11 +907,14 @@ internal suspend fun HomeViewModel.updateCatalogRowsPipeline() {
     val tmdbSettings = currentTmdbSettings
     val tmdbEnabledForCurrentLayout = tmdbSettings.enabled &&
         (currentLayout != HomeLayout.MODERN || tmdbSettings.modernHomeEnabled)
+    val tvdbSettings = currentTvdbSettings
+    val tvdbEnabledForCurrentLayout = tvdbSettings.enabled && tvdbSettings.hasApiKey
     val mdbEnabledForCurrentLayout = currentMdbListSettings.enabled &&
         currentMdbListSettings.apiKey.isNotBlank()
     val shouldUseEnrichedHeroItems = mdbEnabledForCurrentLayout ||
         (tmdbEnabledForCurrentLayout &&
-            (tmdbSettings.useArtwork || tmdbSettings.useBasicInfo || tmdbSettings.useDetails || tmdbSettings.useReleaseDates))
+            (tmdbSettings.useArtwork || tmdbSettings.useBasicInfo || tmdbSettings.useDetails || tmdbSettings.useReleaseDates)) ||
+        tvdbEnabledForCurrentLayout
 
     if (shouldUseEnrichedHeroItems && baseHeroItems.isNotEmpty()) {
         heroEnrichmentJob?.cancel()

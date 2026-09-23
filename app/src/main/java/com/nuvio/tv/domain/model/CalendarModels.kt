@@ -14,5 +14,7 @@ data class CalendarSection(
 data class CalendarItem(
     val meta: MetaPreview,
     val releaseDate: LocalDate?,
-    val addonName: String = "Trakt"
+    val addonName: String = "Trakt",
+    /** True when no installed tab addon knows this title. */
+    val notInCatalog: Boolean = false
 )

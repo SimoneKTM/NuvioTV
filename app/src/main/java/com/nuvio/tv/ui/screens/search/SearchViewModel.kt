@@ -113,6 +113,12 @@ class SearchViewModel @Inject constructor(
 
         const val MAX_SUGGESTIONS = 8
         const val MAX_RECENT_SEARCHES = 8
+
+        /**
+         * OkHttp alone allows 30s connect / 60s read. One dead addon used to hold
+         * isSearching (and the full-screen skeleton) until that budget expired.
+         */
+        const val SEARCH_PER_CATALOG_TIMEOUT_MS = 8_000L
     }
 
     init {
@@ -613,10 +619,17 @@ class SearchViewModel @Inject constructor(
             // deleting a letter then retyping it did the same. A run that was cancelled part way
             // is deliberately not counted, so it gets to finish rather than staying half filled.
             val requestKey = buildRequestKey(query, searchTargets)
+            // An error on screen is never "already satisfied": Done/Retry must refetch.
             val alreadySatisfied = requestKey == lastRequestKey &&
-                (requestKey == lastCompletedRequestKey || activeSearchJobs.any { it.isActive })
+                (requestKey == lastCompletedRequestKey || activeSearchJobs.any { it.isActive }) &&
+                uiState.value.error == null
             if (alreadySatisfied) return@launch
             lastRequestKey = requestKey
+            android.util.Log.d(
+                "SearchVM",
+                "performSearch query='$query' targets=${searchTargets.size} " +
+                    "addons=${searchTargets.joinToString { it.first.displayName }}"
+            )
 
             // Committed to a new run: drop the previous query's work and accumulated rows.
             activeSearchJobs.forEach { it.cancel() }
@@ -721,8 +734,17 @@ class SearchViewModel @Inject constructor(
                     activeSearchQuery == query &&
                     uiState.value.submittedQuery.trim() == query
                 ) {
-                    lastCompletedRequestKey = requestKey
+                    // Only mark the run complete when at least one catalog answered. If every
+                    // request failed, leave the key unset so a later Done does not no-op.
+                    if (catalogsMap.isNotEmpty()) {
+                        lastCompletedRequestKey = requestKey
+                    }
                     _uiState.update { it.copy(isSearching = false) }
+                    android.util.Log.d(
+                        "SearchVM",
+                        "search finished query='$query' catalogsOk=${catalogsMap.size} " +
+                            "error=${uiState.value.error} rows=${uiState.value.catalogRows.size}"
+                    )
                     // Remembered once it has actually returned something, so backing out still
                     // saves what you typed while typos that match nothing never get recorded.
                     if (catalogsMap.values.any { row -> row.items.isNotEmpty() }) {
@@ -744,44 +766,80 @@ class SearchViewModel @Inject constructor(
     ) {
         val supportsSkip = catalog.supportsExtra("skip")
         val skipStep = catalog.skipStep()
-        catalogRepository.getCatalog(
-            addonBaseUrl = addon.baseUrl,
-            addonId = addon.id,
-            addonName = addon.displayName,
-            catalogId = catalog.id,
-            catalogName = catalog.name,
-            type = catalog.apiType,
-            skip = 0,
-            skipStep = skipStep,
-            extraArgs = mapOf("search" to query),
-            supportsSkip = supportsSkip
-        ).collect { result ->
-            when (result) {
-                is NetworkResult.Success -> {
-                    if (!isCurrentSearch(generation, query)) return@collect
-                    val key = catalogKey(
-                        addonId = addon.id,
-                        addonBaseUrl = addon.baseUrl,
-                        type = catalog.apiType,
-                        catalogId = catalog.id
-                    )
-                    catalogsMap[key] = result.data
-                    pendingCatalogResponses = (pendingCatalogResponses - 1).coerceAtLeast(0)
-                    scheduleCatalogRowsUpdate()
-                }
-                is NetworkResult.Error -> {
-                    if (!isCurrentSearch(generation, query)) return@collect
-                    pendingCatalogResponses = (pendingCatalogResponses - 1).coerceAtLeast(0)
-                    // Ignore per-catalog errors unless we have nothing to show.
-                    if (catalogsMap.isEmpty()) {
-                        _uiState.update { it.copy(error = result.message ?: context.getString(com.nuvio.tv.R.string.search_error_failed)) }
+        val finished = kotlinx.coroutines.withTimeoutOrNull(SEARCH_PER_CATALOG_TIMEOUT_MS) {
+            catalogRepository.getCatalog(
+                addonBaseUrl = addon.baseUrl,
+                addonId = addon.id,
+                addonName = addon.displayName,
+                catalogId = catalog.id,
+                catalogName = catalog.name,
+                type = catalog.apiType,
+                skip = 0,
+                skipStep = skipStep,
+                extraArgs = mapOf("search" to query),
+                supportsSkip = supportsSkip
+            ).collect { result ->
+                when (result) {
+                    is NetworkResult.Success -> {
+                        if (!isCurrentSearch(generation, query)) return@collect
+                        val key = catalogKey(
+                            addonId = addon.id,
+                            addonBaseUrl = addon.baseUrl,
+                            type = catalog.apiType,
+                            catalogId = catalog.id
+                        )
+                        catalogsMap[key] = result.data
+                        pendingCatalogResponses = (pendingCatalogResponses - 1).coerceAtLeast(0)
+                        // A live addon answered: drop any stale failure from an earlier catalog so
+                        // empty results render as "No Results" instead of the error state.
+                        if (uiState.value.error != null) {
+                            _uiState.update { it.copy(error = null) }
+                        }
+                        // First real hits are enough for the grid: stop blocking the skeleton
+                        // while slower catalogs are still in flight.
+                        if (result.data.items.isNotEmpty() && uiState.value.isSearching) {
+                            _uiState.update { it.copy(isSearching = false) }
+                        }
+                        scheduleCatalogRowsUpdate()
                     }
-                    scheduleCatalogRowsUpdate()
-                }
-                NetworkResult.Loading -> {
-                    // No-op; screen shows global loading when empty.
+                    is NetworkResult.Error -> {
+                        if (!isCurrentSearch(generation, query)) return@collect
+                        pendingCatalogResponses = (pendingCatalogResponses - 1).coerceAtLeast(0)
+                        val detail = result.message.ifBlank {
+                            result.code?.let { "HTTP $it" }
+                                ?: context.getString(com.nuvio.tv.R.string.search_error_failed)
+                        }
+                        android.util.Log.w(
+                            "SearchVM",
+                            "catalog error addon=${addon.displayName} catalog=${catalog.id} " +
+                                "type=${catalog.apiType} code=${result.code} msg=$detail"
+                        )
+                        // Surface the first failure while nothing else has loaded. Any later
+                        // Success clears it again (see branch above).
+                        if (catalogsMap.isEmpty()) {
+                            val labeled = if (detail.contains(':')) {
+                                detail
+                            } else {
+                                "${addon.displayName}: $detail"
+                            }
+                            _uiState.update { it.copy(error = labeled) }
+                        }
+                        scheduleCatalogRowsUpdate()
+                    }
+                    NetworkResult.Loading -> {
+                        // No-op; screen shows global loading when empty.
+                    }
                 }
             }
+        }
+        if (finished == null && isCurrentSearch(generation, query)) {
+            pendingCatalogResponses = (pendingCatalogResponses - 1).coerceAtLeast(0)
+            android.util.Log.w(
+                "SearchVM",
+                "catalog timeout addon=${addon.displayName} catalog=${catalog.id} " +
+                    "after=${SEARCH_PER_CATALOG_TIMEOUT_MS}ms"
+            )
+            scheduleCatalogRowsUpdate()
         }
     }
 

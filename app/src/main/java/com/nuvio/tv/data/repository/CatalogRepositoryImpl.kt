@@ -58,6 +58,8 @@ class CatalogRepositoryImpl @Inject constructor(
     private var warmJob: Job? = null
     private var profileWatchJob: Job? = null
     private val catalogCache = ConcurrentHashMap<String, CacheEntry>()
+    private val _warmComplete = kotlinx.coroutines.flow.MutableStateFlow(false)
+    override val warmComplete: kotlinx.coroutines.flow.StateFlow<Boolean> = _warmComplete
 
     init {
         profileWatchJob = warmScope.launch {
@@ -66,6 +68,7 @@ class CatalogRepositoryImpl @Inject constructor(
                 if (profileId != lastProfileId) {
                     lastProfileId = profileId
                     catalogCache.clear()
+                    _warmComplete.value = false
                     Log.d(TAG, "Active profile changed to $profileId — catalog cache cleared, rewarming")
                     warmJob?.cancel()
                     warmJob = null
@@ -77,6 +80,7 @@ class CatalogRepositoryImpl @Inject constructor(
 
     override fun warmUp() {
         if (warmJob?.isActive == true) return
+        _warmComplete.value = false
         warmJob = warmScope.launch {
             try {
                 profileManager.activeProfileReady.first { it }
@@ -91,20 +95,25 @@ class CatalogRepositoryImpl @Inject constructor(
                 }
                 if (targets.isEmpty()) {
                     Log.d(TAG, "Catalog warm-up: no show-in-home catalogs")
+                    _warmComplete.value = true
                     return@launch
                 }
                 Log.d(TAG, "Catalog warm-up: ${targets.size} first-page catalogs (home=${regular.size} anime=${anime.size} extra=${extra.size})")
 
                 val semaphore = Semaphore(WARM_CONCURRENCY)
-                targets.forEach { (addon, catalog) ->
-                    launch {
-                        semaphore.withPermit {
-                            warmCatalogPage(addon, catalog)
+                kotlinx.coroutines.coroutineScope {
+                    targets.forEach { (addon, catalog) ->
+                        launch {
+                            semaphore.withPermit {
+                                warmCatalogPage(addon, catalog)
+                            }
                         }
                     }
                 }
+                _warmComplete.value = true
             } catch (e: Exception) {
                 Log.w(TAG, "Catalog warm-up failed: ${e.message}")
+                _warmComplete.value = true
             }
         }
     }
@@ -253,43 +262,49 @@ class CatalogRepositoryImpl @Inject constructor(
         }
     }
 
-    private fun buildCatalogUrl(
-        baseUrl: String,
-        type: String,
-        catalogId: String,
-        skip: Int,
-        extraArgs: Map<String, String>
-    ): String {
-        val trimmedBase = baseUrl.trimEnd('/')
-        val queryStart = trimmedBase.indexOf('?')
-        val basePath = if (queryStart >= 0) trimmedBase.substring(0, queryStart).trimEnd('/') else trimmedBase
-        val baseQuery = if (queryStart >= 0) trimmedBase.substring(queryStart) else ""
+}
 
-        val catalogPath = if (extraArgs.isEmpty()) {
-            if (skip > 0) {
-                "$basePath/catalog/$type/$catalogId/skip=$skip.json"
-            } else {
-                "$basePath/catalog/$type/$catalogId.json"
-            }
+/**
+ * Stremio path-style catalog URL, e.g.
+ * `https://addon/catalog/movie/top/search=batman%20begins.json`.
+ * Package-private for unit tests.
+ */
+internal fun buildCatalogUrl(
+    baseUrl: String,
+    type: String,
+    catalogId: String,
+    skip: Int,
+    extraArgs: Map<String, String>
+): String {
+    val trimmedBase = baseUrl.trimEnd('/')
+    val queryStart = trimmedBase.indexOf('?')
+    val basePath = if (queryStart >= 0) trimmedBase.substring(0, queryStart).trimEnd('/') else trimmedBase
+    val baseQuery = if (queryStart >= 0) trimmedBase.substring(queryStart) else ""
+
+    val catalogPath = if (extraArgs.isEmpty()) {
+        if (skip > 0) {
+            "$basePath/catalog/$type/$catalogId/skip=$skip.json"
         } else {
-            val allArgs = LinkedHashMap<String, String>()
-            allArgs.putAll(extraArgs)
+            "$basePath/catalog/$type/$catalogId.json"
+        }
+    } else {
+        val allArgs = LinkedHashMap<String, String>()
+        allArgs.putAll(extraArgs)
 
-            if (!allArgs.containsKey("skip") && skip > 0) {
-                allArgs["skip"] = skip.toString()
-            }
-
-            val encodedArgs = allArgs.entries.joinToString("&") { (key, value) ->
-                "${encodeArg(key)}=${encodeArg(value)}"
-            }
-
-            "$basePath/catalog/$type/$catalogId/$encodedArgs.json"
+        if (!allArgs.containsKey("skip") && skip > 0) {
+            allArgs["skip"] = skip.toString()
         }
 
-        return catalogPath + baseQuery
+        val encodedArgs = allArgs.entries.joinToString("&") { (key, value) ->
+            "${encodeCatalogArg(key)}=${encodeCatalogArg(value)}"
+        }
+
+        "$basePath/catalog/$type/$catalogId/$encodedArgs.json"
     }
 
-    private fun encodeArg(value: String): String {
-        return URLEncoder.encode(value, "UTF-8").replace("+", "%20")
-    }
+    return catalogPath + baseQuery
+}
+
+private fun encodeCatalogArg(value: String): String {
+    return URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 }

@@ -87,6 +87,7 @@ class MetaDetailsViewModel @Inject constructor(
     private val tmdbSettingsDataStore: TmdbSettingsDataStore,
     private val tvdbSettingsDataStore: TvdbSettingsDataStore,
     private val animeTvdbSettingsDataStore: AnimeTvdbSettingsDataStore,
+    private val extraTvdbSettingsDataStore: com.nuvio.tv.data.local.ExtraTvdbSettingsDataStore,
     private val tvdbMetadataService: TvdbMetadataService,
     private val tmdbService: TmdbService,
     private val tmdbMetadataService: TmdbMetadataService,
@@ -1567,7 +1568,10 @@ class MetaDetailsViewModel @Inject constructor(
         val tmdbLookupType = tmdbContentType.toApiString()
         val tmdbId = tmdbService.ensureTmdbId(meta.id, tmdbLookupType)
             ?: tmdbService.ensureTmdbId(itemId, itemType)
-            ?: return meta
+        if (tmdbId == null) {
+            // TMDB ID resolution failed — TVDB must still run independently.
+            return enrichSeriesWithTvdb(meta)
+        }
 
         val isSeries = meta.apiType in listOf("series", "tv")
         val needsEpisodes = (settings.useEpisodes || settings.useReleaseDates) && isSeries
@@ -1762,10 +1766,10 @@ class MetaDetailsViewModel @Inject constructor(
         return updated
     }
 
-    private suspend fun resolveTvdbEnrichmentSettings(): com.nuvio.tv.domain.model.TvdbSettings {
-        val animeSettings = animeTvdbSettingsDataStore.settings.first()
-        if (animeSettings.enabled && animeSettings.hasApiKey) return animeSettings
-        return tvdbSettingsDataStore.settings.first()
+    private suspend fun resolveTvdbEnrichmentSettings(): com.nuvio.tv.domain.model.TvdbSettings = when {
+        animeLayoutActive.value -> animeTvdbSettingsDataStore.settings.first()
+        extraLayoutActive.value -> extraTvdbSettingsDataStore.settings.first()
+        else -> tvdbSettingsDataStore.settings.first()
     }
 
     private fun resolveTmdbContentType(meta: Meta): ContentType {

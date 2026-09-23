@@ -7,11 +7,13 @@ import com.nuvio.tv.core.build.AppFeaturePolicy
 import com.nuvio.tv.core.network.NetworkResult
 import com.nuvio.tv.data.repository.toAddonQueryIds
 import com.nuvio.tv.core.tmdb.TmdbEnrichment
+import com.nuvio.tv.data.tvdb.TvdbMetadataService
 import com.nuvio.tv.domain.model.FocusedPosterTrailerPlaybackTarget
 import com.nuvio.tv.domain.model.HomeLayout
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.TmdbSettings
+import com.nuvio.tv.domain.model.TvdbSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.async
@@ -457,7 +459,9 @@ internal fun HomeViewModel.onItemFocusPipeline(item: MetaPreview) {
 
     val tmdbEnabledForCurrentLayout = currentTmdbSettings.enabled &&
         (_uiState.value.homeLayout != HomeLayout.MODERN || currentTmdbSettings.modernHomeEnabled)
-    val willEnrich = tmdbEnabledForCurrentLayout || externalMetaPrefetchEnabled
+    val tvdbEnabledForCurrentLayout = currentTvdbSettings.enabled && currentTvdbSettings.hasApiKey &&
+        item.apiType in listOf("series", "tv")
+    val willEnrich = tmdbEnabledForCurrentLayout || tvdbEnabledForCurrentLayout || externalMetaPrefetchEnabled
 
     if (willEnrich) setEnrichingItemId(item.id)
 
@@ -469,7 +473,8 @@ internal fun HomeViewModel.onItemFocusPipeline(item: MetaPreview) {
             if (_enrichingItemId.value == item.id) setEnrichingItemId(null)
             return@launch
         }
-        if (item.id in prefetchedTmdbIds || item.id in prefetchedExternalMetaIds) {
+        val tvdbAlreadyDone = !tvdbEnabledForCurrentLayout || item.id in prefetchedTvdbIds
+        if ((item.id in prefetchedTmdbIds || item.id in prefetchedExternalMetaIds) && tvdbAlreadyDone) {
             val artworkStillNeeded = item.id !in prefetchedExternalMetaIds &&
                 externalMetaPrefetchEnabled &&
                 !currentTmdbSettings.useArtwork &&
@@ -506,6 +511,21 @@ internal fun HomeViewModel.onItemFocusPipeline(item: MetaPreview) {
                     }
                     updateCatalogItemWithTmdb(item.id, enrichment)
                     tmdbEnriched = true
+                }
+            }
+            // TVDB fills blanks after TMDB (TMDB wins on conflicts).
+            if (tvdbEnabledForCurrentLayout && item.id !in prefetchedTvdbIds) {
+                val tvdbEnrichment = runCatching {
+                    tvdbMetadataService.enrichPreview(
+                        itemId = item.id,
+                        name = item.name,
+                        apiType = item.apiType,
+                        settings = currentTvdbSettings
+                    )
+                }.getOrNull()
+                prefetchedTvdbIds.add(item.id)
+                if (tvdbEnrichment != null) {
+                    updateCatalogItemWithTvdb(item.id, tvdbEnrichment)
                 }
             }
             // Fall through to external addon when:
@@ -581,7 +601,11 @@ internal fun HomeViewModel.maybeFetchMdbListRatingForItem(item: MetaPreview) {
 
 internal fun HomeViewModel.preloadAdjacentItemPipeline(item: MetaPreview) {
     if (startupGracePeriodActive) return
-    if (item.id in prefetchedTmdbIds || item.id in prefetchedExternalMetaIds) return
+    val tvdbEnabled = currentTvdbSettings.enabled && currentTvdbSettings.hasApiKey &&
+        item.apiType in listOf("series", "tv")
+    if (item.id in prefetchedTmdbIds || item.id in prefetchedExternalMetaIds ||
+        (tvdbEnabled && item.id in prefetchedTvdbIds)
+    ) return
     if (pendingTmdbEnrichItemId == item.id || pendingAdjacentPrefetchItemId == item.id) return
 
     pendingAdjacentPrefetchItemId = item.id
@@ -589,10 +613,13 @@ internal fun HomeViewModel.preloadAdjacentItemPipeline(item: MetaPreview) {
     adjacentItemPrefetchJob = viewModelScope.launch(Dispatchers.IO) {
         val tmdbEnabledForCurrentLayout = currentTmdbSettings.enabled &&
             (_uiState.value.homeLayout != HomeLayout.MODERN || currentTmdbSettings.modernHomeEnabled)
+        val tvdbEnabledForCurrentLayout = currentTvdbSettings.enabled && currentTvdbSettings.hasApiKey &&
+            item.apiType in listOf("series", "tv")
         delay(HomeViewModel.EXTERNAL_META_PREFETCH_ADJACENT_DEBOUNCE_MS)
         if (pendingAdjacentPrefetchItemId != item.id) return@launch
 
-        if (item.id in prefetchedTmdbIds || item.id in prefetchedExternalMetaIds) return@launch
+        val tvdbAlreadyDone = !tvdbEnabledForCurrentLayout || item.id in prefetchedTvdbIds
+        if ((item.id in prefetchedTmdbIds || item.id in prefetchedExternalMetaIds) && tvdbAlreadyDone) return@launch
 
         try {
             var tmdbEnriched = false
@@ -612,6 +639,20 @@ internal fun HomeViewModel.preloadAdjacentItemPipeline(item: MetaPreview) {
                     }
                     updateCatalogItemWithTmdb(item.id, enrichment)
                     tmdbEnriched = true
+                }
+            }
+            if (tvdbEnabledForCurrentLayout && item.id !in prefetchedTvdbIds) {
+                val tvdbEnrichment = runCatching {
+                    tvdbMetadataService.enrichPreview(
+                        itemId = item.id,
+                        name = item.name,
+                        apiType = item.apiType,
+                        settings = currentTvdbSettings
+                    )
+                }.getOrNull()
+                prefetchedTvdbIds.add(item.id)
+                if (tvdbEnrichment != null) {
+                    updateCatalogItemWithTvdb(item.id, tvdbEnrichment)
                 }
             }
             val artworkStillMissing = tmdbEnriched && !currentTmdbSettings.useArtwork &&
@@ -716,7 +757,56 @@ private fun HomeViewModel.updateCatalogItemWithTmdb(itemId: String, enrichment: 
     }
 }
 
-internal fun HomeViewModel.updateCatalogItemImdbRating(itemId: String, rating: Float) {
+private fun HomeViewModel.updateCatalogItemWithTvdb(
+    itemId: String,
+    enrichment: TvdbMetadataService.PreviewEnrichment
+) {
+    val isModernLayout = _uiState.value.homeLayout == HomeLayout.MODERN
+    fun mergeItem(currentItem: MetaPreview): MetaPreview {
+        var merged = currentItem
+        if (currentTvdbSettings.useBasicInfo && merged.description.isNullOrBlank() &&
+            !enrichment.description.isNullOrBlank()
+        ) {
+            merged = merged.copy(description = enrichment.description)
+        }
+        if (currentTvdbSettings.useArtwork && merged.background.isNullOrBlank() &&
+            !enrichment.background.isNullOrBlank()
+        ) {
+            merged = merged.copy(background = enrichment.background)
+        }
+        return merged
+    }
+
+    updateIndexedCatalogItem(itemId, ::mergeItem)
+
+    if (!isModernLayout) {
+        _uiState.update { state ->
+            var changed = false
+            val updatedRows = state.catalogRows.map { row ->
+                val idx = row.items.indexOfFirst { it.id == itemId }
+                if (idx < 0) row
+                else {
+                    val mergedItem = mergeItem(row.items[idx])
+                    if (mergedItem == row.items[idx]) row
+                    else {
+                        changed = true
+                        val mutableItems = row.items.toMutableList()
+                        mutableItems[idx] = mergedItem
+                        row.copy(items = mutableItems)
+                    }
+                }
+            }
+            if (changed) state.copy(catalogRows = updatedRows) else state
+        }
+    }
+
+    findCatalogItemById(itemId)?.let { enriched ->
+        _lastEnrichedPreview.value = enriched
+        _enrichedPreviews.update { it + (itemId to enriched) }
+    }
+}
+
+private fun HomeViewModel.updateCatalogItemImdbRating(itemId: String, rating: Float) {
     updateIndexedCatalogItem(itemId) { currentItem ->
         currentItem.copy(imdbRating = rating)
     }
@@ -852,6 +942,8 @@ internal suspend fun HomeViewModel.enrichHeroItemsPipeline(
     if (items.isEmpty()) return items
     val mdbSettings = currentMdbListSettings
     val mdbEnabled = mdbSettings.enabled && mdbSettings.apiKey.isNotBlank()
+    val tvdbSettings = currentTvdbSettings
+    val tvdbEnabled = tvdbSettings.enabled && tvdbSettings.hasApiKey
 
     return coroutineScope {
         items.map { item ->
@@ -871,9 +963,20 @@ internal suspend fun HomeViewModel.enrichHeroItemsPipeline(
                     val mdbDeferred = if (mdbEnabled) async {
                         runCatching { mdbListRepository.getImdbRatingForItem(item.id, item.apiType) }.getOrNull()
                     } else null
+                    val tvdbDeferred = if (tvdbEnabled && item.apiType in listOf("series", "tv")) async {
+                        runCatching {
+                            tvdbMetadataService.enrichPreview(
+                                itemId = item.id,
+                                name = item.name,
+                                apiType = item.apiType,
+                                settings = tvdbSettings
+                            )
+                        }.getOrNull()
+                    } else null
 
                     val enrichment = tmdbDeferred?.await()
                     val mdbImdbRating = mdbDeferred?.await()
+                    val tvdbEnrichment = tvdbDeferred?.await()
 
                     var enriched = item
 
@@ -910,6 +1013,9 @@ internal suspend fun HomeViewModel.enrichHeroItemsPipeline(
                             )
                         }
                     }
+
+                    // TVDB fills blanks after TMDB (TMDB wins).
+                    enriched = tvdbMetadataService.applyPreviewToItem(enriched, tvdbEnrichment)
 
                     // MDBList rating applies independently of TMDB enrichment.
                     if (mdbImdbRating != null) {
@@ -959,6 +1065,10 @@ internal fun HomeViewModel.heroEnrichmentSignaturePipeline(
         append(settings.useDetails)
         append(':')
         append(currentMdbListSettings.enabled && currentMdbListSettings.apiKey.isNotBlank())
+        append(':')
+        append(currentTvdbSettings.enabled)
+        append(':')
+        append(currentTvdbSettings.language)
         append("::")
         append(itemSignature)
     }
