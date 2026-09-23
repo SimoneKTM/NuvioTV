@@ -8,7 +8,7 @@ private val SEASON_SUFFIX_REGEX = Regex(
     """\s*[-–:,(]*\s*(?:season|stagione|series|volume|vol|part(?:e)?)\s*[-]?\s*\d{1,3}\s*\)?$""",
     RegexOption.IGNORE_CASE
 )
-private val YEAR_SUFFIX_REGEX = Regex("""\s*[\(【[]?\s*(?:19|20)\d{2}\s*[\)】\]]?\s*$""")
+private val YEAR_SUFFIX_REGEX = Regex("""\s*[(\[【]?\s*(?:19|20)\d{2}\s*[)\]】]?\s*$""")
 private val NON_ALNUM_REGEX = Regex("""[^0-9a-zà-öø-ÿ]+""")
 
 /** 0 = exact title match, lower is closer to the typed query. */
@@ -75,35 +75,23 @@ internal fun searchNormalizeText(value: String): String =
  * within one franchise oldest release first (Dexter before Dexter: New Blood).
  */
 internal fun searchResultsComparator(query: String): Comparator<MetaPreview> {
-    val normalizedTitles = sequenceOf(query)
-        .plus(Unit)
-        .map { searchNormalizeTitle(query) }
-        .toList()
+    val normalizedTitles = listOf(searchNormalizeTitle(query))
 
     // Families are assigned against the full result set once via decorate-sort-undecorate
     // in [rankSearchResults]; this comparator only needs per-item keys that stay consistent
     // when familyRank is empty (single-item sorts / tests).
     return Comparator { left, right ->
-        val leftFamily = searchTitleFamily(left.name, normalizedTitles)
-        val rightFamily = searchTitleFamily(right.name, normalizedTitles)
         compareValuesBy(
             left,
             right,
             { searchMatchQuality(query, it.name) },
             { searchFamilyPopularityRank(it) },
-            { leftFamily },
+            { searchTitleFamily(it.name, normalizedTitles) },
             { searchReleaseYear(it) ?: Int.MAX_VALUE },
             { it.imdbRating ?: -1f },
             { it.name.lowercase(Locale.ROOT) }
         ).let { base ->
             if (base != 0) base else left.id.compareTo(right.id)
-        }
-    }.let { comparator ->
-        // Popularity is a family-level property: pass ranks through the companion map path
-        // used by [rankSearchResults]. When no ranks are provided, fall back to item rating.
-        Comparator { left, right ->
-            val primary = comparator.compare(left, right)
-            primary
         }
     }
 }

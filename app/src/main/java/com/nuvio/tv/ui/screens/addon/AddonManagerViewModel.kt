@@ -338,7 +338,7 @@ class AddonManagerViewModel @Inject constructor(
                 }
 
                 PageState(
-                    addons = addons.map { addon ->
+                    addons = _uiState.value.installedAddons.map { addon ->
                         AddonInfo(
                             url = addon.baseUrl,
                             name = addon.displayName.ifBlank { addon.baseUrl },

@@ -15,6 +15,7 @@ import com.nuvio.tv.domain.model.AddonStreams
 import com.nuvio.tv.domain.model.RepositoryType
 import com.nuvio.tv.domain.model.ScraperInfo
 import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -93,6 +94,9 @@ class StreamRepositoryPluginIsolationTest {
         every { pluginManager.enabledScrapers } returns flowOf(enabledScrapers)
         every { pluginManager.pluginsEnabled } returns flowOf(enabledScrapers.isNotEmpty())
 
+        val extraAddonRepository = mockk<ExtraAddonRepository>()
+        every { extraAddonRepository.getInstalledExtraAddons() } returns flowOf(emptyList())
+
         val tmdbService = mockk<TmdbService>(relaxed = true)
         val presentation = mockk<DebridStreamPresentation>()
         coEvery { presentation.apply(any(), any<Boolean>()) } coAnswers {
@@ -111,6 +115,7 @@ class StreamRepositoryPluginIsolationTest {
                 context = mockk<Context>(relaxed = true),
                 api = api,
                 addonRepository = addonRepository,
+                extraAddonRepository = extraAddonRepository,
                 pluginManager = pluginManager,
                 tmdbService = tmdbService,
                 debridStreamPresentation = presentation,

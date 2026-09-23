@@ -6,10 +6,13 @@ import com.nuvio.tv.data.remote.api.AddonApi
 import com.nuvio.tv.data.remote.dto.MetaDto
 import com.nuvio.tv.data.remote.dto.MetaResponseDto
 import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.domain.repository.AnimeAddonRepository
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -85,10 +88,16 @@ class MetaRepositoryAddonCacheTest {
             every { getString(any()) } returns "Episode"
         }
         val addonRepository = mockk<AddonRepository>(relaxed = true)
+        val animeAddonRepository = mockk<AnimeAddonRepository>()
+        every { animeAddonRepository.getInstalledAnimeAddons() } returns flowOf(emptyList())
+        val extraAddonRepository = mockk<ExtraAddonRepository>()
+        every { extraAddonRepository.getInstalledExtraAddons() } returns flowOf(emptyList())
         return MetaRepositoryImpl(
             context = context,
             api = api,
-            addonRepository = addonRepository
+            addonRepository = addonRepository,
+            animeAddonRepository = animeAddonRepository,
+            extraAddonRepository = extraAddonRepository
         )
     }
 

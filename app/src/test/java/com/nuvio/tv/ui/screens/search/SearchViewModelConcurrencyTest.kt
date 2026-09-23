@@ -102,6 +102,8 @@ class SearchViewModelConcurrencyTest {
         every { layoutPreferences.posterCardCornerRadiusDp } returns flowOf(12)
         every { layoutPreferences.catalogTypeSuffixEnabled } returns flowOf(true)
         every { layoutPreferences.hideUnreleasedContent } returns flowOf(false)
+        every { layoutPreferences.searchIncludeExtraTab } returns flowOf(false)
+        every { layoutPreferences.searchIncludeAnimeTab } returns flowOf(false)
 
         val history = mockk<SearchHistoryDataStore>(relaxed = true)
         every { history.recentSearches } returns flowOf(emptyList())
@@ -112,8 +114,15 @@ class SearchViewModelConcurrencyTest {
         val watchedSeries = mockk<WatchedSeriesStateHolder>()
         every { watchedSeries.fullyWatchedSeriesIds } returns MutableStateFlow(emptySet())
 
+        val animeAddons = mockk<com.nuvio.tv.domain.repository.AnimeAddonRepository>()
+        every { animeAddons.getInstalledAnimeAddons() } returns flowOf(emptyList())
+        val extraAddons = mockk<com.nuvio.tv.domain.repository.ExtraAddonRepository>()
+        every { extraAddons.getInstalledExtraAddons() } returns flowOf(emptyList())
+
         return SearchViewModel(
             addonRepository = addonRepository,
+            animeAddonRepository = animeAddons,
+            extraAddonRepository = extraAddons,
             catalogRepository = catalogRepository,
             layoutPreferenceDataStore = layoutPreferences,
             searchHistoryDataStore = history,
