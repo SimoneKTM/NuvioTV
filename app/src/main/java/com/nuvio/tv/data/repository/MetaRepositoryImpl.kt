@@ -144,8 +144,16 @@ class MetaRepositoryImpl @Inject constructor(
         val cacheType = metaCacheType(type)
         val cacheKey = "$namespace:$cacheType:$id:$mode"
         var bypassedCachedMeta: Meta? = null
+        val normalizedSource = sourceAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
+        fun Meta.matchesRequestedSource(): Boolean {
+            if (normalizedSource.isEmpty()) return true
+            val cachedSource = sourceAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
+            return cachedSource == normalizedSource
+        }
         // Global screens must reuse whatever Home/Anime/Extra already fetched
         // for the same content so Calendar/Library show identical addon metadata.
+        // Callers that pass a source addon (Home/Search Detail) skip reuse of
+        // entries from a different addon so the card's own source stays authoritative.
         if (namespace == com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL) {
             val sharedKeys = listOf(
                 com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_HOME,
@@ -156,7 +164,10 @@ class MetaRepositoryImpl @Inject constructor(
             val shared = sharedKeys.firstNotNullOfOrNull { key -> addonMetaCache[key] }
             // Reuse tab cache only when it already has artwork — that is what
             // Calendar/Library need and keeps the same images as Home/Anime/Extra.
-            if (shared != null && (shared.poster != null || shared.background != null)) {
+            if (shared != null &&
+                (shared.poster != null || shared.background != null) &&
+                shared.matchesRequestedSource()
+            ) {
                 addonMetaCache[cacheKey] = shared
                 emit(NetworkResult.Success(shared))
                 return@flow
@@ -166,7 +177,10 @@ class MetaRepositoryImpl @Inject constructor(
             // When caller asks for anime preference, a cached entry without a
             // discovered source may have won a HOME-namespace race against a
             // non-anime addon — refetch so anime addons get priority.
-            val cacheUsable = !preferAnimeAddons || !cached.sourceAddonBaseUrl.isNullOrBlank()
+            // Same when the cached winner came from a different addon than the
+            // card's requested source (Home/Search Detail).
+            val cacheUsable = cached.matchesRequestedSource() &&
+                (!preferAnimeAddons || !cached.sourceAddonBaseUrl.isNullOrBlank())
             if (cacheUsable) {
                 emit(NetworkResult.Success(cached))
                 return@flow

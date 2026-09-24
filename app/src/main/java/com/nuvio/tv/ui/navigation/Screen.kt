@@ -30,7 +30,9 @@ sealed class Screen(val route: String) {
             heroBackdropUrl: String? = null
         ): String {
             val encodedItemId = encode(itemId)
-            val encodedItemType = encode(itemType)
+            // Blank type would produce detail/{id}/? which never matches the route
+            // (CW/desync can carry an empty contentType) — fall back like FolderDetail.
+            val encodedItemType = encode(itemType.ifBlank { "movie" })
             val encodedAddon = addonBaseUrl?.let { encode(it) } ?: ""
             val encodedHeroBackdrop = heroBackdropUrl?.let { encode(it) } ?: ""
             return "detail/$encodedItemId/$encodedItemType?addonBaseUrl=$encodedAddon&returnFocusSeason=${returnFocusSeason ?: ""}&returnFocusEpisode=${returnFocusEpisode ?: ""}&returnToHomeOnBack=$returnToHomeOnBack&heroBackdropUrl=$encodedHeroBackdrop"
