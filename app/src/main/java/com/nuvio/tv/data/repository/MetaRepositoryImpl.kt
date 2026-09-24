@@ -67,6 +67,14 @@ class MetaRepositoryImpl @Inject constructor(
         val detail: String
     )
 
+    /** Outcome of a shared multi-addon meta lookup deferred. */
+    private data class MetaLookupOutcome(
+        val meta: Meta?,
+        val sourceSufficient: Boolean = false,
+        val failures: List<MetaAttemptFailure> = emptyList(),
+        val allAttemptsMissing: Boolean = false
+    )
+
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     // In-memory cache: "namespace:type:id" -> Meta (scoped per tab/addon)
@@ -77,7 +85,7 @@ class MetaRepositoryImpl @Inject constructor(
 
     // In-flight deduplication: prevents concurrent coroutines from firing duplicate requests
     private val inFlightMeta = ConcurrentHashMap<String, Deferred<Meta?>>()
-    private val inFlightAddonMeta = ConcurrentHashMap<String, Deferred<Meta?>>()
+    private val inFlightAddonMeta = ConcurrentHashMap<String, Deferred<MetaLookupOutcome>>()
     private val inFlightPrimaryMeta = ConcurrentHashMap<String, Deferred<Meta?>>()
 
     override fun getMeta(
@@ -283,7 +291,14 @@ class MetaRepositoryImpl @Inject constructor(
                     failures = attemptedFailures
                 )
             }
-            emit(NetworkResult.Error(fallbackMessage))
+            val fallbackFinal = fallbackAddons.isEmpty() ||
+                attemptedFailures.all { it.kind == MetaFailureKind.MISSING }
+            emit(
+                NetworkResult.Error(
+                    fallbackMessage,
+                    code = if (fallbackFinal) NetworkResult.META_NOT_FOUND_CODE else null
+                )
+            )
             return@flow
         }
 
@@ -297,15 +312,19 @@ class MetaRepositoryImpl @Inject constructor(
                         val sourceCandidate = prioritizedCandidates.firstOrNull {
                             it.first.baseUrl.trimEnd('/').lowercase() == sourceUrl
                         }
-                        val orderedCandidates = if (sourceCandidate != null) {
-                            listOf(sourceCandidate) + prioritizedCandidates.filter { it != sourceCandidate }
-                        } else {
-                            prioritizedCandidates.toList()
+                        if (sourceCandidate != null) {
+                            // Catalog already carries this addon's meta for the item.
+                            return@async MetaLookupOutcome(meta = null, sourceSufficient = true)
                         }
+                        val orderedCandidates = prioritizedCandidates.toList()
+                        val loopFailures = mutableListOf<MetaAttemptFailure>()
+                        var attempted = 0
+                        var allMissing = true
 
                         for ((addon, candidateType) in orderedCandidates) {
                             val url = buildMetaUrl(addon.baseUrl, candidateType, id)
                             Log.d(TAG, "Trying meta (source-prioritized) addonId=${addon.id} addonName=${addon.name} type=$candidateType id=$id url=$url")
+                            attempted++
                             when (val result = safeApiCall(context) { api.getMeta(url) }) {
                                 is NetworkResult.Success -> {
                                     val metaDto = result.data.meta
@@ -314,15 +333,24 @@ class MetaRepositoryImpl @Inject constructor(
                                             .copy(sourceAddonBaseUrl = addon.baseUrl)
                                         addonMetaCache[cacheKey] = meta
                                         Log.d(TAG, "Meta fetch success addonId=${addon.id} type=$candidateType id=$id")
-                                        return@async meta
+                                        return@async MetaLookupOutcome(meta = meta)
                                     }
                                     Log.d(TAG, "Meta response was null addonId=${addon.id} type=$candidateType id=$id")
+                                    loopFailures += buildMissingMetaFailure(addon)
                                 }
-                                is NetworkResult.Error -> { /* try next */ }
+                                is NetworkResult.Error -> {
+                                    loopFailures += buildAddonFailure(addon, result)
+                                    allMissing = false
+                                }
                                 NetworkResult.Loading -> { /* try next */ }
                             }
                         }
-                        null
+                        MetaLookupOutcome(
+                            meta = null,
+                            failures = loopFailures,
+                            allAttemptsMissing = attempted > 0 && allMissing &&
+                                attempted == orderedCandidates.size
+                        )
                     } else {
                         // No source addon known: query all matching addons in parallel,
                         // pick the one with the most complete videos (most seasons/episodes).
@@ -330,6 +358,8 @@ class MetaRepositoryImpl @Inject constructor(
                         // When rawId differs from id (e.g. resolved IMDB vs original TMDB numeric),
                         // also try the raw ID so addons that can't resolve IMDB still get a chance.
                         val episodeLabel = context.getString(R.string.episodes_episode)
+                        val attemptedCounter = java.util.concurrent.atomic.AtomicInteger(0)
+                        val anyRequestFailed = java.util.concurrent.atomic.AtomicBoolean(false)
                         val candidateIds = buildList {
                             add(id)
                             if (!rawId.isNullOrBlank() && rawId != id) {
@@ -344,8 +374,11 @@ class MetaRepositoryImpl @Inject constructor(
                             return posterBonus + meta.videos.size * 10L + imageScore
                         }
 
-                        suspend fun raceMeta(candidates: List<Pair<Addon, String>>): Pair<Addon, Meta>? {
-                            if (candidates.isEmpty()) return null
+                        suspend fun raceMeta(
+                            candidates: List<Pair<Addon, String>>
+                        ): Triple<Pair<Addon, Meta>?, List<MetaAttemptFailure>, Boolean> {
+                            if (candidates.isEmpty()) return Triple(null, emptyList(), true)
+                            val raceFailures = java.util.concurrent.ConcurrentLinkedQueue<MetaAttemptFailure>()
                             val results = coroutineScope {
                                 candidates.map { (addon, candidateType) ->
                                     async {
@@ -353,14 +386,23 @@ class MetaRepositoryImpl @Inject constructor(
                                         withTimeoutOrNull(RACE_META_TIMEOUT_MS) {
                                             for (candidateId in candidateIds) {
                                                 if (bestForAddon != null) break
+                                                attemptedCounter.incrementAndGet()
                                                 val url = buildMetaUrl(addon.baseUrl, candidateType, candidateId)
                                                 Log.d(TAG, "Trying meta (parallel) addonId=${addon.id} addonName=${addon.name} type=$candidateType id=$candidateId url=$url")
                                                 when (val result = safeApiCall(context) { api.getMeta(url) }) {
                                                     is NetworkResult.Success -> {
-                                                        result.data.meta?.toDomain(episodeLabel)
-                                                            ?.let { bestForAddon = it }
+                                                        val meta = result.data.meta?.toDomain(episodeLabel)
+                                                        if (meta != null) {
+                                                            bestForAddon = meta
+                                                        } else {
+                                                            raceFailures += buildMissingMetaFailure(addon)
+                                                        }
                                                     }
-                                                    else -> { /* try next ID */ }
+                                                    is NetworkResult.Error -> {
+                                                        raceFailures += buildAddonFailure(addon, result)
+                                                        anyRequestFailed.set(true)
+                                                    }
+                                                    NetworkResult.Loading -> { /* try next ID */ }
                                                 }
                                             }
                                         }
@@ -370,8 +412,15 @@ class MetaRepositoryImpl @Inject constructor(
                             }
 
                             val validResults = results.filterNotNull()
-                            if (validResults.isEmpty()) return null
-                            return validResults.maxByOrNull { (_, meta) -> metaRaceScore(meta) }
+                            val allMissing = !anyRequestFailed.get()
+                            if (validResults.isEmpty()) {
+                                return Triple(null, raceFailures.toList(), allMissing)
+                            }
+                            return Triple(
+                                validResults.maxByOrNull { (_, meta) -> metaRaceScore(meta) },
+                                emptyList(),
+                                false
+                            )
                         }
 
                         // Anime preference still races anime first, but if that
@@ -388,29 +437,39 @@ class MetaRepositoryImpl @Inject constructor(
                             emptyList<Pair<Addon, String>>() to prioritizedCandidates.toList()
                         }
 
-                        val animeBest = raceMeta(animeCandidates.first)?.let { (addon, meta) ->
-                            addon to meta.copy(sourceAddonBaseUrl = addon.baseUrl)
-                        }
+                        val (animeBest, animeFailures, animeAllMissing) = raceMeta(animeCandidates.first)
+                            .let { (winner, fails, missing) ->
+                                Triple(winner?.let { (addon, meta) -> addon to meta.copy(sourceAddonBaseUrl = addon.baseUrl) }, fails, missing)
+                            }
                         val animeNeedsBackup = animeBest == null ||
                             (animeBest.second.poster.isNullOrBlank() && animeBest.second.background.isNullOrBlank())
-                        val restBest = if (animeNeedsBackup) {
-                            raceMeta(animeCandidates.second)?.let { (addon, meta) ->
-                                addon to meta.copy(sourceAddonBaseUrl = addon.baseUrl)
-                            }
-                        } else {
-                            null
+                        var restBest: Pair<Addon, Meta>? = null
+                        var restFailures: List<MetaAttemptFailure> = emptyList()
+                        var restAllMissing = true
+                        if (animeNeedsBackup) {
+                            val (winner, fails, missing) = raceMeta(animeCandidates.second)
+                            restBest = winner?.let { (addon, meta) -> addon to meta.copy(sourceAddonBaseUrl = addon.baseUrl) }
+                            restFailures = fails
+                            restAllMissing = missing
                         }
 
                         val best = listOfNotNull(animeBest, restBest)
                             .maxByOrNull { (_, meta) -> metaRaceScore(meta) }
 
                         if (best == null) {
-                            null
+                            val raceFailures = animeFailures + restFailures
+                            MetaLookupOutcome(
+                                meta = null,
+                                failures = raceFailures,
+                                allAttemptsMissing = attemptedCounter.get() > 0 &&
+                                    !anyRequestFailed.get() &&
+                                    raceFailures.isNotEmpty()
+                            )
                         } else {
                             val (winningAddon, winningMeta) = best
                             Log.d(TAG, "Best meta selected: addonId=${winningAddon.id} name=${winningMeta.name} videos=${winningMeta.videos.size} poster=${winningMeta.poster != null} bg=${winningMeta.background != null}")
                             addonMetaCache[cacheKey] = winningMeta
-                            winningMeta
+                            MetaLookupOutcome(meta = winningMeta)
                         }
                     }
                 } finally {
@@ -419,9 +478,13 @@ class MetaRepositoryImpl @Inject constructor(
             }
         }
 
-        val meta = deferred.await()
-        if (meta != null) {
-            emit(NetworkResult.Success(meta))
+        val outcome = deferred.await()
+        if (outcome.sourceSufficient) {
+            emit(NetworkResult.Error("Source addon sufficient", NetworkResult.SOURCE_SUFFICIENT_CODE))
+            return@flow
+        }
+        if (outcome.meta != null) {
+            emit(NetworkResult.Success(outcome.meta))
         } else if (bypassedCachedMeta != null) {
             emit(NetworkResult.Success(bypassedCachedMeta))
         } else {
@@ -430,9 +493,10 @@ class MetaRepositoryImpl @Inject constructor(
                     buildAggregateFailureMessage(
                         type = requestedType,
                         id = id,
-                        attemptedAddonNames = attemptedAddonNames.toList(),
-                        failures = attemptedFailures
-                    )
+                        attemptedAddonNames = attemptedAddonNames.toList() + outcome.failures.map { it.addonName },
+                        failures = attemptedFailures + outcome.failures
+                    ),
+                    code = if (outcome.allAttemptsMissing) NetworkResult.META_NOT_FOUND_CODE else null
                 )
             )
         }

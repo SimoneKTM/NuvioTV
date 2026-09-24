@@ -99,6 +99,16 @@ class HomeViewModel @Inject constructor(
         private const val MAX_CATALOG_LOAD_CONCURRENCY = 3
         internal const val EXTERNAL_META_PREFETCH_FOCUS_DEBOUNCE_MS = 220L
         internal const val EXTERNAL_META_PREFETCH_ADJACENT_DEBOUNCE_MS = 120L
+        private const val MAX_ENRICHMENT_CACHE_SIZE = 64
+        private const val MAX_PREFETCH_CACHE_SIZE = 64
+
+        private fun <K, V> createLruMap(maxSize: Int): MutableMap<K, V> {
+            val lru = object : LinkedHashMap<K, V>(maxSize + 4, 0.75f, true) {
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?): Boolean =
+                    size > maxSize
+            }
+            return java.util.Collections.synchronizedMap(lru)
+        }
     }
 
     internal val _uiState = MutableStateFlow(HomeUiState())
@@ -155,9 +165,38 @@ class HomeViewModel @Inject constructor(
     internal val _enrichedPreviews = MutableStateFlow<Map<String, MetaPreview>>(emptyMap())
     override val enrichedPreviews: StateFlow<Map<String, MetaPreview>> = _enrichedPreviews.asStateFlow()
 
+    internal fun addEnrichedPreview(id: String, preview: MetaPreview) {
+        _enrichedPreviews.update { current ->
+            val updated = current + (id to preview)
+            if (updated.size <= MAX_ENRICHMENT_CACHE_SIZE) updated
+            else LinkedHashMap(updated).apply { while (size > MAX_ENRICHMENT_CACHE_SIZE) remove(keys.first()) }
+        }
+    }
+
     /** Items for which enrichment was attempted but produced no enriched data. */
     internal val _failedEnrichmentIds = MutableStateFlow<Set<String>>(emptySet())
     override val failedEnrichmentIds: StateFlow<Set<String>> = _failedEnrichmentIds.asStateFlow()
+
+    internal fun markEnrichmentFailed(id: String) {
+        _failedEnrichmentIds.update { current ->
+            if (id in current) return@update current
+            val updated = LinkedHashSet(current).apply { add(id) }
+            while (updated.size > MAX_ENRICHMENT_CACHE_SIZE) {
+                updated.remove(updated.first())
+            }
+            updated
+        }
+    }
+
+    /** Enrichment succeeded after a previous failure, so the item is no longer a failed one. */
+    internal fun clearEnrichmentFailure(id: String) {
+        _failedEnrichmentIds.update { current -> if (id in current) current - id else current }
+    }
+
+    /** Drops every failure marker, for the resets that clear the caches beside this one. */
+    internal fun clearEnrichmentFailures() {
+        _failedEnrichmentIds.value = emptySet()
+    }
 
     internal val catalogStateLock = Any()
     internal val catalogsMap = linkedMapOf<String, CatalogRow>()
@@ -198,12 +237,15 @@ class HomeViewModel @Inject constructor(
     internal var lastHeroEnrichedItems: List<MetaPreview> = emptyList()
     internal var heroItemOrder: List<String> = emptyList()
     internal val modernCarouselRowBuildCache = ModernCarouselRowBuildCache()
-    internal val prefetchedExternalMetaIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    internal val prefetchedExternalMetaIds: MutableSet<String> = Collections.newSetFromMap(createLruMap(MAX_PREFETCH_CACHE_SIZE))
+    internal val backgroundMetaPrefetchedIds: MutableSet<String> = Collections.newSetFromMap(createLruMap(MAX_PREFETCH_CACHE_SIZE))
     internal val externalMetaPrefetchInFlightIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
     internal var externalMetaPrefetchJob: Job? = null
     internal var pendingExternalMetaPrefetchItemId: String? = null
-    internal val prefetchedTmdbIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
-    internal val prefetchedTvdbIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    internal val prefetchedTmdbIds: MutableSet<String> = Collections.newSetFromMap(createLruMap(MAX_PREFETCH_CACHE_SIZE))
+    internal val prefetchedTvdbIds: MutableSet<String> = Collections.newSetFromMap(createLruMap(MAX_PREFETCH_CACHE_SIZE))
+    /** Items an enrichment merge was applied for. */
+    internal val enrichmentMergedIds: MutableSet<String> = Collections.newSetFromMap(createLruMap(MAX_PREFETCH_CACHE_SIZE))
     internal val cwMetaCache = Collections.synchronizedMap(mutableMapOf<String, CwMetaSummary?>())
     internal val cwMetaNegativeCacheTimestamps = ConcurrentHashMap<String, Long>()
     /** Ultra-light cache for badge evaluation: contentId → set of aired (season, episode) pairs. */

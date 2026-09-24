@@ -1354,25 +1354,28 @@ class MetaDetailsViewModel @Inject constructor(
                 return@launch
             }
 
-            val items = runCatching {
+            val collection = runCatching {
                 tmdbMetadataService.fetchMovieCollection(
                     collectionId = collectionId,
                     language = settings.language
                 )
             }.getOrElse {
                 Log.w(TAG, "Failed to load collection $collectionId: ${it.message}")
-                emptyList()
+                com.nuvio.tv.core.tmdb.TmdbMovieCollection(name = null, items = emptyList())
             }
 
             val filteredItems = if (hideUnreleasedContent) {
                 val today = LocalDate.now()
-                items.filterNot { it.isUnreleased(today) }
+                collection.items.filterNot { it.isUnreleased(today) }
             } else {
-                items
+                collection.items
             }
 
             _uiState.update { state ->
-                state.copy(collection = filteredItems, collectionName = collectionName)
+                state.copy(
+                    collection = filteredItems,
+                    collectionName = collection.name ?: collectionName
+                )
             }
         }
     }

@@ -119,8 +119,11 @@ internal fun HomeViewModel.observeTmdbSettingsPipeline() {
                     // Allow re-enrichment with the updated TMDB metadata selection on next focus.
                     prefetchedTmdbIds.clear()
                     prefetchedExternalMetaIds.clear()
+                    backgroundMetaPrefetchedIds.clear()
+                    enrichmentMergedIds.clear()
                     _enrichedPreviews.value = emptyMap()
                     _lastEnrichedPreview.value = null
+                    clearEnrichmentFailures()
                 }
                 scheduleUpdateCatalogRows()
             }
@@ -139,6 +142,7 @@ internal fun HomeViewModel.observeTvdbSettingsPipeline() {
                     prefetchedTvdbIds.clear()
                     _enrichedPreviews.value = emptyMap()
                     _lastEnrichedPreview.value = null
+                    clearEnrichmentFailures()
                     lastHeroEnrichmentSignature = null
                     lastHeroEnrichedItems = emptyList()
                 }
@@ -212,9 +216,13 @@ internal suspend fun HomeViewModel.loadAllCatalogsPipeline(
     externalMetaPrefetchJob?.cancel()
     pendingExternalMetaPrefetchItemId = null
     prefetchedTmdbIds.clear()
+    prefetchedTvdbIds.clear()
+    backgroundMetaPrefetchedIds.clear()
+    enrichmentMergedIds.clear()
     mdbListRatingFetchedIds.clear()
     tmdbEnrichFocusJob?.cancel()
     pendingTmdbEnrichItemId = null
+    clearEnrichmentFailures()
     lastHeroEnrichmentSignature = null
     lastHeroEnrichedItems = emptyList()
     heroItemOrder = emptyList()
