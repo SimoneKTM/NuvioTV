@@ -19,6 +19,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
+import com.nuvio.tv.core.build.AppFeaturePolicy
 import com.nuvio.tv.ui.screens.settings.SettingsActionRow
 import com.nuvio.tv.ui.screens.settings.SettingsGroupCard
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -72,12 +73,14 @@ fun AnimeSettingsScreen(
                     onClick = onNavigateToAnimeAddons,
                     leadingIcon = Icons.Default.Extension
                 )
-                SettingsActionRow(
-                    title = stringResource(R.string.plugin_title),
-                    subtitle = stringResource(R.string.anime_settings_plugins_subtitle),
-                    onClick = onNavigateToPlugins,
-                    leadingIcon = Icons.Default.Build
-                )
+                if (AppFeaturePolicy.pluginsEnabled) {
+                    SettingsActionRow(
+                        title = stringResource(R.string.plugin_title),
+                        subtitle = stringResource(R.string.anime_settings_plugins_subtitle),
+                        onClick = onNavigateToPlugins,
+                        leadingIcon = Icons.Default.Build
+                    )
+                }
             }
         }
     }

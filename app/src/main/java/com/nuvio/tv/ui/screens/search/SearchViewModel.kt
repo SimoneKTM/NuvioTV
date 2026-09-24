@@ -98,6 +98,11 @@ class SearchViewModel @Inject constructor(
     private var hideUnreleasedContent = false
     private var searchIncludeExtraTab = true
     private var searchIncludeAnimeTab = true
+    private var animeTabVisible = true
+
+    /** Anime results require both the search toggle and a visible Anime tab. */
+    private val includeAnimeAddons: Boolean
+        get() = searchIncludeAnimeTab && animeTabVisible
     private var savedDiscoverKey: String? = null
 
     private companion object {
@@ -180,6 +185,14 @@ class SearchViewModel @Inject constructor(
         viewModelScope.launch {
             layoutPreferenceDataStore.searchIncludeExtraTab.collectLatest { enabled ->
                 searchIncludeExtraTab = enabled
+            }
+        }
+        viewModelScope.launch {
+            layoutPreferenceDataStore.animeTabVisible.collectLatest { visible ->
+                // Hiding the Anime tab also removes anime results from search/discover,
+                // otherwise the "hidden" tab content would still leak here.
+                animeTabVisible = visible
+                scheduleCatalogRowsUpdate()
             }
         }
         viewModelScope.launch {
@@ -447,7 +460,7 @@ class SearchViewModel @Inject constructor(
 
             val addons = mutableListOf<Addon>()
             try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
-            if (searchIncludeAnimeTab) {
+            if (includeAnimeAddons) {
                 try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
             }
             if (searchIncludeExtraTab) {
@@ -596,7 +609,7 @@ class SearchViewModel @Inject constructor(
         val job = viewModelScope.launch {
             val addons = mutableListOf<Addon>()
             try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
-            if (searchIncludeAnimeTab) {
+            if (includeAnimeAddons) {
                 try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
             }
             if (searchIncludeExtraTab) {

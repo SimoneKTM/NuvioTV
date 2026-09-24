@@ -1342,12 +1342,14 @@ private fun AnimeSettingsContent(
                             leadingIcon = Icons.Default.Extension,
                             modifier = Modifier.focusRequester(contentDiscoveryFocusRequester)
                         )
-                        SettingsActionRow(
-                            title = stringResource(R.string.plugin_title),
-                            subtitle = stringResource(R.string.anime_settings_plugins_subtitle),
-                            onClick = onNavigateToPlugins,
-                            leadingIcon = Icons.Default.Build
-                        )
+                        if (AppFeaturePolicy.pluginsEnabled) {
+                            SettingsActionRow(
+                                title = stringResource(R.string.plugin_title),
+                                subtitle = stringResource(R.string.anime_settings_plugins_subtitle),
+                                onClick = onNavigateToPlugins,
+                                leadingIcon = Icons.Default.Build
+                            )
+                        }
                     }
                 }
             }
@@ -1641,13 +1643,15 @@ private fun ExtraSettingsContent(
                                     modifier = Modifier.focusRequester(contentDiscoveryFocusRequester)
                                 )
                             }
-                            item(key = "extra_content_discovery_plugins") {
-                                SettingsActionRow(
-                                    title = stringResource(R.string.plugin_title),
-                                    subtitle = stringResource(R.string.extra_settings_plugins_subtitle),
-                                    onClick = onNavigateToPlugins,
-                                    leadingIcon = Icons.Default.Build
-                                )
+                            if (AppFeaturePolicy.pluginsEnabled) {
+                                item(key = "extra_content_discovery_plugins") {
+                                    SettingsActionRow(
+                                        title = stringResource(R.string.plugin_title),
+                                        subtitle = stringResource(R.string.extra_settings_plugins_subtitle),
+                                        onClick = onNavigateToPlugins,
+                                        leadingIcon = Icons.Default.Build
+                                    )
+                                }
                             }
                         }
                         SettingsVerticalScrollIndicators(state = contentDiscoveryState)

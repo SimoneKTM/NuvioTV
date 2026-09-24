@@ -188,21 +188,23 @@ class AddonRepositoryImpl @Inject constructor(
                             async {
                                 val canonical = canonicalizeUrl(url)
                                 val enabled = enabledByUrl[canonical] ?: true
-                                if (!enabled) {
-                                    return@async getCachedManifest(canonical)
-                                        ?.copy(enabled = false)
-                                        ?: placeholderAddon(canonical, userNames, enabled = false)
-                                }
-                                (getCachedManifest(canonical) ?: when (val result = fetchAddon(url)) {
+                                val manifest = getCachedManifest(canonical) ?: when (val result = fetchAddon(url)) {
                                     is NetworkResult.Success -> result.data
                                     else -> null
-                                })?.copy(enabled = enabled)
+                                }
+                                // Keep unreachable enabled addons visible (removable/refreshable)
+                                // instead of dropping them — an empty list would leave callers
+                                // with no emission at all (loading spinners never clear).
+                                manifest?.copy(enabled = enabled)
+                                    ?: placeholderAddon(canonical, userNames, enabled)
                             }
                         }.awaitAll().filterNotNull()
                     }
 
                     if (fresh != cached) {
                         emit(applyDisplayNames(fresh, userNames, enabledByUrl))
+                    } else if (cached.isEmpty()) {
+                        emit(emptyList())
                     }
                 } else if (isCacheStale() && urls.isNotEmpty()) {
                     scheduleManifestRefresh(

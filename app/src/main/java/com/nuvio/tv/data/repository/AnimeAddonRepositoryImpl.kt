@@ -116,6 +116,7 @@ class AnimeAddonRepositoryImpl @Inject constructor(
                     val canonical = canonicalizeUrl(url)
                     val enabled = enabledByUrl[canonical] ?: true
                     getCachedManifest(canonical)?.copy(enabled = enabled)
+                        ?: if (!enabled) placeholderAddon(canonical, enabled) else null
                 }
                 if (cached.isNotEmpty()) {
                     emit(cached)
@@ -131,10 +132,15 @@ class AnimeAddonRepositoryImpl @Inject constructor(
                             async {
                                 val canonical = canonicalizeUrl(url)
                                 val enabled = enabledByUrl[canonical] ?: true
-                                (getCachedManifest(canonical) ?: when (val result = fetchAnimeAddon(url)) {
-                                    is NetworkResult.Success -> result.data
-                                    else -> null
-                                })?.copy(enabled = enabled)
+                                val manifest = getCachedManifest(canonical)
+                                    ?: when (val result = fetchAnimeAddon(url)) {
+                                        is NetworkResult.Success -> result.data
+                                        else -> null
+                                    }
+                                // Unreachable addons stay visible via a placeholder so they
+                                // can still be disabled/removed from the anime manager.
+                                manifest?.copy(enabled = enabled)
+                                    ?: placeholderAddon(canonical, enabled)
                             }
                         }.awaitAll().filterNotNull()
                     }
@@ -223,6 +229,25 @@ class AnimeAddonRepositoryImpl @Inject constructor(
 
     private fun getCachedManifest(url: String): Addon? =
         synchronized(manifestCacheLock) { manifestCache[url] }
+
+    private fun placeholderAddon(url: String, enabled: Boolean): Addon {
+        val canonical = canonicalizeUrl(url)
+        val displayName = canonical.substringBefore("?").substringAfterLast("/").ifBlank { canonical }
+        return Addon(
+            id = canonical,
+            name = displayName,
+            displayName = displayName,
+            version = "",
+            description = null,
+            logo = null,
+            baseUrl = canonical,
+            catalogs = emptyList(),
+            types = emptyList(),
+            rawTypes = emptyList(),
+            resources = emptyList(),
+            enabled = enabled
+        )
+    }
 
     private fun putCachedManifestIfChanged(url: String, addon: Addon): Boolean {
         val changed = synchronized(manifestCacheLock) {
