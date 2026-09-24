@@ -85,6 +85,8 @@ class MetaDetailsViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val metaRepository: MetaRepository,
     private val tmdbSettingsDataStore: TmdbSettingsDataStore,
+    @Named("anime_tmdb") private val animeTmdbSettingsDataStore: TmdbSettingsDataStore,
+    @Named("extra_tmdb") private val extraTmdbSettingsDataStore: TmdbSettingsDataStore,
     private val tvdbSettingsDataStore: TvdbSettingsDataStore,
     private val animeTvdbSettingsDataStore: AnimeTvdbSettingsDataStore,
     private val extraTvdbSettingsDataStore: com.nuvio.tv.data.local.ExtraTvdbSettingsDataStore,
@@ -173,6 +175,14 @@ class MetaDetailsViewModel @Inject constructor(
             animeLayoutActive.value -> animeLayoutPreferenceDataStore
             extraLayoutActive.value -> extraLayoutPreferenceDataStore
             else -> layoutPreferenceDataStore
+        }
+
+    /** TMDB language/region settings for the tab this detail page belongs to. */
+    private val activeTmdbSettingsDataStore: TmdbSettingsDataStore
+        get() = when {
+            animeLayoutActive.value -> animeTmdbSettingsDataStore
+            extraLayoutActive.value -> extraTmdbSettingsDataStore
+            else -> tmdbSettingsDataStore
         }
 
     private val metaNamespace: String
@@ -1211,7 +1221,7 @@ class MetaDetailsViewModel @Inject constructor(
             val source = if (shouldLoadTraktMoreLikeThis(meta)) {
                 MoreLikeThisSource.TRAKT
             } else {
-                val settings = tmdbSettingsDataStore.settings.first()
+                val settings = activeTmdbSettingsDataStore.settings.first()
                 if (!shouldLoadMoreLikeThis(settings)) {
                     _uiState.update { it.copy(moreLikeThis = emptyList(), moreLikeThisSource = null) }
                     return@launch
@@ -1234,7 +1244,7 @@ class MetaDetailsViewModel @Inject constructor(
                 }
 
                 MoreLikeThisSource.TMDB -> {
-                    val settings = tmdbSettingsDataStore.settings.first()
+                    val settings = activeTmdbSettingsDataStore.settings.first()
                     val tmdbContentType = resolveTmdbContentType(meta)
                     val tmdbLookupType = tmdbContentType.toApiString()
                     val tmdbId = tmdbService.ensureTmdbId(meta.id, tmdbLookupType)
@@ -1506,7 +1516,7 @@ class MetaDetailsViewModel @Inject constructor(
     }
 
     private suspend fun enrichMeta(meta: Meta): Meta {
-        val settings = tmdbSettingsDataStore.settings.first()
+        val settings = activeTmdbSettingsDataStore.settings.first()
         if (!settings.enabled) {
             fetchTmdbRatingOnly(meta)
             return enrichSeriesWithTvdb(meta)

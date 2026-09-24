@@ -3,6 +3,7 @@ package com.nuvio.tv.ui.screens.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.data.local.ExtraOpenSubtitlesDirectDataStore
+import com.nuvio.tv.data.local.OpenSubtitlesDirectDataStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,7 +16,8 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class ExtraOpenSubtitlesSettingsViewModel @Inject constructor(
-    private val directDataStore: ExtraOpenSubtitlesDirectDataStore
+    private val directDataStore: OpenSubtitlesDirectDataStore,
+    private val legacyDataStore: ExtraOpenSubtitlesDirectDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(OpenSubtitlesSettingsUiState())
@@ -24,6 +26,7 @@ class ExtraOpenSubtitlesSettingsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            migrateLegacySettings()
             val settings = directDataStore.settings.first()
             _uiState.update {
                 it.copy(
@@ -35,6 +38,36 @@ class ExtraOpenSubtitlesSettingsViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    private suspend fun migrateLegacySettings() {
+        val legacy = legacyDataStore.settings.first()
+        if (!legacy.enabled && legacy.apiKey.isBlank() && legacy.username.isBlank() &&
+            legacy.password.isBlank() && legacy.userToken.isBlank() && legacy.languages.isEmpty()
+        ) {
+            legacyDataStore.clear()
+            return
+        }
+        val shared = directDataStore.settings.first()
+        if (legacy.apiKey.isNotBlank() && shared.apiKey.isBlank()) {
+            directDataStore.setApiKey(legacy.apiKey)
+        }
+        if (legacy.username.isNotBlank() && shared.username.isBlank()) {
+            directDataStore.setUsername(legacy.username)
+        }
+        if (legacy.password.isNotBlank() && shared.password.isBlank()) {
+            directDataStore.setPassword(legacy.password)
+        }
+        if (legacy.userToken.isNotBlank() && shared.userToken.isBlank()) {
+            directDataStore.setUserToken(legacy.userToken)
+        }
+        if (legacy.languages.isNotEmpty() && shared.languages.isEmpty()) {
+            directDataStore.setLanguages(legacy.languages)
+        }
+        if (legacy.enabled && !directDataStore.settings.first().enabled) {
+            directDataStore.setEnabled(true)
+        }
+        legacyDataStore.clear()
     }
 
     fun setDirectEnabled(enabled: Boolean) {

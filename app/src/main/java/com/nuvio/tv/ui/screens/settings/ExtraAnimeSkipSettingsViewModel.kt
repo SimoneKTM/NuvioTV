@@ -2,6 +2,7 @@ package com.nuvio.tv.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nuvio.tv.data.local.AnimeSkipSettingsDataStore
 import com.nuvio.tv.data.local.ExtraAnimeSkipSettingsDataStore
 import com.nuvio.tv.data.remote.api.AnimeSkipApi
 import com.nuvio.tv.data.remote.api.AnimeSkipRequest
@@ -13,13 +14,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class ExtraAnimeSkipSettingsViewModel @Inject constructor(
-    private val dataStore: ExtraAnimeSkipSettingsDataStore,
+    private val dataStore: AnimeSkipSettingsDataStore,
+    private val legacyDataStore: ExtraAnimeSkipSettingsDataStore,
     private val animeSkipApi: AnimeSkipApi
 ) : ViewModel() {
 
@@ -37,11 +40,24 @@ class ExtraAnimeSkipSettingsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            migrateLegacySettings()
             dataStore.clientId.collectLatest { _clientId.update { _ -> it } }
         }
         viewModelScope.launch {
             dataStore.enabled.collectLatest { _enabled.update { _ -> it } }
         }
+    }
+
+    private suspend fun migrateLegacySettings() {
+        val legacyClientId = legacyDataStore.clientId.first()
+        val legacyEnabled = legacyDataStore.enabled.first()
+        if (legacyClientId.isNotBlank() && dataStore.clientId.first().isBlank()) {
+            dataStore.setClientId(legacyClientId)
+        }
+        if (legacyEnabled && !dataStore.enabled.first()) {
+            dataStore.setEnabled(true)
+        }
+        legacyDataStore.clear()
     }
 
     fun setEnabled(value: Boolean) {

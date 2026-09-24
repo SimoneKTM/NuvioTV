@@ -39,4 +39,8 @@ class ExtraAnimeSkipSettingsDataStore @Inject constructor(
     suspend fun setClientId(clientId: String) {
         store().edit { it[clientIdKey] = clientId.trim() }
     }
+
+    suspend fun clear() {
+        store().edit { it.clear() }
+    }
 }

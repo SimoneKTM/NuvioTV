@@ -84,4 +84,8 @@ class ExtraOpenSubtitlesDirectDataStore @Inject constructor(
     suspend fun setLanguages(value: Set<String>) {
         dataStore.edit { prefs -> prefs[languagesKey] = value }
     }
+
+    suspend fun clear() {
+        dataStore.edit { it.clear() }
+    }
 }

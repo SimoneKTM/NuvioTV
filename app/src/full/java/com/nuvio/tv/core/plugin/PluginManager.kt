@@ -837,7 +837,11 @@ class PluginManager @Inject constructor(
                     if (results.isNotEmpty()) {
                         send(scraper to results)
                     }
-                } catch (e: Exception) {
+                } catch (e: Throwable) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    // Plugins run external code: catch Error too (e.g.
+                    // NotImplementedError/NoClassDefFoundError) so a single bad
+                    // plugin can't take the whole app down.
                     Log.e(TAG, "Scraper ${scraper.name} failed in streaming: ${e.message}")
                 }
             }
@@ -861,7 +865,8 @@ class PluginManager @Inject constructor(
         if (existing != null) {
             return try {
                 existing.await()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 emptyList()
             }
         }
@@ -878,7 +883,8 @@ class PluginManager @Inject constructor(
             
             try {
                 deferred.await()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.e(TAG, "Scraper ${scraper.name} failed: ${e.message}")
                 emptyList()
             } finally {
@@ -958,7 +964,8 @@ class PluginManager @Inject constructor(
             Log.d(TAG, "Scraper ${scraper.name} returned ${results.size} results")
             results.map { it.copy(provider = scraper.name) }
 
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e(TAG, "Failed to execute scraper ${scraper.name}: ${e.message}", e)
             emptyList()
         }
@@ -987,7 +994,8 @@ class PluginManager @Inject constructor(
             }
             Log.d(TAG, "DEX scraper ${scraper.name} returned ${results.size} results")
             results.map { it.copy(provider = scraper.name) }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             Log.e(TAG, "Failed to execute DEX scraper ${scraper.name}: ${e.message}", e)
             emptyList()
         }

@@ -488,7 +488,7 @@ class PluginRuntime @Inject constructor() {
 
             return parseJsonResults(resultJson)
 
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(TAG, "Plugin execution failed: ${e.message}", e)
             throw e
         } finally {

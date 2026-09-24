@@ -54,6 +54,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -645,7 +646,11 @@ class StreamScreenViewModel @Inject constructor(
                     season = season,
                     episode = episode,
                     sourceAddonBaseUrl = sourceAddonBaseUrl
-                ).collect { result ->
+                ).catch { e ->
+                    // Plugin/addon code is external: swallow Error too so a
+                    // failing plugin shows an empty stream list, not a crash.
+                    Log.e(TAG, "Stream load failed: ${e.message}", e)
+                }.collect { result ->
                     when (result) {
                         is NetworkResult.Success -> {
                             val merged = mergeWithBaseline(result.data)
