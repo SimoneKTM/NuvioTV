@@ -129,6 +129,20 @@ class LayoutPreferenceDataStore @Inject constructor(
             factory.get(pid, featureName).data.map { prefs -> extract(prefs) }
         }
 
+    /**
+     * Profile used by the catalog settings flows: secondary profiles using the primary profile's
+     * addons read order/disabled/titles from profile 1, so their writes must land there too —
+     * otherwise the toggle persists to a file nobody reads (appears inert after leaving the screen).
+     */
+    private fun effectiveCatalogProfileId(): Int {
+        val pid = profileManager.activeProfileId.value
+        val profile = profileManager.profiles.value.find { it.id == pid }
+        val usePrimary = profile != null && !profile.isPrimary && profile.usesPrimaryAddons
+        return if (usePrimary) 1 else pid
+    }
+
+    private fun effectiveCatalogStore() = factory.get(effectiveCatalogProfileId(), featureName)
+
     private fun positiveOrDefault(value: Int?, defaultValue: Int): Int =
         value?.takeIf { it > 0 } ?: defaultValue
 
@@ -536,7 +550,7 @@ class LayoutPreferenceDataStore @Inject constructor(
 
     suspend fun setHomeCatalogOrderKeys(keys: List<String>) {
         val normalizedKeys = normalizeCatalogOrderKeys(keys)
-        store().edit { prefs ->
+        effectiveCatalogStore().edit { prefs ->
             if (normalizedKeys.isEmpty()) {
                 prefs.remove(homeCatalogOrderKeysKey)
             } else {
@@ -547,7 +561,7 @@ class LayoutPreferenceDataStore @Inject constructor(
 
     suspend fun setDisabledHomeCatalogKeys(keys: List<String>) {
         val normalizedKeys = normalizeCatalogOrderKeys(keys)
-        store().edit { prefs ->
+        effectiveCatalogStore().edit { prefs ->
             if (normalizedKeys.isEmpty()) {
                 prefs.remove(disabledHomeCatalogKeysKey)
             } else {
@@ -848,7 +862,7 @@ class LayoutPreferenceDataStore @Inject constructor(
     }
 
     suspend fun setCustomCatalogTitles(titles: Map<String, String>) {
-        store().edit { prefs ->
+        effectiveCatalogStore().edit { prefs ->
             val filtered = titles.filterValues { it.isNotBlank() }
             if (filtered.isEmpty()) {
                 prefs.remove(customCatalogTitlesKey)
@@ -859,7 +873,7 @@ class LayoutPreferenceDataStore @Inject constructor(
     }
 
     internal suspend fun getHomeCatalogSettingsState(): LocalHomeCatalogSettingsState {
-        return readHomeCatalogSettingsState(store().data.first())
+        return readHomeCatalogSettingsState(effectiveCatalogStore().data.first())
     }
 
     internal suspend fun exportCatalogSettingsToSyncPayload(
@@ -891,6 +905,8 @@ class LayoutPreferenceDataStore @Inject constructor(
 
         store().edit { prefs ->
             prefs[hideUnreleasedContentKey] = payload.hideUnreleasedContent
+        }
+        effectiveCatalogStore().edit { prefs ->
             if (orderKeys.isNotEmpty()) {
                 prefs[homeCatalogOrderKeysKey] = gson.toJson(orderKeys)
             } else {

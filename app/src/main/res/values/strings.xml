@@ -1801,6 +1801,8 @@
     <string name="anime_catalog_order_title">Reorder Anime Catalogs</string>
     <string name="anime_catalog_order_subtitle">This controls catalog row order on the Anime tab (Classic + Modern + Grid).</string>
     <string name="anime_catalog_order_empty">No anime catalogs available yet.</string>
+    <string name="anime_catalog_order_follow_addons_desc">Catalogs follow addon manifest order.</string>
+    <string name="anime_catalog_order_disabled">Disabled on Anime tab</string>
 
 
     <string name="stream_retry">Retry</string>
@@ -2488,6 +2490,8 @@
     <string name="extra_catalog_order_title">Reorder Catalogs</string>
     <string name="extra_catalog_order_subtitle">This controls catalog row order on the Extra tab (Classic + Modern + Grid).</string>
     <string name="extra_catalog_order_empty">No catalogs available yet.</string>
+    <string name="extra_catalog_order_follow_addons_desc">Catalogs follow addon manifest order.</string>
+    <string name="extra_catalog_order_disabled">Disabled on Extra tab</string>
     <string name="settings_extra_layout_title">Extra Layout</string>
     <string name="settings_extra_layout_subtitle">Layout and appearance for the Extra tab</string>
 

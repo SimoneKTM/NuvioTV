@@ -605,6 +605,14 @@ class AddonManagerViewModel @Inject constructor(
         _uiState.update { it.copy(pendingChange = pending.copy(isApplying = true)) }
 
         viewModelScope.launch {
+            // Phone-side removals are applied explicitly: setAddonOrder now keeps any installed
+            // URL the proposed list omits (so a reorder can't drop a still-loading addon), which
+            // means overwriting the list alone can no longer uninstall.
+            val proposedNormalized = pending.proposedUrls.map { normalizeUrlForComparison(it) }.toSet()
+            _uiState.value.installedAddons
+                .map { it.baseUrl }
+                .filter { normalizeUrlForComparison(it) !in proposedNormalized }
+                .forEach { addonRepository.removeAddon(it) }
             addonRepository.setAddonOrder(pending.proposedUrls)
             applyCatalogPreferencesFromPending(pending, pending.proposedUrls)
             if (pending.collectionsChanged && pending.proposedCollectionsJson != null) {
@@ -747,11 +755,17 @@ class AddonManagerViewModel @Inject constructor(
         }
     }
 
-    /** Home + Anime + Extra enabled addons, Anime/Extra first so they win id collisions. */
+    /**
+     * Regular-pool addons only. Anime/Extra addons are managed from their own tabs, where their
+     * catalog toggles write to `anime_layout_settings` / `extra_layout_settings`. Listing them
+     * here would offer Enable/Disable + reorder controls writing to `layout_settings`, which the
+     * Anime/Extra tabs never read — inert toggles. Dual-installed addons still appear (they are
+     * in the regular pool) and keep their ANIME/EXTRA badge via [animeAddonIds]/[extraAddonIds].
+     */
     private fun allCatalogAddons(): List<Addon> {
         val animeIds = animeInstalledAddons.mapTo(mutableSetOf()) { it.id }
         val extraIds = extraInstalledAddons.mapTo(mutableSetOf()) { it.id }
-        return (extraInstalledAddons + animeInstalledAddons + _uiState.value.installedAddons)
+        return _uiState.value.installedAddons
             .enabledAddons()
             .groupBy { it.id }
             .map { (_, group) -> group.maxByOrNull { it.catalogs.size } ?: group.first() }

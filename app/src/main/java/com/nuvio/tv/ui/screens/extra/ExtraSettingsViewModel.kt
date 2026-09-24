@@ -145,6 +145,15 @@ class ExtraSettingsViewModel @Inject constructor(
     fun installAddon() {
         val url = _uiState.value.installUrl.trim()
         if (url.isEmpty()) return
+        val alreadyInstalled = _uiState.value.addons.any {
+            it.baseUrl.trimEnd('/').equals(url.trimEnd('/'), ignoreCase = true)
+        }
+        if (alreadyInstalled) {
+            _uiState.update {
+                it.copy(error = context.getString(R.string.web_error_addon_exists))
+            }
+            return
+        }
         _uiState.update { it.copy(isInstalling = true, error = null) }
         viewModelScope.launch {
             when (val result = extraAddonRepository.fetchExtraAddon(url)) {

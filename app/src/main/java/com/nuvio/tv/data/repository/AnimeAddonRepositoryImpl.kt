@@ -181,7 +181,10 @@ class AnimeAddonRepositoryImpl @Inject constructor(
     override suspend fun addAnimeAddon(url: String) {
         val cleanUrl = canonicalizeUrl(url)
         preferences.addAnimeAddon(cleanUrl)
-        fetchAnimeAddon(cleanUrl)
+        // Callers (install/QR confirm) usually just fetched this manifest — skip the refetch.
+        if (getCachedManifest(cleanUrl) == null) {
+            fetchAnimeAddon(cleanUrl)
+        }
     }
 
     override suspend fun removeAnimeAddon(url: String) {

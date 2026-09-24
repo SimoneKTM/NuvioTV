@@ -86,6 +86,7 @@ fun AnimeAddonManagerScreen(
     onNavigateToReorder: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isReadOnly = remember { viewModel.isReadOnly }
     val keyboardController = LocalSoftwareKeyboardController.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
@@ -181,13 +182,31 @@ fun AnimeAddonManagerScreen(
                 }
             }
 
-            item(key = "install") {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = NuvioTheme.colors.BackgroundCard),
-                    shape = RoundedCornerShape(NuvioTheme.radii.md)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
+            if (isReadOnly) {
+                item(key = "readonly_notice") {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A3A5C)),
+                        shape = RoundedCornerShape(NuvioTheme.radii.md)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.addon_readonly_notice),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = NuvioTheme.colors.TextSecondary,
+                            modifier = Modifier.padding(NuvioTheme.spacing.lg)
+                        )
+                    }
+                }
+            }
+
+            if (!isReadOnly) {
+                item(key = "install") {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = NuvioTheme.colors.BackgroundCard),
+                        shape = RoundedCornerShape(NuvioTheme.radii.md)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
                         Text(
                             text = stringResource(R.string.anime_add_addon),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
@@ -294,6 +313,7 @@ fun AnimeAddonManagerScreen(
                                 color = NuvioTheme.colors.Error
                             )
                         }
+                        }
                     }
                 }
             }
@@ -327,14 +347,16 @@ fun AnimeAddonManagerScreen(
                 }
             }
 
-            item(key = "manage") {
-                SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
-                    SettingsActionRow(
-                        title = stringResource(R.string.anime_settings_manage_phone_title),
-                        subtitle = stringResource(R.string.anime_settings_manage_phone_subtitle),
-                        onClick = viewModel::startQrMode,
-                        leadingIcon = Icons.Default.QrCode2
-                    )
+            if (!isReadOnly) {
+                item(key = "manage") {
+                    SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
+                        SettingsActionRow(
+                            title = stringResource(R.string.anime_settings_manage_phone_title),
+                            subtitle = stringResource(R.string.anime_settings_manage_phone_subtitle),
+                            onClick = viewModel::startQrMode,
+                            leadingIcon = Icons.Default.QrCode2
+                        )
+                    }
                 }
             }
 
@@ -375,7 +397,8 @@ fun AnimeAddonManagerScreen(
                         onMoveUp = { viewModel.moveAddonUp(addon.baseUrl) },
                         onMoveDown = { viewModel.moveAddonDown(addon.baseUrl) },
                         onRemove = { viewModel.removeAddon(addon.baseUrl) },
-                        onEnabledChange = { enabled -> viewModel.setAddonEnabled(addon.baseUrl, enabled) }
+                        onEnabledChange = { enabled -> viewModel.setAddonEnabled(addon.baseUrl, enabled) },
+                        isReadOnly = isReadOnly
                     )
                 }
             }
@@ -416,7 +439,8 @@ internal fun AnimeAddonSettingsCard(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onRemove: () -> Unit,
-    onEnabledChange: (Boolean) -> Unit
+    onEnabledChange: (Boolean) -> Unit,
+    isReadOnly: Boolean = false
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -455,10 +479,11 @@ internal fun AnimeAddonSettingsCard(
                         }
                     }
                 }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                if (!isReadOnly) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                     Surface(
                         onClick = { onEnabledChange(!addon.enabled) },
                         colors = ClickableSurfaceDefaults.colors(
@@ -525,6 +550,7 @@ internal fun AnimeAddonSettingsCard(
                         shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
                     ) {
                         Text(text = stringResource(R.string.addon_remove))
+                    }
                     }
                 }
             }

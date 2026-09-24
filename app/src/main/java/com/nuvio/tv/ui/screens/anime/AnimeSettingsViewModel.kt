@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.R
 import com.nuvio.tv.core.network.NetworkResult
+import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.core.qr.QrCodeGenerator
 import com.nuvio.tv.core.server.AddonConfigServer
 import com.nuvio.tv.core.server.AddonInfo
@@ -26,6 +27,7 @@ import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.Collection
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AnimeAddonRepository
+import com.nuvio.tv.ui.screens.addon.AddonManagementAccess
 import com.nuvio.tv.ui.screens.addon.PendingChangeInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -67,8 +69,17 @@ class AnimeSettingsViewModel @Inject constructor(
     private val collectionsDataStore: CollectionsDataStore,
     private val collectionSyncService: CollectionSyncService,
     private val homeCatalogSettingsSyncService: HomeCatalogSettingsSyncService,
+    private val profileManager: ProfileManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    /**
+     * Secondary profiles using the primary profile's addons get a read-only screen: every write
+     * in `AnimeAddonPreferences` silently early-returns for them, so hiding the controls avoids
+     * switches that appear to toggle and then snap back.
+     */
+    val isReadOnly: Boolean
+        get() = AddonManagementAccess.isReadOnly(profileManager.activeProfile)
 
     private val _uiState = MutableStateFlow(AnimeSettingsUiState())
     val uiState: StateFlow<AnimeSettingsUiState> = _uiState.asStateFlow()
@@ -145,8 +156,18 @@ class AnimeSettingsViewModel @Inject constructor(
     }
 
     fun installAddon() {
+        if (isReadOnly) return
         val url = _uiState.value.installUrl.trim()
         if (url.isEmpty()) return
+        val alreadyInstalled = _uiState.value.addons.any {
+            it.baseUrl.trimEnd('/').equals(url.trimEnd('/'), ignoreCase = true)
+        }
+        if (alreadyInstalled) {
+            _uiState.update {
+                it.copy(error = context.getString(R.string.web_error_addon_exists))
+            }
+            return
+        }
         _uiState.update { it.copy(isInstalling = true, error = null) }
         viewModelScope.launch {
             when (val result = animeAddonRepository.fetchAnimeAddon(url)) {
@@ -169,12 +190,14 @@ class AnimeSettingsViewModel @Inject constructor(
     }
 
     fun removeAddon(url: String) {
+        if (isReadOnly) return
         viewModelScope.launch {
             animeAddonRepository.removeAnimeAddon(url)
         }
     }
 
     fun moveAddonUp(url: String) {
+        if (isReadOnly) return
         viewModelScope.launch {
             val current = _uiState.value.addons
             val index = current.indexOfFirst { it.baseUrl == url }
@@ -183,10 +206,12 @@ class AnimeSettingsViewModel @Inject constructor(
             reordered.removeAt(index)
             reordered.add(index - 1, current[index])
             animeAddonRepository.setAnimeAddonOrder(reordered.map { it.baseUrl })
+            syncCatalogOrderAfterAddonReorder(reordered)
         }
     }
 
     fun moveAddonDown(url: String) {
+        if (isReadOnly) return
         viewModelScope.launch {
             val current = _uiState.value.addons
             val index = current.indexOfFirst { it.baseUrl == url }
@@ -195,10 +220,42 @@ class AnimeSettingsViewModel @Inject constructor(
             reordered.removeAt(index)
             reordered.add(index + 1, current[index])
             animeAddonRepository.setAnimeAddonOrder(reordered.map { it.baseUrl })
+            syncCatalogOrderAfterAddonReorder(reordered)
         }
     }
 
+    /**
+     * The Anime tab orders rows from `anime_layout/home_catalog_order_keys` whenever that list is
+     * non-empty, so a bare addon reorder would be silently ignored. Regroup the saved catalog keys
+     * by addon following the new addon order (keeping the saved relative order inside each addon),
+     * dropping keys that no longer belong to any addon (e.g. stray `collection_*` keys).
+     */
+    private suspend fun syncCatalogOrderAfterAddonReorder(reordered: List<Addon>) {
+        val saved = animeCatalogOrderKeys
+        if (saved.isEmpty()) return
+
+        val keysByAddon = reordered.associateWith { addon ->
+            addon.catalogs
+                .filterNot { catalog ->
+                    catalog.extra.any { prop -> prop.name.equals("search", ignoreCase = true) && prop.isRequired }
+                }
+                .map { catalog -> homeCatalogKey(addon.id, catalog.apiType, catalog.id) }
+                .toSet()
+        }
+        val rebuilt = ArrayList<String>(saved.size)
+        val seen = HashSet<String>()
+        reordered.forEach { addon ->
+            val addonKeys = keysByAddon[addon].orEmpty()
+            saved.forEach { key ->
+                if (key in addonKeys && seen.add(key)) rebuilt.add(key)
+            }
+        }
+        if (rebuilt.isEmpty() || rebuilt == saved) return
+        animeLayoutPreferenceDataStore.setHomeCatalogOrderKeys(rebuilt)
+    }
+
     fun setAddonEnabled(url: String, enabled: Boolean) {
+        if (isReadOnly) return
         viewModelScope.launch {
             animeAddonRepository.setAnimeAddonEnabled(url, enabled)
         }
@@ -220,6 +277,7 @@ class AnimeSettingsViewModel @Inject constructor(
     }
 
     fun startQrMode() {
+        if (isReadOnly) return
         val ip = DeviceIpAddress.get(context)
         if (ip == null) {
             _uiState.update { it.copy(error = context.getString(R.string.error_network_required)) }
@@ -545,8 +603,9 @@ class AnimeSettingsViewModel @Inject constructor(
             disabledKeys = animeDisabledCatalogKeys
         )
         val availableCatalogKeys = availableCatalogEntries.map { it.key }.toSet()
-        val collectionKeys = currentCollections.map { "collection_${it.id}" }.toSet()
-        val allValidOrderKeys = availableCatalogKeys + collectionKeys
+        // Anime reorder screen has no collections; `collection_*` keys must never be persisted
+        // into the anime order list (they'd be dead entries the Anime tab ignores).
+        val allValidOrderKeys = availableCatalogKeys
 
         val validCatalogOrder = pending.proposedCatalogOrderKeys
             .asSequence()

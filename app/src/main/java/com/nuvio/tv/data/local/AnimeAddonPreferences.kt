@@ -112,10 +112,18 @@ class AnimeAddonPreferences @Inject constructor(
         if (active != null && !active.isPrimary && active.usesPrimaryAddons) return
         store().edit { preferences ->
             val orderedUrls = urls.map(::canonicalizeUrl)
-            preferences[orderedUrlsKey] = gson.toJson(orderedUrls)
+            // The caller's list comes from the UI flow and can briefly omit an addon whose
+            // manifest is still loading — keep any installed URL it doesn't mention so a
+            // reorder can never silently uninstall an addon.
+            val proposedSet = orderedUrls.map { it.lowercase() }.toSet()
+            val missing = getCurrentList(preferences).filter {
+                canonicalizeUrl(it).lowercase() !in proposedSet
+            }
+            val mergedUrls = orderedUrls + missing.map(::canonicalizeUrl)
+            preferences[orderedUrlsKey] = gson.toJson(mergedUrls)
             val currentStates = getCurrentEnabledStates(preferences)
             preferences[addonEnabledStatesKey] = gson.toJson(
-                orderedUrls.associateWith { url -> currentStates[url] ?: true }
+                mergedUrls.associateWith { url -> currentStates[url] ?: true }
             )
         }
     }

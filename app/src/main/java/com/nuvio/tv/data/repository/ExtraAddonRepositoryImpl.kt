@@ -181,7 +181,10 @@ class ExtraAddonRepositoryImpl @Inject constructor(
     override suspend fun addExtraAddon(url: String) {
         val cleanUrl = canonicalizeUrl(url)
         preferences.addExtraAddon(cleanUrl)
-        fetchExtraAddon(cleanUrl)
+        // Callers (install/QR confirm) usually just fetched this manifest — skip the refetch.
+        if (getCachedManifest(cleanUrl) == null) {
+            fetchExtraAddon(cleanUrl)
+        }
     }
 
     override suspend fun removeExtraAddon(url: String) {

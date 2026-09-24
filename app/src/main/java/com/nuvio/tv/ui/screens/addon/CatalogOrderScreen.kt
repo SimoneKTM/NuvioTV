@@ -61,6 +61,8 @@ fun CatalogOrderScreen(
         titleRes = R.string.catalog_order_title,
         subtitleRes = R.string.catalog_order_subtitle,
         emptyRes = R.string.catalog_order_empty,
+        followDescRes = R.string.catalog_order_follow_addons_desc,
+        disabledRes = R.string.catalog_order_disabled_on_home,
         showFollowAddons = true,
         onMoveUp = viewModel::moveUp,
         onMoveDown = viewModel::moveDown,
@@ -81,6 +83,8 @@ fun AnimeCatalogOrderScreen(
         titleRes = R.string.anime_catalog_order_title,
         subtitleRes = R.string.anime_catalog_order_subtitle,
         emptyRes = R.string.anime_catalog_order_empty,
+        followDescRes = R.string.anime_catalog_order_follow_addons_desc,
+        disabledRes = R.string.anime_catalog_order_disabled,
         showFollowAddons = true,
         onMoveUp = viewModel::moveUp,
         onMoveDown = viewModel::moveDown,
@@ -101,6 +105,8 @@ fun ExtraCatalogOrderScreen(
         titleRes = R.string.extra_catalog_order_title,
         subtitleRes = R.string.extra_catalog_order_subtitle,
         emptyRes = R.string.extra_catalog_order_empty,
+        followDescRes = R.string.extra_catalog_order_follow_addons_desc,
+        disabledRes = R.string.extra_catalog_order_disabled,
         showFollowAddons = true,
         onMoveUp = viewModel::moveUp,
         onMoveDown = viewModel::moveDown,
@@ -116,6 +122,8 @@ private fun CatalogOrderScreenContent(
     titleRes: Int,
     subtitleRes: Int,
     emptyRes: Int,
+    followDescRes: Int,
+    disabledRes: Int,
     showFollowAddons: Boolean,
     onMoveUp: (String) -> Unit,
     onMoveDown: (String) -> Unit,
@@ -164,7 +172,7 @@ private fun CatalogOrderScreenContent(
                             color = NuvioTheme.colors.TextPrimary
                         )
                         Text(
-                            text = stringResource(R.string.catalog_order_follow_addons_desc),
+                            text = stringResource(followDescRes),
                             style = MaterialTheme.typography.bodySmall,
                             color = NuvioTheme.colors.TextSecondary
                         )
@@ -213,6 +221,7 @@ private fun CatalogOrderScreenContent(
                     ) { index, item ->
                         CatalogOrderCard(
                             item = item,
+                            disabledRes = disabledRes,
                             onMoveUp = {
                                 onMoveUp(item.key)
                                 scope.launch {
@@ -239,6 +248,7 @@ private fun CatalogOrderScreenContent(
 @Composable
 private fun CatalogOrderCard(
     item: CatalogOrderItem,
+    disabledRes: Int,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onToggleEnabled: () -> Unit
@@ -270,7 +280,7 @@ private fun CatalogOrderCard(
                 if (item.isDisabled) {
                     Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
                     Text(
-                        text = stringResource(R.string.catalog_order_disabled_on_home),
+                        text = stringResource(disabledRes),
                         style = MaterialTheme.typography.bodySmall,
                         color = NuvioTheme.colors.Error
                     )

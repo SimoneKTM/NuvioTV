@@ -134,10 +134,18 @@ class AddonPreferences @Inject constructor(
             if (active != null && !active.isPrimary && active.usesPrimaryAddons) return
         store().edit { preferences ->
             val orderedUrls = urls.map(::canonicalizeUrl)
-            preferences[orderedUrlsKey] = gson.toJson(orderedUrls)
+            // Keep installed URLs the caller's (UI-derived) list doesn't mention so a reorder
+            // can never silently uninstall an addon still loading its manifest. Explicit
+            // removals go through removeAddon() first, so they are already absent here.
+            val proposedSet = orderedUrls.map { it.lowercase() }.toSet()
+            val missing = getCurrentList(preferences).filter {
+                canonicalizeUrl(it).lowercase() !in proposedSet
+            }
+            val mergedUrls = orderedUrls + missing.map(::canonicalizeUrl)
+            preferences[orderedUrlsKey] = gson.toJson(mergedUrls)
             val currentStates = getCurrentEnabledStates(preferences)
             preferences[addonEnabledStatesKey] = gson.toJson(
-                orderedUrls.associateWith { url -> currentStates[url] ?: true }
+                mergedUrls.associateWith { url -> currentStates[url] ?: true }
             )
         }
     }
