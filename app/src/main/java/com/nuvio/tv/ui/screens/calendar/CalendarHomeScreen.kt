@@ -467,12 +467,13 @@ private fun CalendarHeroSection(
                     releaseDate = calendarItem.releaseDate,
                     notInCatalog = calendarItem.notInCatalog,
                     onClick = {
-                        // Always open Detail with a blank source addon so the
-                        // detail page races Home + Anime + Extra meta pools.
+                        // Pass the addon that won enrichment so Detail can
+                        // activate Anime/Extra layout (same as the Anime tab).
+                        // Blank only when no tab pool resolved the title.
                         onNavigateToDetail(
                             calendarItem.meta.id,
                             calendarItem.meta.apiType,
-                            ""
+                            calendarItem.meta.sourceAddonBaseUrl.orEmpty()
                         )
                     },
                     onFocusChange = { focused ->
@@ -548,7 +549,7 @@ private fun CalendarSection(
                         onNavigateToDetail(
                             calendarItem.meta.id,
                             calendarItem.meta.apiType,
-                            ""
+                            calendarItem.meta.sourceAddonBaseUrl.orEmpty()
                         )
                     },
                     focusRequester = if (index == 0) firstPosterRequester else null

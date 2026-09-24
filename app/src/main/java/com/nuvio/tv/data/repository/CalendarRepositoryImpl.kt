@@ -1,13 +1,23 @@
 package com.nuvio.tv.data.repository
 
 import android.util.Log
+import com.nuvio.tv.core.tmdb.TmdbEnrichment
+import com.nuvio.tv.core.tmdb.TmdbMetadataService
+import com.nuvio.tv.core.tmdb.TmdbService
+import com.nuvio.tv.data.local.AnimeTvdbSettingsDataStore
+import com.nuvio.tv.data.local.MDBListSettingsDataStore
+import com.nuvio.tv.data.local.TmdbSettingsDataStore
+import com.nuvio.tv.data.local.TvdbSettingsDataStore
 import com.nuvio.tv.data.remote.api.TraktApi
 import com.nuvio.tv.data.remote.dto.trakt.TraktCalendarMediaItemDto
+import com.nuvio.tv.data.tvdb.TvdbMetadataService
 import com.nuvio.tv.domain.model.CalendarItem
 import com.nuvio.tv.domain.model.ContentType
+import com.nuvio.tv.domain.model.MDBListSettings
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PosterShape
+import com.nuvio.tv.domain.model.TmdbSettings
 import com.nuvio.tv.domain.repository.CalendarRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.core.network.NetworkResult
@@ -24,12 +34,13 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 import java.time.LocalDate
@@ -37,19 +48,31 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Singleton
 class CalendarRepositoryImpl @Inject constructor(
     private val traktApi: TraktApi,
-    private val metaRepository: MetaRepository
+    private val metaRepository: MetaRepository,
+    private val tmdbService: TmdbService,
+    private val tmdbMetadataService: TmdbMetadataService,
+    private val mdbListRepository: MDBListRepository,
+    private val tvdbMetadataService: TvdbMetadataService,
+    private val tmdbSettingsDataStore: TmdbSettingsDataStore,
+    private val mdbListSettingsDataStore: MDBListSettingsDataStore,
+    private val tvdbSettingsDataStore: TvdbSettingsDataStore,
+    @param:Named("anime_tmdb") private val animeTmdbSettingsDataStore: TmdbSettingsDataStore,
+    @param:Named("anime_mdblist") private val animeMdbListSettingsDataStore: MDBListSettingsDataStore,
+    private val animeTvdbSettingsDataStore: AnimeTvdbSettingsDataStore
 ) : CalendarRepository {
 
     companion object {
         private const val TAG = "CalendarRepo"
-        // Long enough for the anime-first race + backup race (each addon capped at 5s).
+        // Anime-first race + Home/Extra backup + external TMDB/MDBList/TVDB.
         private const val ADDON_ENRICHMENT_TIMEOUT_MS = 12_000L
         private const val ADDON_ENRICHMENT_CONCURRENCY = 4
+        private const val EXTERNAL_ENRICHMENT_TIMEOUT_MS = 6_000L
         // Trakt calendars documented maximum is 33 days.
         private const val TRAKT_MAX_DAYS = 33
     }
@@ -143,7 +166,8 @@ class CalendarRepositoryImpl @Inject constructor(
 
         // Addon metadata only — same source as Library / Home / Anime / Extra.
         // Uses MetaRepository's shared addonMetaCache so data already saved
-        // while browsing other tabs is returned instantly. No TMDB here.
+        // while browsing other tabs is returned instantly. Then external
+        // TMDB/MDBList/TVDB like the Anime tab (Trakt still owns dates).
         val addonEnrichedItems = enrichItemsWithAddonData(filteredItems)
         cachedItems.value = addonEnrichedItems
         emit(addonEnrichedItems)
@@ -167,15 +191,16 @@ class CalendarRepositoryImpl @Inject constructor(
                     semaphore.withPermit {
                         try {
                             val enriched = resolveAddonMetaForItem(item)
-                            // Mark only when the addon added artwork or a source
-                            // URL — a no-op success stays eligible for retry so
+                            // Mark only when enrichment added artwork, a source
+                            // URL, or a rating — a no-op stays eligible so
                             // letter-cards can still pick up images later.
                             if (enriched !== item) {
-                                val gainedArtwork = enriched.meta.poster != item.meta.poster ||
+                                val gained = enriched.meta.poster != item.meta.poster ||
                                     enriched.meta.background != item.meta.background ||
                                     enriched.meta.logo != item.meta.logo ||
+                                    enriched.meta.imdbRating != item.meta.imdbRating ||
                                     !enriched.meta.sourceAddonBaseUrl.isNullOrBlank()
-                                if (gainedArtwork) {
+                                if (gained || enriched.notInCatalog) {
                                     enrichedAddonIds.add(item.meta.id)
                                 }
                             }
@@ -194,54 +219,256 @@ class CalendarRepositoryImpl @Inject constructor(
 
     private suspend fun resolveAddonMetaForItem(item: CalendarItem): CalendarItem {
         val candidates = buildAddonIdCandidates(item.meta.id, item.meta.rawType)
-        if (candidates.isEmpty()) return item
+        if (candidates.isEmpty()) return applyExternalEnrichment(item, MetaRepository.META_NAMESPACE_HOME)
         val rawNumericId = extractRawNumericId(item.meta.id)
 
-        // Always interrogate all 3 tab pools (no genre gate): Home, Anime,
-        // Extra. Richest answer wins (ties keep the first / Home). No ALL
-        // fallback — titles missing from every tab are flagged notInCatalog.
-        val tabNamespaces = listOf(
+        // Anime first (same as the Anime tab), then Home/Extra. A hit with
+        // artwork or a source URL wins immediately so Detail opens with the
+        // Anime layout for anime-sourced titles (4 seasons, not the generic 1).
+        val animeWinner = queryNamespace(
+            namespace = MetaRepository.META_NAMESPACE_ANIME,
+            candidates = candidates,
+            item = item,
+            rawNumericId = rawNumericId,
+            requireStrongFields = true
+        )
+        if (animeWinner != null) {
+            return applyExternalEnrichment(
+                mergeAddonMeta(item, animeWinner, MetaRepository.META_NAMESPACE_ANIME),
+                MetaRepository.META_NAMESPACE_ANIME
+            )
+        }
+
+        val fallbackNamespaces = listOf(
             MetaRepository.META_NAMESPACE_HOME,
-            MetaRepository.META_NAMESPACE_ANIME,
             MetaRepository.META_NAMESPACE_EXTRA
         )
-
         var bestNamespace: String? = null
         var bestMeta: Meta? = null
         var bestScore = -1
 
-        for (namespace in tabNamespaces) {
-            for ((candidateType, candidateId) in candidates) {
-                val result = withTimeoutOrNull(ADDON_ENRICHMENT_TIMEOUT_MS) {
-                    metaRepository.getMetaFromAllAddons(
-                        type = candidateType,
-                        id = candidateId,
-                        sourceAddonBaseUrl = item.meta.sourceAddonBaseUrl,
-                        rawId = rawNumericId,
-                        namespace = namespace,
-                        preferAnimeAddons = namespace == MetaRepository.META_NAMESPACE_ANIME
-                    ).first { it !is NetworkResult.Loading }
-                } ?: continue
-
-                if (result is NetworkResult.Success) {
-                    val score = metaRichnessScore(result.data)
-                    if (score > bestScore) {
-                        bestScore = score
-                        bestNamespace = namespace
-                        bestMeta = result.data
-                    }
-                }
+        for (namespace in fallbackNamespaces) {
+            val result = queryNamespace(
+                namespace = namespace,
+                candidates = candidates,
+                item = item,
+                rawNumericId = rawNumericId,
+                requireStrongFields = false
+            ) ?: continue
+            val score = metaRichnessScore(result)
+            if (score > bestScore) {
+                bestScore = score
+                bestNamespace = namespace
+                bestMeta = result
             }
         }
 
         val winner = bestMeta
-        return if (winner != null) {
+        val afterAddon = if (winner != null) {
             mergeAddonMeta(item, winner, bestNamespace ?: MetaRepository.META_NAMESPACE_HOME)
         } else {
             // No tab knows this title: keep Trakt data and flag the card.
-            enrichedAddonIds.add(item.meta.id)
             item.copy(notInCatalog = true)
         }
+        return applyExternalEnrichment(afterAddon, bestNamespace ?: MetaRepository.META_NAMESPACE_HOME)
+    }
+
+    private suspend fun queryNamespace(
+        namespace: String,
+        candidates: List<Pair<String, String>>,
+        item: CalendarItem,
+        rawNumericId: String?,
+        requireStrongFields: Boolean
+    ): Meta? {
+        for ((candidateType, candidateId) in candidates) {
+            val result = withTimeoutOrNull(ADDON_ENRICHMENT_TIMEOUT_MS) {
+                metaRepository.getMetaFromAllAddons(
+                    type = candidateType,
+                    id = candidateId,
+                    sourceAddonBaseUrl = item.meta.sourceAddonBaseUrl,
+                    rawId = rawNumericId,
+                    namespace = namespace,
+                    preferAnimeAddons = namespace == MetaRepository.META_NAMESPACE_ANIME
+                ).first { it !is NetworkResult.Loading }
+            } ?: continue
+
+            if (result is NetworkResult.Success) {
+                val meta = result.data
+                if (!requireStrongFields || hasStrongAddonFields(meta)) {
+                    return meta
+                }
+            }
+        }
+        return null
+    }
+
+    private fun hasStrongAddonFields(meta: Meta): Boolean {
+        return !meta.poster.isNullOrBlank() ||
+            !meta.background.isNullOrBlank() ||
+            !meta.logo.isNullOrBlank() ||
+            !meta.sourceAddonBaseUrl.isNullOrBlank()
+    }
+
+    /**
+     * External posters/ratings like the Anime tab (TMDB + MDBList + TVDB).
+     * Never touches [CalendarItem.releaseDate] (Trakt owns dates) and never
+     * overwrites a non-blank description (Trakt episode label "S1E5").
+     * Uses anime-scoped settings when the Anime pool won, else global.
+     */
+    private suspend fun applyExternalEnrichment(
+        item: CalendarItem,
+        namespace: String
+    ): CalendarItem = withContext(Dispatchers.IO) {
+        val useAnimeSettings = namespace == MetaRepository.META_NAMESPACE_ANIME
+        val tmdbSettings = if (useAnimeSettings) {
+            animeTmdbSettingsDataStore.settings.first()
+        } else {
+            tmdbSettingsDataStore.settings.first()
+        }
+        val mdbSettings = if (useAnimeSettings) {
+            animeMdbListSettingsDataStore.settings.first()
+        } else {
+            mdbListSettingsDataStore.settings.first()
+        }
+        val tvdbSettings = if (useAnimeSettings) {
+            animeTvdbSettingsDataStore.settings.first()
+        } else {
+            tvdbSettingsDataStore.settings.first()
+        }
+        val tvdbEnabled = tvdbSettings.enabled && tvdbSettings.hasApiKey
+        if (!tmdbSettings.enabled &&
+            !(mdbSettings.enabled && mdbSettings.apiKey.isNotBlank()) &&
+            !tvdbEnabled
+        ) {
+            return@withContext item
+        }
+
+        val (enrichment, mdbRating) = fetchExternalEnrichment(
+            itemId = item.meta.id,
+            itemType = item.meta.apiType,
+            contentType = item.meta.type,
+            tmdbSettings = tmdbSettings,
+            mdbSettings = mdbSettings
+        )
+        var meta = applyTmdbToCalendarPreview(
+            meta = item.meta,
+            enrichment = enrichment,
+            settings = tmdbSettings
+        ).let { m ->
+            if (mdbRating != null) m.copy(imdbRating = mdbRating.toFloat()) else m
+        }
+        // TVDB fills blanks after TMDB (TMDB wins). Movies return null.
+        if (tvdbEnabled && item.meta.apiType in listOf("series", "tv")) {
+            val tvdbPreview = runCatching {
+                withTimeoutOrNull(EXTERNAL_ENRICHMENT_TIMEOUT_MS) {
+                    tvdbMetadataService.enrichPreview(
+                        itemId = item.meta.id,
+                        name = item.meta.name,
+                        apiType = item.meta.apiType,
+                        settings = tvdbSettings
+                    )
+                }
+            }.getOrNull()
+            // applyPreviewToItem only fills blank description/background.
+            meta = tvdbMetadataService.applyPreviewToItem(meta, tvdbPreview)
+        }
+        if (meta != item.meta) {
+            Log.d(
+                TAG,
+                "External enriched ($namespace): ${item.meta.name} " +
+                    "poster=${meta.poster != item.meta.poster} " +
+                    "bg=${meta.background != item.meta.background} " +
+                    "logo=${meta.logo != item.meta.logo} " +
+                    "rating=${meta.imdbRating != item.meta.imdbRating}"
+            )
+        }
+        item.copy(meta = meta)
+    }
+
+    private suspend fun fetchExternalEnrichment(
+        itemId: String,
+        itemType: String,
+        contentType: ContentType,
+        tmdbSettings: TmdbSettings,
+        mdbSettings: MDBListSettings
+    ): Pair<TmdbEnrichment?, Double?> {
+        val tmdbEnabled = tmdbSettings.enabled
+        val mdbEnabled = mdbSettings.enabled && mdbSettings.apiKey.isNotBlank()
+        if (!tmdbEnabled && !mdbEnabled) return null to null
+
+        val tmdbEnrichment = if (tmdbEnabled) {
+            val tmdbId = runCatching {
+                withTimeoutOrNull(EXTERNAL_ENRICHMENT_TIMEOUT_MS) {
+                    tmdbService.ensureTmdbId(itemId, itemType)
+                }
+            }.getOrNull()
+            if (tmdbId != null) {
+                runCatching {
+                    withTimeoutOrNull(EXTERNAL_ENRICHMENT_TIMEOUT_MS) {
+                        tmdbMetadataService.fetchEnrichment(
+                            tmdbId = tmdbId,
+                            contentType = contentType,
+                            language = tmdbSettings.language
+                        )
+                    }
+                }.getOrNull()
+            } else {
+                null
+            }
+        } else {
+            null
+        }
+
+        val mdbRating = if (mdbEnabled) {
+            runCatching {
+                withTimeoutOrNull(EXTERNAL_ENRICHMENT_TIMEOUT_MS) {
+                    mdbListRepository.getImdbRatingForItemWithSettings(itemId, itemType, mdbSettings)
+                }
+            }.getOrNull()
+        } else {
+            null
+        }
+
+        return tmdbEnrichment to mdbRating
+    }
+
+    private fun applyTmdbToCalendarPreview(
+        meta: MetaPreview,
+        enrichment: TmdbEnrichment?,
+        settings: TmdbSettings
+    ): MetaPreview {
+        var enriched = meta
+        if (enrichment == null) return enriched
+        if (settings.useArtwork) {
+            enriched = enriched.copy(
+                background = enrichment.backdrop ?: enriched.background,
+                logo = enrichment.logo ?: enriched.logo,
+                poster = enrichment.poster ?: enriched.poster
+            )
+        }
+        if (settings.useBasicInfo) {
+            // Never replace Trakt's episode label / overview when present.
+            enriched = enriched.copy(
+                description = enriched.description ?: enrichment.description,
+                genres = if (enrichment.genres.isNotEmpty()) enrichment.genres else enriched.genres
+            )
+        }
+        if (settings.useDetails) {
+            enriched = enriched.copy(
+                runtime = enrichment.runtimeMinutes?.toString() ?: enriched.runtime,
+                status = enrichment.status ?: enriched.status,
+                ageRating = enrichment.ageRating ?: enriched.ageRating,
+                country = enrichment.countries?.joinToString(", ") ?: enriched.country,
+                language = enrichment.language ?: enriched.language
+            )
+        }
+        if (settings.useReleaseDates) {
+            // Year only — CalendarItem.releaseDate stays Trakt-owned.
+            enriched = enriched.copy(
+                releaseInfo = enrichment.releaseInfo ?: enriched.releaseInfo
+            )
+        }
+        return enriched
     }
 
     private fun metaRichnessScore(meta: Meta): Int {
@@ -263,16 +490,23 @@ class CalendarRepositoryImpl @Inject constructor(
     ): CalendarItem {
         // Addon is the primary source: prefer its values when present.
         // Description keeps Trakt's episode label ("S1E5") when set —
-        // it is calendar context addons don't provide.
+        // it is calendar context addons don't provide. releaseDate is
+        // never copied here (Trakt owns the calendar dates).
         val updatedMeta = item.meta.copy(
             name = addonMeta.name.ifBlank { item.meta.name },
             poster = addonMeta.poster ?: item.meta.poster,
             background = addonMeta.background ?: item.meta.background,
             logo = addonMeta.logo ?: item.meta.logo,
+            landscapePoster = addonMeta.landscapePoster ?: item.meta.landscapePoster,
             description = item.meta.description ?: addonMeta.description,
             imdbRating = addonMeta.imdbRating ?: item.meta.imdbRating,
             genres = if (addonMeta.genres.isNotEmpty()) addonMeta.genres else item.meta.genres,
             releaseInfo = addonMeta.releaseInfo ?: item.meta.releaseInfo,
+            runtime = addonMeta.runtime ?: item.meta.runtime,
+            status = addonMeta.status ?: item.meta.status,
+            ageRating = addonMeta.ageRating ?: item.meta.ageRating,
+            language = addonMeta.language ?: item.meta.language,
+            country = addonMeta.country ?: item.meta.country,
             sourceAddonBaseUrl = addonMeta.sourceAddonBaseUrl ?: item.meta.sourceAddonBaseUrl
         )
         if (updatedMeta != item.meta) {
