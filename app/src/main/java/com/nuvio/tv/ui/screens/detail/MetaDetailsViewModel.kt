@@ -179,12 +179,10 @@ class MetaDetailsViewModel @Inject constructor(
         get() = when {
             animeLayoutActive.value -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME
             extraLayoutActive.value -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA
-            // Blank source (Library/Calendar with no addon): race every pool once.
-            // Non-blank source that is not anime/extra belongs to the Home catalog
-            // — stay in the HOME namespace so Home details only hit Home addons.
-            preferredAddonBaseUrl.isNullOrBlank() ->
-                com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
-            else -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_HOME
+            // Same behaviour Anime gets from its own pool: the source addon is
+            // always tried first (loadMeta / repository), then every pool races
+            // so Home/Search details resolve like Anime instead of dying in HOME.
+            else -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
         }
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -761,62 +759,90 @@ class MetaDetailsViewModel @Inject constructor(
 
             if (preferExternal) {
                 // 1) Try meta addons first
-                metaRepository.getMetaFromAllAddons(
-                    type = itemType,
-                    id = metaLookupId,
-                    sourceAddonBaseUrl = preferredAddonBaseUrl,
-                    rawId = rawTmdbNumericId,
-                    namespace = metaNamespace
-                ).collect { result ->
-                    when (result) {
-                        is NetworkResult.Success -> {
-                            applyMetaWithEnrichment(result.data)
-                        }
-                        is NetworkResult.Error -> {
-                            // Source/addon miss: surface a catalog error — never apply
-                            // a synthetic TMDB meta with empty videos (fake detail).
-                            val errorMsg = buildMetaLoadErrorMessage(result.message, metaLookupId)
-                            _uiState.update { it.copy(isLoading = false, error = errorMsg) }
-                        }
-                        NetworkResult.Loading -> {
-                            _uiState.update { it.copy(isLoading = true) }
-                        }
-                    }
-                }
+                collectMetaLookup(
+                    metaLookupId = metaLookupId,
+                    rawTmdbNumericId = rawTmdbNumericId
+                )
             } else {
-                // Original: prefer catalog addon
+                // Prefer the card's source addon first (same as Anime), trying
+                // both the converted lookup id and the raw TMDB id before the pool race.
                 val preferred = preferredAddonBaseUrl?.takeIf { it.isNotBlank() }
                 val preferredMeta: Meta? = preferred?.let { baseUrl ->
-                    when (val result = metaRepository.getMeta(addonBaseUrl = baseUrl, type = itemType, id = metaLookupId, namespace = metaNamespace)
-                        .first { it !is NetworkResult.Loading }) {
-                        is NetworkResult.Success -> result.data
-                        else -> null
+                    val candidateIds = buildList {
+                        add(metaLookupId)
+                        if (!rawTmdbNumericId.isNullOrBlank() && rawTmdbNumericId != metaLookupId) {
+                            add(rawTmdbNumericId)
+                        }
+                    }
+                    candidateIds.firstNotNullOfOrNull { candidateId ->
+                        when (
+                            val result = metaRepository.getMeta(
+                                addonBaseUrl = baseUrl,
+                                type = itemType,
+                                id = candidateId,
+                                namespace = metaNamespace
+                            ).first { it !is NetworkResult.Loading }
+                        ) {
+                            is NetworkResult.Success -> result.data
+                            else -> null
+                        }
                     }
                 }
 
                 if (preferredMeta != null) {
                     applyMetaWithEnrichment(preferredMeta)
                 } else {
-                    metaRepository.getMetaFromAllAddons(
-                        type = itemType,
-                        id = metaLookupId,
-                        sourceAddonBaseUrl = preferredAddonBaseUrl,
-                        rawId = rawTmdbNumericId,
-                        namespace = metaNamespace
-                    ).collect { result ->
-                        when (result) {
-                            is NetworkResult.Success -> applyMetaWithEnrichment(result.data)
-                            is NetworkResult.Error -> {
-                                val errorMsg = buildMetaLoadErrorMessage(result.message, metaLookupId)
-                                _uiState.update { it.copy(isLoading = false, error = errorMsg) }
-                            }
-                            NetworkResult.Loading -> {
-                                _uiState.update { it.copy(isLoading = true) }
-                            }
+                    collectMetaLookup(
+                        metaLookupId = metaLookupId,
+                        rawTmdbNumericId = rawTmdbNumericId
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun collectMetaLookup(
+        metaLookupId: String,
+        rawTmdbNumericId: String?
+    ) {
+        val namespaces = buildList {
+            add(metaNamespace)
+            // Anime/Extra stay on their pool first; on miss race every pool
+            // (Home/Search/Library path) before surfacing an error.
+            if (metaNamespace != com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL) {
+                add(com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL)
+            }
+        }
+
+        for ((index, namespace) in namespaces.withIndex()) {
+            val isLastAttempt = index == namespaces.lastIndex
+            var succeeded = false
+            metaRepository.getMetaFromAllAddons(
+                type = itemType,
+                id = metaLookupId,
+                sourceAddonBaseUrl = preferredAddonBaseUrl,
+                rawId = rawTmdbNumericId,
+                namespace = namespace
+            ).collect { result ->
+                when (result) {
+                    is NetworkResult.Success -> {
+                        succeeded = true
+                        applyMetaWithEnrichment(result.data)
+                    }
+                    is NetworkResult.Error -> {
+                        // Never apply a synthetic TMDB meta with empty videos
+                        // (fake detail). Only surface the error on the last attempt.
+                        if (isLastAttempt) {
+                            val errorMsg = buildMetaLoadErrorMessage(result.message, metaLookupId)
+                            _uiState.update { it.copy(isLoading = false, error = errorMsg) }
                         }
+                    }
+                    NetworkResult.Loading -> {
+                        _uiState.update { it.copy(isLoading = true) }
                     }
                 }
             }
+            if (succeeded) return
         }
     }
 
