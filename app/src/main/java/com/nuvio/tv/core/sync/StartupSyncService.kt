@@ -558,6 +558,9 @@ class StartupSyncService @Inject constructor(
                 } finally {
                     pluginManager.isSyncingFromRemote = false
                     pluginManager.flushPendingSync()
+                    // Fresh installs get the default plugin repo even when the
+                    // remote list is empty (or the pull failed).
+                    pluginManager.ensureDefaultRepository()
                 }
             }
 

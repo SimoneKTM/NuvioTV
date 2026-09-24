@@ -54,6 +54,7 @@ class PluginDataStore @Inject constructor(
     private val pluginsEnabledKey = booleanPreferencesKey("plugins_enabled")
     private val groupStreamsByRepositoryKey = booleanPreferencesKey("group_streams_by_repository")
     private val scraperSettingsKey = stringPreferencesKey("scraper_settings")
+    private val defaultRepoSeededKey = booleanPreferencesKey("default_repo_seeded")
 
     private val repoListType = Types.newParameterizedType(List::class.java, PluginRepository::class.java)
     private val scraperListType = Types.newParameterizedType(List::class.java, ScraperInfo::class.java)
@@ -94,6 +95,16 @@ class PluginDataStore @Inject constructor(
         val json = moshi.adapter<List<PluginRepository>>(repoListType).toJson(repos)
         store().edit { prefs ->
             prefs[repositoriesKey] = json
+        }
+    }
+
+    /** True once the default repository seed has run for this profile. */
+    suspend fun isDefaultRepoSeeded(): Boolean =
+        store().data.first()[defaultRepoSeededKey] ?: false
+
+    suspend fun markDefaultRepoSeeded() {
+        store().edit { prefs ->
+            prefs[defaultRepoSeededKey] = true
         }
     }
 

@@ -58,6 +58,8 @@ private const val MAX_RESPONSE_SIZE = 5 * 1024 * 1024L
 // cancelling the runner's coroutine before it can return accumulated links.
 private const val SCRAPER_TIMEOUT_MS = 120_000L
 private const val MANIFEST_SUFFIX = "/manifest.json"
+// Seeded on first run so fresh installs ship with a working plugin list.
+private const val DEFAULT_REPOSITORY_URL = "https://easystreams.realbestia.com/nuvio/manifest.json"
 
 @Singleton
 class PluginManager @Inject constructor(
@@ -550,6 +552,33 @@ class PluginManager @Inject constructor(
         Log.d(TAG, "External repository added: ${repo.name} with ${parseResult.plugins.size} extensions")
         triggerRemoteSync()
         return Result.success(repo)
+    }
+
+    private val defaultSeedMutex = Mutex()
+
+    /**
+     * Adds the default plugin repository the first time the app runs so a fresh
+     * install has plugins without manual setup. Runs once per profile; if the
+     * user already has repositories (e.g. synced from another device) it just
+     * marks the seed as done. Failure (offline first run) retries on next start.
+     */
+    suspend fun ensureDefaultRepository() {
+        defaultSeedMutex.withLock {
+            try {
+                if (dataStore.isDefaultRepoSeeded()) return
+                if (dataStore.repositories.first().isEmpty()) {
+                    val result = addRepository(DEFAULT_REPOSITORY_URL)
+                    if (result.isFailure) {
+                        Log.w(TAG, "Default plugin repository seeding failed: ${result.exceptionOrNull()?.message}")
+                        return
+                    }
+                    Log.d(TAG, "Seeded default plugin repository: $DEFAULT_REPOSITORY_URL")
+                }
+                dataStore.markDefaultRepoSeeded()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to seed default plugin repository", e)
+            }
+        }
     }
     
     /**

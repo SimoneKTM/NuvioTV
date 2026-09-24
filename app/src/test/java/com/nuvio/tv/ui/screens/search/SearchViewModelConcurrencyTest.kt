@@ -104,6 +104,7 @@ class SearchViewModelConcurrencyTest {
         every { layoutPreferences.hideUnreleasedContent } returns flowOf(false)
         every { layoutPreferences.searchIncludeExtraTab } returns flowOf(false)
         every { layoutPreferences.searchIncludeAnimeTab } returns flowOf(false)
+        every { layoutPreferences.animeTabVisible } returns flowOf(false)
 
         val history = mockk<SearchHistoryDataStore>(relaxed = true)
         every { history.recentSearches } returns flowOf(emptyList())
