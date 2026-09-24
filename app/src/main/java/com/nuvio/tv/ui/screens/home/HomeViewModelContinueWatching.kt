@@ -465,6 +465,7 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                                         position = cached.position,
                                         duration = cached.duration,
                                         lastWatched = cached.lastWatched,
+                                        addonBaseUrl = cached.addonBaseUrl,
                                         progressPercent = cached.progressPercent
                                     ),
                                     episodeThumbnail = cached.episodeThumbnail,
@@ -537,7 +538,8 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                             isReleaseAlert = freshIsReleaseAlert,
                             isNewSeasonRelease = freshIsNewSeasonRelease,
                             seedSeason = cached.seedSeason,
-                            seedEpisode = cached.seedEpisode
+                            seedEpisode = cached.seedEpisode,
+                            addonBaseUrl = cached.addonBaseUrl
                         )
                     )
                 }
@@ -584,7 +586,8 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                                     episodeDescription = item.episodeDescription,
                                     episodeImdbRating = item.episodeImdbRating,
                                     genres = item.genres, releaseInfo = item.releaseInfo,
-                                    contentLanguage = item.contentLanguage
+                                    contentLanguage = item.contentLanguage,
+                                    addonBaseUrl = item.progress.addonBaseUrl
                                 )
                             }
                             runCatching {
@@ -997,7 +1000,8 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                                 isReleaseAlert = freshIsReleaseAlert,
                                 isNewSeasonRelease = freshIsNewSeasonRelease,
                                 seedSeason = cached.seedSeason,
-                                seedEpisode = cached.seedEpisode
+                                seedEpisode = cached.seedEpisode,
+                                addonBaseUrl = cached.addonBaseUrl
                             )
                         )
                     }
@@ -1130,7 +1134,8 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                             releaseInfo = info.releaseInfo, sortTimestamp = info.sortTimestamp,
                             releaseTimestamp = info.releaseTimestamp, isReleaseAlert = info.isReleaseAlert,
                             isNewSeasonRelease = info.isNewSeasonRelease, seedSeason = info.seedSeason,
-                            seedEpisode = info.seedEpisode, contentLanguage = info.contentLanguage
+                            seedEpisode = info.seedEpisode, contentLanguage = info.contentLanguage,
+                            addonBaseUrl = info.addonBaseUrl
                         )
                     }
                     val ipSnap = currentItems.mapNotNull { item ->
@@ -1145,7 +1150,8 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                             episodeThumbnail = ip.episodeThumbnail?.takeIf { it !in brokenUrls },
                             episodeDescription = ip.episodeDescription, episodeImdbRating = ip.episodeImdbRating,
                             genres = ip.genres, releaseInfo = ip.releaseInfo,
-                            contentLanguage = ip.contentLanguage
+                            contentLanguage = ip.contentLanguage,
+                            addonBaseUrl = p.addonBaseUrl
                         )
                     }
                     if (profileManager.activeProfileId.value == pipelineProfileId) {
@@ -2559,7 +2565,8 @@ private fun HomeViewModel.persistLocalContinueWatchingMetadata(
             isNewSeasonRelease = info.isNewSeasonRelease,
             seedSeason = info.seedSeason,
             seedEpisode = info.seedEpisode,
-            contentLanguage = info.contentLanguage
+            contentLanguage = info.contentLanguage,
+            addonBaseUrl = info.addonBaseUrl
         )
     }
 
@@ -2587,7 +2594,8 @@ private fun HomeViewModel.persistLocalContinueWatchingMetadata(
             episodeImdbRating = ip.episodeImdbRating,
             genres = ip.genres,
             releaseInfo = ip.releaseInfo,
-            contentLanguage = ip.contentLanguage
+            contentLanguage = ip.contentLanguage,
+            addonBaseUrl = p.addonBaseUrl
         )
     }
 
@@ -2636,7 +2644,8 @@ private fun NextUpInfo.toProgressSeed(): WatchProgress {
         episodeTitle = episodeTitle,
         position = 1L,
         duration = 1L,
-        lastWatched = lastWatched
+        lastWatched = lastWatched,
+        addonBaseUrl = addonBaseUrl
     )
 }
 

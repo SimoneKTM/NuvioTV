@@ -89,7 +89,10 @@ fun HomeScreen(
                 is ContinueWatchingItem.InProgress -> item.progress.contentType
                 is ContinueWatchingItem.NextUp -> item.info.contentType
             },
-            ""
+            when (item) {
+                is ContinueWatchingItem.InProgress -> item.progress.addonBaseUrl.orEmpty()
+                is ContinueWatchingItem.NextUp -> item.info.addonBaseUrl.orEmpty()
+            }
         )
     },
     onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit = onContinueWatchingClick,

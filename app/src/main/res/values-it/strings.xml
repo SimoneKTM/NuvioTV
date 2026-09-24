@@ -113,6 +113,7 @@
 <string name="error_state_fix_addon_generic">riprova, aggiorna o reinstalla l\'addon, oppure provane un altro.</string>
 <string name="error_state_addon_issue_template">%1$s: %2$s.</string>
 <string name="error_meta_not_found">Metadati non trovati</string>
+<string name="error_meta_catalog_not_found">Non trovato nei cataloghi degli addon installati.</string>
 <string name="error_meta_no_supported_addon">Nessun addon installato supporta i metadati per \"%1$s\".</string>
 <string name="error_meta_no_addon_for_id">Nessun addon installato può fornire metadati per id=%1$s (tipo=%2$s).</string>
 <string name="error_meta_tried_none">Addon meta provati: %1$s. Nessuno ha fornito metadati per id=%2$s (tipo=%3$s).</string>

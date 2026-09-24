@@ -70,7 +70,8 @@ class TvdbMetadataService @Inject constructor(
 
                 var enriched = meta
 
-                if (settings.useBasicInfo && apiLanguage != null && apiLanguage != "en") {
+                // Fill-only after TMDB/addon: never overwrite a non-blank name.
+                if (settings.useBasicInfo && enriched.name.isNullOrBlank()) {
                     val localizedName = extended.aliases
                         .firstOrNull { it.language == apiLanguage && it.name.isNotBlank() }
                         ?.name
@@ -116,7 +117,7 @@ class TvdbMetadataService @Inject constructor(
                     emptyList()
                 }
 
-                if (settings.useCredits && extended.characters.isNotEmpty()) {
+                if (settings.useCredits && extended.characters.isNotEmpty() && enriched.castMembers.isEmpty()) {
                     val people = extended.characters.mapNotNull { character ->
                         val actorName = character.personName?.trim()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                         MetaCastMember(
@@ -126,7 +127,9 @@ class TvdbMetadataService @Inject constructor(
                             tmdbId = null
                         )
                     }
-                    enriched = enriched.copy(castMembers = people)
+                    if (people.isNotEmpty()) {
+                        enriched = enriched.copy(castMembers = people, cast = people.map { it.name })
+                    }
                 }
 
                 if (episodeMap.isNotEmpty()) {
@@ -139,33 +142,34 @@ class TvdbMetadataService @Inject constructor(
                             if (episodeData == null) {
                                 video
                             } else {
+                                // Fill-only: keep TMDB/addon values when already present.
                                 video.copy(
-                                    title = if (settings.useEpisodes) {
+                                    title = if (settings.useEpisodes && video.title.isNullOrBlank()) {
                                         episodeData.title ?: video.title
                                     } else {
                                         video.title
                                     },
-                                    overview = if (settings.useEpisodes) {
+                                    overview = if (settings.useEpisodes && video.overview.isNullOrBlank()) {
                                         episodeData.overview ?: video.overview
                                     } else {
                                         video.overview
                                     },
-                                    thumbnail = if (settings.useEpisodes) {
+                                    thumbnail = if (settings.useEpisodes && video.thumbnail.isNullOrBlank()) {
                                         episodeData.thumbnail ?: video.thumbnail
                                     } else {
                                         video.thumbnail
                                     },
-                                    released = if (settings.useEpisodes) {
+                                    released = if (settings.useEpisodes && video.released.isNullOrBlank()) {
                                         episodeData.airDate ?: video.released
                                     } else {
                                         video.released
                                     },
-                                    runtime = if (settings.useEpisodes) {
+                                    runtime = if (settings.useEpisodes && video.runtime == null) {
                                         episodeData.runtimeMinutes ?: video.runtime
                                     } else {
                                         video.runtime
                                     },
-                                    seasonPoster = if (settings.useSeasonPosters) {
+                                    seasonPoster = if (settings.useSeasonPosters && video.seasonPoster.isNullOrBlank()) {
                                         episodeData.seasonPoster ?: video.seasonPoster
                                     } else {
                                         video.seasonPoster

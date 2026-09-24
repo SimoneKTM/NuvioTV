@@ -390,7 +390,7 @@ fun GridHomeContent(
                                         onNavigateToDetail(
                                             item.id,
                                             item.apiType,
-                                            ""
+                                            item.sourceAddonBaseUrl.orEmpty()
                                         )
                                     }
                                 },
@@ -432,7 +432,10 @@ fun GridHomeContent(
                                     is ContinueWatchingItem.InProgress -> item.progress.contentType
                                     is ContinueWatchingItem.NextUp -> item.info.contentType
                                 },
-                                ""
+                                when (item) {
+                                    is ContinueWatchingItem.InProgress -> item.progress.addonBaseUrl.orEmpty()
+                                    is ContinueWatchingItem.NextUp -> item.info.addonBaseUrl.orEmpty()
+                                }
                             )
                         },
                         onRemoveItem = { item ->
@@ -488,7 +491,10 @@ fun GridHomeContent(
                                     is ContinueWatchingItem.InProgress -> item.progress.contentType
                                     is ContinueWatchingItem.NextUp -> item.info.contentType
                                 },
-                                ""
+                                when (item) {
+                                    is ContinueWatchingItem.InProgress -> item.progress.addonBaseUrl.orEmpty()
+                                    is ContinueWatchingItem.NextUp -> item.info.addonBaseUrl.orEmpty()
+                                }
                             )
                         },
                         onRemoveItem = { item ->
@@ -548,7 +554,7 @@ fun GridHomeContent(
                                     onNavigateToDetail(
                                         item.id,
                                         item.apiType,
-                                        ""
+                                        item.sourceAddonBaseUrl.orEmpty()
                                     )
                                 }
                             },

@@ -77,7 +77,7 @@ private val SECTION_PADDING_HORIZONTAL = 48.dp
 @Composable
 fun CalendarHomeScreen(
     onBackPress: () -> Unit,
-    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String) -> Unit,
+    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit,
     viewModel: CalendarHomeViewModel = hiltViewModel()
 ) {
     BackHandler { onBackPress() }
@@ -216,7 +216,7 @@ private fun CalendarMessageState(
 @Composable
 private fun CalendarHeroSection(
     section: CalendarSection,
-    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String) -> Unit,
+    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit,
     initialFocusRequester: FocusRequester
 ) {
     val firstItem = section.items.firstOrNull() ?: return
@@ -467,13 +467,12 @@ private fun CalendarHeroSection(
                     releaseDate = calendarItem.releaseDate,
                     notInCatalog = calendarItem.notInCatalog,
                     onClick = {
-                        // Pass the addon that won enrichment so Detail can
-                        // activate Anime/Extra layout (same as the Anime tab).
-                        // Blank only when no tab pool resolved the title.
+                        // Same contract as Library: pass the source addon when
+                        // known, otherwise null so Detail races catalog pools.
                         onNavigateToDetail(
                             calendarItem.meta.id,
                             calendarItem.meta.apiType,
-                            calendarItem.meta.sourceAddonBaseUrl.orEmpty()
+                            calendarItem.meta.sourceAddonBaseUrl?.takeIf { it.isNotBlank() }
                         )
                     },
                     onFocusChange = { focused ->
@@ -494,7 +493,7 @@ private fun CalendarHeroSection(
 @Composable
 private fun CalendarSection(
     section: CalendarSection,
-    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String) -> Unit
+    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit
 ) {
     val rowState = rememberLazyListState()
     val firstPosterRequester = remember(section.label) { FocusRequester() }
@@ -549,7 +548,7 @@ private fun CalendarSection(
                         onNavigateToDetail(
                             calendarItem.meta.id,
                             calendarItem.meta.apiType,
-                            calendarItem.meta.sourceAddonBaseUrl.orEmpty()
+                            calendarItem.meta.sourceAddonBaseUrl?.takeIf { it.isNotBlank() }
                         )
                     },
                     focusRequester = if (index == 0) firstPosterRequester else null

@@ -222,6 +222,7 @@ private suspend fun AnimeHomeViewModel.buildAnimeContinueWatching(snapshot: Anim
                             position = cached.position,
                             duration = cached.duration,
                             lastWatched = cached.lastWatched,
+                            addonBaseUrl = cached.addonBaseUrl,
                             progressPercent = cached.progressPercent
                         ),
                         episodeThumbnail = cached.episodeThumbnail,
@@ -287,7 +288,8 @@ private suspend fun AnimeHomeViewModel.buildAnimeContinueWatching(snapshot: Anim
                 isReleaseAlert = freshIsReleaseAlert,
                 isNewSeasonRelease = freshIsNewSeasonRelease,
                 seedSeason = cached.seedSeason,
-                seedEpisode = cached.seedEpisode
+                seedEpisode = cached.seedEpisode,
+                addonBaseUrl = cached.addonBaseUrl
             )
         )
     }
@@ -327,7 +329,8 @@ private suspend fun AnimeHomeViewModel.buildAnimeContinueWatching(snapshot: Anim
                         episodeImdbRating = item.episodeImdbRating,
                         genres = item.genres,
                         releaseInfo = item.releaseInfo,
-                        contentLanguage = item.contentLanguage
+                        contentLanguage = item.contentLanguage,
+                        addonBaseUrl = item.progress.addonBaseUrl
                     )
                 }
                 runCatching { animeCwEnrichmentCache.saveInProgressSnapshot(ipSnap) }
@@ -1158,7 +1161,8 @@ private suspend fun AnimeHomeViewModel.buildAnimeNextUpItem(
         isReleaseAlert = releaseState.isReleaseAlert,
         isNewSeasonRelease = releaseState.isNewSeasonRelease,
         seedSeason = progress.season,
-        seedEpisode = progress.episode
+        seedEpisode = progress.episode,
+        addonBaseUrl = progress.addonBaseUrl
     )
     return ContinueWatchingItem.NextUp(info)
 }
@@ -1458,7 +1462,8 @@ private fun AnimeHomeViewModel.persistAnimeCwSnapshotsFromUi() {
                 episodeThumbnail = ip.episodeThumbnail?.takeIf { it !in brokenImageUrls },
                 episodeDescription = ip.episodeDescription, episodeImdbRating = ip.episodeImdbRating,
                 genres = ip.genres, releaseInfo = ip.releaseInfo,
-                contentLanguage = ip.contentLanguage
+                contentLanguage = ip.contentLanguage,
+                addonBaseUrl = p.addonBaseUrl
             )
         }
         runCatching { animeCwEnrichmentCache.saveNextUpSnapshot(nextUpSnap, force = true) }
@@ -1480,7 +1485,8 @@ private fun NextUpInfo.toAnimeProgressSeed(): WatchProgress {
         episodeTitle = episodeTitle,
         position = 1L,
         duration = 1L,
-        lastWatched = lastWatched
+        lastWatched = lastWatched,
+        addonBaseUrl = addonBaseUrl
     )
 }
 

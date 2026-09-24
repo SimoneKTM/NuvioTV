@@ -65,7 +65,8 @@ data class CachedInProgressItem(
     val episodeImdbRating: Float? = null,
     val genres: List<String> = emptyList(),
     val releaseInfo: String? = null,
-    val contentLanguage: String? = null
+    val contentLanguage: String? = null,
+    val addonBaseUrl: String? = null
 )
 
 @Singleton

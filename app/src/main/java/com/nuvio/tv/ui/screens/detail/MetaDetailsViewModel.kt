@@ -114,7 +114,8 @@ class MetaDetailsViewModel @Inject constructor(
 ) : ViewModel() {
     private val itemId: String = savedStateHandle["itemId"] ?: ""
     private val itemType: String = savedStateHandle["itemType"] ?: ""
-    private val preferredAddonBaseUrl: String? = savedStateHandle["addonBaseUrl"]
+    private val preferredAddonBaseUrl: String? =
+        savedStateHandle.get<String>("addonBaseUrl")?.takeIf { it.isNotBlank() }
 
     private val _uiState = MutableStateFlow(MetaDetailsUiState())
     val uiState: StateFlow<MetaDetailsUiState> = _uiState.asStateFlow()
@@ -178,10 +179,12 @@ class MetaDetailsViewModel @Inject constructor(
         get() = when {
             animeLayoutActive.value -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ANIME
             extraLayoutActive.value -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA
-            // Blank source (Calendar/Library/Search open): race Home+Anime+Extra.
-            // Non-blank source still races every pool with that addon prioritized
-            // so any poster click can resolve metadata from all installed catalogs.
-            else -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
+            // Blank source (Library/Calendar with no addon): race every pool once.
+            // Non-blank source that is not anime/extra belongs to the Home catalog
+            // — stay in the HOME namespace so Home details only hit Home addons.
+            preferredAddonBaseUrl.isNullOrBlank() ->
+                com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
+            else -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_HOME
         }
 
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -770,28 +773,10 @@ class MetaDetailsViewModel @Inject constructor(
                             applyMetaWithEnrichment(result.data)
                         }
                         is NetworkResult.Error -> {
-                            // 2) Fallback: try originating addon if meta addons failed
-                            val preferred = preferredAddonBaseUrl?.takeIf { it.isNotBlank() }
-                            val preferredMeta: Meta? = preferred?.let { baseUrl ->
-                                when (val fallbackResult = metaRepository.getMeta(addonBaseUrl = baseUrl, type = itemType, id = metaLookupId, namespace = metaNamespace)
-                                    .first { it !is NetworkResult.Loading }) {
-                                    is NetworkResult.Success -> fallbackResult.data
-                                    else -> null
-                                }
-                            }
-
-                            if (preferredMeta != null) {
-                                applyMetaWithEnrichment(preferredMeta)
-                            } else {
-                                // Addons (Home+Anime+Extra) are the primary source;
-                                // TMDB is only a last resort when they all miss.
-                                if (tryApplyTmdbFallbackMeta()) {
-                                    Unit
-                                } else {
-                                    val errorMsg = buildMetaLoadErrorMessage(result.message, metaLookupId)
-                                    _uiState.update { it.copy(isLoading = false, error = errorMsg) }
-                                }
-                            }
+                            // Source/addon miss: surface a catalog error — never apply
+                            // a synthetic TMDB meta with empty videos (fake detail).
+                            val errorMsg = buildMetaLoadErrorMessage(result.message, metaLookupId)
+                            _uiState.update { it.copy(isLoading = false, error = errorMsg) }
                         }
                         NetworkResult.Loading -> {
                             _uiState.update { it.copy(isLoading = true) }
@@ -822,14 +807,8 @@ class MetaDetailsViewModel @Inject constructor(
                         when (result) {
                             is NetworkResult.Success -> applyMetaWithEnrichment(result.data)
                             is NetworkResult.Error -> {
-                                // Addons (Home+Anime+Extra) are the primary source;
-                                // TMDB is only a last resort when they all miss.
-                                if (tryApplyTmdbFallbackMeta()) {
-                                    Unit
-                                } else {
-                                    val errorMsg = buildMetaLoadErrorMessage(result.message, metaLookupId)
-                                    _uiState.update { it.copy(isLoading = false, error = errorMsg) }
-                                }
+                                val errorMsg = buildMetaLoadErrorMessage(result.message, metaLookupId)
+                                _uiState.update { it.copy(isLoading = false, error = errorMsg) }
                             }
                             NetworkResult.Loading -> {
                                 _uiState.update { it.copy(isLoading = true) }
@@ -839,67 +818,6 @@ class MetaDetailsViewModel @Inject constructor(
                 }
             }
         }
-    }
-
-    private suspend fun tryApplyTmdbFallbackMeta(): Boolean {
-        val tmdbId = itemId
-            .let { id ->
-                when {
-                    id.startsWith("tmdb:", ignoreCase = true) ->
-                        id.substringAfter(':').substringBefore(':').toIntOrNull()
-                    id.startsWith("tmdb_tv_", ignoreCase = true) ->
-                        id.removePrefix("tmdb_tv_").removePrefix("tmdb_Tv_").toIntOrNull()
-                    id.startsWith("tmdb_movie_", ignoreCase = true) ->
-                        id.removePrefix("tmdb_movie_").removePrefix("tmdb_Movie_").toIntOrNull()
-                    else -> null
-                }
-            }
-            ?: return false
-        val type = ContentType.fromString(itemType)
-        val settings = tmdbSettingsDataStore.settings.first()
-        if (!settings.enabled) return false
-        val enrichment = tmdbMetadataService.fetchEnrichment(
-            tmdbId = tmdbId.toString(),
-            contentType = type,
-            language = settings.language
-        ) ?: return false
-        val meta = Meta(
-            id = itemId,
-            type = type,
-            rawType = itemType,
-            name = enrichment.localizedTitle ?: enrichment.originalTitle
-                ?: context.getString(R.string.detail_tmdb_fallback_title, tmdbId),
-            poster = enrichment.poster,
-            posterShape = com.nuvio.tv.domain.model.PosterShape.POSTER,
-            background = enrichment.backdrop,
-            logo = enrichment.logo,
-            description = enrichment.description,
-            releaseInfo = enrichment.releaseInfo,
-            status = enrichment.status,
-            imdbRating = enrichment.rating?.toFloat(),
-            genres = enrichment.genres,
-            runtime = enrichment.runtimeMinutes?.toString(),
-            director = enrichment.director,
-            writer = enrichment.writer,
-            cast = enrichment.castMembers.map { it.name },
-            castMembers = enrichment.castMembers,
-            videos = emptyList(),
-            productionCompanies = enrichment.productionCompanies,
-            networks = enrichment.networks,
-            ageRating = enrichment.ageRating,
-            country = enrichment.countries?.joinToString(", "),
-            awards = null,
-            language = enrichment.language,
-            links = emptyList(),
-            // Honor the "Disable Trailers in TMDB Enrichment" toggle even on
-            // this synthetic fallback meta (issue #1647). The main enrichment
-            // merge at the bottom of applyMetaWithEnrichment already gates on
-            // settings.useTrailers; without the same gate here, the fallback
-            // path would smuggle TMDB trailers in unconditionally.
-            trailers = if (settings.useTrailers) enrichment.trailers else emptyList()
-        )
-        applyMetaWithEnrichment(meta)
-        return true
     }
 
     private suspend fun resolveMetaLookupId(itemId: String, itemType: String): String {
@@ -962,8 +880,9 @@ class MetaDetailsViewModel @Inject constructor(
     }
 
     private fun buildMetaLoadErrorMessage(originalMessage: String?, lookupId: String): String {
-        val base = originalMessage ?: context.getString(R.string.meta_load_error_default)
-        return "$base\n\nID: $lookupId"
+        val base = originalMessage ?: context.getString(R.string.error_meta_not_found)
+        val catalogHint = context.getString(R.string.error_meta_catalog_not_found)
+        return "$catalogHint\n\n$base\n\nID: $lookupId"
     }
 
     private fun applyMeta(meta: Meta) {

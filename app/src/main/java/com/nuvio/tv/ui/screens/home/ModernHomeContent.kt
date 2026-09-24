@@ -165,7 +165,7 @@ fun ModernHomeContent(
                 com.nuvio.tv.ui.components.HeroCarousel(
                     items = uiState.heroItems.asStable(),
                     onItemClick = { item ->
-                        onNavigateToDetail(item.id, item.apiType, "")
+                        onNavigateToDetail(item.id, item.apiType, item.sourceAddonBaseUrl.orEmpty())
                     },
                     onItemFocus = { item -> onItemFocus(item) }
                 )
@@ -1140,7 +1140,14 @@ fun ModernHomeContent(
                 optionsItem.value = null
             },
             onDetails = {
-                onNavigateToDetail(selectedOptionsItem.contentId(), selectedOptionsItem.contentType(), "")
+                onNavigateToDetail(
+                    selectedOptionsItem.contentId(),
+                    selectedOptionsItem.contentType(),
+                    when (selectedOptionsItem) {
+                        is ContinueWatchingItem.InProgress -> selectedOptionsItem.progress.addonBaseUrl.orEmpty()
+                        is ContinueWatchingItem.NextUp -> selectedOptionsItem.info.addonBaseUrl.orEmpty()
+                    }
+                )
                 optionsItem.value = null
             },
             onStartFromBeginning = {

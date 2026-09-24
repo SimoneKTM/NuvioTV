@@ -1779,7 +1779,8 @@ class StreamScreenViewModel @Inject constructor(
                 episodeTitle = playbackInfo.episodeTitle,
                 position = positionMs,
                 duration = effectiveDuration,
-                lastWatched = System.currentTimeMillis()
+                lastWatched = System.currentTimeMillis(),
+                addonBaseUrl = sourceAddonBaseUrl
             )
             Log.d(TAG, "Saving external player progress: pos=${positionMs}ms, dur=${effectiveDuration}ms, " +
                 "content=$contentId, video=$videoId")

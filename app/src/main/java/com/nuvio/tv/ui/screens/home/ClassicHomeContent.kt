@@ -462,7 +462,7 @@ fun ClassicHomeContent(
                         onNavigateToDetail(
                             item.id,
                             item.apiType,
-                            ""
+                            item.sourceAddonBaseUrl.orEmpty()
                         )
                     }
                 )
@@ -499,7 +499,10 @@ fun ClassicHomeContent(
                                 is ContinueWatchingItem.InProgress -> item.progress.contentType
                                 is ContinueWatchingItem.NextUp -> item.info.contentType
                             },
-                            ""
+                            when (item) {
+                                is ContinueWatchingItem.InProgress -> item.progress.addonBaseUrl.orEmpty()
+                                is ContinueWatchingItem.NextUp -> item.info.addonBaseUrl.orEmpty()
+                            }
                         )
                     },
                     onRemoveItem = { item ->
@@ -573,7 +576,10 @@ fun ClassicHomeContent(
                                 is ContinueWatchingItem.InProgress -> item.progress.contentType
                                 is ContinueWatchingItem.NextUp -> item.info.contentType
                             },
-                            ""
+                            when (item) {
+                                is ContinueWatchingItem.InProgress -> item.progress.addonBaseUrl.orEmpty()
+                                is ContinueWatchingItem.NextUp -> item.info.addonBaseUrl.orEmpty()
+                            }
                         )
                     },
                     onRemoveItem = { item ->
@@ -592,7 +598,6 @@ fun ClassicHomeContent(
                         val isNextUp = item is ContinueWatchingItem.NextUp
                         onRemoveContinueWatching(contentId, season, episode, isNextUp)
                     },
-                    blurUnwatchedEpisodes = uiState.blurUnwatchedEpisodes,
                     useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
                     entryFocusRequester = upcomingSectionFocusRequester,
                     downFocusRequester = upcomingDownRequester,

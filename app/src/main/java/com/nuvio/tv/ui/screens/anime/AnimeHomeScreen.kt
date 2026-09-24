@@ -1123,7 +1123,11 @@ private fun handleAnimeCwClick(
                 item.progress.addonBaseUrl.orEmpty()
             )
         is ContinueWatchingItem.NextUp ->
-            onNavigateToDetail(item.info.contentId, item.info.contentType, "")
+            onNavigateToDetail(
+                item.info.contentId,
+                item.info.contentType,
+                item.info.addonBaseUrl.orEmpty()
+            )
     }
 }
 

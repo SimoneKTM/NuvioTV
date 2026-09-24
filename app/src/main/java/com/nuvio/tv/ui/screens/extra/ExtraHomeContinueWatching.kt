@@ -329,7 +329,8 @@ private suspend fun ExtraHomeViewModel.buildExtraContinueWatching(snapshot: Extr
                         episodeImdbRating = item.episodeImdbRating,
                         genres = item.genres,
                         releaseInfo = item.releaseInfo,
-                        contentLanguage = item.contentLanguage
+                        contentLanguage = item.contentLanguage,
+                        addonBaseUrl = item.progress.addonBaseUrl
                     )
                 }
                 runCatching { extraCwEnrichmentCache.saveInProgressSnapshot(ipSnap) }
@@ -1462,7 +1463,8 @@ private fun ExtraHomeViewModel.persistExtraCwSnapshotsFromUi() {
                 episodeThumbnail = ip.episodeThumbnail?.takeIf { it !in brokenImageUrls },
                 episodeDescription = ip.episodeDescription, episodeImdbRating = ip.episodeImdbRating,
                 genres = ip.genres, releaseInfo = ip.releaseInfo,
-                contentLanguage = ip.contentLanguage
+                contentLanguage = ip.contentLanguage,
+                addonBaseUrl = p.addonBaseUrl
             )
         }
         runCatching { extraCwEnrichmentCache.saveNextUpSnapshot(nextUpSnap, force = true) }
