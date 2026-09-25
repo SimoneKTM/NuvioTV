@@ -275,7 +275,12 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
             combine(
                 traktSettingsDataStore.continueWatchingDaysCap,
                 traktSettingsDataStore.dismissedNextUpKeys,
-                layoutPreferenceDataStore.showUnairedNextUp,
+                // "Hide unreleased content" is the master switch: it also hides
+                // unaired Next Up / Upcoming rows in the CW section.
+                combine(
+                    layoutPreferenceDataStore.showUnairedNextUp,
+                    layoutPreferenceDataStore.hideUnreleasedContent
+                ) { showUnaired, hideUnreleased -> showUnaired && !hideUnreleased },
                 layoutPreferenceDataStore.nextUpFromFurthestEpisode,
                 layoutPreferenceDataStore.continueWatchingSortMode
             ) { daysCap, dismissedNextUp, showUnairedNextUp, nextUpFromFurthest, sortMode ->

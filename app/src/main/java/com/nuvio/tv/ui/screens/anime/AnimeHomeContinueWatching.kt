@@ -74,7 +74,12 @@ internal fun AnimeHomeViewModel.observeAnimeContinueWatching() {
                 progress to addons
             },
             layoutPreferenceDataStore.dismissedNextUpKeys,
-            layoutPreferenceDataStore.showUnairedNextUp,
+            // "Hide unreleased content" is the master switch: it also hides
+            // unaired Next Up / Upcoming rows in this tab's CW section.
+            combine(
+                layoutPreferenceDataStore.showUnairedNextUp,
+                layoutPreferenceDataStore.hideUnreleasedContent
+            ) { showUnaired, hideUnreleased -> showUnaired && !hideUnreleased },
             layoutPreferenceDataStore.nextUpFromFurthestEpisode,
             layoutPreferenceDataStore.continueWatchingSortMode
         ) { pair, dismissedNextUp, showUnaired, nextUpFromFurthest, sortMode ->
