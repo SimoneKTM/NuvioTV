@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.R
 import com.nuvio.tv.core.tmdb.TmdbMetadataService
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
+import com.nuvio.tv.domain.repository.AnimeAddonRepository
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,12 +17,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import javax.inject.Named
 
 @HiltViewModel
 class CastDetailViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val tmdbMetadataService: TmdbMetadataService,
     private val tmdbSettingsDataStore: TmdbSettingsDataStore,
+    @Named("anime_tmdb") private val animeTmdbSettingsDataStore: TmdbSettingsDataStore,
+    @Named("extra_tmdb") private val extraTmdbSettingsDataStore: TmdbSettingsDataStore,
+    private val animeAddonRepository: AnimeAddonRepository,
+    private val extraAddonRepository: ExtraAddonRepository,
     val posterOptions: com.nuvio.tv.ui.components.posteroptions.PosterOptionsController,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -30,6 +37,29 @@ class CastDetailViewModel @Inject constructor(
         runCatching { java.net.URLDecoder.decode(raw, "UTF-8") }.getOrDefault(raw)
     }
     private val preferCrew: Boolean = savedStateHandle.get<Boolean>("preferCrew") ?: false
+    // Navigation already URL-decodes route query args (see MetaDetailsViewModel).
+    private val sourceAddonBaseUrl: String = savedStateHandle.get<String>("sourceAddonBaseUrl").orEmpty()
+
+    private var resolvedTmdbSettings: TmdbSettingsDataStore? = null
+
+    /**
+     * TMDB language settings of the tab this cast page was opened from
+     * (source addon of the detail page) instead of always the Home store.
+     */
+    private suspend fun activeTmdbSettings(): TmdbSettingsDataStore {
+        resolvedTmdbSettings?.let { return it }
+        val normalizedSource = sourceAddonBaseUrl.trim().trimEnd('/').lowercase()
+        val store = when {
+            normalizedSource.isEmpty() -> tmdbSettingsDataStore
+            animeAddonRepository.getInstalledAnimeAddons().first()
+                .any { addon -> addon.baseUrl.trim().trimEnd('/').lowercase() == normalizedSource } -> animeTmdbSettingsDataStore
+            extraAddonRepository.getInstalledExtraAddons().first()
+                .any { addon -> addon.baseUrl.trim().trimEnd('/').lowercase() == normalizedSource } -> extraTmdbSettingsDataStore
+            else -> tmdbSettingsDataStore
+        }
+        resolvedTmdbSettings = store
+        return store
+    }
 
     private val _uiState = MutableStateFlow<CastDetailUiState>(CastDetailUiState.Loading)
     val uiState: StateFlow<CastDetailUiState> = _uiState.asStateFlow()
@@ -50,7 +80,7 @@ class CastDetailViewModel @Inject constructor(
                 val detail = tmdbMetadataService.fetchPersonDetail(
                     personId = personId,
                     preferCrewCredits = preferCrew,
-                    language = tmdbSettingsDataStore.settings.first().language
+                    language = activeTmdbSettings().settings.first().language
                 )
                 if (detail != null) {
                     _uiState.value = CastDetailUiState.Success(detail)

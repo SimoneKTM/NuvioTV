@@ -209,21 +209,22 @@ sealed class Screen(val route: String) {
 
     data object ProfileSelection : Screen("profile_selection")
 
-    data object CastDetail : Screen("cast_detail/{personId}/{personName}?preferCrew={preferCrew}") {
+    data object CastDetail : Screen("cast_detail/{personId}/{personName}?preferCrew={preferCrew}&sourceAddonBaseUrl={sourceAddonBaseUrl}") {
         private fun encode(value: String): String =
             URLEncoder.encode(value, "UTF-8").replace("+", "%20")
 
         fun createRoute(
             personId: Int,
             personName: String,
-            preferCrew: Boolean = false
+            preferCrew: Boolean = false,
+            sourceAddonBaseUrl: String = ""
         ): String {
-            return "cast_detail/$personId/${encode(personName)}?preferCrew=$preferCrew"
+            return "cast_detail/$personId/${encode(personName)}?preferCrew=$preferCrew&sourceAddonBaseUrl=${encode(sourceAddonBaseUrl)}"
         }
     }
 
     data object TmdbEntityBrowse : Screen(
-        "tmdb_entity_browse/{entityKind}/{entityId}/{entityName}?sourceType={sourceType}"
+        "tmdb_entity_browse/{entityKind}/{entityId}/{entityName}?sourceType={sourceType}&sourceAddonBaseUrl={sourceAddonBaseUrl}"
     ) {
         private fun encode(value: String): String =
             URLEncoder.encode(value, "UTF-8").replace("+", "%20")
@@ -232,9 +233,10 @@ sealed class Screen(val route: String) {
             entityKind: String,
             entityId: Int,
             entityName: String,
-            sourceType: String
+            sourceType: String,
+            sourceAddonBaseUrl: String = ""
         ): String {
-            return "tmdb_entity_browse/${encode(entityKind)}/$entityId/${encode(entityName)}?sourceType=${encode(sourceType)}"
+            return "tmdb_entity_browse/${encode(entityKind)}/$entityId/${encode(entityName)}?sourceType=${encode(sourceType)}&sourceAddonBaseUrl=${encode(sourceAddonBaseUrl)}"
         }
     }
 

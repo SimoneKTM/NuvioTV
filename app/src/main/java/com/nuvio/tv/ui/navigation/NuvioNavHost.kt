@@ -303,7 +303,14 @@ fun NuvioNavHost(
                     }
                 },
                 onNavigateToCastDetail = { personId, personName, preferCrew ->
-                    navController.navigate(Screen.CastDetail.createRoute(personId, personName, preferCrew))
+                    navController.navigate(
+                        Screen.CastDetail.createRoute(
+                            personId,
+                            personName,
+                            preferCrew,
+                            detailAddonBaseUrl.orEmpty()
+                        )
+                    )
                 },
                 onNavigateToTmdbEntityBrowse = { entityKind, entityId, entityName, sourceType ->
                     navController.navigate(
@@ -311,7 +318,8 @@ fun NuvioNavHost(
                             entityKind = entityKind,
                             entityId = entityId,
                             entityName = entityName,
-                            sourceType = sourceType
+                            sourceType = sourceType,
+                            sourceAddonBaseUrl = detailAddonBaseUrl.orEmpty()
                         )
                     )
                 },
@@ -1529,6 +1537,10 @@ fun NuvioNavHost(
                 navArgument("preferCrew") {
                     type = NavType.BoolType
                     defaultValue = false
+                },
+                navArgument("sourceAddonBaseUrl") {
+                    type = NavType.StringType
+                    defaultValue = ""
                 }
             )
         ) {
@@ -1549,6 +1561,10 @@ fun NuvioNavHost(
                 navArgument("sourceType") {
                     type = NavType.StringType
                     defaultValue = "tv"
+                },
+                navArgument("sourceAddonBaseUrl") {
+                    type = NavType.StringType
+                    defaultValue = ""
                 }
             )
         ) {
