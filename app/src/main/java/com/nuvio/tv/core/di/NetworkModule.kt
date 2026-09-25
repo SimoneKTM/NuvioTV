@@ -596,9 +596,7 @@ object NetworkModule {
     @Singleton
     @Named("donations")
     fun provideDonationsRetrofit(okHttpClient: OkHttpClient, moshi: Moshi): Retrofit {
-        val baseUrl = BuildConfig.DONATIONS_BASE_URL
-            .takeIf { it.isNotBlank() }
-            ?: error("DONATIONS_BASE_URL is missing. Set it in local.properties or local.dev.properties.")
+        val baseUrl = normalizedBaseUrl(BuildConfig.DONATIONS_BASE_URL, "https://localhost/")
 
         return Retrofit.Builder()
             .baseUrl(baseUrl)

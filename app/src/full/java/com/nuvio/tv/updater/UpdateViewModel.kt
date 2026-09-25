@@ -46,7 +46,7 @@ class UpdateViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val enabled = updatePreferences.updateBannerEnabled.first()
+            val enabled = runCatching { updatePreferences.updateBannerEnabled.first() }.getOrDefault(true)
             _uiState.update { it.copy(updateBannerEnabled = enabled) }
             if (enabled && !BuildConfig.IS_DEBUG_BUILD) {
                 checkForUpdates(force = false, showNoUpdateFeedback = false)
@@ -68,7 +68,7 @@ class UpdateViewModel @Inject constructor(
                 )
             }
 
-            val dismissedTag = updatePreferences.ignoredTag.first()
+            val dismissedTag = runCatching { updatePreferences.ignoredTag.first() }.getOrNull()
             val result = updateRepository.getLatestUpdate()
             updatePreferences.setLastCheckAtMs(System.currentTimeMillis())
 

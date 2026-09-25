@@ -40,10 +40,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import com.nuvio.tv.BuildConfig
 import com.nuvio.tv.R
 import com.nuvio.tv.core.build.AppFeaturePolicy
 import com.nuvio.tv.updater.UpdateViewModel
+
+private tailrec fun android.content.Context.findActivity(): android.app.Activity? = when (this) {
+    is android.app.Activity -> this
+    is android.content.ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
 
 @Composable
 fun AboutScreen(
@@ -115,7 +120,7 @@ fun AboutSettingsContent(
                 )
 
                 Text(
-                    text = stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
+                    text = "SimoneKTM",
                     style = MaterialTheme.typography.labelSmall,
                     color = NuvioTheme.colors.TextSecondary,
                     textAlign = TextAlign.Center
@@ -123,8 +128,12 @@ fun AboutSettingsContent(
 
                 Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxs))
 
-                if (AppFeaturePolicy.inAppUpdatesEnabled) {
-                    val updateViewModel: UpdateViewModel = hiltViewModel(context as ComponentActivity)
+                val activity = context.findActivity()
+                val updateViewModel: UpdateViewModel? = (activity as? ComponentActivity)?.let {
+                    hiltViewModel(it)
+                }
+
+                if (AppFeaturePolicy.inAppUpdatesEnabled && updateViewModel != null) {
                     val updateState by updateViewModel.uiState.collectAsStateWithLifecycle()
 
                     SettingsToggleRow(
@@ -155,7 +164,7 @@ fun AboutSettingsContent(
                     title = stringResource(R.string.about_privacy_policy),
                     subtitle = stringResource(R.string.about_privacy_policy_subtitle),
                     trailingIcon = Icons.Default.OpenInNew,
-                    modifier = if (!AppFeaturePolicy.inAppUpdatesEnabled && initialFocusRequester != null) {
+                    modifier = if (!(AppFeaturePolicy.inAppUpdatesEnabled && updateViewModel != null) && initialFocusRequester != null) {
                         Modifier.focusRequester(initialFocusRequester)
                     } else {
                         Modifier
@@ -165,7 +174,7 @@ fun AboutSettingsContent(
                             Intent.ACTION_VIEW,
                             Uri.parse("https://nuvio.tv/privacy-policy")
                         )
-                        context.startActivity(intent)
+                        runCatching { context.startActivity(intent) }
                     }
                 )
 

@@ -90,17 +90,15 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val DONATIONS_URL: String
+private val DONATIONS_URL: String?
     get() = BuildConfig.DONATIONS_BASE_URL
         .takeIf { it.isNotBlank() }
-        ?: error("DONATIONS_BASE_URL is missing. Set it in local.properties or local.dev.properties.")
-        .removeSuffix("/")
+        ?.removeSuffix("/")
 
-private val DONATE_URL: String
+private val DONATE_URL: String?
     get() = BuildConfig.DONATIONS_DONATE_URL
         .takeIf { it.isNotBlank() }
-        ?: error("DONATIONS_DONATE_URL is missing. Set it in local.properties or local.dev.properties.")
-        .removeSuffix("/")
+        ?.removeSuffix("/")
 
 @Composable
 fun SupportersContributorsScreen(
@@ -265,8 +263,9 @@ private fun SupportersBrandColumn(
     onHideDonateQr: () -> Unit
 ) {
     var hasShownDonateQr by remember { mutableStateOf(false) }
-    val qrBitmap = remember(DONATE_URL) {
-        runCatching { QrCodeGenerator.generate(DONATE_URL, 420) }.getOrNull()
+    val donateUrl = DONATE_URL
+    val qrBitmap = remember(donateUrl) {
+        donateUrl?.let { runCatching { QrCodeGenerator.generate(it, 420) }.getOrNull() }
     }
     val rotation by animateFloatAsState(
         targetValue = if (showDonateQr) 180f else 0f,
@@ -296,7 +295,7 @@ private fun SupportersBrandColumn(
             isDonationProgressLoading = isDonationProgressLoading,
             donationProgressErrorMessage = donationProgressErrorMessage,
             donateFocusRequester = donateFocusRequester,
-            onShowDonateQr = onShowDonateQr,
+            onShowDonateQr = { if (donateUrl != null) onShowDonateQr() },
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
@@ -1385,8 +1384,9 @@ private fun SupporterDetailsDialog(
         Row(horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)) {
             Button(
                 onClick = {
+                    val donationsUrl = DONATIONS_URL ?: return@Button
                     runCatching {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(DONATIONS_URL)))
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(donationsUrl)))
                     }
                 },
                 modifier = Modifier.focusRequester(primaryFocusRequester),

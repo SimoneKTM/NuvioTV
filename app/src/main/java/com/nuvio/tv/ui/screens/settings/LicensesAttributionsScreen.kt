@@ -233,7 +233,9 @@ private fun AttributionDetailRow(
 
     Card(
         onClick = {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.url)))
+            runCatching {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.url)))
+            }
         },
         modifier = modifier
             .fillMaxWidth()

@@ -56,7 +56,7 @@ class GitHubContributorsRepository @Inject constructor(
         val normalizedProfile = profile?.takeIf { it.isNotBlank() }
 
         return GitHubContributor(
-            id = normalizedProfile ?: "$normalizedName|$index",
+            id = "${normalizedProfile ?: normalizedName}#$index",
             name = normalizedName,
             githubLogin = normalizedProfile?.substringAfterLast('/')?.takeIf { it.isNotBlank() },
             avatarUrl = avatar?.takeIf { it.isNotBlank() },
