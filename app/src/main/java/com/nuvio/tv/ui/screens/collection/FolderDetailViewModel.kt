@@ -1469,11 +1469,13 @@ class FolderDetailViewModel @Inject constructor(
         val requestVersion = trailerPreviewRequestVersion
         viewModelScope.launch {
             val tmdbId = runCatching { tmdbService.ensureTmdbId(itemId, apiType) }.getOrNull()
+            val tmdbSettingsOverride = runCatching { activeTmdbSettingsDataStore.settings.first() }.getOrNull()
             val trailerSource = trailerService.getTrailerPlaybackSource(
                 title = title,
                 year = extractYear(releaseInfo),
                 tmdbId = tmdbId,
-                type = apiType
+                type = apiType,
+                tmdbSettingsOverride = tmdbSettingsOverride
             )
 
             val isLatestFocusedItem =

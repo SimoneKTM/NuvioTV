@@ -140,14 +140,16 @@ class TrailerService(
 
     suspend fun getExternalTrailerUrl(
         tmdbId: String?,
-        type: String?
+        type: String?,
+        tmdbSettingsOverride: TmdbSettings? = null
     ): String? = withContext(Dispatchers.IO) {
         // Parse the id first so an invalid/null tmdbId short-circuits without
         // touching the settings DataStore at all.
         val numericTmdbId = tmdbId?.toIntOrNull() ?: return@withContext null
         // Read settings once and use for both the "Disable Trailers" gate and
         // the trailer language. See #1647 for the gate rationale.
-        val tmdbSettings = runCatching { tmdbSettingsDataStore.settings.first() }.getOrNull()
+        val tmdbSettings = tmdbSettingsOverride
+            ?: runCatching { tmdbSettingsDataStore.settings.first() }.getOrNull()
         if (tmdbSettings?.enabled != true || tmdbSettings?.useTrailers != true) {
             return@withContext null
         }

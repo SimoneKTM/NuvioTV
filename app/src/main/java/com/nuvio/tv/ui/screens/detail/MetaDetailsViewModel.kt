@@ -95,6 +95,9 @@ class MetaDetailsViewModel @Inject constructor(
     private val tmdbMetadataService: TmdbMetadataService,
     private val imdbEpisodeRatingsRepository: ImdbEpisodeRatingsRepository,
     private val mdbListRepository: MDBListRepository,
+    private val mdbListSettingsDataStore: com.nuvio.tv.data.local.MDBListSettingsDataStore,
+    @Named("anime_mdblist") private val animeMdbListSettingsDataStore: com.nuvio.tv.data.local.MDBListSettingsDataStore,
+    @Named("extra_mdblist") private val extraMdbListSettingsDataStore: com.nuvio.tv.data.local.MDBListSettingsDataStore,
     private val libraryRepository: LibraryRepository,
     private val watchProgressRepository: WatchProgressRepository,
     private val watchedItemsPreferences: WatchedItemsPreferences,
@@ -183,6 +186,14 @@ class MetaDetailsViewModel @Inject constructor(
             animeLayoutActive.value -> animeTmdbSettingsDataStore
             extraLayoutActive.value -> extraTmdbSettingsDataStore
             else -> tmdbSettingsDataStore
+        }
+
+    /** MDBList settings (enabled flag + API key) for the tab this detail page belongs to. */
+    private val activeMdbListSettingsDataStore: com.nuvio.tv.data.local.MDBListSettingsDataStore
+        get() = when {
+            animeLayoutActive.value -> animeMdbListSettingsDataStore
+            extraLayoutActive.value -> extraMdbListSettingsDataStore
+            else -> mdbListSettingsDataStore
         }
 
     private val metaNamespace: String
@@ -1336,11 +1347,13 @@ class MetaDetailsViewModel @Inject constructor(
     }
 
     private suspend fun loadMDBListRatings(meta: Meta) {
+        val mdbSettings = activeMdbListSettingsDataStore.settings.first()
         val ratingsResult = runCatching {
-            mdbListRepository.getRatingsForMeta(
+            mdbListRepository.getRatingsForMetaWithSettings(
                 meta = meta,
                 fallbackItemId = itemId,
-                fallbackItemType = itemType
+                fallbackItemType = itemType,
+                settings = mdbSettings
             )
         }.onFailure { e ->
             Log.w(TAG, "MDBList ratings failed for ${meta.id}: ${e.message}")
@@ -1672,12 +1685,13 @@ class MetaDetailsViewModel @Inject constructor(
             val tmdbId = tmdbService.ensureTmdbId(meta.id, tmdbLookupType)
                 ?: tmdbService.ensureTmdbId(itemId, itemType)
                 ?: return
+            val tmdbLanguage = activeTmdbSettingsDataStore.settings.first().language
 
             val enrichment = withContext(Dispatchers.IO) {
                 tmdbMetadataService.fetchEnrichment(
                     tmdbId = tmdbId,
                     contentType = tmdbContentType,
-                    language = "en"
+                    language = tmdbLanguage
                 )
             }
 
@@ -2869,12 +2883,15 @@ class MetaDetailsViewModel @Inject constructor(
                 null
             }
 
+            val tmdbSettingsOverride = runCatching { activeTmdbSettingsDataStore.settings.first() }.getOrNull()
+
             val source = if (AppFeaturePolicy.inAppTrailerPlaybackEnabled) {
                 trailerService.getTrailerPlaybackSource(
                     title = meta.name,
                     year = year,
                     tmdbId = tmdbId,
-                    type = meta.apiType
+                    type = meta.apiType,
+                    tmdbSettingsOverride = tmdbSettingsOverride
                 ) ?: meta.trailerYtIds.firstOrNull()?.let { ytId ->
                     trailerService.getTrailerPlaybackSourceFromYouTubeUrl(
                         youtubeUrl = "https://www.youtube.com/watch?v=$ytId",
@@ -2886,7 +2903,8 @@ class MetaDetailsViewModel @Inject constructor(
                 val externalUrl = if (AppFeaturePolicy.externalTrailerPlaybackEnabled) {
                     trailerService.getExternalTrailerUrl(
                         tmdbId = tmdbId,
-                        type = meta.apiType
+                        type = meta.apiType,
+                        tmdbSettingsOverride = tmdbSettingsOverride
                     ) ?: meta.trailerYtIds.firstOrNull()?.let { ytId ->
                         "https://www.youtube.com/watch?v=$ytId"
                     }

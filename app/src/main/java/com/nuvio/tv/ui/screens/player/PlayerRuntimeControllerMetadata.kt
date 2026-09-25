@@ -89,9 +89,32 @@ internal fun PlayerRuntimeController.updateEpisodeDescription() {
     }
 }
 
+/**
+ * TMDB settings store for the tab that originated the current playback:
+ * the playback's source addon URL selects the Extra/Anime store, otherwise
+ * the Home store applies — so toggling TMDB in one tab never leaks into the
+ * others.
+ */
+private suspend fun PlayerRuntimeController.resolveActiveTmdbSettings(): com.nuvio.tv.data.local.TmdbSettingsDataStore {
+    val source = playbackSourceAddonBaseUrl?.trim()?.trimEnd('/').orEmpty().lowercase()
+    if (source.isNotEmpty()) {
+        val fromExtra = runCatching {
+            extraAddonRepository.getInstalledExtraAddons().first()
+                .any { it.baseUrl.trim().trimEnd('/').lowercase() == source }
+        }.getOrDefault(false)
+        if (fromExtra) return extraTmdbSettingsDataStore
+        val fromAnime = runCatching {
+            animeAddonRepository.getInstalledAnimeAddons().first()
+                .any { it.baseUrl.trim().trimEnd('/').lowercase() == source }
+        }.getOrDefault(false)
+        if (fromAnime) return animeTmdbSettingsDataStore
+    }
+    return tmdbSettingsDataStore
+}
+
 private suspend fun PlayerRuntimeController.enrichDescriptionFromTmdb(id: String?, type: String?) {
     if (id.isNullOrBlank() || type.isNullOrBlank()) return
-    val settings = tmdbSettingsDataStore.settings.first()
+    val settings = resolveActiveTmdbSettings().settings.first()
     if (!settings.enabled || !settings.useBasicInfo) return
 
     val tmdbId = runCatching { tmdbService.ensureTmdbId(id, type) }.getOrNull() ?: return

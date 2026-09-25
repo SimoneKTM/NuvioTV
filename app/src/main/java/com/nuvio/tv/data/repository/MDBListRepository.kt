@@ -147,6 +147,20 @@ class MDBListRepository @Inject constructor(
         fallbackItemType: String
     ): MDBListRatingsResult? {
         val settings = settingsDataStore.settings.first()
+        return getRatingsForMetaWithSettings(meta, fallbackItemId, fallbackItemType, settings)
+    }
+
+    /**
+     * Settings-aware variant used by surfaces that keep their own settings
+     * (e.g. the Extra/Anime tab detail pages use their tab-scoped MDBList
+     * settings instead of the general ones this repository is bound to).
+     */
+    suspend fun getRatingsForMetaWithSettings(
+        meta: Meta,
+        fallbackItemId: String,
+        fallbackItemType: String,
+        settings: MDBListSettings
+    ): MDBListRatingsResult? {
         if (!settings.enabled) return null
 
         val apiKey = settings.apiKey.trim()
