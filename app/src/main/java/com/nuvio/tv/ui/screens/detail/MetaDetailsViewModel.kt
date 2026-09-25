@@ -119,7 +119,7 @@ class MetaDetailsViewModel @Inject constructor(
 ) : ViewModel() {
     private val itemId: String = savedStateHandle["itemId"] ?: ""
     private val itemType: String = savedStateHandle["itemType"] ?: ""
-    private val preferredAddonBaseUrl: String? =
+    val preferredAddonBaseUrl: String? =
         savedStateHandle.get<String>("addonBaseUrl")?.takeIf { it.isNotBlank() }
 
     private val _uiState = MutableStateFlow(MetaDetailsUiState())
@@ -279,8 +279,22 @@ class MetaDetailsViewModel @Inject constructor(
         }
     }
 
-    private fun resolveAnimeLayoutSource(): Flow<Boolean> {
-        val normalizedSource = preferredAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
+    private suspend fun resolveProvenanceFallback(meta: Meta) {
+        if (preferredAddonBaseUrl != null) return
+        if (animeLayoutActive.value || extraLayoutActive.value) return
+        val source = meta.sourceAddonBaseUrl?.trim()?.trimEnd('/').orEmpty()
+        if (source.isEmpty()) return
+        if (resolveAnimeLayoutSource(source).first()) {
+            extraLayoutActive.value = false
+            animeLayoutActive.value = true
+        } else if (resolveExtraLayoutSource(source).first()) {
+            animeLayoutActive.value = false
+            extraLayoutActive.value = true
+        }
+    }
+
+    private fun resolveAnimeLayoutSource(source: String? = preferredAddonBaseUrl): Flow<Boolean> {
+        val normalizedSource = source?.trim()?.trimEnd('/')?.lowercase().orEmpty()
         if (normalizedSource.isEmpty()) return flowOf(false)
         return animeAddonRepository.getInstalledAnimeAddons()
             .map { addons ->
@@ -290,8 +304,8 @@ class MetaDetailsViewModel @Inject constructor(
             }
     }
 
-    private fun resolveExtraLayoutSource(): Flow<Boolean> {
-        val normalizedSource = preferredAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
+    private fun resolveExtraLayoutSource(source: String? = preferredAddonBaseUrl): Flow<Boolean> {
+        val normalizedSource = source?.trim()?.trimEnd('/')?.lowercase().orEmpty()
         if (normalizedSource.isEmpty()) return flowOf(false)
         return extraAddonRepository.getInstalledExtraAddons()
             .map { addons ->
@@ -1000,6 +1014,7 @@ class MetaDetailsViewModel @Inject constructor(
     }
 
     private suspend fun applyMetaWithEnrichment(meta: Meta) {
+        resolveProvenanceFallback(meta)
         // Fire all independent async jobs immediately — they run in parallel.
         loadMoreLikeThisAsync(meta)
         val enriched = enrichMeta(meta)

@@ -741,8 +741,12 @@ fun MetaDetailsScreen(
                     onSharedTrailerFocusRestored = { restoreSharedTrailerFocusToken = 0 },
                     onNavigateToCastDetail = onNavigateToCastDetail,
                     onNavigateToTmdbEntityBrowse = onNavigateToTmdbEntityBrowse,
-                    onNavigateToDetail = onNavigateToDetail,
-                    onPosterLongPress = { item -> viewModel.posterOptions.show(item, null) }
+                    onNavigateToDetail = { id, type, url ->
+                        onNavigateToDetail(id, type, url ?: viewModel.preferredAddonBaseUrl)
+                    },
+                    onPosterLongPress = { item ->
+                        viewModel.posterOptions.show(item, viewModel.preferredAddonBaseUrl)
+                    }
                 )
             }
         }
@@ -831,7 +835,11 @@ fun MetaDetailsScreen(
         state = posterOptionsState,
         controller = viewModel.posterOptions,
         onNavigateToDetail = { id, type, addonBaseUrl ->
-            onNavigateToDetail(id, type, addonBaseUrl.takeIf { it.isNotBlank() })
+            onNavigateToDetail(
+                id,
+                type,
+                addonBaseUrl.takeIf { it.isNotBlank() } ?: viewModel.preferredAddonBaseUrl
+            )
         }
     )
 }

@@ -38,7 +38,7 @@ class CastDetailViewModel @Inject constructor(
     }
     private val preferCrew: Boolean = savedStateHandle.get<Boolean>("preferCrew") ?: false
     // Navigation already URL-decodes route query args (see MetaDetailsViewModel).
-    private val sourceAddonBaseUrl: String = savedStateHandle.get<String>("sourceAddonBaseUrl").orEmpty()
+    val sourceAddonBaseUrl: String = savedStateHandle.get<String>("sourceAddonBaseUrl").orEmpty()
 
     private var resolvedTmdbSettings: TmdbSettingsDataStore? = null
 

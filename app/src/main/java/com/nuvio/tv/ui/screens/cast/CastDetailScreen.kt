@@ -115,7 +115,13 @@ fun CastDetailScreen(
                 is CastDetailUiState.Success -> {
                     CastDetailContent(
                         person = state.personDetail,
-                        onNavigateToDetail = onNavigateToDetail,
+                        onNavigateToDetail = { id, type, url ->
+                            onNavigateToDetail(
+                                id,
+                                type,
+                                url ?: viewModel.sourceAddonBaseUrl.takeIf { it.isNotBlank() }
+                            )
+                        },
                         posterOptions = viewModel.posterOptions
                     )
                 }
@@ -127,7 +133,12 @@ fun CastDetailScreen(
             state = posterOptionsState,
             controller = viewModel.posterOptions,
             onNavigateToDetail = { id, type, addonBaseUrl ->
-                onNavigateToDetail(id, type, addonBaseUrl.takeIf { it.isNotBlank() })
+                onNavigateToDetail(
+                    id,
+                    type,
+                    addonBaseUrl.takeIf { it.isNotBlank() }
+                        ?: viewModel.sourceAddonBaseUrl.takeIf { it.isNotBlank() }
+                )
             }
         )
     }

@@ -50,7 +50,7 @@ class TmdbEntityBrowseViewModel @Inject constructor(
     }
     val sourceType: String = savedStateHandle.get<String>("sourceType").orEmpty()
     // Navigation already URL-decodes route query args (see MetaDetailsViewModel).
-    private val sourceAddonBaseUrl: String = savedStateHandle.get<String>("sourceAddonBaseUrl").orEmpty()
+    val sourceAddonBaseUrl: String = savedStateHandle.get<String>("sourceAddonBaseUrl").orEmpty()
 
     private var resolvedTmdbSettings: TmdbSettingsDataStore? = null
 

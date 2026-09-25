@@ -136,9 +136,18 @@ fun TmdbEntityBrowseScreen(
                         sourceType = viewModel.sourceType,
                         watchedMovieIds = watchedMovieIds,
                         watchedSeriesIds = watchedSeriesIds,
-                        onNavigateToDetail = onNavigateToDetail,
+                        onNavigateToDetail = { id, type, url ->
+                            onNavigateToDetail(
+                                id,
+                                type,
+                                url ?: viewModel.sourceAddonBaseUrl.takeIf { it.isNotBlank() }
+                            )
+                        },
                         onItemLongPress = { item ->
-                            viewModel.posterOptions.show(item, null)
+                            viewModel.posterOptions.show(
+                                item,
+                                viewModel.sourceAddonBaseUrl.takeIf { it.isNotBlank() }
+                            )
                         },
                         onLoadMoreRail = { mediaType, railType ->
                             viewModel.loadMoreRail(mediaType = mediaType, railType = railType)
@@ -153,7 +162,12 @@ fun TmdbEntityBrowseScreen(
             state = posterOptionsState,
             controller = viewModel.posterOptions,
             onNavigateToDetail = { id, type, addonBaseUrl ->
-                onNavigateToDetail(id, type, addonBaseUrl.takeIf { it.isNotBlank() })
+                onNavigateToDetail(
+                    id,
+                    type,
+                    addonBaseUrl.takeIf { it.isNotBlank() }
+                        ?: viewModel.sourceAddonBaseUrl.takeIf { it.isNotBlank() }
+                )
             }
         )
     }
