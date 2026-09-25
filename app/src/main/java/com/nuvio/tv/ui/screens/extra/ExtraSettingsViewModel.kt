@@ -204,6 +204,7 @@ class ExtraSettingsViewModel @Inject constructor(
             reordered.removeAt(index)
             reordered.add(index - 1, current[index])
             extraAddonRepository.setExtraAddonOrder(reordered.map { it.baseUrl })
+            syncCatalogOrderAfterAddonReorder(reordered)
         }
     }
 
@@ -217,7 +218,38 @@ class ExtraSettingsViewModel @Inject constructor(
             reordered.removeAt(index)
             reordered.add(index + 1, current[index])
             extraAddonRepository.setExtraAddonOrder(reordered.map { it.baseUrl })
+            syncCatalogOrderAfterAddonReorder(reordered)
         }
+    }
+
+    /**
+     * The Extra tab orders rows from `extra_layout/home_catalog_order_keys` whenever that list
+     * is non-empty, so a bare addon reorder would be silently ignored. Regroup the saved catalog
+     * keys by addon following the new addon order (keeping the saved relative order inside each
+     * addon), dropping keys that no longer belong to any addon.
+     */
+    private suspend fun syncCatalogOrderAfterAddonReorder(reordered: List<Addon>) {
+        val saved = extraCatalogOrderKeys
+        if (saved.isEmpty()) return
+
+        val keysByAddon = reordered.associateWith { addon ->
+            addon.catalogs
+                .filterNot { catalog ->
+                    catalog.extra.any { prop -> prop.name.equals("search", ignoreCase = true) && prop.isRequired }
+                }
+                .map { catalog -> homeCatalogKey(addon.id, catalog.apiType, catalog.id) }
+                .toSet()
+        }
+        val rebuilt = ArrayList<String>(saved.size)
+        val seen = HashSet<String>()
+        reordered.forEach { addon ->
+            val addonKeys = keysByAddon[addon].orEmpty()
+            saved.forEach { key ->
+                if (key in addonKeys && seen.add(key)) rebuilt.add(key)
+            }
+        }
+        if (rebuilt.isEmpty() || rebuilt == saved) return
+        extraLayoutPreferenceDataStore.setHomeCatalogOrderKeys(rebuilt)
     }
 
     fun setAddonEnabled(url: String, enabled: Boolean) {
@@ -232,7 +264,7 @@ class ExtraSettingsViewModel @Inject constructor(
         _uiState.update { it.copy(isRefreshing = true, error = null) }
         viewModelScope.launch {
             try {
-                extraAddonRepository.getInstalledExtraAddons().first()
+                extraAddonRepository.refreshExtraAddons()
             } catch (e: Exception) {
                 Log.e("ExtraSettingsViewModel", "Failed to refresh addons", e)
                 _uiState.update { it.copy(error = context.getString(R.string.extra_settings_refresh_failed)) }
@@ -567,8 +599,13 @@ class ExtraSettingsViewModel @Inject constructor(
             disabledKeys = extraDisabledCatalogKeys
         )
         val availableCatalogKeys = availableCatalogEntries.map { it.key }.toSet()
-        val collectionKeys = currentCollections.map { "collection_${it.id}" }.toSet()
-        val allValidOrderKeys = availableCatalogKeys + collectionKeys
+        // Nothing validated (e.g. phone page state didn't match the TV addon set):
+        // writing now would wipe the stored order/disabled lists with empty ones.
+        if (availableCatalogKeys.isEmpty()) return
+        // The Extra home builds rows from addon catalogs only (no collection rows),
+        // so `collection_*` keys must never be persisted into the extra order list
+        // (they'd be dead entries the Extra tab ignores).
+        val allValidOrderKeys = availableCatalogKeys
 
         val validCatalogOrder = pending.proposedCatalogOrderKeys
             .asSequence()
@@ -581,6 +618,9 @@ class ExtraSettingsViewModel @Inject constructor(
             .distinct()
             .toList()
 
+        // A non-empty proposal that filtered down to nothing means the phone sent
+        // keys this TV can't map - keep the current order instead of resetting it.
+        if (validCatalogOrder.isEmpty() && pending.proposedCatalogOrderKeys.isNotEmpty()) return
         extraLayoutPreferenceDataStore.setHomeCatalogOrderKeys(validCatalogOrder)
         extraLayoutPreferenceDataStore.setDisabledHomeCatalogKeys(validDisabledCatalogs)
     }

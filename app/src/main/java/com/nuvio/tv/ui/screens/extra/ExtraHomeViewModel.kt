@@ -68,6 +68,9 @@ class ExtraHomeViewModel @Inject constructor(
     internal val watchProgressRepository: WatchProgressRepository,
     internal val metaRepository: MetaRepository,
     @Named("extra_layout") internal val layoutPreferenceDataStore: LayoutPreferenceDataStore,
+    // Tab identity (name/logo/visibility) lives in the default store — that's where
+    // ExtraHubViewModel writes it and MainActivity reads it for the drawer.
+    internal val defaultLayoutPreferenceDataStore: LayoutPreferenceDataStore,
     @Named("extra_cw_cache") internal val extraCwEnrichmentCache: ContinueWatchingEnrichmentCache,
     @Named("extra_tmdb") internal val extraTmdbSettingsDataStore: TmdbSettingsDataStore,
     @Named("extra_mdblist") internal val extraMdbListSettingsDataStore: MDBListSettingsDataStore,
@@ -122,8 +125,6 @@ class ExtraHomeViewModel @Inject constructor(
     private var catalogTypeSuffixEnabled = true
     private var hideUnreleasedContent = false
     private var followAddonsOrder = false
-    private var modernLandscapePostersEnabled = false
-    private var modernHeroFullScreenBackdropEnabled = false
     private var classicFocusGradientEnabled = false
     private var continueWatchingCardStyle = ContinueWatchingCardStyle.CARD
     private var useEpisodeThumbnailsInCw = true
@@ -135,8 +136,6 @@ class ExtraHomeViewModel @Inject constructor(
     private var catalogAddonNameEnabled = false
     private var focusedPosterBackdropExpandEnabled = false
     private var focusedPosterBackdropExpandDelaySeconds = 3
-    private var focusedPosterBackdropTrailerEnabled = false
-    private var focusedPosterBackdropTrailerMuted = true
 
     init {
         observeLayoutPreferences()
@@ -148,7 +147,7 @@ class ExtraHomeViewModel @Inject constructor(
 
     private fun observeTabName() {
         viewModelScope.launch {
-            layoutPreferenceDataStore.extraTabName.collectLatest { name ->
+            defaultLayoutPreferenceDataStore.extraTabName.collectLatest { name ->
                 _uiState.update { it.copy(extraTabName = name) }
             }
         }
@@ -199,7 +198,6 @@ class ExtraHomeViewModel @Inject constructor(
                         } else {
                             state.copy(
                                 heroItems = cached,
-                                heroItem = cached.firstOrNull() ?: state.heroItem
                             )
                         }
                     }
@@ -215,7 +213,6 @@ class ExtraHomeViewModel @Inject constructor(
                 } else {
                     state.copy(
                         heroItems = enrichedItems,
-                        heroItem = enrichedItems.firstOrNull() ?: state.heroItem
                     )
                 }
             }
@@ -253,14 +250,10 @@ class ExtraHomeViewModel @Inject constructor(
             }
             val viewSnapshotFlow = combine(
                 baseSnapshotFlow,
-                layoutPreferenceDataStore.modernLandscapePostersEnabled,
-                layoutPreferenceDataStore.modernHeroFullScreenBackdropEnabled,
                 layoutPreferenceDataStore.classicFocusGradientEnabled,
                 layoutPreferenceDataStore.continueWatchingCardStyle
-            ) { snapshot, landscape, fullscreenBackdrop, focusGradient, cardStyle ->
+            ) { snapshot, focusGradient, cardStyle ->
                 snapshot.copy(
-                    modernLandscapePostersEnabled = landscape,
-                    modernHeroFullScreenBackdropEnabled = fullscreenBackdrop,
                     classicFocusGradientEnabled = focusGradient,
                     continueWatchingCardStyle = cardStyle
                 )
@@ -268,23 +261,15 @@ class ExtraHomeViewModel @Inject constructor(
             val focusedPosterSnapshotFlow = combine(
                 viewSnapshotFlow,
                 layoutPreferenceDataStore.focusedPosterBackdropExpandEnabled,
-                layoutPreferenceDataStore.focusedPosterBackdropExpandDelaySeconds,
-                layoutPreferenceDataStore.focusedPosterBackdropTrailerEnabled
-            ) { snapshot, backdropExpand, backdropExpandDelay, trailerEnabled ->
+                layoutPreferenceDataStore.focusedPosterBackdropExpandDelaySeconds
+            ) { snapshot, backdropExpand, backdropExpandDelay ->
                 snapshot.copy(
                     focusedPosterBackdropExpandEnabled = backdropExpand,
-                    focusedPosterBackdropExpandDelaySeconds = backdropExpandDelay,
-                    focusedPosterBackdropTrailerEnabled = trailerEnabled
+                    focusedPosterBackdropExpandDelaySeconds = backdropExpandDelay
                 )
             }
-            val focusedPosterMutedFlow = combine(
-                focusedPosterSnapshotFlow,
-                layoutPreferenceDataStore.focusedPosterBackdropTrailerMuted
-            ) { snapshot, trailerMuted ->
-                snapshot.copy(focusedPosterBackdropTrailerMuted = trailerMuted)
-            }
             val cardStyleSnapshotFlow = combine(
-                focusedPosterMutedFlow,
+                focusedPosterSnapshotFlow,
                 layoutPreferenceDataStore.posterCardWidthDp,
                 layoutPreferenceDataStore.posterCardHeightDp,
                 layoutPreferenceDataStore.posterCardCornerRadiusDp,
@@ -326,8 +311,6 @@ class ExtraHomeViewModel @Inject constructor(
                 catalogTypeSuffixEnabled = snapshot.catalogTypeSuffixEnabled
                 hideUnreleasedContent = snapshot.hideUnreleasedContent
                 followAddonsOrder = snapshot.followAddonsOrder
-                modernLandscapePostersEnabled = snapshot.modernLandscapePostersEnabled
-                modernHeroFullScreenBackdropEnabled = snapshot.modernHeroFullScreenBackdropEnabled
                 classicFocusGradientEnabled = snapshot.classicFocusGradientEnabled
                 continueWatchingCardStyle = snapshot.continueWatchingCardStyle
                 useEpisodeThumbnailsInCw = snapshot.useEpisodeThumbnailsInCw
@@ -339,8 +322,6 @@ class ExtraHomeViewModel @Inject constructor(
                 catalogAddonNameEnabled = snapshot.catalogAddonNameEnabled
                 focusedPosterBackdropExpandEnabled = snapshot.focusedPosterBackdropExpandEnabled
                 focusedPosterBackdropExpandDelaySeconds = snapshot.focusedPosterBackdropExpandDelaySeconds
-                focusedPosterBackdropTrailerEnabled = snapshot.focusedPosterBackdropTrailerEnabled
-                focusedPosterBackdropTrailerMuted = snapshot.focusedPosterBackdropTrailerMuted
                 publishRows()
             }
         }
@@ -355,8 +336,6 @@ class ExtraHomeViewModel @Inject constructor(
         val catalogTypeSuffixEnabled: Boolean = true,
         val hideUnreleasedContent: Boolean = false,
         val followAddonsOrder: Boolean = false,
-        val modernLandscapePostersEnabled: Boolean = false,
-        val modernHeroFullScreenBackdropEnabled: Boolean = false,
         val classicFocusGradientEnabled: Boolean = false,
         val continueWatchingCardStyle: ContinueWatchingCardStyle = ContinueWatchingCardStyle.CARD,
         val useEpisodeThumbnailsInCw: Boolean = true,
@@ -367,9 +346,7 @@ class ExtraHomeViewModel @Inject constructor(
         val posterLabelsEnabled: Boolean = true,
         val catalogAddonNameEnabled: Boolean = false,
         val focusedPosterBackdropExpandEnabled: Boolean = false,
-        val focusedPosterBackdropExpandDelaySeconds: Int = 3,
-        val focusedPosterBackdropTrailerEnabled: Boolean = false,
-        val focusedPosterBackdropTrailerMuted: Boolean = true
+        val focusedPosterBackdropExpandDelaySeconds: Int = 3
     )
 
     private fun observeExtraAddons() {
@@ -424,8 +401,11 @@ class ExtraHomeViewModel @Inject constructor(
             signature == lastCatalogLoadSignature &&
             synchronized(rows) { rows.isNotEmpty() }
         ) {
+            // Keep `error` untouched: if the stored rows are all itemless
+            // (every load failed), clearing it would swap the Retry branch
+            // for the generic empty state.
             _uiState.update {
-                it.copy(isLoading = false, error = null, installedAddonsCount = addons.size)
+                it.copy(isLoading = false, installedAddonsCount = addons.size)
             }
             return
         }
@@ -706,14 +686,6 @@ class ExtraHomeViewModel @Inject constructor(
         }
     }
 
-    fun refreshCatalogs() {
-        val enabled = lastAddons.filter { it.enabled }
-        if (enabled.isEmpty()) return
-        viewModelScope.launch {
-            loadAllCatalogs(enabled, forceReload = true)
-        }
-    }
-
     private fun publishRows() {
         Log.d(TAG, "publishRows: homeLayout=$homeLayout, rows=${synchronized(rows) { rows.size }}")
         val snapshot = synchronized(rows) { rows.values.toList() }
@@ -730,21 +702,18 @@ class ExtraHomeViewModel @Inject constructor(
             _fullCatalogRows.value = released
         }
         val filtered = released.filter { it.items.isNotEmpty() }
-        val heroRow = computeHeroRow(visibleRows = filtered, allRows = snapshot)
+        val heroRow = computeHeroRow(visibleRows = filtered, allRows = snapshot, today = today)
         val heroItems = heroRow?.items.orEmpty()
 
         _uiState.update { state ->
             val updated = state.copy(
                 rows = filtered,
                 heroEnabled = heroSectionEnabled,
-                heroItem = heroRow?.items?.firstOrNull(),
                 heroItems = heroItems,
                 heroAddonBaseUrl = heroRow?.addonBaseUrl,
                 homeLayout = homeLayout,
                 catalogTypeSuffixEnabled = catalogTypeSuffixEnabled,
                 hideUnreleasedContent = hideUnreleasedContent,
-                modernLandscapePostersEnabled = modernLandscapePostersEnabled,
-                modernHeroFullScreenBackdropEnabled = modernHeroFullScreenBackdropEnabled,
                 classicFocusGradientEnabled = classicFocusGradientEnabled,
                 continueWatchingCardStyle = continueWatchingCardStyle,
                 useEpisodeThumbnailsInCw = useEpisodeThumbnailsInCw,
@@ -755,9 +724,7 @@ class ExtraHomeViewModel @Inject constructor(
                 posterLabelsEnabled = posterLabelsEnabled,
                 catalogAddonNameEnabled = catalogAddonNameEnabled,
                 focusedPosterBackdropExpandEnabled = focusedPosterBackdropExpandEnabled,
-                focusedPosterBackdropExpandDelaySeconds = focusedPosterBackdropExpandDelaySeconds,
-                focusedPosterBackdropTrailerEnabled = focusedPosterBackdropTrailerEnabled,
-                focusedPosterBackdropTrailerMuted = focusedPosterBackdropTrailerMuted
+                focusedPosterBackdropExpandDelaySeconds = focusedPosterBackdropExpandDelaySeconds
             )
             if (updated == state) state else updated
         }
@@ -804,7 +771,11 @@ class ExtraHomeViewModel @Inject constructor(
         return ordered
     }
 
-    private fun computeHeroRow(visibleRows: List<CatalogRow>, allRows: List<CatalogRow>): CatalogRow? {
+    private fun computeHeroRow(
+        visibleRows: List<CatalogRow>,
+        allRows: List<CatalogRow>,
+        today: java.time.LocalDate
+    ): CatalogRow? {
         if (!heroSectionEnabled) return null
         fun isRealRow(row: CatalogRow): Boolean =
             row.items.isNotEmpty() &&
@@ -819,6 +790,8 @@ class ExtraHomeViewModel @Inject constructor(
             val heroOnlyRows = allRows.filter { row ->
                 val key = homeCatalogKey(row.addonId, row.rawType, row.catalogId)
                 key in heroCatalogKeys && key !in visibleKeys
+            }.let { selected ->
+                if (hideUnreleasedContent) selected.map { it.filterReleasedItems(today) } else selected
             }
             val candidates = visibleRows + heroOnlyRows
             for (key in heroCatalogKeys) {

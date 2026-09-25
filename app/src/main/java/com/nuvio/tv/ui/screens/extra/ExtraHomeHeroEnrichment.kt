@@ -1,84 +1,16 @@
 package com.nuvio.tv.ui.screens.extra
 
-import com.nuvio.tv.core.network.NetworkResult
 import com.nuvio.tv.core.tmdb.TmdbEnrichment
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.MDBListSettings
-import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.TmdbSettings
-import com.nuvio.tv.data.repository.buildAddonIdCandidates
 import com.nuvio.tv.ui.screens.home.CwMetaSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
-import java.util.concurrent.ConcurrentHashMap
-
-private const val EXTRA_HERO_ENRICHMENT_TIMEOUT_MS = 6_000L
-private const val EXTRA_HERO_ENRICHMENT_CACHE_MAX_SIZE = 64
-
-private val extraHeroEnrichmentCache = ConcurrentHashMap<String, MetaPreview?>()
-
-internal fun extraHeroEnrichmentCacheKey(item: MetaPreview): String {
-    return "${item.apiType}:${item.id}"
-}
-
-private fun hasEssentialHeroFields(item: MetaPreview): Boolean {
-    return !item.logo.isNullOrBlank() &&
-        !item.status.isNullOrBlank() &&
-        !item.language.isNullOrBlank() &&
-        !item.releaseInfo.isNullOrBlank()
-}
-
-internal suspend fun ExtraHomeViewModel.enrichExtraHeroItem(item: MetaPreview): MetaPreview? {
-    if (item.id.startsWith("__placeholder_")) return item
-    if (hasEssentialHeroFields(item)) return applyExtraHeroExternalEnrichment(item)
-    val key = extraHeroEnrichmentCacheKey(item)
-    extraHeroEnrichmentCache[key]?.let { cached ->
-        return applyExtraHeroExternalEnrichment(cached)
-    }
-    if (extraHeroEnrichmentCache.size >= EXTRA_HERO_ENRICHMENT_CACHE_MAX_SIZE) {
-        extraHeroEnrichmentCache.clear()
-    }
-
-    val idCandidates = buildAddonIdCandidates(item.id, item.rawType)
-
-    suspend fun tryResolve(useAllAddons: Boolean): Meta? {
-        for ((candidateType, candidateId) in idCandidates) {
-            val result = runCatching {
-                withTimeoutOrNull(EXTRA_HERO_ENRICHMENT_TIMEOUT_MS) {
-                    val flow = if (useAllAddons) {
-                        metaRepository.getMetaFromAllAddons(
-                            type = candidateType,
-                            id = candidateId,
-                            sourceAddonBaseUrl = item.sourceAddonBaseUrl,
-                            namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA
-                        )
-                    } else {
-                        metaRepository.getMetaFromPrimaryAddon(
-                            type = candidateType,
-                            id = candidateId,
-                            namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_EXTRA
-                        )
-                    }
-                    flow.first { it !is NetworkResult.Loading }
-                }
-            }.getOrNull()
-            val meta = (result as? NetworkResult.Success<*>)?.data as? Meta
-            if (meta != null) return meta
-        }
-        return null
-    }
-
-    val resolved = tryResolve(useAllAddons = true) ?: tryResolve(useAllAddons = false)
-    val merged = resolved?.mergeIntoExtraPreview(item) ?: item
-    extraHeroEnrichmentCache[key] = merged
-    return applyExtraHeroExternalEnrichment(merged)
-}
 
 private suspend fun ExtraHomeViewModel.applyExtraHeroExternalEnrichment(item: MetaPreview): MetaPreview {
     val tmdbSettings = currentExtraTmdbSettings
@@ -312,36 +244,5 @@ internal fun ExtraHomeViewModel.extraHeroEnrichmentSignature(
         append(currentExtraTvdbSettings.language)
         append("::")
         append(itemSignature)
-    }
-}
-
-private fun Meta.mergeIntoExtraPreview(preview: MetaPreview): MetaPreview {
-    return preview.copy(
-        name = name,
-        description = description ?: preview.description,
-        logo = logo ?: preview.logo,
-        poster = poster ?: preview.poster,
-        background = background ?: preview.background,
-        landscapePoster = landscapePoster ?: preview.landscapePoster,
-        releaseInfo = releaseInfo ?: preview.releaseInfo,
-        released = released ?: preview.released,
-        imdbRating = imdbRating ?: preview.imdbRating,
-        imdbId = imdbId ?: preview.imdbId,
-        genres = if (genres.isNotEmpty()) genres else preview.genres,
-        runtime = runtime ?: preview.runtime,
-        status = status ?: preview.status,
-        ageRating = ageRating ?: preview.ageRating,
-        country = country ?: preview.country,
-        language = language ?: preview.language
-    )
-}
-
-internal fun normalizeExtraStatus(status: String?): String? {
-    if (status.isNullOrBlank()) return null
-    return when (status.trim().lowercase()) {
-        "finished", "finished airing", "complete", "completed", "aired" -> "ended"
-        "currently airing", "airing", "airing now", "ongoing", "on air", "releasing" -> "continuing"
-        "not yet aired", "upcoming", "unreleased", "tba", "to be announced", "to be determined" -> "planned"
-        else -> status.trim()
     }
 }

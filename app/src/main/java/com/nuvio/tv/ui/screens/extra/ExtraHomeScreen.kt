@@ -206,7 +206,9 @@ private fun ExtraClassicContent(
                         onItemClick = { item ->
                             onNavigateToDetail(item.id, item.rawType, uiState.heroAddonBaseUrl.orEmpty())
                         },
-                        onItemFocus = handleMetaFocus,
+                        // Same as main/anime classic heroes: the hero owns its backdrop,
+                        // clearing keeps stale catalog art from bleeding into the gradient.
+                        onItemFocus = { focusedArtwork = null },
                         modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)
                     )
                 }
@@ -265,8 +267,6 @@ private fun ExtraClassicContent(
                     showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
                     focusedPosterBackdropExpandEnabled = uiState.focusedPosterBackdropExpandEnabled,
                     focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,
-                    focusedPosterBackdropTrailerEnabled = uiState.focusedPosterBackdropTrailerEnabled,
-                    focusedPosterBackdropTrailerMuted = uiState.focusedPosterBackdropTrailerMuted,
                     onItemFocus = handleMetaFocus
                 )
             }
@@ -356,9 +356,7 @@ private fun ExtraModernContent(
                 showAddonName = uiState.catalogAddonNameEnabled,
                 showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
                 focusedPosterBackdropExpandEnabled = uiState.focusedPosterBackdropExpandEnabled,
-                focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,
-                focusedPosterBackdropTrailerEnabled = uiState.focusedPosterBackdropTrailerEnabled,
-                focusedPosterBackdropTrailerMuted = uiState.focusedPosterBackdropTrailerMuted
+                focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds
             )
         }
     }
@@ -394,10 +392,26 @@ private fun ExtraGridContent(
             }
         }
 
-        if (uiState.continueWatchingItems.isNotEmpty() || uiState.upcomingItems.isNotEmpty()) {
+        if (uiState.continueWatchingItems.isNotEmpty()) {
             item(key = "extra_continue_watching") {
                 GridContinueWatchingSection(
-                    items = uiState.continueWatchingItems + uiState.upcomingItems,
+                    items = uiState.continueWatchingItems,
+                    title = stringResource(R.string.continue_watching),
+                    onItemClick = onContinueWatchingClick,
+                    onRemoveItem = onRemoveContinueWatching,
+                    onStartFromBeginning = onContinueWatchingStartFromBeginning,
+                    cardStyle = uiState.continueWatchingCardStyle,
+                    blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
+                    useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw
+                )
+            }
+        }
+
+        if (uiState.upcomingItems.isNotEmpty()) {
+            item(key = "extra_upcoming") {
+                GridContinueWatchingSection(
+                    items = uiState.upcomingItems,
+                    title = stringResource(R.string.cw_upcoming),
                     onItemClick = onContinueWatchingClick,
                     onRemoveItem = onRemoveContinueWatching,
                     onStartFromBeginning = onContinueWatchingStartFromBeginning,

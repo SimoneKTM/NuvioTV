@@ -930,7 +930,11 @@ fun LayoutSettingsContent(
                     onFocused = { focusedSection = LayoutSettingsSection.FOCUSED_POSTER }
                 ) {
                     val isModern = uiState.selectedLayout == HomeLayout.MODERN
-                    val isModernLandscape = isModern && uiState.modernLandscapePostersEnabled
+                    // Extra never renders landscape posters (its home doesn't consume the
+                    // flag), so a stale true in the extra store must not hide the
+                    // expand toggle + delay slider below.
+                    val isModernLandscape = isModern && !isExtraLayout &&
+                        uiState.modernLandscapePostersEnabled
                     // The Extra tab has no trailer pipeline (no preview URLs,
                     // no playback target), so its trailer rows would be dead toggles.
                     val showAutoplayRow = !isExtraLayout &&

@@ -452,8 +452,11 @@ class AnimeHomeViewModel @Inject constructor(
             signature == lastCatalogLoadSignature &&
             synchronized(rows) { rows.isNotEmpty() }
         ) {
+            // Keep `error` untouched: if the stored rows are all itemless
+            // (every load failed), clearing it would swap the Retry branch
+            // for the generic empty state.
             _uiState.update {
-                it.copy(isLoading = false, error = null, installedAddonsCount = addons.size)
+                it.copy(isLoading = false, installedAddonsCount = addons.size)
             }
             return
         }

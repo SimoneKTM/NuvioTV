@@ -16,14 +16,11 @@ data class ExtraHomeUiState(
     val error: String? = null,
     val installedAddonsCount: Int = 0,
     val heroEnabled: Boolean = true,
-    val heroItem: MetaPreview? = null,
     val heroItems: List<MetaPreview> = emptyList(),
     val heroAddonBaseUrl: String? = null,
     val homeLayout: HomeLayout = HomeLayout.MODERN,
     val catalogTypeSuffixEnabled: Boolean = true,
     val hideUnreleasedContent: Boolean = false,
-    val modernLandscapePostersEnabled: Boolean = false,
-    val modernHeroFullScreenBackdropEnabled: Boolean = false,
     val classicFocusGradientEnabled: Boolean = false,
     val continueWatchingCardStyle: ContinueWatchingCardStyle = ContinueWatchingCardStyle.CARD,
     val useEpisodeThumbnailsInCw: Boolean = true,
@@ -35,8 +32,6 @@ data class ExtraHomeUiState(
     val catalogAddonNameEnabled: Boolean = false,
     val focusedPosterBackdropExpandEnabled: Boolean = false,
     val focusedPosterBackdropExpandDelaySeconds: Int = 3,
-    val focusedPosterBackdropTrailerEnabled: Boolean = false,
-    val focusedPosterBackdropTrailerMuted: Boolean = true,
     val extraTabName: String = ""
 )
 

@@ -228,6 +228,7 @@ private suspend fun ExtraHomeViewModel.buildExtraContinueWatching(snapshot: Extr
                             position = cached.position,
                             duration = cached.duration,
                             lastWatched = cached.lastWatched,
+                            addonBaseUrl = cached.addonBaseUrl,
                             progressPercent = cached.progressPercent
                         ),
                         episodeThumbnail = cached.episodeThumbnail,
@@ -1502,7 +1503,8 @@ private fun NextUpInfo.toExtraProgressSeed(): WatchProgress {
         episodeTitle = episodeTitle,
         position = 1L,
         duration = 1L,
-        lastWatched = lastWatched
+        lastWatched = lastWatched,
+        addonBaseUrl = addonBaseUrl
     )
 }
 
