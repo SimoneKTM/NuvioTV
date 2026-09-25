@@ -13,7 +13,7 @@ class ExtraTmdbSettingsViewModel @Inject constructor(
     @Named("extra_tmdb") dataStore: TmdbSettingsDataStore,
     trailerService: TrailerService,
     metaRepository: MetaRepository,
-    cwEnrichmentCache: ContinueWatchingEnrichmentCache
+    @Named("extra_cw_cache") cwEnrichmentCache: ContinueWatchingEnrichmentCache
 ) : TmdbSettingsViewModel(
     dataStore = dataStore,
     trailerService = trailerService,

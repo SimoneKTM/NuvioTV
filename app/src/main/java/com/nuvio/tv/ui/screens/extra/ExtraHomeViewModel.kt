@@ -143,6 +143,31 @@ class ExtraHomeViewModel @Inject constructor(
         observeExtraContinueWatching()
         observeExtraEnrichmentSettings()
         observeTabName()
+        observeCwCacheCleared()
+    }
+
+    // Observe manual cache clear from the extra TMDB settings (Release dates toggle).
+    private fun observeCwCacheCleared() {
+        viewModelScope.launch {
+            var lastSeen = extraCwEnrichmentCache.cacheCleared.value
+            extraCwEnrichmentCache.cacheCleared.collect { version ->
+                if (version != lastSeen) {
+                    lastSeen = version
+                    clearAllExtraCwInMemoryCaches()
+                }
+            }
+        }
+    }
+
+    private fun clearAllExtraCwInMemoryCaches() {
+        extraCwMetaCache.clear()
+        extraCwMetaNegativeCacheTimestamps.clear()
+        extraCwNextUpResolutionCache.clear()
+        extraCwNextUpNegativeCacheTimestamps.clear()
+        extraDiscoveredOlderNextUpItems.clear()
+        extraCwLastProcessedNextUpContentIds.clear()
+        extraCwEnrichedNextUpOverlay.clear()
+        extraCwEnrichedInProgressOverlay.clear()
     }
 
     private fun observeTabName() {

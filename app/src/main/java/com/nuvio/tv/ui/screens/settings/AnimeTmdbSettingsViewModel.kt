@@ -13,7 +13,7 @@ class AnimeTmdbSettingsViewModel @Inject constructor(
     @Named("anime_tmdb") dataStore: TmdbSettingsDataStore,
     trailerService: TrailerService,
     metaRepository: MetaRepository,
-    cwEnrichmentCache: ContinueWatchingEnrichmentCache
+    @Named("anime_cw_cache") cwEnrichmentCache: ContinueWatchingEnrichmentCache
 ) : TmdbSettingsViewModel(
     dataStore = dataStore,
     trailerService = trailerService,

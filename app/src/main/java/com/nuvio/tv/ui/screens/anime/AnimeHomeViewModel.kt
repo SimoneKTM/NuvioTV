@@ -159,6 +159,31 @@ class AnimeHomeViewModel @Inject constructor(
         observeAnimeAddons()
         observeAnimeContinueWatching()
         observeAnimeEnrichmentSettings()
+        observeCwCacheCleared()
+    }
+
+    // Observe manual cache clear from the anime TMDB settings (Release dates toggle).
+    private fun observeCwCacheCleared() {
+        viewModelScope.launch {
+            var lastSeen = animeCwEnrichmentCache.cacheCleared.value
+            animeCwEnrichmentCache.cacheCleared.collect { version ->
+                if (version != lastSeen) {
+                    lastSeen = version
+                    clearAllAnimeCwInMemoryCaches()
+                }
+            }
+        }
+    }
+
+    private fun clearAllAnimeCwInMemoryCaches() {
+        animeCwMetaCache.clear()
+        animeCwMetaNegativeCacheTimestamps.clear()
+        animeCwNextUpResolutionCache.clear()
+        animeCwNextUpNegativeCacheTimestamps.clear()
+        animeDiscoveredOlderNextUpItems.clear()
+        animeCwLastProcessedNextUpContentIds.clear()
+        animeCwEnrichedNextUpOverlay.clear()
+        animeCwEnrichedInProgressOverlay.clear()
     }
 
     private fun observeAnimeEnrichmentSettings() {
