@@ -325,7 +325,10 @@ fun CatalogSeeAllScreen(
                             val isSeries = item.apiType.equals("series", ignoreCase = true) || item.apiType.equals("tv", ignoreCase = true)
                             if (isSeries) item.id in (searchWatchedSeriesIds?.value ?: emptySet())
                             else item.id in (searchWatchedMovieIds?.value ?: emptySet())
-                        } else if (isAnimeMode) {
+                        } else if (isAnimeMode || isExtraMode) {
+                            // Anime ids don't match the home store's keys, and the Extra tab
+                            // renders no watched badges anywhere else either — don't fall
+                            // through to the main home store for either tab.
                             false
                         } else {
                             uiState.movieWatchedStatus[

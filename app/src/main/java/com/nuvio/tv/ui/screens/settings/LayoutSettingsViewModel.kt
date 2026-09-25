@@ -169,6 +169,9 @@ open class LayoutSettingsViewModel @Inject constructor(
 
     open val homeOnlyLayout: Boolean = false
 
+    /** True for the Extra tab: gates settings rows that tab has no pipeline for. */
+    open val isExtraLayout: Boolean = false
+
     protected inline fun updateUiStateIfChanged(
         update: (LayoutSettingsUiState) -> LayoutSettingsUiState
     ) {

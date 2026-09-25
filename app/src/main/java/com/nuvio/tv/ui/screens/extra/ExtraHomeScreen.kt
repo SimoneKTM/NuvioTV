@@ -125,21 +125,24 @@ fun ExtraHomeScreen(
                         onNavigateToDetail = onNavigateToDetail,
                         onNavigateToSeeAll = onNavigateToSeeAll,
                         onContinueWatchingClick = onContinueWatchingClick,
-                        onRemoveContinueWatching = onRemoveContinueWatching
+                        onRemoveContinueWatching = onRemoveContinueWatching,
+                        onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning
                     )
                     HomeLayout.CLASSIC -> ExtraClassicContent(
                         uiState = uiState,
                         onNavigateToDetail = onNavigateToDetail,
                         onNavigateToSeeAll = onNavigateToSeeAll,
                         onContinueWatchingClick = onContinueWatchingClick,
-                        onRemoveContinueWatching = onRemoveContinueWatching
+                        onRemoveContinueWatching = onRemoveContinueWatching,
+                        onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning
                     )
                     HomeLayout.GRID -> ExtraGridContent(
                         uiState = uiState,
                         onNavigateToDetail = onNavigateToDetail,
                         onNavigateToSeeAll = onNavigateToSeeAll,
                         onContinueWatchingClick = onContinueWatchingClick,
-                        onRemoveContinueWatching = onRemoveContinueWatching
+                        onRemoveContinueWatching = onRemoveContinueWatching,
+                        onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning
                     )
                 }
             }
@@ -168,7 +171,8 @@ private fun ExtraClassicContent(
     onNavigateToDetail: (String, String, String) -> Unit,
     onNavigateToSeeAll: (String, String, String) -> Unit,
     onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
-    onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
+    onRemoveContinueWatching: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit
 ) {
     var focusedArtwork by remember { mutableStateOf<ClassicFocusArtwork?>(null) }
     LaunchedEffect(uiState.classicFocusGradientEnabled) {
@@ -202,6 +206,7 @@ private fun ExtraClassicContent(
                         onItemClick = { item ->
                             onNavigateToDetail(item.id, item.rawType, uiState.heroAddonBaseUrl.orEmpty())
                         },
+                        onItemFocus = handleMetaFocus,
                         modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)
                     )
                 }
@@ -214,6 +219,7 @@ private fun ExtraClassicContent(
                         title = stringResource(R.string.continue_watching),
                         onItemClick = onContinueWatchingClick,
                         onRemoveItem = onRemoveContinueWatching,
+                        onStartFromBeginning = onContinueWatchingStartFromBeginning,
                         cardWidth = posterCardStyle.width,
                         imageHeight = posterCardStyle.height,
                         cardStyle = uiState.continueWatchingCardStyle,
@@ -231,6 +237,7 @@ private fun ExtraClassicContent(
                         title = stringResource(R.string.cw_upcoming),
                         onItemClick = onContinueWatchingClick,
                         onRemoveItem = onRemoveContinueWatching,
+                        onStartFromBeginning = onContinueWatchingStartFromBeginning,
                         cardWidth = posterCardStyle.width,
                         imageHeight = posterCardStyle.height,
                         cardStyle = uiState.continueWatchingCardStyle,
@@ -274,7 +281,8 @@ private fun ExtraModernContent(
     onNavigateToDetail: (String, String, String) -> Unit,
     onNavigateToSeeAll: (String, String, String) -> Unit,
     onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
-    onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
+    onRemoveContinueWatching: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit
 ) {
     val posterCardStyle = extraPosterCardStyle(uiState)
 
@@ -303,6 +311,7 @@ private fun ExtraModernContent(
                     title = stringResource(R.string.continue_watching),
                     onItemClick = onContinueWatchingClick,
                     onRemoveItem = onRemoveContinueWatching,
+                    onStartFromBeginning = onContinueWatchingStartFromBeginning,
                     cardWidth = posterCardStyle.width,
                     imageHeight = posterCardStyle.height,
                     cardStyle = uiState.continueWatchingCardStyle,
@@ -320,6 +329,7 @@ private fun ExtraModernContent(
                     title = stringResource(R.string.cw_upcoming),
                     onItemClick = onContinueWatchingClick,
                     onRemoveItem = onRemoveContinueWatching,
+                    onStartFromBeginning = onContinueWatchingStartFromBeginning,
                     cardWidth = posterCardStyle.width,
                     imageHeight = posterCardStyle.height,
                     cardStyle = uiState.continueWatchingCardStyle,
@@ -345,7 +355,7 @@ private fun ExtraModernContent(
                 showPosterLabels = uiState.posterLabelsEnabled,
                 showAddonName = uiState.catalogAddonNameEnabled,
                 showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
-                focusedPosterBackdropExpandEnabled = true,
+                focusedPosterBackdropExpandEnabled = uiState.focusedPosterBackdropExpandEnabled,
                 focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,
                 focusedPosterBackdropTrailerEnabled = uiState.focusedPosterBackdropTrailerEnabled,
                 focusedPosterBackdropTrailerMuted = uiState.focusedPosterBackdropTrailerMuted
@@ -361,7 +371,8 @@ private fun ExtraGridContent(
     onNavigateToDetail: (String, String, String) -> Unit,
     onNavigateToSeeAll: (String, String, String) -> Unit,
     onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
-    onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
+    onRemoveContinueWatching: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit
 ) {
     val posterCardStyle = extraPosterCardStyle(uiState)
 
@@ -389,6 +400,7 @@ private fun ExtraGridContent(
                     items = uiState.continueWatchingItems + uiState.upcomingItems,
                     onItemClick = onContinueWatchingClick,
                     onRemoveItem = onRemoveContinueWatching,
+                    onStartFromBeginning = onContinueWatchingStartFromBeginning,
                     cardStyle = uiState.continueWatchingCardStyle,
                     blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
                     useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw

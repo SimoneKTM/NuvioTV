@@ -138,6 +138,7 @@ fun LayoutSettingsContent(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val streamBadgeUiState by viewModel.streamBadgeUiState.collectAsStateWithLifecycle()
     val homeOnlyLayout = viewModel.homeOnlyLayout
+    val isExtraLayout = viewModel.isExtraLayout
     val context = LocalContext.current
 
     var homeLayoutExpanded by rememberSaveable(essentialMode) { mutableStateOf(essentialMode) }
@@ -335,7 +336,7 @@ fun LayoutSettingsContent(
                     }
                     }
 
-                    if (uiState.selectedLayout == HomeLayout.MODERN) {
+                    if (uiState.selectedLayout == HomeLayout.MODERN && !isExtraLayout) {
                         CompactToggleRow(
                             title = stringResource(R.string.layout_landscape_posters),
                             subtitle = stringResource(R.string.layout_landscape_posters_sub),
@@ -351,7 +352,7 @@ fun LayoutSettingsContent(
                         )
                     }
 
-                    if (uiState.selectedLayout == HomeLayout.MODERN) {
+                    if (uiState.selectedLayout == HomeLayout.MODERN && !isExtraLayout) {
                         CompactToggleRow(
                             title = stringResource(R.string.layout_fullscreen_hero_backdrop),
                             subtitle = stringResource(R.string.layout_fullscreen_hero_backdrop_sub),
@@ -930,7 +931,10 @@ fun LayoutSettingsContent(
                 ) {
                     val isModern = uiState.selectedLayout == HomeLayout.MODERN
                     val isModernLandscape = isModern && uiState.modernLandscapePostersEnabled
-                    val showAutoplayRow = AppFeaturePolicy.inAppTrailerPlaybackEnabled &&
+                    // The Extra tab has no trailer pipeline (no preview URLs,
+                    // no playback target), so its trailer rows would be dead toggles.
+                    val showAutoplayRow = !isExtraLayout &&
+                        AppFeaturePolicy.inAppTrailerPlaybackEnabled &&
                         (uiState.focusedPosterBackdropExpandEnabled || isModernLandscape)
 
                     if (!isModernLandscape) {

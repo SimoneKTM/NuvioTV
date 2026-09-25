@@ -35,6 +35,10 @@ class ExtraLayoutSettingsViewModel @Inject constructor(
 ) {
     override val homeOnlyLayout: Boolean = true
 
+    // The Extra tab has no trailer pipeline and its modern home ignores the
+    // landscape/fullscreen-hero prefs, so those rows are hidden for this tab.
+    override val isExtraLayout: Boolean = true
+
     override fun loadAvailableCatalogs() {
         viewModelScope.launch {
             try {
