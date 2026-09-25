@@ -38,6 +38,7 @@ import com.nuvio.tv.domain.model.legacyKey
 import com.nuvio.tv.ui.components.CatalogRowSection
 import com.nuvio.tv.ui.components.ContinueWatchingSection
 import com.nuvio.tv.ui.components.EmptyScreenState
+import com.nuvio.tv.ui.components.ErrorState
 import com.nuvio.tv.ui.components.GridContinueWatchingSection
 import com.nuvio.tv.ui.components.HeroCarousel
 import com.nuvio.tv.ui.components.LoadingIndicator
@@ -88,6 +89,13 @@ fun ExtraHomeScreen(
                         Text(stringResource(R.string.extra_home_empty_action))
                     }
                 }
+            }
+
+            uiState.error != null && rows.isEmpty() -> {
+                ErrorState(
+                    message = uiState.error ?: stringResource(R.string.error_generic),
+                    onRetry = { viewModel.onEvent(ExtraHomeEvent.OnRetry) }
+                )
             }
 
             rows.isEmpty() -> {

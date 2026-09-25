@@ -150,9 +150,13 @@ private val credentialProfileSettingsKeys = mapOf(
         "real_debrid_api_key"
     ),
     "mdblist_settings" to setOf("mdblist_api_key"),
+    "anime_mdblist_settings" to setOf("mdblist_api_key"),
+    "extra_mdblist_settings" to setOf("mdblist_api_key"),
     "animeskip_settings" to setOf("animeskip_client_id"),
+    "extra_animeskip_settings" to setOf("animeskip_client_id"),
     "tvdb_settings" to setOf("tvdb_api_key"),
-    "anime_tvdb_settings" to setOf("tvdb_api_key")
+    "anime_tvdb_settings" to setOf("tvdb_api_key"),
+    "extra_tvdb_settings" to setOf("tvdb_api_key")
 )
 
 internal fun shouldExcludePreferenceFromProfileSettingsSync(feature: String, keyName: String): Boolean {

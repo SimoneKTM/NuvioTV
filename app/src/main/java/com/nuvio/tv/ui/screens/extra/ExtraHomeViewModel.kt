@@ -40,7 +40,11 @@ import com.nuvio.tv.ui.screens.home.CwMetaSummary
 import com.nuvio.tv.ui.screens.home.NextUpInfo
 import com.nuvio.tv.ui.screens.home.NextUpResolution
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,8 +56,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import javax.inject.Inject
 import javax.inject.Named
@@ -99,14 +102,16 @@ class ExtraHomeViewModel @Inject constructor(
     internal var currentExtraTvdbSettings: TvdbSettings = TvdbSettings()
     internal var extraHeroEnrichmentJob: Job? = null
     internal var lastExtraHeroEnrichmentSignature: String? = null
+    internal var lastExtraHeroEnrichedItems: List<MetaPreview> = emptyList()
     val uiState: StateFlow<ExtraHomeUiState> = _uiState.asStateFlow()
 
     private val _fullCatalogRows = MutableStateFlow<List<CatalogRow>>(emptyList())
     val fullCatalogRows: StateFlow<List<CatalogRow>> = _fullCatalogRows.asStateFlow()
 
     private val rows = LinkedHashMap<String, CatalogRow>()
-    private val catalogLoadMutex = Mutex()
-    private var pendingLoads = 0
+    private val catalogLoadSemaphore = Semaphore(MAX_CONCURRENT_CATALOG_LOADS)
+    private val catalogLoadGeneration = AtomicInteger(0)
+    private var lastCatalogLoadSignature: String? = null
     private var lastAddons: List<Addon> = emptyList()
 
     private val layoutOrderKeys = mutableListOf<String>()
@@ -164,6 +169,7 @@ class ExtraHomeViewModel @Inject constructor(
                     currentExtraMdbListSettings = mdb
                     currentExtraTvdbSettings = tvdb
                     lastExtraHeroEnrichmentSignature = null
+                    lastExtraHeroEnrichedItems = emptyList()
                     enrichExtraHeroItemsIfNeeded(_uiState.value.heroItems)
                 }
         }
@@ -176,14 +182,33 @@ class ExtraHomeViewModel @Inject constructor(
         val tvdbEnabled = currentExtraTvdbSettings.enabled && currentExtraTvdbSettings.hasApiKey
         if (heroItems.isEmpty() || (!tmdbEnabled && !mdbEnabled && !tvdbEnabled)) {
             lastExtraHeroEnrichmentSignature = null
+            lastExtraHeroEnrichedItems = emptyList()
             return
         }
         val signature = extraHeroEnrichmentSignature(heroItems)
-        if (lastExtraHeroEnrichmentSignature == signature) return
         extraHeroEnrichmentJob?.cancel()
         extraHeroEnrichmentJob = viewModelScope.launch {
+            if (lastExtraHeroEnrichmentSignature == signature) {
+                // Same items already enriched — restore the cached enriched list,
+                // because every publishRows() rewrites heroItems with the raw list.
+                val cached = lastExtraHeroEnrichedItems
+                if (cached.isNotEmpty()) {
+                    _uiState.update { state ->
+                        if (state.heroItems == cached) {
+                            state
+                        } else {
+                            state.copy(
+                                heroItems = cached,
+                                heroItem = cached.firstOrNull() ?: state.heroItem
+                            )
+                        }
+                    }
+                }
+                return@launch
+            }
             val enrichedItems = enrichExtraHeroItemsBatch(heroItems)
             lastExtraHeroEnrichmentSignature = signature
+            lastExtraHeroEnrichedItems = enrichedItems
             _uiState.update { state ->
                 if (state.heroItems == enrichedItems) {
                     state
@@ -355,8 +380,10 @@ class ExtraHomeViewModel @Inject constructor(
                     lastAddons = addons
                     val enabled = addons.filter { it.enabled }
                     if (enabled.isEmpty()) {
+                        invalidateCatalogLoads()
                         synchronized(rows) { rows.clear() }
                         publishRows()
+                        lastCatalogLoadSignature = null
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
@@ -371,6 +398,15 @@ class ExtraHomeViewModel @Inject constructor(
         }
     }
 
+    /** Stops in-flight loads writing into the rows map and drops hero enrichment. */
+    private fun invalidateCatalogLoads() {
+        catalogLoadGeneration.incrementAndGet()
+        extraHeroEnrichmentJob?.cancel()
+        extraHeroEnrichmentJob = null
+        lastExtraHeroEnrichmentSignature = null
+        lastExtraHeroEnrichedItems = emptyList()
+    }
+
     private fun catalogKey(addon: Addon, catalog: CatalogDescriptor): String =
         "${addon.id}_${catalog.apiType}_${catalog.id}"
 
@@ -380,33 +416,123 @@ class ExtraHomeViewModel @Inject constructor(
         return !catalog.hasExplicitShowInHome || catalog.showInHome
     }
 
-    private suspend fun loadAllCatalogs(addons: List<Addon>) {
-        _uiState.update {
-            it.copy(isLoading = true, error = null, installedAddonsCount = addons.size)
-        }
-        synchronized(rows) {
-            rows.clear()
-            addons.forEach { addon ->
-                addon.catalogs
-                    .filter(::shouldShowCatalog)
-                    .forEach { catalog -> rows[catalogKey(addon, catalog)] = emptyRow(addon, catalog) }
+    private suspend fun loadAllCatalogs(addons: List<Addon>, forceReload: Boolean = false) {
+        val signature = buildExtraCatalogLoadSignature(addons)
+        // Same addon set already fully loaded — don't clear the rows just to
+        // rebuild them (that flashed the whole tab on every addon emission).
+        if (!forceReload &&
+            signature == lastCatalogLoadSignature &&
+            synchronized(rows) { rows.isNotEmpty() }
+        ) {
+            _uiState.update {
+                it.copy(isLoading = false, error = null, installedAddonsCount = addons.size)
             }
+            return
         }
-        publishRows()
 
         val catalogsToLoad = addons.flatMap { addon ->
             addon.catalogs.filter(::shouldShowCatalog).map { addon to it }
         }
-        pendingLoads = catalogsToLoad.size
+        if (catalogsToLoad.isEmpty()) {
+            // Enabled addons but nothing showable (all search-only/hidden):
+            // finish the load instead of leaving the spinner up forever.
+            invalidateCatalogLoads()
+            synchronized(rows) { rows.clear() }
+            publishRows()
+            lastCatalogLoadSignature = signature
+            _uiState.update {
+                it.copy(isLoading = false, error = null, installedAddonsCount = addons.size)
+            }
+            return
+        }
 
-        catalogsToLoad.forEach { (addon, catalog) ->
-            viewModelScope.launch {
-                catalogLoadMutex.withLock {
-                    loadCatalog(addon, catalog)
-                }
+        val generation = catalogLoadGeneration.incrementAndGet()
+        extraHeroEnrichmentJob?.cancel()
+        extraHeroEnrichmentJob = null
+        lastExtraHeroEnrichmentSignature = null
+        lastExtraHeroEnrichedItems = emptyList()
+
+        // On reload keep the currently visible rows on screen while the new
+        // ones stream in — same contract as the main/anime pipelines.
+        val isReload = synchronized(rows) { rows.isNotEmpty() }
+        if (isReload) {
+            _uiState.update { it.copy(error = null, installedAddonsCount = addons.size) }
+        } else {
+            _uiState.update {
+                it.copy(isLoading = true, error = null, installedAddonsCount = addons.size)
+            }
+            synchronized(rows) { rows.clear() }
+        }
+
+        val expectedKeys = catalogsToLoad.map { (addon, catalog) -> catalogKey(addon, catalog) }.toSet()
+        synchronized(rows) {
+            rows.keys.retainAll(expectedKeys)
+            catalogsToLoad.forEach { (addon, catalog) ->
+                rows.putIfAbsent(catalogKey(addon, catalog), emptyRow(addon, catalog))
             }
         }
+        publishRows()
+
+        // Structured concurrency: a new addon emission (collectLatest restart)
+        // cancels all in-flight loads, and each load is concurrency-limited by
+        // the semaphore instead of running one at a time.
+        val failedCount = AtomicInteger(0)
+        val firstError = AtomicReference<String?>(null)
+        try {
+            coroutineScope {
+                catalogsToLoad.forEach { (addon, catalog) ->
+                    launch {
+                        catalogLoadSemaphore.withPermit {
+                            val failure = loadCatalog(addon, catalog, generation)
+                            if (failure != null) {
+                                failedCount.incrementAndGet()
+                                firstError.compareAndSet(null, failure)
+                            }
+                        }
+                    }
+                }
+            }
+            lastCatalogLoadSignature = signature
+            val failures = failedCount.get()
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    error = if (failures > 0 && failures == catalogsToLoad.size) {
+                        firstError.get()
+                    } else {
+                        null
+                    }
+                )
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Extra catalog bulk load failed", e)
+            lastCatalogLoadSignature = null
+            _uiState.update { it.copy(isLoading = false, error = e.message) }
+        }
     }
+
+    private fun buildExtraCatalogLoadSignature(addons: List<Addon>): String =
+        addons.joinToString(separator = ",") { addon ->
+            val catalogs = addon.catalogs.joinToString(separator = ";") { catalog ->
+                listOf(
+                    catalog.apiType,
+                    catalog.id,
+                    catalog.name,
+                    catalog.showInHome.toString(),
+                    catalog.hasExplicitShowInHome.toString(),
+                    catalog.pageSize?.toString().orEmpty()
+                ).joinToString("|")
+            }
+            listOf(
+                addon.id,
+                addon.baseUrl,
+                addon.version,
+                addon.displayName,
+                catalogs
+            ).joinToString("|")
+        }
 
     private fun emptyRow(addon: Addon, catalog: CatalogDescriptor): CatalogRow {
         val placeholderItems = (0 until 8).map { i ->
@@ -441,42 +567,55 @@ class ExtraHomeViewModel @Inject constructor(
         )
     }
 
-    private suspend fun loadCatalog(addon: Addon, catalog: CatalogDescriptor) {
+    private suspend fun loadCatalog(addon: Addon, catalog: CatalogDescriptor, generation: Int): String? {
         val key = catalogKey(addon, catalog)
         val supportsSkip = catalog.supportsExtra("skip")
         val skipStep = catalog.skipStep()
         Log.d(TAG, "Loading extra catalog addonId=${addon.id} type=${catalog.apiType} catalogId=${catalog.id}")
-        catalogRepository.getCatalog(
-            addonBaseUrl = addon.baseUrl,
-            addonId = addon.id,
-            addonName = addon.displayName,
-            catalogId = catalog.id,
-            catalogName = catalog.name,
-            type = catalog.apiType,
-            skip = 0,
-            skipStep = skipStep,
-            supportsSkip = supportsSkip
-        ).collect { result ->
-            when (result) {
-                is NetworkResult.Success -> {
-                    synchronized(rows) { rows[key] = result.data }
-                    pendingLoads = (pendingLoads - 1).coerceAtLeast(0)
-                    publishRows()
-                    if (pendingLoads == 0) {
-                        _uiState.update { it.copy(isLoading = false) }
+        var sawTerminal = false
+        var errorMessage: String? = null
+        try {
+            catalogRepository.getCatalog(
+                addonBaseUrl = addon.baseUrl,
+                addonId = addon.id,
+                addonName = addon.displayName,
+                catalogId = catalog.id,
+                catalogName = catalog.name,
+                type = catalog.apiType,
+                skip = 0,
+                skipStep = skipStep,
+                supportsSkip = supportsSkip
+            ).collect { result ->
+                // A newer load generation owns the rows map — drop stale results.
+                if (generation != catalogLoadGeneration.get()) return@collect
+                when (result) {
+                    is NetworkResult.Success -> {
+                        sawTerminal = true
+                        synchronized(rows) { rows[key] = result.data }
+                        publishRows()
                     }
-                }
-                is NetworkResult.Error -> {
-                    synchronized(rows) { rows[key] = emptyRow(addon, catalog).copy(isLoading = false, items = emptyList()) }
-                    pendingLoads = (pendingLoads - 1).coerceAtLeast(0)
-                    publishRows()
-                    if (pendingLoads == 0) {
-                        _uiState.update { it.copy(isLoading = false) }
+                    is NetworkResult.Error -> {
+                        sawTerminal = true
+                        errorMessage = result.message
+                        synchronized(rows) { rows[key] = emptyRow(addon, catalog).copy(isLoading = false, items = emptyList()) }
+                        publishRows()
                     }
+                    NetworkResult.Loading -> { /* handled by row */ }
                 }
-                NetworkResult.Loading -> { /* handled by row */ }
             }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Extra catalog load failed addonId=${addon.id} catalogId=${catalog.id}", e)
+            if (generation == catalogLoadGeneration.get()) {
+                synchronized(rows) { rows[key] = emptyRow(addon, catalog).copy(isLoading = false, items = emptyList()) }
+                publishRows()
+            }
+            return "${addon.displayName}: ${e.message ?: "load failed"}"
         }
+        if (generation != catalogLoadGeneration.get()) return null
+        if (!sawTerminal) return "${addon.displayName}: empty response"
+        return errorMessage
     }
 
     fun loadMoreCatalogItems(catalogId: String, addonId: String, type: String) {
@@ -488,39 +627,52 @@ class ExtraHomeViewModel @Inject constructor(
         publishRows()
 
         viewModelScope.launch {
-            val nextSkip = currentRow.nextCatalogSkip()
-            catalogRepository.getCatalog(
-                addonBaseUrl = currentRow.addonBaseUrl,
-                addonId = currentRow.addonId,
-                addonName = currentRow.addonName,
-                catalogId = catalogId,
-                catalogName = currentRow.catalogName,
-                type = type,
-                skip = nextSkip,
-                skipStep = currentRow.skipStep,
-                supportsSkip = currentRow.supportsSkip
-            ).collect { result ->
-                when (result) {
-                    is NetworkResult.Success -> {
-                        synchronized(rows) {
-                            val latest = rows[key]
-                            if (latest != null) {
-                                rows[key] = latest.mergeCatalogPage(result.data)
+            try {
+                val nextSkip = currentRow.nextCatalogSkip()
+                catalogRepository.getCatalog(
+                    addonBaseUrl = currentRow.addonBaseUrl,
+                    addonId = currentRow.addonId,
+                    addonName = currentRow.addonName,
+                    catalogId = catalogId,
+                    catalogName = currentRow.catalogName,
+                    type = type,
+                    skip = nextSkip,
+                    skipStep = currentRow.skipStep,
+                    supportsSkip = currentRow.supportsSkip
+                ).collect { result ->
+                    when (result) {
+                        is NetworkResult.Success -> {
+                            synchronized(rows) {
+                                val latest = rows[key]
+                                if (latest != null) {
+                                    rows[key] = latest.mergeCatalogPage(result.data)
+                                }
                             }
+                            publishRows()
                         }
-                        publishRows()
-                    }
-                    is NetworkResult.Error -> {
-                        synchronized(rows) {
-                            val latest = rows[key]
-                            if (latest != null) {
-                                rows[key] = latest.copy(isLoading = false)
+                        is NetworkResult.Error -> {
+                            synchronized(rows) {
+                                val latest = rows[key]
+                                if (latest != null) {
+                                    rows[key] = latest.copy(isLoading = false)
+                                }
                             }
+                            publishRows()
                         }
-                        publishRows()
+                        NetworkResult.Loading -> { }
                     }
-                    NetworkResult.Loading -> { }
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Extra catalog load-more failed catalogId=$catalogId", e)
+                synchronized(rows) {
+                    val latest = rows[key]
+                    if (latest != null) {
+                        rows[key] = latest.copy(isLoading = false)
+                    }
+                }
+                publishRows()
             }
         }
     }
@@ -528,21 +680,28 @@ class ExtraHomeViewModel @Inject constructor(
     fun ensureCatalogLoaded(catalogId: String, addonId: String, type: String) {
         val key = "${addonId}_${type}_${catalogId}"
         val existing = synchronized(rows) { rows[key] }
+        // Empty rows are failed (or genuinely empty) catalogs — they must be
+        // retried, otherwise an error on first load blocked See All forever.
+        val firstId = existing?.items?.firstOrNull()?.id
         val hasRealContent = existing != null &&
-            existing.items.firstOrNull()?.id?.startsWith("__placeholder_") != true
+            existing.items.isNotEmpty() &&
+            firstId?.startsWith("__placeholder_") != true
         if (hasRealContent) return
 
         val addon = lastAddons.firstOrNull { it.id == addonId } ?: return
         val catalog = addon.catalogs.firstOrNull { it.apiType == type && it.id == catalogId } ?: return
         if (!shouldShowCatalog(catalog)) return
 
+        val generation = catalogLoadGeneration.get()
         viewModelScope.launch {
-            catalogLoadMutex.withLock {
+            catalogLoadSemaphore.withPermit {
                 val current = synchronized(rows) { rows[key] }
+                val currentFirstId = current?.items?.firstOrNull()?.id
                 val currentHasRealContent = current != null &&
-                    current.items.firstOrNull()?.id?.startsWith("__placeholder_") != true
-                if (currentHasRealContent) return@withLock
-                loadCatalog(addon, catalog)
+                    current.items.isNotEmpty() &&
+                    currentFirstId?.startsWith("__placeholder_") != true
+                if (currentHasRealContent) return@withPermit
+                loadCatalog(addon, catalog, generation)
             }
         }
     }
@@ -551,16 +710,13 @@ class ExtraHomeViewModel @Inject constructor(
         val enabled = lastAddons.filter { it.enabled }
         if (enabled.isEmpty()) return
         viewModelScope.launch {
-            loadAllCatalogs(enabled)
+            loadAllCatalogs(enabled, forceReload = true)
         }
     }
 
     private fun publishRows() {
         Log.d(TAG, "publishRows: homeLayout=$homeLayout, rows=${synchronized(rows) { rows.size }}")
         val snapshot = synchronized(rows) { rows.values.toList() }
-        if (_fullCatalogRows.value != snapshot) {
-            _fullCatalogRows.value = snapshot
-        }
         val ordered = orderRows(snapshot)
         val today = java.time.LocalDate.now()
         val released = if (hideUnreleasedContent) {
@@ -568,10 +724,14 @@ class ExtraHomeViewModel @Inject constructor(
         } else {
             ordered
         }
+        // See All must show the same rows the tab renders (ordered, disabled
+        // excluded, unreleased filtered) — same contract as the regular home.
+        if (_fullCatalogRows.value != released) {
+            _fullCatalogRows.value = released
+        }
         val filtered = released.filter { it.items.isNotEmpty() }
-        val heroRow = computeHeroRow(filtered)
+        val heroRow = computeHeroRow(visibleRows = filtered, allRows = snapshot)
         val heroItems = heroRow?.items.orEmpty()
-        enrichExtraHeroItemsIfNeeded(heroItems)
 
         val categoryNames = filtered.map { row ->
             val formatted = row.catalogName.replaceFirstChar { it.uppercase() }
@@ -593,6 +753,7 @@ class ExtraHomeViewModel @Inject constructor(
         _uiState.update { state ->
             val updated = state.copy(
                 rows = filtered,
+                heroEnabled = heroSectionEnabled,
                 heroItem = heroRow?.items?.firstOrNull(),
                 heroItems = heroItems,
                 heroAddonBaseUrl = heroRow?.addonBaseUrl,
@@ -619,6 +780,9 @@ class ExtraHomeViewModel @Inject constructor(
             )
             if (updated == state) state else updated
         }
+        // Called AFTER the state update so the cached-enriched restore (same
+        // signature) is not overwritten by the raw heroItems written above.
+        enrichExtraHeroItemsIfNeeded(heroItems)
     }
 
     fun selectCategory(category: String?) {
@@ -663,15 +827,32 @@ class ExtraHomeViewModel @Inject constructor(
         return ordered
     }
 
-    private fun computeHeroRow(rows: List<CatalogRow>): CatalogRow? {
-        if (!heroSectionEnabled || rows.isEmpty()) return null
+    private fun computeHeroRow(visibleRows: List<CatalogRow>, allRows: List<CatalogRow>): CatalogRow? {
+        if (!heroSectionEnabled) return null
         fun isRealRow(row: CatalogRow): Boolean =
-            row.items.firstOrNull()?.id?.startsWith("__placeholder_") != true
-        val byKey = rows.associateBy { homeCatalogKey(it.addonId, it.rawType, it.catalogId) }
-        for (key in heroCatalogKeys) {
-            byKey[key]?.takeIf(::isRealRow)?.let { return it }
+            row.items.isNotEmpty() &&
+                row.items.firstOrNull()?.id?.startsWith("__placeholder_") != true
+        if (heroCatalogKeys.isNotEmpty()) {
+            // Selected hero catalogs keep driving the hero even when disabled
+            // from the visible rows (main/anime parity) — lookup the full
+            // snapshot first instead of silently jumping to another catalog.
+            val visibleKeys = visibleRows
+                .map { homeCatalogKey(it.addonId, it.rawType, it.catalogId) }
+                .toSet()
+            val heroOnlyRows = allRows.filter { row ->
+                val key = homeCatalogKey(row.addonId, row.rawType, row.catalogId)
+                key in heroCatalogKeys && key !in visibleKeys
+            }
+            val candidates = visibleRows + heroOnlyRows
+            for (key in heroCatalogKeys) {
+                candidates.firstOrNull {
+                    homeCatalogKey(it.addonId, it.rawType, it.catalogId) == key
+                }?.takeIf(::isRealRow)?.let { return it }
+            }
+            // Selection matches nothing (catalog uninstalled) — fall through.
         }
-        return rows.firstOrNull(::isRealRow)
+        if (visibleRows.isEmpty()) return null
+        return visibleRows.firstOrNull(::isRealRow)
     }
 
     fun onEvent(event: ExtraHomeEvent) {
@@ -681,7 +862,7 @@ class ExtraHomeViewModel @Inject constructor(
             ExtraHomeEvent.OnRetry -> {
                 viewModelScope.launch {
                     val addons = lastAddons.filter { it.enabled }
-                    if (addons.isNotEmpty()) loadAllCatalogs(addons)
+                    if (addons.isNotEmpty()) loadAllCatalogs(addons, forceReload = true)
                 }
             }
         }
