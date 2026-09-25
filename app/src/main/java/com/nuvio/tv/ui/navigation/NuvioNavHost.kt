@@ -1156,6 +1156,14 @@ fun NuvioNavHost(
                         Screen.CatalogSeeAll.createRoute(catalogId, addonId, type, fromAnime = true)
                     )
                 },
+                onContinueWatchingClick = { item ->
+                    navController.navigate(createContinueWatchingRoute(item))
+                },
+                onContinueWatchingStartFromBeginning = { item ->
+                    navController.navigate(
+                        createContinueWatchingRoute(item, startFromBeginning = true)
+                    )
+                },
                 onOpenSettings = { navController.navigate(Screen.AnimeSettings.route) }
             )
         }

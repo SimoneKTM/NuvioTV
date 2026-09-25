@@ -67,6 +67,7 @@ import com.nuvio.tv.domain.model.stableItemKey
 import com.nuvio.tv.ui.components.CatalogRowSection
 import com.nuvio.tv.ui.components.ContentCard
 import com.nuvio.tv.ui.components.ContinueWatchingCard
+import com.nuvio.tv.ui.components.ContinueWatchingOptionsDialog
 import com.nuvio.tv.ui.components.ContinueWatchingSection
 import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.ErrorState
@@ -103,6 +104,8 @@ fun AnimeHomeScreen(
     viewModel: AnimeHomeViewModel = hiltViewModel(),
     onNavigateToDetail: (String, String, String) -> Unit,
     onNavigateToSeeAll: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
     onOpenSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -170,6 +173,8 @@ fun AnimeHomeScreen(
                         onRequestTrailerPreview = viewModel::requestTrailerPreview,
                         enrichHeroItem = enrichHeroItem,
                         onNavigateToDetail = onNavigateToDetail,
+                        onContinueWatchingClick = onContinueWatchingClick,
+                        onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning,
                         onRemoveContinueWatching = onRemoveContinueWatching,
                         onLoadMoreCatalog = viewModel::loadMoreCatalogItems
                     )
@@ -180,9 +185,11 @@ fun AnimeHomeScreen(
                         onRequestTrailerPreview = viewModel::requestTrailerPreview,
                         onNavigateToDetail = onNavigateToDetail,
                         onNavigateToSeeAll = onNavigateToSeeAll,
+                        onContinueWatchingClick = onContinueWatchingClick,
+                        onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning,
                         onRemoveContinueWatching = onRemoveContinueWatching
                     )
-                    HomeLayout.GRID -> AnimeGridContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onRemoveContinueWatching = onRemoveContinueWatching)
+                    HomeLayout.GRID -> AnimeGridContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onContinueWatchingClick = onContinueWatchingClick, onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning, onRemoveContinueWatching = onRemoveContinueWatching)
                 }
             }
         }
@@ -214,6 +221,8 @@ private fun AnimeModernContent(
     onRequestTrailerPreview: (MetaPreview) -> Unit,
     enrichHeroItem: suspend (MetaPreview) -> MetaPreview?,
     onNavigateToDetail: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit,
     onLoadMoreCatalog: (String, String, String) -> Unit
 ) {
@@ -308,7 +317,11 @@ private fun AnimeModernContent(
                     heroBackdropHeight = heroBackdropHeight,
                     rowsViewportHeight = rowsViewportHeight,
                     onOpen = {
-                        onNavigateToDetail(currentHeroItem.id, currentHeroItem.rawType, uiState.heroAddonBaseUrl.orEmpty())
+                        onNavigateToDetail(
+                            currentHeroItem.id,
+                            currentHeroItem.rawType,
+                            currentHeroItem.sourceAddonBaseUrl ?: uiState.heroAddonBaseUrl.orEmpty()
+                        )
                     }
                 )
             }
@@ -334,7 +347,9 @@ private fun AnimeModernContent(
                         cornerRadius = uiState.posterCardCornerRadiusDp.dp,
                         blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
                         useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
-                        onItemClick = { item -> handleAnimeCwClick(item, onNavigateToDetail) },
+                        onItemClick = onContinueWatchingClick,
+                        onDetailsClick = { item -> handleAnimeCwClick(item, onNavigateToDetail) },
+                        onStartFromBeginning = onContinueWatchingStartFromBeginning,
                         onRemoveItem = onRemoveContinueWatching,
                         onItemFocus = { focusedHeroItem = it }
                     )
@@ -351,7 +366,9 @@ private fun AnimeModernContent(
                         cornerRadius = uiState.posterCardCornerRadiusDp.dp,
                         blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
                         useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
-                        onItemClick = { item -> handleAnimeCwClick(item, onNavigateToDetail) },
+                        onItemClick = onContinueWatchingClick,
+                        onDetailsClick = { item -> handleAnimeCwClick(item, onNavigateToDetail) },
+                        onStartFromBeginning = onContinueWatchingStartFromBeginning,
                         onRemoveItem = onRemoveContinueWatching,
                         onItemFocus = { focusedHeroItem = it }
                     )
@@ -588,10 +605,13 @@ private fun AnimeModernContinueWatchingRow(
     blurUnwatchedEpisodes: Boolean,
     useEpisodeThumbnails: Boolean,
     onItemClick: (ContinueWatchingItem) -> Unit,
+    onDetailsClick: (ContinueWatchingItem) -> Unit,
+    onStartFromBeginning: (ContinueWatchingItem) -> Unit,
     onRemoveItem: (ContinueWatchingItem) -> Unit,
     onItemFocus: (MetaPreview) -> Unit
 ) {
     if (items.isEmpty()) return
+    var optionsItem by remember { mutableStateOf<ContinueWatchingItem?>(null) }
     val titleMediumStyle = MaterialTheme.typography.titleMedium
     val rowTitleStyle = remember(titleMediumStyle) {
         titleMediumStyle.copy(fontWeight = FontWeight.SemiBold)
@@ -665,7 +685,7 @@ private fun AnimeModernContinueWatchingRow(
                     ContinueWatchingCard(
                         item = item,
                         onClick = { onItemClick(item) },
-                        onLongPress = { onRemoveItem(item) },
+                        onLongPress = { optionsItem = item },
                         cardWidth = cardWidth,
                         imageHeight = imageHeight,
                         blurUnwatchedEpisodes = blurUnwatchedEpisodes,
@@ -683,6 +703,26 @@ private fun AnimeModernContinueWatchingRow(
                 }
             }
         }
+    }
+
+    val selectedOptionsItem = optionsItem
+    if (selectedOptionsItem != null) {
+        ContinueWatchingOptionsDialog(
+            item = selectedOptionsItem,
+            onDismiss = { optionsItem = null },
+            onRemove = {
+                onRemoveItem(selectedOptionsItem)
+                optionsItem = null
+            },
+            onDetails = {
+                onDetailsClick(selectedOptionsItem)
+                optionsItem = null
+            },
+            onStartFromBeginning = {
+                onStartFromBeginning(selectedOptionsItem)
+                optionsItem = null
+            }
+        )
     }
 }
 
@@ -723,7 +763,8 @@ private fun continueWatchingItemToMetaPreview(item: ContinueWatchingItem): MetaP
             releaseInfo = info.releaseInfo,
             imdbRating = info.imdbRating,
             genres = info.genres,
-            landscapePoster = info.thumbnail
+            landscapePoster = info.thumbnail,
+            sourceAddonBaseUrl = info.addonBaseUrl
         )
     }
 }
@@ -852,6 +893,8 @@ private fun AnimeClassicContent(
     onRequestTrailerPreview: (MetaPreview) -> Unit,
     onNavigateToDetail: (String, String, String) -> Unit,
     onNavigateToSeeAll: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
 ) {
     var focusedArtwork by remember { mutableStateOf<ClassicFocusArtwork?>(null) }
@@ -862,7 +905,7 @@ private fun AnimeClassicContent(
     val handleMetaFocus: (MetaPreview) -> Unit = { item ->
         focusedCatalogItem = item
         if (uiState.classicFocusGradientEnabled) {
-            focusedArtwork = item.toAnimeClassicFocusArtwork()
+            focusedArtwork = item.toAnimeClassicFocusArtwork(uiState.focusedPosterBackdropExpandEnabled)
         }
     }
     val latestOnRequestTrailerPreview by rememberUpdatedState(onRequestTrailerPreview)
@@ -906,12 +949,15 @@ private fun AnimeClassicContent(
                     AnimeContinueWatchingRow(
                         uiState = uiState,
                         onNavigateToDetail = onNavigateToDetail,
+                        onContinueWatchingClick = onContinueWatchingClick,
+                        onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning,
                         onRemoveItem = onRemoveContinueWatching,
                         onCwItemFocused = { itemIndex ->
+                            focusedCatalogItem = null
                             if (uiState.classicFocusGradientEnabled) {
                                 focusedArtwork = uiState.continueWatchingItems
                                     .getOrNull(itemIndex)
-                                    ?.toAnimeClassicFocusArtwork()
+                                    ?.toAnimeClassicFocusArtwork(uiState.focusedPosterBackdropExpandEnabled)
                             }
                         }
                     )
@@ -952,6 +998,8 @@ private fun AnimeGridContent(
     uiState: AnimeHomeUiState,
     onNavigateToDetail: (String, String, String) -> Unit,
     onNavigateToSeeAll: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
 ) {
     LazyColumn(
@@ -976,6 +1024,8 @@ private fun AnimeGridContent(
                 AnimeGridContinueWatchingRow(
                     uiState = uiState,
                     onNavigateToDetail = onNavigateToDetail,
+                    onContinueWatchingClick = onContinueWatchingClick,
+                    onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning,
                     onRemoveItem = onRemoveContinueWatching
                 )
             }
@@ -1136,22 +1186,24 @@ private fun buildAnimeHeroPreview(
 private fun AnimeContinueWatchingRow(
     uiState: AnimeHomeUiState,
     onNavigateToDetail: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
     onRemoveItem: (ContinueWatchingItem) -> Unit,
     onCwItemFocused: (itemIndex: Int) -> Unit = {}
 ) {
     if (uiState.continueWatchingItems.isEmpty() && uiState.upcomingItems.isEmpty()) return
     val (cardWidth, imageHeight) = animeCwCardSize(uiState)
-    val onItemClick: (ContinueWatchingItem) -> Unit = { item ->
+    val onDetailsClick: (ContinueWatchingItem) -> Unit = { item ->
         handleAnimeCwClick(item, onNavigateToDetail)
     }
     val cornerRadius = uiState.posterCardCornerRadiusDp.dp
     Column(modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)) {
         ContinueWatchingSection(
             items = uiState.continueWatchingItems.asStable(),
-            onItemClick = onItemClick,
-            onDetailsClick = onItemClick,
+            onItemClick = onContinueWatchingClick,
+            onDetailsClick = onDetailsClick,
             onRemoveItem = onRemoveItem,
-            onStartFromBeginning = onItemClick,
+            onStartFromBeginning = onContinueWatchingStartFromBeginning,
             showManualPlayOption = false,
             title = stringResource(R.string.continue_watching),
             blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
@@ -1165,10 +1217,10 @@ private fun AnimeContinueWatchingRow(
         if (uiState.upcomingItems.isNotEmpty()) {
             ContinueWatchingSection(
                 items = uiState.upcomingItems.asStable(),
-                onItemClick = onItemClick,
-                onDetailsClick = onItemClick,
+                onItemClick = onContinueWatchingClick,
+                onDetailsClick = onDetailsClick,
                 onRemoveItem = onRemoveItem,
-                onStartFromBeginning = onItemClick,
+                onStartFromBeginning = onContinueWatchingStartFromBeginning,
                 showManualPlayOption = false,
                 title = stringResource(R.string.upcoming_section_title),
                 blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
@@ -1187,19 +1239,21 @@ private fun AnimeContinueWatchingRow(
 private fun AnimeGridContinueWatchingRow(
     uiState: AnimeHomeUiState,
     onNavigateToDetail: (String, String, String) -> Unit,
+    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
+    onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
     onRemoveItem: (ContinueWatchingItem) -> Unit
 ) {
     if (uiState.continueWatchingItems.isEmpty() && uiState.upcomingItems.isEmpty()) return
-    val onItemClick: (ContinueWatchingItem) -> Unit = { item ->
+    val onDetailsClick: (ContinueWatchingItem) -> Unit = { item ->
         handleAnimeCwClick(item, onNavigateToDetail)
     }
     Column(modifier = Modifier.padding(bottom = NuvioTheme.spacing.lg)) {
         GridContinueWatchingSection(
             items = uiState.continueWatchingItems.asStable(),
-            onItemClick = onItemClick,
-            onDetailsClick = onItemClick,
+            onItemClick = onContinueWatchingClick,
+            onDetailsClick = onDetailsClick,
             onRemoveItem = onRemoveItem,
-            onStartFromBeginning = onItemClick,
+            onStartFromBeginning = onContinueWatchingStartFromBeginning,
             showManualPlayOption = false,
             title = stringResource(R.string.continue_watching),
             blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
@@ -1210,10 +1264,10 @@ private fun AnimeGridContinueWatchingRow(
         if (uiState.upcomingItems.isNotEmpty()) {
             GridContinueWatchingSection(
                 items = uiState.upcomingItems.asStable(),
-                onItemClick = onItemClick,
-                onDetailsClick = onItemClick,
+                onItemClick = onContinueWatchingClick,
+                onDetailsClick = onDetailsClick,
                 onRemoveItem = onRemoveItem,
-                onStartFromBeginning = onItemClick,
+                onStartFromBeginning = onContinueWatchingStartFromBeginning,
                 showManualPlayOption = false,
                 title = stringResource(R.string.upcoming_section_title),
                 blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
@@ -1255,20 +1309,32 @@ private fun handleAnimeCwClick(
     }
 }
 
-private fun MetaPreview.toAnimeClassicFocusArtwork(): ClassicFocusArtwork =
+private fun MetaPreview.toAnimeClassicFocusArtwork(useBackdrop: Boolean): ClassicFocusArtwork =
     ClassicFocusArtwork(
-        imageUrl = firstNonBlank(backdropUrl, background, landscapePoster, poster),
-        seed = id
+        imageUrl = if (useBackdrop) {
+            firstNonBlank(background, landscapePoster, poster)
+        } else {
+            firstNonBlank(poster, landscapePoster, background)
+        },
+        seed = "$id|$name|$apiType"
     )
 
-private fun ContinueWatchingItem.toAnimeClassicFocusArtwork(): ClassicFocusArtwork =
+private fun ContinueWatchingItem.toAnimeClassicFocusArtwork(useBackdrop: Boolean): ClassicFocusArtwork =
     when (this) {
         is ContinueWatchingItem.InProgress -> ClassicFocusArtwork(
-            imageUrl = firstNonBlank(episodeThumbnail, progress.backdrop, progress.poster),
+            imageUrl = if (useBackdrop) {
+                firstNonBlank(episodeThumbnail, progress.backdrop, progress.poster)
+            } else {
+                firstNonBlank(progress.poster, episodeThumbnail, progress.backdrop)
+            },
             seed = "${progress.contentId}|${progress.name}|${progress.contentType}"
         )
         is ContinueWatchingItem.NextUp -> ClassicFocusArtwork(
-            imageUrl = firstNonBlank(info.backdrop, info.thumbnail, info.poster),
+            imageUrl = if (useBackdrop) {
+                firstNonBlank(info.backdrop, info.thumbnail, info.poster)
+            } else {
+                firstNonBlank(info.poster, info.thumbnail, info.backdrop)
+            },
             seed = "${info.contentId}|${info.name}|${info.contentType}"
         )
     }

@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -158,20 +159,42 @@ private fun extraPosterCardStyle(uiState: ExtraHomeUiState): PosterCardStyle {
     )
 }
 
-private fun MetaPreview.toExtraClassicFocusArtwork(): ClassicFocusArtwork =
+private fun extraCwCardSize(uiState: ExtraHomeUiState): Pair<Dp, Dp> {
+    val baseWidth = uiState.posterCardWidthDp.dp
+    val baseHeight = uiState.posterCardHeightDp.dp
+    return when (uiState.continueWatchingCardStyle) {
+        ContinueWatchingCardStyle.POSTER -> baseWidth to baseHeight
+        ContinueWatchingCardStyle.WIDE -> baseWidth * 2.5f to baseWidth * 2.5f * 0.4f
+        ContinueWatchingCardStyle.CARD -> baseWidth * (16f / 9f) to baseWidth
+    }
+}
+
+private fun MetaPreview.toExtraClassicFocusArtwork(useBackdrop: Boolean): ClassicFocusArtwork =
     ClassicFocusArtwork(
-        imageUrl = firstNonBlank(backdropUrl, background, landscapePoster, poster),
-        seed = id
+        imageUrl = if (useBackdrop) {
+            firstNonBlank(background, landscapePoster, poster)
+        } else {
+            firstNonBlank(poster, landscapePoster, background)
+        },
+        seed = "$id|$name|$apiType"
     )
 
-private fun ContinueWatchingItem.toExtraClassicFocusArtwork(): ClassicFocusArtwork =
+private fun ContinueWatchingItem.toExtraClassicFocusArtwork(useBackdrop: Boolean): ClassicFocusArtwork =
     when (this) {
         is ContinueWatchingItem.InProgress -> ClassicFocusArtwork(
-            imageUrl = firstNonBlank(episodeThumbnail, progress.backdrop, progress.poster),
+            imageUrl = if (useBackdrop) {
+                firstNonBlank(episodeThumbnail, progress.backdrop, progress.poster)
+            } else {
+                firstNonBlank(progress.poster, episodeThumbnail, progress.backdrop)
+            },
             seed = "${progress.contentId}|${progress.name}|${progress.contentType}"
         )
         is ContinueWatchingItem.NextUp -> ClassicFocusArtwork(
-            imageUrl = firstNonBlank(info.backdrop, info.thumbnail, info.poster),
+            imageUrl = if (useBackdrop) {
+                firstNonBlank(info.backdrop, info.thumbnail, info.poster)
+            } else {
+                firstNonBlank(info.poster, info.thumbnail, info.backdrop)
+            },
             seed = "${info.contentId}|${info.name}|${info.contentType}"
         )
     }
@@ -192,10 +215,11 @@ private fun ExtraClassicContent(
     }
     val handleMetaFocus: (MetaPreview) -> Unit = { item ->
         if (uiState.classicFocusGradientEnabled) {
-            focusedArtwork = item.toExtraClassicFocusArtwork()
+            focusedArtwork = item.toExtraClassicFocusArtwork(uiState.focusedPosterBackdropExpandEnabled)
         }
     }
     val posterCardStyle = extraPosterCardStyle(uiState)
+    val (cwCardWidth, cwCardHeight) = extraCwCardSize(uiState)
 
     Box(modifier = Modifier.fillMaxSize()) {
         ClassicFocusGradientBackdrop(
@@ -234,8 +258,8 @@ private fun ExtraClassicContent(
                         onItemClick = onContinueWatchingClick,
                         onRemoveItem = onRemoveContinueWatching,
                         onStartFromBeginning = onContinueWatchingStartFromBeginning,
-                        cardWidth = posterCardStyle.width,
-                        imageHeight = posterCardStyle.height,
+                        cardWidth = cwCardWidth,
+                        imageHeight = cwCardHeight,
                         cardStyle = uiState.continueWatchingCardStyle,
                         cornerRadius = posterCardStyle.cornerRadius,
                         blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
@@ -244,7 +268,7 @@ private fun ExtraClassicContent(
                             if (uiState.classicFocusGradientEnabled) {
                                 focusedArtwork = uiState.continueWatchingItems
                                     .getOrNull(itemIndex)
-                                    ?.toExtraClassicFocusArtwork()
+                                    ?.toExtraClassicFocusArtwork(uiState.focusedPosterBackdropExpandEnabled)
                             }
                         },
                         modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)
@@ -260,8 +284,8 @@ private fun ExtraClassicContent(
                         onItemClick = onContinueWatchingClick,
                         onRemoveItem = onRemoveContinueWatching,
                         onStartFromBeginning = onContinueWatchingStartFromBeginning,
-                        cardWidth = posterCardStyle.width,
-                        imageHeight = posterCardStyle.height,
+                        cardWidth = cwCardWidth,
+                        imageHeight = cwCardHeight,
                         cardStyle = uiState.continueWatchingCardStyle,
                         cornerRadius = posterCardStyle.cornerRadius,
                         blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
@@ -306,6 +330,7 @@ private fun ExtraModernContent(
     onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit
 ) {
     val posterCardStyle = extraPosterCardStyle(uiState)
+    val (cwCardWidth, cwCardHeight) = extraCwCardSize(uiState)
 
     LazyColumn(
         modifier = Modifier
@@ -333,8 +358,8 @@ private fun ExtraModernContent(
                     onItemClick = onContinueWatchingClick,
                     onRemoveItem = onRemoveContinueWatching,
                     onStartFromBeginning = onContinueWatchingStartFromBeginning,
-                    cardWidth = posterCardStyle.width,
-                    imageHeight = posterCardStyle.height,
+                    cardWidth = cwCardWidth,
+                    imageHeight = cwCardHeight,
                     cardStyle = uiState.continueWatchingCardStyle,
                     cornerRadius = posterCardStyle.cornerRadius,
                     blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
@@ -352,8 +377,8 @@ private fun ExtraModernContent(
                     onItemClick = onContinueWatchingClick,
                     onRemoveItem = onRemoveContinueWatching,
                     onStartFromBeginning = onContinueWatchingStartFromBeginning,
-                    cardWidth = posterCardStyle.width,
-                    imageHeight = posterCardStyle.height,
+                    cardWidth = cwCardWidth,
+                    imageHeight = cwCardHeight,
                     cardStyle = uiState.continueWatchingCardStyle,
                     cornerRadius = posterCardStyle.cornerRadius,
                     blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,

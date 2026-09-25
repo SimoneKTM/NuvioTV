@@ -535,6 +535,7 @@ class AnimeSettingsViewModel @Inject constructor(
     }
 
     fun confirmPendingChange() {
+        if (isReadOnly) return
         val pending = _uiState.value.pendingChange ?: return
 
         _uiState.update { it.copy(pendingChange = pending.copy(isApplying = true)) }
