@@ -164,6 +164,18 @@ private fun MetaPreview.toExtraClassicFocusArtwork(): ClassicFocusArtwork =
         seed = id
     )
 
+private fun ContinueWatchingItem.toExtraClassicFocusArtwork(): ClassicFocusArtwork =
+    when (this) {
+        is ContinueWatchingItem.InProgress -> ClassicFocusArtwork(
+            imageUrl = firstNonBlank(episodeThumbnail, progress.backdrop, progress.poster),
+            seed = "${progress.contentId}|${progress.name}|${progress.contentType}"
+        )
+        is ContinueWatchingItem.NextUp -> ClassicFocusArtwork(
+            imageUrl = firstNonBlank(info.backdrop, info.thumbnail, info.poster),
+            seed = "${info.contentId}|${info.name}|${info.contentType}"
+        )
+    }
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun ExtraClassicContent(
@@ -214,7 +226,7 @@ private fun ExtraClassicContent(
                 }
             }
 
-            if (uiState.continueWatchingItems.isNotEmpty() || uiState.upcomingItems.isNotEmpty()) {
+            if (uiState.continueWatchingItems.isNotEmpty()) {
                 item(key = "extra_continue_watching") {
                     ContinueWatchingSection(
                         items = uiState.continueWatchingItems,
@@ -225,8 +237,16 @@ private fun ExtraClassicContent(
                         cardWidth = posterCardStyle.width,
                         imageHeight = posterCardStyle.height,
                         cardStyle = uiState.continueWatchingCardStyle,
+                        cornerRadius = posterCardStyle.cornerRadius,
                         blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
                         useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
+                        onItemFocused = { itemIndex ->
+                            if (uiState.classicFocusGradientEnabled) {
+                                focusedArtwork = uiState.continueWatchingItems
+                                    .getOrNull(itemIndex)
+                                    ?.toExtraClassicFocusArtwork()
+                            }
+                        },
                         modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)
                     )
                 }
@@ -243,6 +263,7 @@ private fun ExtraClassicContent(
                         cardWidth = posterCardStyle.width,
                         imageHeight = posterCardStyle.height,
                         cardStyle = uiState.continueWatchingCardStyle,
+                        cornerRadius = posterCardStyle.cornerRadius,
                         blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
                         useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
                         modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)
@@ -304,7 +325,7 @@ private fun ExtraModernContent(
             }
         }
 
-        if (uiState.continueWatchingItems.isNotEmpty() || uiState.upcomingItems.isNotEmpty()) {
+        if (uiState.continueWatchingItems.isNotEmpty()) {
             item(key = "extra_continue_watching") {
                 ContinueWatchingSection(
                     items = uiState.continueWatchingItems,
@@ -315,6 +336,7 @@ private fun ExtraModernContent(
                     cardWidth = posterCardStyle.width,
                     imageHeight = posterCardStyle.height,
                     cardStyle = uiState.continueWatchingCardStyle,
+                    cornerRadius = posterCardStyle.cornerRadius,
                     blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
                     useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
                     modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)
@@ -333,6 +355,7 @@ private fun ExtraModernContent(
                     cardWidth = posterCardStyle.width,
                     imageHeight = posterCardStyle.height,
                     cardStyle = uiState.continueWatchingCardStyle,
+                    cornerRadius = posterCardStyle.cornerRadius,
                     blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
                     useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw,
                     modifier = Modifier.padding(bottom = NuvioTheme.spacing.md)
@@ -401,6 +424,7 @@ private fun ExtraGridContent(
                     onRemoveItem = onRemoveContinueWatching,
                     onStartFromBeginning = onContinueWatchingStartFromBeginning,
                     cardStyle = uiState.continueWatchingCardStyle,
+                    cornerRadius = posterCardStyle.cornerRadius,
                     blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
                     useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw
                 )
@@ -416,6 +440,7 @@ private fun ExtraGridContent(
                     onRemoveItem = onRemoveContinueWatching,
                     onStartFromBeginning = onContinueWatchingStartFromBeginning,
                     cardStyle = uiState.continueWatchingCardStyle,
+                    cornerRadius = posterCardStyle.cornerRadius,
                     blurUnwatchedEpisodes = uiState.blurContinueWatchingNextUp,
                     useEpisodeThumbnails = uiState.useEpisodeThumbnailsInCw
                 )

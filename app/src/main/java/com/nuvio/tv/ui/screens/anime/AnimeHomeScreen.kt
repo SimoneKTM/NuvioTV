@@ -906,7 +906,14 @@ private fun AnimeClassicContent(
                     AnimeContinueWatchingRow(
                         uiState = uiState,
                         onNavigateToDetail = onNavigateToDetail,
-                        onRemoveItem = onRemoveContinueWatching
+                        onRemoveItem = onRemoveContinueWatching,
+                        onCwItemFocused = { itemIndex ->
+                            if (uiState.classicFocusGradientEnabled) {
+                                focusedArtwork = uiState.continueWatchingItems
+                                    .getOrNull(itemIndex)
+                                    ?.toAnimeClassicFocusArtwork()
+                            }
+                        }
                     )
                 }
             }
@@ -1129,7 +1136,8 @@ private fun buildAnimeHeroPreview(
 private fun AnimeContinueWatchingRow(
     uiState: AnimeHomeUiState,
     onNavigateToDetail: (String, String, String) -> Unit,
-    onRemoveItem: (ContinueWatchingItem) -> Unit
+    onRemoveItem: (ContinueWatchingItem) -> Unit,
+    onCwItemFocused: (itemIndex: Int) -> Unit = {}
 ) {
     if (uiState.continueWatchingItems.isEmpty() && uiState.upcomingItems.isEmpty()) return
     val (cardWidth, imageHeight) = animeCwCardSize(uiState)
@@ -1151,7 +1159,8 @@ private fun AnimeContinueWatchingRow(
             cardStyle = uiState.continueWatchingCardStyle,
             cardWidth = cardWidth,
             imageHeight = imageHeight,
-            cornerRadius = cornerRadius
+            cornerRadius = cornerRadius,
+            onItemFocused = onCwItemFocused
         )
         if (uiState.upcomingItems.isNotEmpty()) {
             ContinueWatchingSection(
@@ -1251,4 +1260,16 @@ private fun MetaPreview.toAnimeClassicFocusArtwork(): ClassicFocusArtwork =
         imageUrl = firstNonBlank(backdropUrl, background, landscapePoster, poster),
         seed = id
     )
+
+private fun ContinueWatchingItem.toAnimeClassicFocusArtwork(): ClassicFocusArtwork =
+    when (this) {
+        is ContinueWatchingItem.InProgress -> ClassicFocusArtwork(
+            imageUrl = firstNonBlank(episodeThumbnail, progress.backdrop, progress.poster),
+            seed = "${progress.contentId}|${progress.name}|${progress.contentType}"
+        )
+        is ContinueWatchingItem.NextUp -> ClassicFocusArtwork(
+            imageUrl = firstNonBlank(info.backdrop, info.thumbnail, info.poster),
+            seed = "${info.contentId}|${info.name}|${info.contentType}"
+        )
+    }
 

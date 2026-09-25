@@ -497,11 +497,16 @@ class AnimeHomeViewModel @Inject constructor(
         }
         clearTrailerPreviewState()
 
-        val expectedKeys = catalogsToLoad.map { (addon, catalog) -> catalogKey(addon, catalog) }.toSet()
         synchronized(rows) {
-            rows.keys.retainAll(expectedKeys)
+            // Rebuild in manifest order while keeping the loaded content: the old
+            // retainAll + putIfAbsent preserved the previous insertion order, so an
+            // addon reorder (ordinal signature → full refetch) never visibly
+            // reordered the rows until the ViewModel restarted.
+            val previous = rows.toMap()
+            rows.clear()
             catalogsToLoad.forEach { (addon, catalog) ->
-                rows.putIfAbsent(catalogKey(addon, catalog), emptyRow(addon, catalog))
+                val key = catalogKey(addon, catalog)
+                rows[key] = previous[key] ?: emptyRow(addon, catalog)
             }
         }
         publishRows()
