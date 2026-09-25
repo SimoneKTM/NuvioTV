@@ -3030,7 +3030,7 @@
   <string name="settings_anime_integrations_subtitle">Servizi che arricchiscono solo la tab Anime (TMDB, MDBList, TVDB, Anime-Skip, OpenSubtitles)</string>
   <string name="nav_anime">Anime</string>
   <string name="anime_settings_title">Anime</string>
-  <string name="anime_settings_subtitle">Addon anime, plugin e monitoraggio</string>
+  <string name="anime_settings_subtitle">Addon anime, plugin e layout</string>
   <string name="anime_home_empty_title">Nessun addon anime configurato</string>
   <string name="anime_home_empty_subtitle">Aggiungi un addon anime per riempire questa scheda di contenuti.</string>
   <string name="anime_home_empty_action">Apri le impostazioni anime</string>
@@ -3240,9 +3240,10 @@
   <string name="extra_settings_subtitle">Layout, addon e plugin per Extra</string>
   <string name="extra_settings_layout_title">Layout</string>
   <string name="extra_settings_layout_subtitle">Personalizza il layout della scheda Extra</string>
-  <string name="extra_settings_addons_title">Addon</string>
-  <string name="extra_settings_addons_subtitle">Gestisci gli addon per la scheda Extra</string>
+  <string name="extra_settings_addons_title">Contenuti e scoperta</string>
+  <string name="extra_settings_addons_subtitle">Gestisci addon e plugin per la scheda Extra</string>
   <string name="extra_settings_inner_addons_title">Addon</string>
+  <string name="extra_settings_inner_addons_subtitle">Gestisci gli addon per la scheda Extra</string>
   <string name="extra_settings_plugins_subtitle">Scraper per lo streaming usati per risolvere le fonti</string>
   <string name="extra_settings_show_tab_title">Mostra scheda Extra</string>
   <string name="extra_settings_show_tab_sub">Mostra o nascondi la scheda Extra nella barra laterale</string>

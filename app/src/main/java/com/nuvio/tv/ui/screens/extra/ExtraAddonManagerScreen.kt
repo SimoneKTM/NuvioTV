@@ -170,7 +170,7 @@ fun ExtraAddonManagerScreen(
             item(key = "header") {
                 Column(verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)) {
                     Text(
-                        text = stringResource(R.string.extra_settings_addons_title),
+                        text = stringResource(R.string.extra_settings_inner_addons_title),
                         style = MaterialTheme.typography.headlineLarge,
                         color = NuvioTheme.colors.TextPrimary
                     )

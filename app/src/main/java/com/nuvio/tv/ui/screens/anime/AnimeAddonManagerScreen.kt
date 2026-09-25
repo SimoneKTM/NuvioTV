@@ -175,7 +175,7 @@ fun AnimeAddonManagerScreen(
                         color = NuvioTheme.colors.TextPrimary
                     )
                     Text(
-                        text = stringResource(R.string.anime_settings_subtitle),
+                        text = stringResource(R.string.anime_settings_addons_subtitle),
                         style = MaterialTheme.typography.bodyMedium,
                         color = NuvioTheme.colors.TextSecondary
                     )

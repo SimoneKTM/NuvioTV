@@ -24,6 +24,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 /** Hard ceiling for next-episode stream search to prevent hanging forever. */
 private const val NEXT_EPISODE_HARD_TIMEOUT_MS = 120_000L
 
+/** Extra time given to slower plugin scrapers after addons already answered. */
+private const val NEXT_EPISODE_SCRAPER_GRACE_MS = 6_000L
+
 internal fun PlayerRuntimeController.showEpisodesPanel() {
     _uiState.update {
         it.copy(
@@ -74,7 +77,7 @@ internal fun PlayerRuntimeController.loadSourceStreams(forceRefresh: Boolean) {
     val seasonArg: Int?
     val episodeArg: Int?
 
-    if (contentType in listOf("series", "tv", "anime", "sport", "live") && currentSeason != null && currentEpisode != null) {
+    if (contentType in listOf("series", "tv", "anime", "sport", "live", "other", "show") && currentSeason != null && currentEpisode != null) {
         type = contentType ?: return
         vid = currentVideoId ?: contentId ?: return
         seasonArg = currentSeason
@@ -88,7 +91,7 @@ internal fun PlayerRuntimeController.loadSourceStreams(forceRefresh: Boolean) {
 
     val requestKey = buildSourceRequestKey(type = type, videoId = vid, season = seasonArg, episode = episodeArg)
     val state = _uiState.value
-    val hasCachedPayload = state.sourceAllStreams.isNotEmpty() || state.sourceStreamsError != null
+    val hasCachedPayload = state.sourceAllStreams.isNotEmpty()
     if (!forceRefresh && requestKey == sourceStreamsCacheRequestKey && hasCachedPayload) {
         return
     }
@@ -680,7 +683,7 @@ internal fun PlayerRuntimeController.loadStreamsForEpisode(video: Video, forceRe
 
     val requestKey = buildEpisodeRequestKey(type = type, video = video)
     val state = _uiState.value
-    val hasCachedPayload = state.episodeAllStreams.isNotEmpty() || state.episodeStreamsError != null
+    val hasCachedPayload = state.episodeAllStreams.isNotEmpty()
     if (!forceRefresh && requestKey == episodeStreamsCacheRequestKey && hasCachedPayload) {
         _uiState.update {
             it.copy(
@@ -1159,8 +1162,13 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
                     innerJob.cancel()
                 } else if (lastSuccessData != null) {
                     // Streams arrived but no match (e.g. binge group not found).
-                    // Respect the original timeout - don't wait further.
+                    // Give slower plugin scrapers a short grace window to finish
+                    // before giving up, then re-check with the freshest data.
+                    withTimeoutOrNull(NEXT_EPISODE_SCRAPER_GRACE_MS) { innerJob.join() }
                     innerJob.cancel()
+                    if (!autoSelectTriggered && lastSuccessData != null) {
+                        selectedStream = trySelectStream(lastSuccessData!!)
+                    }
                     autoSelectTriggered = true
                 } else {
                     // No addon responded yet - wait for the first result with

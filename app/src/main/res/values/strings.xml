@@ -2411,7 +2411,7 @@
 
     <!-- Anime tab -->
     <string name="anime_settings_title">Anime</string>
-    <string name="anime_settings_subtitle">Anime addons, plugins and tracking</string>
+    <string name="anime_settings_subtitle">Anime add-ons, plugins and layout</string>
     <string name="anime_home_empty_title">No anime addons configured</string>
     <string name="anime_home_empty_subtitle">Add an anime addon to fill this tab with content.</string>
     <string name="anime_home_empty_action">Open anime settings</string>
@@ -2459,6 +2459,7 @@
     <string name="extra_settings_addons_title">Content &amp; Discovery</string>
     <string name="extra_settings_addons_subtitle">Manage add-ons and plugins for the Extra tab</string>
     <string name="extra_settings_inner_addons_title">Addons</string>
+    <string name="extra_settings_inner_addons_subtitle">Manage add-ons for the Extra tab</string>
     <string name="extra_settings_plugins_subtitle">Stream scrapers used to resolve sources</string>
     <string name="extra_settings_show_tab_title">Show Extra tab</string>
     <string name="extra_settings_show_tab_sub">Show or hide the Extra tab in the sidebar</string>

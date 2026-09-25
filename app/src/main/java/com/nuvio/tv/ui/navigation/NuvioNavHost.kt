@@ -1184,8 +1184,12 @@ fun NuvioNavHost(
                 onBackPress = { navController.popBackStack() },
                 onNavigateToAnimeLayout = { navController.navigate(Screen.AnimeLayoutSettings.route) },
                 onNavigateToAnimeAddons = { navController.navigate(Screen.AnimeAddonManager.route) },
-                onNavigateToPlugins = { if (AppFeaturePolicy.pluginsEnabled) navController.navigate(Screen.Plugins.route) },
-                essentialMode = experienceMode == ExperienceMode.ESSENTIAL
+                onNavigateToPlugins = {
+                    if (AppFeaturePolicy.pluginsEnabled && experienceMode != ExperienceMode.ESSENTIAL) {
+                        navController.navigate(Screen.Plugins.route)
+                    }
+                },
+                essentialMode = experienceMode?.let { it == ExperienceMode.ESSENTIAL }
             )
         }
 
@@ -1257,8 +1261,12 @@ fun NuvioNavHost(
                 onBackPress = { navController.popBackStack() },
                 onNavigateToExtraLayout = { navController.navigate(Screen.ExtraLayoutSettings.route) },
                 onNavigateToExtraAddons = { navController.navigate(Screen.ExtraAddonManager.route) },
-                onNavigateToPlugins = { if (AppFeaturePolicy.pluginsEnabled) navController.navigate(Screen.Plugins.route) },
-                essentialMode = experienceMode == ExperienceMode.ESSENTIAL
+                onNavigateToPlugins = {
+                    if (AppFeaturePolicy.pluginsEnabled && experienceMode != ExperienceMode.ESSENTIAL) {
+                        navController.navigate(Screen.Plugins.route)
+                    }
+                },
+                essentialMode = experienceMode?.let { it == ExperienceMode.ESSENTIAL }
             )
         }
 

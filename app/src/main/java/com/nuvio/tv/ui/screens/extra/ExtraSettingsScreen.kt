@@ -31,7 +31,7 @@ fun ExtraSettingsScreen(
     onNavigateToExtraLayout: () -> Unit,
     onNavigateToExtraAddons: () -> Unit,
     onNavigateToPlugins: () -> Unit,
-    essentialMode: Boolean = false
+    essentialMode: Boolean? = null
 ) {
     BackHandler { onBackPress() }
 
@@ -69,12 +69,12 @@ fun ExtraSettingsScreen(
         item(key = "content_discovery") {
             SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
                 SettingsActionRow(
-                    title = stringResource(R.string.extra_settings_addons_title),
-                    subtitle = stringResource(R.string.extra_settings_addons_subtitle),
+                    title = stringResource(R.string.extra_settings_inner_addons_title),
+                    subtitle = stringResource(R.string.extra_settings_inner_addons_subtitle),
                     onClick = onNavigateToExtraAddons,
                     leadingIcon = Icons.Default.Extension
                 )
-                if (AppFeaturePolicy.pluginsEnabled && !essentialMode) {
+                if (AppFeaturePolicy.pluginsEnabled && essentialMode == false) {
                     SettingsActionRow(
                         title = stringResource(R.string.plugin_title),
                         subtitle = stringResource(R.string.extra_settings_plugins_subtitle),

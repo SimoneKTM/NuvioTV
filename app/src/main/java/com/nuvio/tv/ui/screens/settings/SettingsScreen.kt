@@ -1340,7 +1340,7 @@ private fun AnimeSettingsContent(
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         SettingsActionRow(
                             title = stringResource(R.string.anime_settings_addons_title),
-                            subtitle = stringResource(R.string.settings_content_discovery_addons_subtitle),
+                            subtitle = stringResource(R.string.anime_settings_addons_subtitle),
                             onClick = onNavigateToAnimeAddons,
                             leadingIcon = Icons.Default.Extension,
                             modifier = Modifier.focusRequester(contentDiscoveryFocusRequester)
@@ -1642,7 +1642,7 @@ private fun ExtraSettingsContent(
                             item(key = "extra_content_discovery_addons") {
                                 SettingsActionRow(
                                     title = stringResource(R.string.extra_settings_inner_addons_title),
-                                    subtitle = stringResource(R.string.extra_settings_addons_subtitle),
+                                    subtitle = stringResource(R.string.extra_settings_inner_addons_subtitle),
                                     onClick = onNavigateToExtraAddons,
                                     leadingIcon = Icons.Default.Extension,
                                     modifier = Modifier.focusRequester(contentDiscoveryFocusRequester)
