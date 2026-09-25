@@ -260,7 +260,7 @@ internal fun LazyListScope.autoPlaySettingsItems(
                 SliderSettingsItem(
                     icon = Icons.Default.Tune,
                     title = stringResource(R.string.autoplay_threshold_min_title),
-                    subtitle = stringResource(R.string.autoplay_threshold_pct_sub),
+                    subtitle = stringResource(R.string.autoplay_threshold_min_sub),
                     value = (playerSettings.nextEpisodeThresholdMinutesBeforeEnd * 2f).roundToInt(),
                     valueText = "${formatHalfStepValue(playerSettings.nextEpisodeThresholdMinutesBeforeEnd)} min",
                     minValue = 0,
@@ -355,7 +355,7 @@ private fun formatHalfStepValue(value: Float): String {
     return if (value % 1f == 0f) {
         value.toInt().toString()
     } else {
-        String.format(Locale.US, "%.1f", value)
+        String.format(Locale.getDefault(), "%.1f", value)
     }
 }
 
@@ -957,7 +957,7 @@ private fun StreamRegexDialog(
                         ),
                         shape = ButtonDefaults.shape(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
                     ) {
-                        Text(stringResource(R.string.action_none))
+                        Text(stringResource(R.string.action_clear))
                     }
                     Spacer(modifier = Modifier.width(NuvioTheme.spacing.sm))
                     Button(

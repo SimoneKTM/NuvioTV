@@ -488,6 +488,7 @@
 <string name="audio_lang_original">Lingua originale</string>
 <string name="audio_lang_original_hint">Richiede che l\'arricchimento TMDB sia abilitato</string>
 <string name="audio_preferred_lang">Lingua audio preferita</string>
+<string name="audio_secondary_lang">Seconda lingua audio preferita</string>
 <string name="audio_skip_silence">Salta silenzio</string>
 <string name="audio_skip_silence_sub">Salta le porzioni di audio silenziose durante la riproduzione</string>
 <string name="audio_advanced_section">Audio avanzato</string>

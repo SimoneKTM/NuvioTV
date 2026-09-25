@@ -137,7 +137,7 @@ internal fun LazyListScope.trailerAndAudioSettingsItems(
 
         NavigationSettingsItem(
             icon = Icons.Default.Language,
-            title = stringResource(R.string.sub_secondary_lang),
+            title = stringResource(R.string.audio_secondary_lang),
             subtitle = secondaryAudioLangName,
             onClick = onShowSecondaryAudioLanguageDialog,
             onFocused = onItemFocused,

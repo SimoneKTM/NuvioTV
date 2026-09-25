@@ -833,7 +833,11 @@ internal fun PlaybackSettingsSections(
                     Text(
                         text = vpnMessage,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = NuvioTheme.colors.Warning
+                        color = NuvioTheme.colors.Warning,
+                        modifier = Modifier.padding(
+                            horizontal = NuvioTheme.spacing.lg,
+                            vertical = NuvioTheme.spacing.xs
+                        )
                     )
                 }
             }

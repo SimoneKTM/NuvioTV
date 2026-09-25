@@ -127,7 +127,7 @@ fun EssentialPlaybackSettingsContent(
                         } else {
                             AVAILABLE_SUBTITLE_LANGUAGES.find {
                                 it.code == settings?.subtitleStyle?.preferredLanguage
-                            }?.displayName ?: stringResource(R.string.language_english)
+                            }?.displayName ?: settings?.subtitleStyle?.preferredLanguage.orEmpty()
                         },
                         trailingIcon = Icons.Default.VideoSettings,
                         onClick = { showSubtitleLanguageDialog = true },

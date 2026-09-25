@@ -77,7 +77,7 @@ internal fun LazyListScope.bufferAndNetworkSettingsItems(
                 icon = Icons.Default.Speed,
                 title = stringResource(R.string.playback_net_nuvio_performance_mode),
                 subtitle = stringResource(R.string.playback_net_nuvio_performance_mode_sub),
-                isChecked = isSupported && playerSettings.nuvioPerformanceModeEnabled,
+                isChecked = playerSettings.nuvioPerformanceModeEnabled,
                 enabled = true,
                 onCheckedChange = { enabled ->
                     if (isSupported) {
@@ -426,26 +426,28 @@ internal fun LazyListScope.bufferAndNetworkSettingsItems(
             }
         }
 
-        item(key = "buffer_net_reset_defaults") {
-            Button(
-                onClick = onResetToDefaults,
-                shape = ButtonDefaults.shape(shape = RoundedCornerShape(10.dp)),
-                colors = ButtonDefaults.colors(
-                    containerColor = NuvioTheme.colors.Background,
-                    focusedContainerColor = NuvioTheme.colors.Background
-                ),
-                border = ButtonDefaults.border(
-                    focusedBorder = Border(
-                        border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.FocusRing),
-                        shape = RoundedCornerShape(10.dp)
+        if (playerSettings.bufferEngineEnabled) {
+            item(key = "buffer_net_reset_defaults") {
+                Button(
+                    onClick = onResetToDefaults,
+                    shape = ButtonDefaults.shape(shape = RoundedCornerShape(10.dp)),
+                    colors = ButtonDefaults.colors(
+                        containerColor = NuvioTheme.colors.Background,
+                        focusedContainerColor = NuvioTheme.colors.Background
+                    ),
+                    border = ButtonDefaults.border(
+                        focusedBorder = Border(
+                            border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.FocusRing),
+                            shape = RoundedCornerShape(10.dp)
+                        )
                     )
-                )
-            ) {
-                Text(
-                    text = stringResource(R.string.playback_reset_to_default),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = NuvioTheme.colors.TextPrimary
-                )
+                ) {
+                    Text(
+                        text = stringResource(R.string.playback_reset_to_default),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = NuvioTheme.colors.TextPrimary
+                    )
+                }
             }
         }
     }

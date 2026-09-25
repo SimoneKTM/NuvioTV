@@ -977,6 +977,7 @@
     <string name="audio_lang_original">Original language</string>
     <string name="audio_lang_original_hint">Requires TMDB enrichment to be enabled</string>
     <string name="audio_preferred_lang">Preferred Audio Language</string>
+    <string name="audio_secondary_lang">Secondary Preferred Audio Language</string>
     <string name="audio_skip_silence">Skip Silence</string>
     <string name="audio_skip_silence_sub">Skip silent portions of audio during playback</string>
     <string name="audio_remember_delay_per_device">Remember audio delay per device</string>
