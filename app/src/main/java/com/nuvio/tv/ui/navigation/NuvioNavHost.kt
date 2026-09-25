@@ -1432,12 +1432,6 @@ fun NuvioNavHost(
             )
         }
 
-        composable(Screen.LayoutSettings.route) {
-            LayoutSettingsScreen(
-                onBackPress = { navController.popBackStack() }
-            )
-        }
-
         composable(
             route = Screen.CatalogSeeAll.route,
             arguments = listOf(

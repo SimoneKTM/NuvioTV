@@ -200,8 +200,6 @@ internal fun TrackerQrLoginSection(
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
-                }
-                if (!qrLogin.errorMessage.isNullOrBlank()) {
                     SettingsDialogActionRow(horizontalAlignment = Alignment.CenterHorizontally) {
                         SettingsDialogActionButton(
                             text = stringResource(R.string.action_retry),

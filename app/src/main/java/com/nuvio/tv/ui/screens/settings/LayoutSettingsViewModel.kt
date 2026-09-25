@@ -13,7 +13,6 @@ import com.nuvio.tv.core.streams.StreamBadgeRules
 import com.nuvio.tv.core.streams.StreamBadgeSettings
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.data.local.StreamBadgeSettingsDataStore
-import com.nuvio.tv.data.local.TraktSettingsDataStore
 import com.nuvio.tv.data.local.TrailerSettingsDataStore
 import com.nuvio.tv.domain.model.CardDepthStyle
 import com.nuvio.tv.domain.model.CardDepthSurface
@@ -69,7 +68,7 @@ data class LayoutSettingsUiState(
     val detailPageTrailerButtonEnabled: Boolean = true,
     val detailPageTrailerAutoplayEnabled: Boolean = true,
     val detailPageTrailerAutoplayDelaySeconds: Int = 7,
-    val preferExternalMetaAddonDetail: Boolean = false,
+    val preferExternalMetaAddonDetail: Boolean = true,
     val hideUnreleasedContent: Boolean = false,
     val showFullReleaseDate: Boolean = true,
     val nextUpFromFurthestEpisode: Boolean = true,
@@ -155,7 +154,6 @@ open class LayoutSettingsViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val streamBadgeSettingsDataStore: StreamBadgeSettingsDataStore,
-    private val traktSettingsDataStore: TraktSettingsDataStore,
     private val trailerSettingsDataStore: TrailerSettingsDataStore,
     protected val addonRepository: AddonRepository,
     private val metaRepository: com.nuvio.tv.domain.repository.MetaRepository
@@ -183,7 +181,7 @@ open class LayoutSettingsViewModel @Inject constructor(
     init {
         loadLogoBytes()
         viewModelScope.launch {
-            streamBadgeSettingsDataStore.settings.collectLatest { settings ->
+            streamBadgeSettingsDataStore.settings.distinctUntilChanged().collectLatest { settings ->
                 _streamBadgeUiState.update { it.copy(settings = settings) }
             }
         }
@@ -365,14 +363,14 @@ open class LayoutSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             layoutPreferenceDataStore.continueWatchingSortMode
                 .distinctUntilChanged()
-                .collect { mode ->
+                .collectLatest { mode ->
                     updateUiStateIfChanged { it.copy(continueWatchingSortMode = mode) }
                 }
         }
         viewModelScope.launch {
             layoutPreferenceDataStore.continueWatchingCardStyle
                 .distinctUntilChanged()
-                .collect { style ->
+                .collectLatest { style ->
                     updateUiStateIfChanged { it.copy(continueWatchingCardStyle = style) }
                 }
         }

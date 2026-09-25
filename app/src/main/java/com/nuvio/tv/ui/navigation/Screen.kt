@@ -169,7 +169,6 @@ sealed class Screen(val route: String) {
     data object Plugins : Screen("plugins")
     data object ExperienceModeSelection : Screen("experience_mode_selection")
     data object LayoutSelection : Screen("layout_selection")
-    data object LayoutSettings : Screen("layout_settings")
     data object Account : Screen("account")
     data object ManageProfiles : Screen("manage_profiles")
     data object AuthSignIn : Screen("auth_sign_in")

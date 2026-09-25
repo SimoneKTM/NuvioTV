@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.data.local.StreamBadgeSettingsDataStore
-import com.nuvio.tv.data.local.TraktSettingsDataStore
 import com.nuvio.tv.data.local.TrailerSettingsDataStore
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
@@ -22,7 +21,6 @@ class AnimeLayoutSettingsViewModel @Inject constructor(
     @param:ApplicationContext context: Context,
     @Named("anime_layout") layoutPreferenceDataStore: LayoutPreferenceDataStore,
     streamBadgeSettingsDataStore: StreamBadgeSettingsDataStore,
-    traktSettingsDataStore: TraktSettingsDataStore,
     trailerSettingsDataStore: TrailerSettingsDataStore,
     addonRepository: AddonRepository,
     metaRepository: com.nuvio.tv.domain.repository.MetaRepository,
@@ -31,7 +29,6 @@ class AnimeLayoutSettingsViewModel @Inject constructor(
     context = context,
     layoutPreferenceDataStore = layoutPreferenceDataStore,
     streamBadgeSettingsDataStore = streamBadgeSettingsDataStore,
-    traktSettingsDataStore = traktSettingsDataStore,
     trailerSettingsDataStore = trailerSettingsDataStore,
     addonRepository = addonRepository,
     metaRepository = metaRepository
