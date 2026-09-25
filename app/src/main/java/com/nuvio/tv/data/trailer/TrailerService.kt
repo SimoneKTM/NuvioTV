@@ -3,6 +3,7 @@ package com.nuvio.tv.data.trailer
 import android.util.Log
 import com.nuvio.tv.core.tmdb.TmdbService
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
+import com.nuvio.tv.domain.model.TmdbSettings
 import com.nuvio.tv.data.remote.api.TmdbApi
 import com.nuvio.tv.data.remote.api.TmdbVideoResult
 import com.nuvio.tv.data.remote.api.TrailerApi
@@ -56,12 +57,16 @@ class TrailerService(
     /**
      * Search for a trailer by title, year, tmdbId, and type.
      * Returns the trailer playback source (video URL + optional separate audio URL) or null.
+     *
+     * @param tmdbSettingsOverride per-tab settings (e.g. anime TMDB enrichment) used
+     * instead of the shared main TMDB settings for the trailer gate and language.
      */
     suspend fun getTrailerPlaybackSource(
         title: String,
         year: String? = null,
         tmdbId: String? = null,
-        type: String? = null
+        type: String? = null,
+        tmdbSettingsOverride: TmdbSettings? = null
     ): TrailerPlaybackSource? = withContext(Dispatchers.IO) {
         // Read the TMDB settings once and reuse for both the "Disable Trailers"
         // gate and the trailer language lookup below. The gate respects the
@@ -69,14 +74,17 @@ class TrailerService(
         // below is the only trailer source surfaced through this function,
         // so when the toggle is off we return no trailer at all rather than
         // silently falling through to TMDB's /videos endpoint. See #1647.
-        val tmdbSettings = runCatching { tmdbSettingsDataStore.settings.first() }.getOrNull()
+        val tmdbSettings = tmdbSettingsOverride
+            ?: runCatching { tmdbSettingsDataStore.settings.first() }.getOrNull()
         if (tmdbSettings?.enabled != true || tmdbSettings?.useTrailers != true) {
             Log.d(TAG, "Trailers disabled in TMDB enrichment settings; skipping lookup")
             return@withContext null
         }
         val tmdbLanguage = normalizeTmdbTrailerLanguage(tmdbSettings.language)
 
-        val cacheKey = "$title|$year|$tmdbId|$type"
+        // Language is part of the key: the anime tab can resolve with a different
+        // settings source/language than the main tab sharing this singleton cache.
+        val cacheKey = "$title|$year|$tmdbId|$type|$tmdbLanguage"
 
         cache[cacheKey]?.let { cached ->
             val hit = cached !== NEGATIVE_CACHE

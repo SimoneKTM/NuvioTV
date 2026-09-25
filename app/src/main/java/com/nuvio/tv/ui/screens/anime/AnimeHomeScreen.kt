@@ -92,6 +92,7 @@ import com.nuvio.tv.ui.util.dpadRepeatThrottle
 import com.nuvio.tv.ui.util.localizedContentType
 import com.nuvio.tv.ui.util.localizedLanguageText
 import kotlin.math.abs
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -143,8 +144,25 @@ fun AnimeHomeScreen(
                 val onRemoveContinueWatching: (ContinueWatchingItem) -> Unit = viewModel::removeContinueWatching
                 val enrichHeroItem: suspend (MetaPreview) -> MetaPreview? = viewModel::enrichAnimeHeroItem
                 when (uiState.homeLayout) {
-                    HomeLayout.MODERN -> AnimeModernContent(uiState = uiState, enrichHeroItem = enrichHeroItem, onNavigateToDetail = onNavigateToDetail, onRemoveContinueWatching = onRemoveContinueWatching, onLoadMoreCatalog = viewModel::loadMoreCatalogItems)
-                    HomeLayout.CLASSIC -> AnimeClassicContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onRemoveContinueWatching = onRemoveContinueWatching)
+                    HomeLayout.MODERN -> AnimeModernContent(
+                        uiState = uiState,
+                        trailerPreviewUrls = viewModel.trailerPreviewUrls,
+                        trailerPreviewAudioUrls = viewModel.trailerPreviewAudioUrls,
+                        onRequestTrailerPreview = viewModel::requestTrailerPreview,
+                        enrichHeroItem = enrichHeroItem,
+                        onNavigateToDetail = onNavigateToDetail,
+                        onRemoveContinueWatching = onRemoveContinueWatching,
+                        onLoadMoreCatalog = viewModel::loadMoreCatalogItems
+                    )
+                    HomeLayout.CLASSIC -> AnimeClassicContent(
+                        uiState = uiState,
+                        trailerPreviewUrls = viewModel.trailerPreviewUrls,
+                        trailerPreviewAudioUrls = viewModel.trailerPreviewAudioUrls,
+                        onRequestTrailerPreview = viewModel::requestTrailerPreview,
+                        onNavigateToDetail = onNavigateToDetail,
+                        onNavigateToSeeAll = onNavigateToSeeAll,
+                        onRemoveContinueWatching = onRemoveContinueWatching
+                    )
                     HomeLayout.GRID -> AnimeGridContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onRemoveContinueWatching = onRemoveContinueWatching)
                 }
             }
@@ -172,6 +190,9 @@ private fun AnimeHeroItem(
 @Composable
 private fun AnimeModernContent(
     uiState: AnimeHomeUiState,
+    trailerPreviewUrls: Map<String, String>,
+    trailerPreviewAudioUrls: Map<String, String>,
+    onRequestTrailerPreview: (MetaPreview) -> Unit,
     enrichHeroItem: suspend (MetaPreview) -> MetaPreview?,
     onNavigateToDetail: (String, String, String) -> Unit,
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit,
@@ -183,10 +204,18 @@ private fun AnimeModernContent(
     }
     val heroItem = focusedHeroItem ?: defaultHeroItem
     var enrichedHeroItem by remember(heroItem) { mutableStateOf(heroItem) }
-    LaunchedEffect(heroItem) {
+    LaunchedEffect(heroItem, uiState.focusedPosterBackdropTrailerEnabled) {
         val current = heroItem ?: return@LaunchedEffect
         enrichedHeroItem = current
-        enrichHeroItem(current)?.let { enrichedHeroItem = it }
+        val enriched = enrichHeroItem(current)
+        if (enriched != null) enrichedHeroItem = enriched
+        if (uiState.focusedPosterBackdropTrailerEnabled) {
+            // Request AFTER enrichment so kitsu/mal/anilist items already carry
+            // their localized YT ids / IMDb id — requesting the raw item first
+            // would negative-cache them for the session.
+            delay(150)
+            onRequestTrailerPreview(enriched ?: current)
+        }
     }
     val heroEnabled = uiState.heroEnabled && heroItem != null
     val fullScreenBackdrop = uiState.modernHeroFullScreenBackdropEnabled
@@ -237,6 +266,17 @@ private fun AnimeModernContent(
                     fullScreenBackdrop = fullScreenBackdrop,
                     useLandscapePosters = useLandscapePosters,
                     showFullReleaseDate = uiState.showFullReleaseDate,
+                    trailerPreviewUrl = if (uiState.focusedPosterBackdropTrailerEnabled) {
+                        trailerPreviewUrls[currentHeroItem.id]
+                    } else {
+                        null
+                    },
+                    trailerPreviewAudioUrl = if (uiState.focusedPosterBackdropTrailerEnabled) {
+                        trailerPreviewAudioUrls[currentHeroItem.id]
+                    } else {
+                        null
+                    },
+                    trailerMuted = uiState.focusedPosterBackdropTrailerMuted,
                     screenWidth = screenWidth,
                     screenHeight = screenHeight,
                     heroBackdropHeight = heroBackdropHeight,
@@ -310,6 +350,8 @@ private fun AnimeModernContent(
                     focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,
                     focusedPosterBackdropTrailerEnabled = uiState.focusedPosterBackdropTrailerEnabled,
                     focusedPosterBackdropTrailerMuted = uiState.focusedPosterBackdropTrailerMuted,
+                    trailerPreviewUrls = trailerPreviewUrls,
+                    trailerPreviewAudioUrls = trailerPreviewAudioUrls,
                     onItemClick = onNavigateToDetail,
                     onItemFocus = { focusedHeroItem = it },
                     onLoadMoreCatalog = onLoadMoreCatalog
@@ -338,6 +380,8 @@ private fun AnimeModernCatalogRow(
     focusedPosterBackdropExpandDelaySeconds: Int,
     focusedPosterBackdropTrailerEnabled: Boolean,
     focusedPosterBackdropTrailerMuted: Boolean,
+    trailerPreviewUrls: Map<String, String>,
+    trailerPreviewAudioUrls: Map<String, String>,
     onItemClick: (String, String, String) -> Unit,
     onItemFocus: (MetaPreview) -> Unit,
     onLoadMoreCatalog: (String, String, String) -> Unit
@@ -487,6 +531,8 @@ private fun AnimeModernCatalogRow(
                         focusedPosterBackdropExpandDelaySeconds = focusedPosterBackdropExpandDelaySeconds,
                         focusedPosterBackdropTrailerEnabled = focusedPosterBackdropTrailerEnabled,
                         focusedPosterBackdropTrailerMuted = focusedPosterBackdropTrailerMuted,
+                        trailerPreviewUrl = trailerPreviewUrls[item.id],
+                        trailerPreviewAudioUrl = trailerPreviewAudioUrls[item.id],
                         onFocus = { onItemFocus(it) },
                         onClick = { onItemClick(item.id, item.apiType, catalogRow.addonBaseUrl) }
                     )
@@ -657,6 +703,9 @@ private fun AnimeModernHero(
     fullScreenBackdrop: Boolean,
     useLandscapePosters: Boolean,
     showFullReleaseDate: Boolean,
+    trailerPreviewUrl: String?,
+    trailerPreviewAudioUrl: String?,
+    trailerMuted: Boolean,
     screenWidth: Dp,
     screenHeight: Dp,
     heroBackdropHeight: Dp,
@@ -668,6 +717,13 @@ private fun AnimeModernHero(
     val heroPreview = remember(item, showFullReleaseDate) {
         buildAnimeHeroPreview(context, item, showFullReleaseDate)
     }
+    var trailerFirstFrameRendered by remember { mutableStateOf(false) }
+    var trailerEnded by remember { mutableStateOf(false) }
+    LaunchedEffect(trailerPreviewUrl) {
+        trailerFirstFrameRendered = false
+        trailerEnded = false
+    }
+    val shouldPlayTrailer = trailerPreviewUrl != null && !trailerEnded
     val liveHeroSceneState by rememberUpdatedState(
         ModernHeroSceneState(
             heroBackdrop = firstNonBlank(
@@ -678,12 +734,12 @@ private fun AnimeModernHero(
             ),
             preview = heroPreview,
             enrichmentActive = false,
-            shouldPlayTrailer = false,
-            trailerFirstFrameRendered = false,
-            trailerUrl = null,
-            trailerAudioUrl = null,
-            trailerPlaybackKey = null,
-            trailerMuted = true,
+            shouldPlayTrailer = shouldPlayTrailer,
+            trailerFirstFrameRendered = trailerFirstFrameRendered,
+            trailerUrl = trailerPreviewUrl,
+            trailerAudioUrl = trailerPreviewAudioUrl,
+            trailerPlaybackKey = trailerPreviewUrl,
+            trailerMuted = trailerMuted,
             fullScreenBackdrop = fullScreenBackdrop
         )
     )
@@ -721,12 +777,15 @@ private fun AnimeModernHero(
             modifier = heroMediaModifier,
             requestWidthPx = heroMediaWidthPx,
             requestHeightPx = heroMediaHeightPx,
-            onTrailerEnded = {},
-            onFirstFrameRendered = {}
+            onTrailerEnded = { trailerEnded = true },
+            // Required: without the first-frame callback the media layer keeps
+            // the trailer at alpha 0 (decoded but invisible).
+            onFirstFrameRendered = { trailerFirstFrameRendered = true }
         )
         HeroTitleBlock(
             previewProvider = { heroPreview },
             portraitMode = !useLandscapePosters,
+            trailerPlaying = { shouldPlayTrailer && trailerFirstFrameRendered && !trailerEnded },
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(
@@ -757,18 +816,32 @@ private fun animePosterCardStyle(uiState: AnimeHomeUiState): PosterCardStyle {
 @Composable
 private fun AnimeClassicContent(
     uiState: AnimeHomeUiState,
+    trailerPreviewUrls: Map<String, String>,
+    trailerPreviewAudioUrls: Map<String, String>,
+    onRequestTrailerPreview: (MetaPreview) -> Unit,
     onNavigateToDetail: (String, String, String) -> Unit,
     onNavigateToSeeAll: (String, String, String) -> Unit,
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
 ) {
     var focusedArtwork by remember { mutableStateOf<ClassicFocusArtwork?>(null) }
+    var focusedCatalogItem by remember { mutableStateOf<MetaPreview?>(null) }
     LaunchedEffect(uiState.classicFocusGradientEnabled) {
         if (!uiState.classicFocusGradientEnabled) focusedArtwork = null
     }
     val handleMetaFocus: (MetaPreview) -> Unit = { item ->
+        focusedCatalogItem = item
         if (uiState.classicFocusGradientEnabled) {
             focusedArtwork = item.toAnimeClassicFocusArtwork()
         }
+    }
+    val latestOnRequestTrailerPreview by rememberUpdatedState(onRequestTrailerPreview)
+    LaunchedEffect(focusedCatalogItem?.id, uiState.focusedPosterBackdropTrailerEnabled) {
+        val item = focusedCatalogItem ?: return@LaunchedEffect
+        if (!uiState.focusedPosterBackdropTrailerEnabled) return@LaunchedEffect
+        if (trailerPreviewUrls.containsKey(item.id)) return@LaunchedEffect
+        delay(150)
+        if (focusedCatalogItem?.id != item.id) return@LaunchedEffect
+        latestOnRequestTrailerPreview(item)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -826,6 +899,9 @@ private fun AnimeClassicContent(
                     focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,
                     focusedPosterBackdropTrailerEnabled = uiState.focusedPosterBackdropTrailerEnabled,
                     focusedPosterBackdropTrailerMuted = uiState.focusedPosterBackdropTrailerMuted,
+                    trailerPreviewUrls = trailerPreviewUrls,
+                    trailerPreviewAudioUrls = trailerPreviewAudioUrls,
+                    onRequestTrailerPreview = onRequestTrailerPreview,
                     onItemFocus = handleMetaFocus
                 )
             }

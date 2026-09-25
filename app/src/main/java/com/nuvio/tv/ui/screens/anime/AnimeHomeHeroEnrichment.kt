@@ -267,6 +267,10 @@ private fun applyAnimeTmdbToPreview(
             releaseInfo = enrichment.releaseInfo ?: enriched.releaseInfo
         )
     }
+    val enrichedYtIds = enrichment.trailers.mapNotNull { it.ytId }.distinct()
+    if (enrichedYtIds.isNotEmpty() && enriched.trailerYtIds.isEmpty()) {
+        enriched = enriched.copy(trailerYtIds = enrichedYtIds)
+    }
     return enriched
 }
 
@@ -332,7 +336,9 @@ private fun Meta.mergeIntoAnimePreview(preview: MetaPreview): MetaPreview {
         status = status ?: preview.status,
         ageRating = ageRating ?: preview.ageRating,
         country = country ?: preview.country,
-        language = language ?: preview.language
+        language = language ?: preview.language,
+        trailerYtIds = if (trailerYtIds.isNotEmpty()) trailerYtIds else preview.trailerYtIds,
+        trailers = if (trailers.isNotEmpty()) trailers else preview.trailers
     )
 }
 

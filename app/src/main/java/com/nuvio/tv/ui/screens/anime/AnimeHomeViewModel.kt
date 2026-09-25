@@ -1,6 +1,7 @@
 ﻿package com.nuvio.tv.ui.screens.anime
 
 import android.util.Log
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.core.network.NetworkResult
@@ -14,6 +15,7 @@ import com.nuvio.tv.data.local.MDBListSettingsDataStore
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
 import com.nuvio.tv.data.local.AnimeTvdbSettingsDataStore
 import com.nuvio.tv.data.repository.MDBListRepository
+import com.nuvio.tv.data.trailer.TrailerService
 import com.nuvio.tv.data.tvdb.TvdbMetadataService
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
@@ -71,7 +73,8 @@ class AnimeHomeViewModel @Inject constructor(
     internal val tmdbService: TmdbService,
     internal val tmdbMetadataService: TmdbMetadataService,
     internal val tvdbMetadataService: TvdbMetadataService,
-    internal val mdbListRepository: MDBListRepository
+    internal val mdbListRepository: MDBListRepository,
+    internal val trailerService: TrailerService
 ) : ViewModel() {
 
     companion object {
@@ -98,7 +101,18 @@ class AnimeHomeViewModel @Inject constructor(
     internal var currentAnimeTvdbSettings: TvdbSettings = TvdbSettings()
     internal var animeHeroEnrichmentJob: Job? = null
     internal var lastAnimeHeroEnrichmentSignature: String? = null
+    internal val trailerPreviewLoadingIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    internal val trailerPreviewNegativeCache: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    internal val trailerPreviewUrlsState = mutableStateMapOf<String, String>()
+    internal val trailerPreviewAudioUrlsState = mutableStateMapOf<String, String>()
+    internal var activeTrailerPreviewItemId: String? = null
+    internal var trailerPreviewRequestVersion: Long = 0L
     val uiState: StateFlow<AnimeHomeUiState> = _uiState.asStateFlow()
+
+    val trailerPreviewUrls: Map<String, String>
+        get() = trailerPreviewUrlsState
+    val trailerPreviewAudioUrls: Map<String, String>
+        get() = trailerPreviewAudioUrlsState
 
     private val _fullCatalogRows = MutableStateFlow<List<CatalogRow>>(emptyList())
     val fullCatalogRows: StateFlow<List<CatalogRow>> = _fullCatalogRows.asStateFlow()
@@ -350,6 +364,7 @@ class AnimeHomeViewModel @Inject constructor(
                     val enabled = addons.filter { it.enabled }
                     if (enabled.isEmpty()) {
                         synchronized(rows) { rows.clear() }
+                        clearTrailerPreviewState()
                         publishRows()
                         _uiState.update {
                             it.copy(
@@ -368,6 +383,15 @@ class AnimeHomeViewModel @Inject constructor(
     private fun catalogKey(addon: Addon, catalog: CatalogDescriptor): String =
         "${addon.id}_${catalog.apiType}_${catalog.id}"
 
+    private fun clearTrailerPreviewState() {
+        trailerPreviewLoadingIds.clear()
+        trailerPreviewNegativeCache.clear()
+        trailerPreviewUrlsState.clear()
+        trailerPreviewAudioUrlsState.clear()
+        activeTrailerPreviewItemId = null
+        trailerPreviewRequestVersion++
+    }
+
     private fun shouldShowCatalog(catalog: CatalogDescriptor): Boolean {
         val isSearchOnly = catalog.extra.any { it.name.equals("search", ignoreCase = true) && it.isRequired }
         if (isSearchOnly) return false
@@ -378,6 +402,7 @@ class AnimeHomeViewModel @Inject constructor(
         _uiState.update {
             it.copy(isLoading = true, error = null, installedAddonsCount = addons.size)
         }
+        clearTrailerPreviewState()
         synchronized(rows) {
             rows.clear()
             addons.forEach { addon ->
