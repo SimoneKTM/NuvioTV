@@ -1391,6 +1391,19 @@ class MetaDetailsViewModel @Inject constructor(
         }
 
         episodeRatingsJob = viewModelScope.launch {
+            // Per-tab gate: the episode ratings fetch (TMDB vote averages +
+            // IMDb fallback) belongs to the TMDB enrichment of the tab that
+            // opened this detail page, so honor that store's enabled flag.
+            if (!activeTmdbSettingsDataStore.settings.first().enabled) {
+                _uiState.update {
+                    it.copy(
+                        episodeImdbRatings = emptyMap(),
+                        isEpisodeRatingsLoading = false,
+                        episodeRatingsError = null
+                    )
+                }
+                return@launch
+            }
             _uiState.update {
                 it.copy(
                     episodeImdbRatings = emptyMap(),
