@@ -28,7 +28,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
@@ -36,6 +39,7 @@ import androidx.tv.material3.IconButton
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
+import com.nuvio.tv.ui.screens.player.PlayerPlaybackNetworking
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 @SuppressLint("UnsafeOptInUsageError")
@@ -47,15 +51,31 @@ fun LiveTvPlayerScreen(
 ) {
     val context = LocalContext.current
     val player = remember(streamUrl) {
-        ExoPlayer.Builder(context).build().apply {
-            val mediaItem = MediaItem.Builder()
-                .setUri(Uri.parse(streamUrl))
-                .setMimeType(MimeTypes.APPLICATION_M3U8)
-                .build()
-            setMediaItem(mediaItem)
-            playWhenReady = true
-            prepare()
-        }
+        var retried = false
+        ExoPlayer.Builder(context)
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(PlayerPlaybackNetworking.createHttpDataSourceFactory())
+            )
+            .build()
+            .apply {
+                val mediaItem = MediaItem.Builder()
+                    .setUri(Uri.parse(streamUrl))
+                    .setMimeType(liveTvMimeType(streamUrl))
+                    .build()
+                addListener(object : Player.Listener {
+                    override fun onPlayerError(error: PlaybackException) {
+                        // Live streams fail transiently (tsp restarts, load balancers);
+                        // one prepare() retry is enough to ride out a hiccup.
+                        if (!retried) {
+                            retried = true
+                            prepare()
+                        }
+                    }
+                })
+                setMediaItem(mediaItem)
+                playWhenReady = true
+                prepare()
+            }
     }
 
     DisposableEffect(player) {
@@ -116,4 +136,9 @@ fun LiveTvPlayerScreen(
             }
         }
     }
+}
+
+private fun liveTvMimeType(url: String): String? {
+    val path = runCatching { Uri.parse(url).path }.getOrNull() ?: return null
+    return if (path.endsWith(".m3u8", ignoreCase = true)) MimeTypes.APPLICATION_M3U8 else null
 }

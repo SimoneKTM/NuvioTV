@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -293,10 +294,10 @@ private fun LiveTvPlaylistRow(
             onClick = onRemove,
             modifier = Modifier.size(48.dp)
         ) {
-            Text(
-                text = "✕",
-                color = NuvioTheme.colors.Error,
-                style = MaterialTheme.typography.titleMedium
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = stringResource(R.string.live_tv_remove),
+                tint = NuvioTheme.colors.Error
             )
         }
     }

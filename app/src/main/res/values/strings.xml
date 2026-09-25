@@ -2396,6 +2396,11 @@
     <string name="live_tv_empty_title">No Live TV</string>
     <string name="live_tv_empty_subtitle">Add an M3U playlist to start watching live channels</string>
     <string name="live_tv_error_generic">Failed to load the playlist</string>
+    <string name="live_tv_error_http">HTTP %1$d for %2$s</string>
+    <string name="live_tv_error_empty_playlist">Empty playlist</string>
+    <string name="live_tv_error_invalid_playlist">Not a valid M3U playlist</string>
+    <string name="live_tv_channel_fallback">Channel %1$d</string>
+    <string name="live_tv_remove">Remove playlist</string>
     <string name="live_tv_player_back">Back</string>
     <string name="action_select">Select</string>
     <string name="settings_rounded_ui">Rounded UI</string>

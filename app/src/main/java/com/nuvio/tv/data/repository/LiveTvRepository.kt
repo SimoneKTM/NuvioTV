@@ -1,7 +1,10 @@
 package com.nuvio.tv.data.repository
 
+import android.content.Context
+import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.LiveTvChannel
 import com.nuvio.tv.domain.model.LiveTvPlaylist
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import javax.inject.Inject
@@ -14,7 +17,8 @@ import okhttp3.Request
 
 @Singleton
 class LiveTvRepository @Inject constructor(
-    private val okHttpClient: OkHttpClient
+    private val okHttpClient: OkHttpClient,
+    @ApplicationContext private val context: Context
 ) {
     suspend fun fetchPlaylist(playlist: LiveTvPlaylist): Result<List<LiveTvChannel>> =
         withContext(Dispatchers.IO) {
@@ -26,9 +30,10 @@ class LiveTvRepository @Inject constructor(
                     .build()
                 okHttpClient.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
-                        error("HTTP ${response.code} per ${playlist.name}")
+                        error(context.getString(R.string.live_tv_error_http, response.code, playlist.name))
                     }
-                    val body = response.body?.string() ?: error("Playlist vuota")
+                    val body = response.body?.string()
+                        ?: error(context.getString(R.string.live_tv_error_empty_playlist))
                     parseM3u(body, playlist, playlistUrl)
                 }
             }
@@ -46,8 +51,13 @@ class LiveTvRepository @Inject constructor(
         }
 
     fun parseM3u(content: String, playlist: LiveTvPlaylist, playlistUrl: String = playlist.sourceUrl): List<LiveTvChannel> {
+        // UTF-8 BOM from some playlist servers breaks the first line check.
+        val normalized = content.removePrefix("\uFEFF")
+        if (!looksLikeM3u(normalized)) {
+            error(context.getString(R.string.live_tv_error_invalid_playlist))
+        }
         val baseUrl = playlistUrl.toHttpUrlOrNull()
-        val lines = content.lines()
+        val lines = normalized.lines()
         val channels = mutableListOf<LiveTvChannel>()
         var pendingName: String? = null
         var pendingLogo: String? = null
@@ -58,7 +68,7 @@ class LiveTvRepository @Inject constructor(
             val line = rawLine.trim()
             if (line.isEmpty()) continue
             when {
-                line.startsWith("#EXTINF") -> {
+                line.startsWith("#EXTINF", ignoreCase = true) -> {
                     val commaIndex = line.indexOf(',')
                     val rawName = if (commaIndex >= 0) line.substring(commaIndex + 1).trim() else ""
                     val attrs = line.substring(
@@ -69,7 +79,7 @@ class LiveTvRepository @Inject constructor(
                     pendingGroup = attrValue(attrs, "group-title")
                     pendingName = rawName.ifBlank { null }
                 }
-                line.startsWith("#EXTGRP:") -> {
+                line.startsWith("#EXTGRP:", ignoreCase = true) -> {
                     pendingGroup = line.substringAfter(':').trim().ifBlank { null }
                 }
                 line.startsWith("#") -> Unit
@@ -77,7 +87,7 @@ class LiveTvRepository @Inject constructor(
                     val streamUrl = resolveStreamUrl(line, baseUrl)
                     val channelName = pendingName?.takeIf(String::isNotBlank)
                         ?: streamUrl.substringAfterLast('/').takeIf(String::isNotBlank)
-                        ?: "Canale ${index + 1}"
+                        ?: context.getString(R.string.live_tv_channel_fallback, index + 1)
                     channels += LiveTvChannel(
                         id = "${playlist.id}|$index|$streamUrl",
                         name = channelName,
@@ -92,7 +102,16 @@ class LiveTvRepository @Inject constructor(
                 }
             }
         }
+        if (channels.isEmpty()) {
+            error(context.getString(R.string.live_tv_error_invalid_playlist))
+        }
         return channels
+    }
+
+    private fun looksLikeM3u(content: String): Boolean {
+        val firstLine = content.lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty()
+        return firstLine.startsWith("#EXTM3U", ignoreCase = true) ||
+            content.contains("#EXTINF", ignoreCase = true)
     }
 
     private fun resolveStreamUrl(line: String, baseUrl: okhttp3.HttpUrl?): String {
@@ -102,9 +121,14 @@ class LiveTvRepository @Inject constructor(
         return baseUrl?.resolve(line)?.toString() ?: line
     }
 
+    private val attrTokenRegex = Regex("""([A-Za-z0-9_-]+)\s*=\s*(?:"([^"]*)"|([^\s"]+))""")
+
     private fun attrValue(attrs: String, key: String): String? {
-        val regex = Regex("""$key="([^"]*)"""")
-        return regex.find(attrs)?.groupValues?.get(1)?.trim()
+        return attrTokenRegex.findAll(attrs)
+            .firstOrNull { it.groupValues[1].equals(key, ignoreCase = true) }
+            ?.groupValues
+            ?.let { values -> values[2].ifEmpty { values[3] } }
+            ?.trim()
             ?.takeIf { it.isNotBlank() }
             ?.let { decode(it) }
     }
