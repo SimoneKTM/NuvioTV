@@ -67,6 +67,7 @@ private data class ContinueWatchingSettingsSnapshot(
     val showUnairedNextUp: Boolean,
     val nextUpFromFurthestEpisode: Boolean,
     val continueWatchingSortMode: ContinueWatchingSortMode,
+    val foreignBaseUrls: Set<String>,
     val watchedItemsVersion: Int,  // triggers re-evaluation when watched items change
     val hasLoadedRemoteProgress: Boolean
 )
@@ -287,9 +288,23 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                 arrayOf(daysCap, dismissedNextUp, showUnairedNextUp, nextUpFromFurthest, sortMode)
             },
             watchProgressRepository.watchedItems.map { it.size },
+            combine(
+                extraAddonRepository.getInstalledExtraAddons(),
+                animeAddonRepository.getInstalledAnimeAddons()
+            ) { extra, anime ->
+                (extra + anime)
+                    .map { normalizeForeignBaseUrl(it.baseUrl) }
+                    .filter { it.isNotEmpty() }
+                    .toSet()
+            },
             cwPipelineRefreshTrigger
-        ) { progressSnapshot, settingsSnapshot, watchedItemsSize, _ ->
-            val (items, nextUpSeeds, hasLoadedRemoteProgress) = progressSnapshot
+        ) { progressSnapshot, settingsSnapshot, watchedItemsSize, foreignBaseUrls, _ ->
+            val (rawItems, rawNextUpSeeds, hasLoadedRemoteProgress) = progressSnapshot
+            // Home shows only its own pool: progress played through an Extra or
+            // Anime addon belongs to those tabs (they filter their own pool
+            // positively already), so drop it from the Home CW rail entirely.
+            val items = rawItems.filterNot { isForeignProgress(it, foreignBaseUrls) }
+            val nextUpSeeds = rawNextUpSeeds.filterNot { isForeignProgress(it, foreignBaseUrls) }
             @Suppress("UNCHECKED_CAST")
             val daysCap = settingsSnapshot[0] as Int
             val dismissedNextUp = settingsSnapshot[1] as Set<String>
@@ -304,6 +319,7 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                 showUnairedNextUp = showUnairedNextUp,
                 nextUpFromFurthestEpisode = nextUpFromFurthestEpisode,
                 continueWatchingSortMode = continueWatchingSortMode,
+                foreignBaseUrls = foreignBaseUrls,
                 watchedItemsVersion = watchedItemsSize,
                 hasLoadedRemoteProgress = hasLoadedRemoteProgress
             )
@@ -364,7 +380,7 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                 )
 
                 // Load cached CW snapshots for instant render before Trakt responds
-                val (cachedNextUp, cachedInProgress) = coroutineScope {
+                val (rawCachedNextUp, rawCachedInProgress) = coroutineScope {
                     val nextUpDeferred = async(Dispatchers.IO) {
                         runCatching { cwEnrichmentCache.getNextUpSnapshot() }.getOrDefault(emptyList())
                     }
@@ -372,6 +388,14 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                         runCatching { cwEnrichmentCache.getInProgressSnapshot() }.getOrDefault(emptyList())
                     }
                     nextUpDeferred.await() to inProgressDeferred.await()
+                }
+                // Drop cached entries that belong to the Extra/Anime pools: older
+                // builds wrote them into the Home cache before per-tab isolation.
+                val cachedNextUp = rawCachedNextUp.filterNot {
+                    isForeignAddonBaseUrl(it.addonBaseUrl, snapshot.foreignBaseUrls)
+                }
+                val cachedInProgress = rawCachedInProgress.filterNot {
+                    isForeignAddonBaseUrl(it.addonBaseUrl, snapshot.foreignBaseUrls)
                 }
                 // Build enrichment lookup from cached snapshots (replaces old CwEnrichmentEntry)
                 val cachedEnrichmentFromInProgress = cachedInProgress.associateBy { it.contentId }
@@ -1197,6 +1221,17 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
         }
     }
 }
+
+internal fun normalizeForeignBaseUrl(raw: String?): String =
+    raw?.trim()?.trimEnd('/')?.lowercase(Locale.US).orEmpty()
+
+internal fun isForeignAddonBaseUrl(raw: String?, foreignBaseUrls: Set<String>): Boolean {
+    val source = normalizeForeignBaseUrl(raw)
+    return source.isNotEmpty() && source in foreignBaseUrls
+}
+
+private fun isForeignProgress(progress: WatchProgress, foreignBaseUrls: Set<String>): Boolean =
+    isForeignAddonBaseUrl(progress.addonBaseUrl, foreignBaseUrls)
 
 private fun deduplicateInProgress(items: List<WatchProgress>): List<WatchProgress> {
     val (series, nonSeries) = items.partition { isSeriesTypeCW(it.contentType) }

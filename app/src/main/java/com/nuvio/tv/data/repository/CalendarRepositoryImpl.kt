@@ -64,7 +64,10 @@ class CalendarRepositoryImpl @Inject constructor(
     private val tvdbSettingsDataStore: TvdbSettingsDataStore,
     @param:Named("anime_tmdb") private val animeTmdbSettingsDataStore: TmdbSettingsDataStore,
     @param:Named("anime_mdblist") private val animeMdbListSettingsDataStore: MDBListSettingsDataStore,
-    private val animeTvdbSettingsDataStore: AnimeTvdbSettingsDataStore
+    private val animeTvdbSettingsDataStore: AnimeTvdbSettingsDataStore,
+    @param:Named("extra_tmdb") private val extraTmdbSettingsDataStore: TmdbSettingsDataStore,
+    @param:Named("extra_mdblist") private val extraMdbListSettingsDataStore: MDBListSettingsDataStore,
+    private val extraTvdbSettingsDataStore: com.nuvio.tv.data.local.ExtraTvdbSettingsDataStore
 ) : CalendarRepository {
 
     companion object {
@@ -313,27 +316,27 @@ class CalendarRepositoryImpl @Inject constructor(
      * External posters/ratings like the Anime tab (TMDB + MDBList + TVDB).
      * Never touches [CalendarItem.releaseDate] (Trakt owns dates) and never
      * overwrites a non-blank description (Trakt episode label "S1E5").
-     * Uses anime-scoped settings when the Anime pool won, else global.
+     * Uses the settings of the pool that won (anime/extra/home) so each tab's
+     * TMDB/MDBList/TVDB toggles stay independent.
      */
     private suspend fun applyExternalEnrichment(
         item: CalendarItem,
         namespace: String
     ): CalendarItem = withContext(Dispatchers.IO) {
-        val useAnimeSettings = namespace == MetaRepository.META_NAMESPACE_ANIME
-        val tmdbSettings = if (useAnimeSettings) {
-            animeTmdbSettingsDataStore.settings.first()
-        } else {
-            tmdbSettingsDataStore.settings.first()
+        val tmdbSettings = when (namespace) {
+            MetaRepository.META_NAMESPACE_ANIME -> animeTmdbSettingsDataStore.settings.first()
+            MetaRepository.META_NAMESPACE_EXTRA -> extraTmdbSettingsDataStore.settings.first()
+            else -> tmdbSettingsDataStore.settings.first()
         }
-        val mdbSettings = if (useAnimeSettings) {
-            animeMdbListSettingsDataStore.settings.first()
-        } else {
-            mdbListSettingsDataStore.settings.first()
+        val mdbSettings = when (namespace) {
+            MetaRepository.META_NAMESPACE_ANIME -> animeMdbListSettingsDataStore.settings.first()
+            MetaRepository.META_NAMESPACE_EXTRA -> extraMdbListSettingsDataStore.settings.first()
+            else -> mdbListSettingsDataStore.settings.first()
         }
-        val tvdbSettings = if (useAnimeSettings) {
-            animeTvdbSettingsDataStore.settings.first()
-        } else {
-            tvdbSettingsDataStore.settings.first()
+        val tvdbSettings = when (namespace) {
+            MetaRepository.META_NAMESPACE_ANIME -> animeTvdbSettingsDataStore.settings.first()
+            MetaRepository.META_NAMESPACE_EXTRA -> extraTvdbSettingsDataStore.settings.first()
+            else -> tvdbSettingsDataStore.settings.first()
         }
         val tvdbEnabled = tvdbSettings.enabled && tvdbSettings.hasApiKey
         if (!tmdbSettings.enabled &&

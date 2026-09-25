@@ -37,7 +37,9 @@ import com.nuvio.tv.domain.model.MDBListSettings
 import com.nuvio.tv.domain.model.TmdbSettings
 import com.nuvio.tv.domain.model.TvdbSettings
 import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.domain.repository.AnimeAddonRepository
 import com.nuvio.tv.domain.repository.CatalogRepository
+import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import com.nuvio.tv.domain.repository.LibraryRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.domain.repository.WatchProgressRepository
@@ -66,6 +68,8 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     @ApplicationContext internal val appContext: Context,
     internal val addonRepository: AddonRepository,
+    internal val animeAddonRepository: AnimeAddonRepository,
+    internal val extraAddonRepository: ExtraAddonRepository,
     internal val catalogRepository: CatalogRepository,
     internal val watchProgressRepository: WatchProgressRepository,
     internal val libraryRepository: LibraryRepository,
@@ -651,8 +655,16 @@ class HomeViewModel @Inject constructor(
     private fun loadContinueWatching() {
         // Immediately restore last known CW from disk cache for instant display.
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            // One-shot pool check so the bootstrap never renders cached items
+            // that belong to the Extra/Anime tabs (older builds wrote them here).
+            val foreignBaseUrls = (
+                extraAddonRepository.getInstalledExtraAddons().first() +
+                    animeAddonRepository.getInstalledAnimeAddons().first()
+                ).map { normalizeForeignBaseUrl(it.baseUrl) }.filter { it.isNotEmpty() }.toSet()
             val cachedInProgress = runCatching { cwEnrichmentCache.getInProgressSnapshot() }.getOrDefault(emptyList())
+                .filterNot { isForeignAddonBaseUrl(it.addonBaseUrl, foreignBaseUrls) }
             val cachedNextUp = runCatching { cwEnrichmentCache.getNextUpSnapshot() }.getOrDefault(emptyList())
+                .filterNot { isForeignAddonBaseUrl(it.addonBaseUrl, foreignBaseUrls) }
             if (cachedInProgress.isEmpty() && cachedNextUp.isEmpty()) return@launch
             val dismissedNextUp = traktSettingsDataStore.dismissedNextUpKeys.first()
             // Render cached items immediately — don't wait for Trakt/allProgress.
