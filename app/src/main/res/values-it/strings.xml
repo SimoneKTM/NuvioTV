@@ -2762,7 +2762,7 @@
   <string name="playback_section_buffer_network_desc">Quanto contenuto tenere in memoria e come recuperare i flussi.</string>
   <string name="playback_net_device_memory_info">Memoria del dispositivo: %1$s | Limite di sicurezza consigliato: %2$d MB</string>
   <string name="playback_net_nuvio_performance_mode">Memoria nativa ExoPlayer</string>
-  <string name="playback_net_nuvio_performance_mode_sub">Abilita l\'allocatore nativo off-heap e le ottimizzazioni di pulizia, e applica buffer e rete ottimizzati (i valori di buffer attuali verranno sovrascritti).</string>
+  <string name="playback_net_nuvio_performance_mode_sub">Abilita l\'allocatore nativo off-heap e le ottimizzazioni di pulizia. Attivandolo applica buffer e rete ottimizzati, disattivandolo li riporta ai valori predefiniti.</string>
   <string name="playback_net_nuvio_performance_mode_not_supported">Questa funzionalità non è supportata dal tuo dispositivo.</string>
   <string name="playback_buffer_custom">Buffer di riproduzione personalizzati</string>
   <string name="playback_buffer_custom_sub">Sostituisce il buffering predefinito di Media3 con i valori qui sotto. Quando è disattivato, il player usa le durate di buffer e la dimensione target standard di Media3.</string>
