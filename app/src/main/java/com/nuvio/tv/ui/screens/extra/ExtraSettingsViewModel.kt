@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.R
 import com.nuvio.tv.core.network.NetworkResult
+import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.core.qr.QrCodeGenerator
 import com.nuvio.tv.core.server.AddonConfigServer
 import com.nuvio.tv.core.server.AddonInfo
@@ -26,6 +27,7 @@ import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.Collection
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.ExtraAddonRepository
+import com.nuvio.tv.ui.screens.addon.AddonManagementAccess
 import com.nuvio.tv.ui.screens.addon.PendingChangeInfo
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -65,8 +67,17 @@ class ExtraSettingsViewModel @Inject constructor(
     private val collectionsDataStore: CollectionsDataStore,
     private val collectionSyncService: CollectionSyncService,
     private val homeCatalogSettingsSyncService: HomeCatalogSettingsSyncService,
+    private val profileManager: ProfileManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    /**
+     * Secondary profiles using the primary profile's addons get a read-only screen: every write
+     * in `ExtraAddonPreferences` silently early-returns for them, so hiding the controls avoids
+     * switches that appear to toggle and then snap back.
+     */
+    val isReadOnly: Boolean
+        get() = AddonManagementAccess.isReadOnly(profileManager.activeProfile)
 
     private val _uiState = MutableStateFlow(ExtraSettingsUiState())
     val uiState: StateFlow<ExtraSettingsUiState> = _uiState.asStateFlow()
@@ -143,6 +154,7 @@ class ExtraSettingsViewModel @Inject constructor(
     }
 
     fun installAddon() {
+        if (isReadOnly) return
         val url = _uiState.value.installUrl.trim()
         if (url.isEmpty()) return
         val alreadyInstalled = _uiState.value.addons.any {
@@ -176,12 +188,14 @@ class ExtraSettingsViewModel @Inject constructor(
     }
 
     fun removeAddon(url: String) {
+        if (isReadOnly) return
         viewModelScope.launch {
             extraAddonRepository.removeExtraAddon(url)
         }
     }
 
     fun moveAddonUp(url: String) {
+        if (isReadOnly) return
         viewModelScope.launch {
             val current = _uiState.value.addons
             val index = current.indexOfFirst { it.baseUrl == url }
@@ -194,6 +208,7 @@ class ExtraSettingsViewModel @Inject constructor(
     }
 
     fun moveAddonDown(url: String) {
+        if (isReadOnly) return
         viewModelScope.launch {
             val current = _uiState.value.addons
             val index = current.indexOfFirst { it.baseUrl == url }
@@ -206,6 +221,7 @@ class ExtraSettingsViewModel @Inject constructor(
     }
 
     fun setAddonEnabled(url: String, enabled: Boolean) {
+        if (isReadOnly) return
         viewModelScope.launch {
             extraAddonRepository.setExtraAddonEnabled(url, enabled)
         }
@@ -227,6 +243,7 @@ class ExtraSettingsViewModel @Inject constructor(
     }
 
     fun startQrMode() {
+        if (isReadOnly) return
         val ip = DeviceIpAddress.get(context)
         if (ip == null) {
             _uiState.update { it.copy(error = context.getString(R.string.error_network_required)) }
@@ -483,6 +500,7 @@ class ExtraSettingsViewModel @Inject constructor(
     }
 
     fun confirmPendingChange() {
+        if (isReadOnly) return
         val pending = _uiState.value.pendingChange ?: return
 
         _uiState.update { it.copy(pendingChange = pending.copy(isApplying = true)) }

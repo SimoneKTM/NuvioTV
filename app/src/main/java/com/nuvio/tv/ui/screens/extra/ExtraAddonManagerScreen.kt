@@ -1,4 +1,4 @@
-package com.nuvio.tv.ui.screens.extra
+﻿package com.nuvio.tv.ui.screens.extra
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
@@ -86,6 +86,7 @@ fun ExtraAddonManagerScreen(
     onNavigateToReorder: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isReadOnly = remember { viewModel.isReadOnly }
     val keyboardController = LocalSoftwareKeyboardController.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
@@ -181,118 +182,137 @@ fun ExtraAddonManagerScreen(
                 }
             }
 
-            item(key = "install") {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = NuvioTheme.colors.BackgroundCard),
-                    shape = RoundedCornerShape(NuvioTheme.radii.md)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
+            if (isReadOnly) {
+                item(key = "readonly_notice") {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A3A5C)),
+                        shape = RoundedCornerShape(NuvioTheme.radii.md)
+                    ) {
                         Text(
-                            text = stringResource(R.string.extra_add_addon),
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
-                            color = NuvioTheme.colors.TextPrimary
+                            text = stringResource(R.string.addon_readonly_notice),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = NuvioTheme.colors.TextSecondary,
+                            modifier = Modifier.padding(NuvioTheme.spacing.lg)
                         )
-                        Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                onClick = { isEditing = true },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .focusRequester(surfaceFocusRequester),
-                                colors = ClickableSurfaceDefaults.colors(
-                                    containerColor = NuvioTheme.colors.BackgroundElevated,
-                                    focusedContainerColor = NuvioTheme.colors.FocusBackground
-                                ),
-                                border = ClickableSurfaceDefaults.border(
-                                    focusedBorder = Border(
-                                        border = BorderStroke(NuvioTheme.spacing.xxs, NuvioTheme.colors.FocusRing),
-                                        shape = RoundedCornerShape(NuvioTheme.radii.md)
-                                    )
-                                ),
-                                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
-                                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f)
+                    }
+                }
+            }
+
+            if (!isReadOnly) {
+                item(key = "install") {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = NuvioTheme.colors.BackgroundCard),
+                        shape = RoundedCornerShape(NuvioTheme.radii.md)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(
+                                text = stringResource(R.string.extra_add_addon),
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                                color = NuvioTheme.colors.TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(modifier = Modifier.padding(NuvioTheme.spacing.md)) {
-                                    BasicTextField(
-                                        value = uiState.installUrl,
-                                        onValueChange = viewModel::onInstallUrlChange,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .focusRequester(textFieldFocusRequester)
-                                            .onFocusChanged {
-                                                if (!it.isFocused && isEditing) {
+                                Surface(
+                                    onClick = { isEditing = true },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .focusRequester(surfaceFocusRequester),
+                                    colors = ClickableSurfaceDefaults.colors(
+                                        containerColor = NuvioTheme.colors.BackgroundElevated,
+                                        focusedContainerColor = NuvioTheme.colors.FocusBackground
+                                    ),
+                                    border = ClickableSurfaceDefaults.border(
+                                        focusedBorder = Border(
+                                            border = BorderStroke(NuvioTheme.spacing.xxs, NuvioTheme.colors.FocusRing),
+                                            shape = RoundedCornerShape(NuvioTheme.radii.md)
+                                        )
+                                    ),
+                                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
+                                    scale = ClickableSurfaceDefaults.scale(focusedScale = 1f)
+                                ) {
+                                    Box(modifier = Modifier.padding(NuvioTheme.spacing.md)) {
+                                        BasicTextField(
+                                            value = uiState.installUrl,
+                                            onValueChange = viewModel::onInstallUrlChange,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .focusRequester(textFieldFocusRequester)
+                                                .onFocusChanged {
+                                                    if (!it.isFocused && isEditing) {
+                                                        isEditing = false
+                                                        keyboardController?.hide()
+                                                    }
+                                                },
+                                            singleLine = true,
+                                            keyboardOptions = KeyboardOptions(
+                                                keyboardType = KeyboardType.Uri,
+                                                imeAction = ImeAction.Done
+                                            ),
+                                            keyboardActions = KeyboardActions(
+                                                onDone = {
+                                                    viewModel.installAddon()
                                                     isEditing = false
                                                     keyboardController?.hide()
+                                                    installButtonFocusRequester.requestFocus()
                                                 }
-                                            },
-                                        singleLine = true,
-                                        keyboardOptions = KeyboardOptions(
-                                            keyboardType = KeyboardType.Uri,
-                                            imeAction = ImeAction.Done
-                                        ),
-                                        keyboardActions = KeyboardActions(
-                                            onDone = {
-                                                viewModel.installAddon()
-                                                isEditing = false
-                                                keyboardController?.hide()
-                                                installButtonFocusRequester.requestFocus()
+                                            ),
+                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                color = NuvioTheme.colors.TextPrimary
+                                            ),
+                                            cursorBrush = SolidColor(if (isEditing) NuvioTheme.colors.Primary else Color.Transparent),
+                                            decorationBox = { innerTextField ->
+                                                if (uiState.installUrl.isEmpty()) {
+                                                    Text(
+                                                        text = stringResource(R.string.addon_install_placeholder),
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        color = NuvioTheme.colors.TextTertiary
+                                                    )
+                                                }
+                                                innerTextField()
                                             }
-                                        ),
-                                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                            color = NuvioTheme.colors.TextPrimary
-                                        ),
-                                        cursorBrush = SolidColor(if (isEditing) NuvioTheme.colors.Primary else Color.Transparent),
-                                        decorationBox = { innerTextField ->
-                                            if (uiState.installUrl.isEmpty()) {
-                                                Text(
-                                                    text = stringResource(R.string.addon_install_placeholder),
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = NuvioTheme.colors.TextTertiary
-                                                )
-                                            }
-                                            innerTextField()
+                                        )
+                                    }
+                                }
+                                Button(
+                                    onClick = {
+                                        viewModel.installAddon()
+                                        isEditing = false
+                                        keyboardController?.hide()
+                                        installButtonFocusRequester.requestFocus()
+                                    },
+                                    enabled = !uiState.isInstalling,
+                                    modifier = Modifier.focusRequester(installButtonFocusRequester),
+                                    colors = ButtonDefaults.colors(
+                                        containerColor = NuvioTheme.colors.BackgroundCard,
+                                        contentColor = NuvioTheme.colors.TextPrimary,
+                                        focusedContainerColor = NuvioTheme.colors.FocusBackground,
+                                        focusedContentColor = NuvioTheme.colors.Primary
+                                    ),
+                                    shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
+                                ) {
+                                    Text(
+                                        text = if (uiState.isInstalling) {
+                                            stringResource(R.string.addon_installing)
+                                        } else {
+                                            stringResource(R.string.addon_install_btn)
                                         }
                                     )
                                 }
                             }
-                            Button(
-                                onClick = {
-                                    viewModel.installAddon()
-                                    isEditing = false
-                                    keyboardController?.hide()
-                                    installButtonFocusRequester.requestFocus()
-                                },
-                                enabled = !uiState.isInstalling,
-                                modifier = Modifier.focusRequester(installButtonFocusRequester),
-                                colors = ButtonDefaults.colors(
-                                    containerColor = NuvioTheme.colors.BackgroundCard,
-                                    contentColor = NuvioTheme.colors.TextPrimary,
-                                    focusedContainerColor = NuvioTheme.colors.FocusBackground,
-                                    focusedContentColor = NuvioTheme.colors.Primary
-                                ),
-                                shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
-                            ) {
+                            if (uiState.error != null) {
+                                Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
                                 Text(
-                                    text = if (uiState.isInstalling) {
-                                        stringResource(R.string.addon_installing)
-                                    } else {
-                                        stringResource(R.string.addon_install_btn)
-                                    }
+                                    text = uiState.error.orEmpty(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = NuvioTheme.colors.Error
                                 )
                             }
-                        }
-                        if (uiState.error != null) {
-                            Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
-                            Text(
-                                text = uiState.error.orEmpty(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = NuvioTheme.colors.Error
-                            )
                         }
                     }
                 }
@@ -316,25 +336,29 @@ fun ExtraAddonManagerScreen(
                 }
             }
 
-            item(key = "reorder") {
-                SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
-                    SettingsActionRow(
-                        title = stringResource(R.string.extra_settings_reorder_title),
-                        subtitle = stringResource(R.string.extra_settings_reorder_subtitle),
-                        onClick = onNavigateToReorder,
-                        leadingIcon = Icons.Default.Reorder
-                    )
+            if (!isReadOnly) {
+                item(key = "reorder") {
+                    SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
+                        SettingsActionRow(
+                            title = stringResource(R.string.extra_settings_reorder_title),
+                            subtitle = stringResource(R.string.extra_settings_reorder_subtitle),
+                            onClick = onNavigateToReorder,
+                            leadingIcon = Icons.Default.Reorder
+                        )
+                    }
                 }
             }
 
-            item(key = "manage") {
-                SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
-                    SettingsActionRow(
-                        title = stringResource(R.string.extra_settings_manage_phone_title),
-                        subtitle = stringResource(R.string.extra_settings_manage_phone_subtitle),
-                        onClick = viewModel::startQrMode,
-                        leadingIcon = Icons.Default.QrCode2
-                    )
+            if (!isReadOnly) {
+                item(key = "manage") {
+                    SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
+                        SettingsActionRow(
+                            title = stringResource(R.string.extra_settings_manage_phone_title),
+                            subtitle = stringResource(R.string.extra_settings_manage_phone_subtitle),
+                            onClick = viewModel::startQrMode,
+                            leadingIcon = Icons.Default.QrCode2
+                        )
+                    }
                 }
             }
 
@@ -375,7 +399,8 @@ fun ExtraAddonManagerScreen(
                         onMoveUp = { viewModel.moveAddonUp(addon.baseUrl) },
                         onMoveDown = { viewModel.moveAddonDown(addon.baseUrl) },
                         onRemove = { viewModel.removeAddon(addon.baseUrl) },
-                        onEnabledChange = { enabled -> viewModel.setAddonEnabled(addon.baseUrl, enabled) }
+                        onEnabledChange = { enabled -> viewModel.setAddonEnabled(addon.baseUrl, enabled) },
+                        isReadOnly = isReadOnly
                     )
                 }
             }
@@ -416,7 +441,8 @@ internal fun ExtraAddonSettingsCard(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onRemove: () -> Unit,
-    onEnabledChange: (Boolean) -> Unit
+    onEnabledChange: (Boolean) -> Unit,
+    isReadOnly: Boolean = false
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -455,76 +481,78 @@ internal fun ExtraAddonSettingsCard(
                         }
                     }
                 }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        onClick = { onEnabledChange(!addon.enabled) },
-                        colors = ClickableSurfaceDefaults.colors(
-                            containerColor = Color.Transparent,
-                            focusedContainerColor = NuvioTheme.colors.FocusBackground
-                        ),
-                        border = ClickableSurfaceDefaults.border(
-                            focusedBorder = Border(
-                                border = BorderStroke(NuvioTheme.spacing.xxs, NuvioTheme.colors.FocusRing),
-                                shape = RoundedCornerShape(NuvioTheme.radii.md)
-                            )
-                        ),
-                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
-                        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f)
+                if (!isReadOnly) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Switch(
-                                checked = addon.enabled,
-                                onCheckedChange = null,
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = NuvioTheme.colors.Secondary,
-                                    checkedTrackColor = NuvioTheme.colors.Secondary.copy(alpha = 0.3f)
+                        Surface(
+                            onClick = { onEnabledChange(!addon.enabled) },
+                            colors = ClickableSurfaceDefaults.colors(
+                                containerColor = Color.Transparent,
+                                focusedContainerColor = NuvioTheme.colors.FocusBackground
+                            ),
+                            border = ClickableSurfaceDefaults.border(
+                                focusedBorder = Border(
+                                    border = BorderStroke(NuvioTheme.spacing.xxs, NuvioTheme.colors.FocusRing),
+                                    shape = RoundedCornerShape(NuvioTheme.radii.md)
                                 )
-                            )
+                            ),
+                            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
+                            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f)
+                        ) {
+                            Box(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Switch(
+                                    checked = addon.enabled,
+                                    onCheckedChange = null,
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = NuvioTheme.colors.Secondary,
+                                        checkedTrackColor = NuvioTheme.colors.Secondary.copy(alpha = 0.3f)
+                                    )
+                                )
+                            }
                         }
-                    }
-                    Button(
-                        onClick = onMoveUp,
-                        enabled = canMoveUp,
-                        colors = ButtonDefaults.colors(
-                            containerColor = NuvioTheme.colors.BackgroundCard,
-                            contentColor = NuvioTheme.colors.TextSecondary,
-                            focusedContainerColor = NuvioTheme.colors.FocusBackground,
-                            focusedContentColor = NuvioTheme.colors.Primary
-                        ),
-                        shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
-                    ) {
-                        Icon(imageVector = Icons.Default.ArrowUpward, contentDescription = stringResource(R.string.cd_move_up))
-                    }
-                    Button(
-                        onClick = onMoveDown,
-                        enabled = canMoveDown,
-                        colors = ButtonDefaults.colors(
-                            containerColor = NuvioTheme.colors.BackgroundCard,
-                            contentColor = NuvioTheme.colors.TextSecondary,
-                            focusedContainerColor = NuvioTheme.colors.FocusBackground,
-                            focusedContentColor = NuvioTheme.colors.Primary
-                        ),
-                        shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
-                    ) {
-                        Icon(imageVector = Icons.Default.ArrowDownward, contentDescription = stringResource(R.string.cd_move_down))
-                    }
-                    Button(
-                        onClick = onRemove,
-                        colors = ButtonDefaults.colors(
-                            containerColor = NuvioTheme.colors.BackgroundCard,
-                            contentColor = NuvioTheme.colors.TextSecondary,
-                            focusedContainerColor = NuvioTheme.colors.FocusBackground,
-                            focusedContentColor = NuvioTheme.colors.Error
-                        ),
-                        shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
-                    ) {
-                        Text(text = stringResource(R.string.addon_remove))
+                        Button(
+                            onClick = onMoveUp,
+                            enabled = canMoveUp,
+                            colors = ButtonDefaults.colors(
+                                containerColor = NuvioTheme.colors.BackgroundCard,
+                                contentColor = NuvioTheme.colors.TextSecondary,
+                                focusedContainerColor = NuvioTheme.colors.FocusBackground,
+                                focusedContentColor = NuvioTheme.colors.Primary
+                            ),
+                            shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
+                        ) {
+                            Icon(imageVector = Icons.Default.ArrowUpward, contentDescription = stringResource(R.string.cd_move_up))
+                        }
+                        Button(
+                            onClick = onMoveDown,
+                            enabled = canMoveDown,
+                            colors = ButtonDefaults.colors(
+                                containerColor = NuvioTheme.colors.BackgroundCard,
+                                contentColor = NuvioTheme.colors.TextSecondary,
+                                focusedContainerColor = NuvioTheme.colors.FocusBackground,
+                                focusedContentColor = NuvioTheme.colors.Primary
+                            ),
+                            shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
+                        ) {
+                            Icon(imageVector = Icons.Default.ArrowDownward, contentDescription = stringResource(R.string.cd_move_down))
+                        }
+                        Button(
+                            onClick = onRemove,
+                            colors = ButtonDefaults.colors(
+                                containerColor = NuvioTheme.colors.BackgroundCard,
+                                contentColor = NuvioTheme.colors.TextSecondary,
+                                focusedContainerColor = NuvioTheme.colors.FocusBackground,
+                                focusedContentColor = NuvioTheme.colors.Error
+                            ),
+                            shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
+                        ) {
+                            Text(text = stringResource(R.string.addon_remove))
+                        }
                     }
                 }
             }
