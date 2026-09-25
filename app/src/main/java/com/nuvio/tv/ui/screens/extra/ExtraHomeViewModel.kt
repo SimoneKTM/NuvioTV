@@ -637,7 +637,8 @@ class ExtraHomeViewModel @Inject constructor(
                 contentId = item.info.contentId,
                 season = item.info.seedSeason,
                 episode = item.info.seedEpisode,
-                isNextUp = true
+                isNextUp = true,
+                contentType = item.info.contentType
             )
         }
     }

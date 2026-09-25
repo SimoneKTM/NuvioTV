@@ -1379,11 +1379,22 @@ private suspend fun ExtraHomeViewModel.applyConclusiveExtraOlderNextUpResults(
 
 private const val EXTRA_CW_MAX_ENRICHMENT_CONCURRENCY = 4
 
+/**
+ * Dismiss key with the content type discriminator ("series|kitsu:123") so ids
+ * from different media types can't collide; reads normalize the prefix away.
+ */
+internal fun extraNextUpDismissKey(contentType: String?, contentId: String): String {
+    val type = contentType?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+        ?: return contentId.trim()
+    return "$type|${contentId.trim()}"
+}
+
 internal fun ExtraHomeViewModel.removeExtraContinueWatchingPipeline(
     contentId: String,
     season: Int? = null,
     episode: Int? = null,
-    isNextUp: Boolean = false
+    isNextUp: Boolean = false,
+    contentType: String? = null
 ) {
     if (isNextUp) {
         val dismissKey = nextUpDismissKey(contentId, season, episode)
@@ -1414,7 +1425,7 @@ internal fun ExtraHomeViewModel.removeExtraContinueWatchingPipeline(
             )
         }
         viewModelScope.launch {
-            layoutPreferenceDataStore.addDismissedNextUpKey(dismissKey)
+            layoutPreferenceDataStore.addDismissedNextUpKey(extraNextUpDismissKey(contentType, contentId))
         }
         return
     }

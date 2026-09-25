@@ -336,14 +336,16 @@ fun AnimeAddonManagerScreen(
                 }
             }
 
-            item(key = "reorder") {
-                SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
-                    SettingsActionRow(
-                        title = stringResource(R.string.anime_settings_reorder_title),
-                        subtitle = stringResource(R.string.anime_settings_reorder_subtitle),
-                        onClick = onNavigateToReorder,
-                        leadingIcon = Icons.Default.Reorder
-                    )
+            if (!isReadOnly) {
+                item(key = "reorder") {
+                    SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
+                        SettingsActionRow(
+                            title = stringResource(R.string.anime_settings_reorder_title),
+                            subtitle = stringResource(R.string.anime_settings_reorder_subtitle),
+                            onClick = onNavigateToReorder,
+                            leadingIcon = Icons.Default.Reorder
+                        )
+                    }
                 }
             }
 

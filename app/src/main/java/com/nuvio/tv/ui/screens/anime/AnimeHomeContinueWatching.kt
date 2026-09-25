@@ -1378,11 +1378,22 @@ private suspend fun AnimeHomeViewModel.applyConclusiveAnimeOlderNextUpResults(
 
 private const val ANIME_CW_MAX_ENRICHMENT_CONCURRENCY = 4
 
+/**
+ * Dismiss key with the content type discriminator ("series|kitsu:123") so ids
+ * from different media types can't collide; reads normalize the prefix away.
+ */
+internal fun animeNextUpDismissKey(contentType: String?, contentId: String): String {
+    val type = contentType?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+        ?: return contentId.trim()
+    return "$type|${contentId.trim()}"
+}
+
 internal fun AnimeHomeViewModel.removeAnimeContinueWatchingPipeline(
     contentId: String,
     season: Int? = null,
     episode: Int? = null,
-    isNextUp: Boolean = false
+    isNextUp: Boolean = false,
+    contentType: String? = null
 ) {
     if (isNextUp) {
         val dismissKey = nextUpDismissKey(contentId, season, episode)
@@ -1413,7 +1424,7 @@ internal fun AnimeHomeViewModel.removeAnimeContinueWatchingPipeline(
             )
         }
         viewModelScope.launch {
-            layoutPreferenceDataStore.addDismissedNextUpKey(dismissKey)
+            layoutPreferenceDataStore.addDismissedNextUpKey(animeNextUpDismissKey(contentType, contentId))
         }
         return
     }

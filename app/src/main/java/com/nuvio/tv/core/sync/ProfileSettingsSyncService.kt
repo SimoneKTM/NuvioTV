@@ -70,6 +70,15 @@ private val catalogKeysExcludedFromProfileSettingsBlob = setOf(
     "custom_catalog_titles"
 )
 
+// Catalog ordering/titles are local-only per device (same treatment as the
+// main layout store): excluding them everywhere means the import wipe can
+// never destroy an anime/extra ordering the remote blob doesn't carry.
+private val catalogOrderFeatures = setOf(
+    "layout_settings",
+    "anime_layout_settings",
+    "extra_layout_settings"
+)
+
 private val localOnlyLayoutProfileSettingsKeys = setOf(
     "last_non_off_discover_location"
 )
@@ -148,7 +157,7 @@ private val credentialProfileSettingsKeys = mapOf(
 
 internal fun shouldExcludePreferenceFromProfileSettingsSync(feature: String, keyName: String): Boolean {
     return when {
-        feature == "layout_settings" && keyName in catalogKeysExcludedFromProfileSettingsBlob -> true
+        feature in catalogOrderFeatures && keyName in catalogKeysExcludedFromProfileSettingsBlob -> true
         feature == "layout_settings" && keyName in localOnlyLayoutProfileSettingsKeys -> true
         feature == "layout_settings" && keyName == "search_discover_enabled" -> true
         feature == PLAYER_SETTINGS_FEATURE && keyName in localOnlyPlayerProfileSettingsKeys -> true
@@ -524,6 +533,8 @@ class ProfileSettingsSyncService @Inject constructor(
     ): Map<Preferences.Key<*>, Any> {
         val keyNames = when (feature) {
             "layout_settings" -> catalogKeysExcludedFromProfileSettingsBlob + localOnlyLayoutProfileSettingsKeys
+            "anime_layout_settings", "extra_layout_settings" ->
+                catalogKeysExcludedFromProfileSettingsBlob
             PLAYER_SETTINGS_FEATURE -> localOnlyPlayerProfileSettingsKeys
             else -> credentialProfileSettingsKeys[feature].orEmpty()
         }

@@ -26,6 +26,8 @@ import com.nuvio.tv.domain.model.DiscoverLocation
 import com.nuvio.tv.domain.model.FocusedPosterTrailerPlaybackTarget
 import com.nuvio.tv.domain.model.HomeLayout
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -143,6 +145,23 @@ class LayoutPreferenceDataStore @Inject constructor(
 
     private fun effectiveCatalogStore() = factory.get(effectiveCatalogProfileId(), featureName)
 
+    /**
+     * Read flow over the effective catalog profile — mirrors effectiveCatalogStore()
+     * so reads land in the same file the order/disabled/title writes go to. Combines
+     * activeProfileId with the profiles list so a profile switch or flag change
+     * (e.g. usesPrimaryAddons flipping) re-evaluates the target store immediately.
+     */
+    private fun <T> effectiveCatalogFlow(extract: (prefs: Preferences) -> T): Flow<T> =
+        combine(
+            profileManager.activeProfileId,
+            profileManager.profiles
+        ) { pid, profiles ->
+            val profile = profiles.find { it.id == pid }
+            if (profile != null && !profile.isPrimary && profile.usesPrimaryAddons) 1 else pid
+        }.distinctUntilChanged().flatMapLatest { effectivePid ->
+            factory.get(effectivePid, featureName).data.map(extract)
+        }
+
     private fun positiveOrDefault(value: Int?, defaultValue: Int): Int =
         value?.takeIf { it > 0 } ?: defaultValue
 
@@ -185,31 +204,16 @@ class LayoutPreferenceDataStore @Inject constructor(
         selections.firstOrNull()
     }
 
-    val homeCatalogOrderKeys: Flow<List<String>> = profileManager.activeProfileId.flatMapLatest { pid ->
-        val profile = profileManager.profiles.value.find { it.id == pid }
-        val usePrimary = profile != null && !profile.isPrimary && profile.usesPrimaryAddons
-        val effectivePid = if (usePrimary) 1 else pid
-        factory.get(effectivePid, featureName).data.map { prefs ->
-            parseCatalogKeys(prefs[homeCatalogOrderKeysKey])
-        }
+    val homeCatalogOrderKeys: Flow<List<String>> = effectiveCatalogFlow { prefs ->
+        parseCatalogKeys(prefs[homeCatalogOrderKeysKey])
     }
 
-    val disabledHomeCatalogKeys: Flow<List<String>> = profileManager.activeProfileId.flatMapLatest { pid ->
-        val profile = profileManager.profiles.value.find { it.id == pid }
-        val usePrimary = profile != null && !profile.isPrimary && profile.usesPrimaryAddons
-        val effectivePid = if (usePrimary) 1 else pid
-        factory.get(effectivePid, featureName).data.map { prefs ->
-            parseCatalogKeys(prefs[disabledHomeCatalogKeysKey])
-        }
+    val disabledHomeCatalogKeys: Flow<List<String>> = effectiveCatalogFlow { prefs ->
+        parseCatalogKeys(prefs[disabledHomeCatalogKeysKey])
     }
 
-    val customCatalogTitles: Flow<Map<String, String>> = profileManager.activeProfileId.flatMapLatest { pid ->
-        val profile = profileManager.profiles.value.find { it.id == pid }
-        val usePrimary = profile != null && !profile.isPrimary && profile.usesPrimaryAddons
-        val effectivePid = if (usePrimary) 1 else pid
-        factory.get(effectivePid, featureName).data.map { prefs ->
-            parseCustomTitles(prefs[customCatalogTitlesKey])
-        }
+    val customCatalogTitles: Flow<Map<String, String>> = effectiveCatalogFlow { prefs ->
+        parseCustomTitles(prefs[customCatalogTitlesKey])
     }
 
     val sidebarCollapsedByDefault: Flow<Boolean> = profileFlow { prefs ->
@@ -356,7 +360,9 @@ class LayoutPreferenceDataStore @Inject constructor(
     }
 
     val dismissedNextUpKeys: Flow<Set<String>> = profileFlow { prefs ->
-        parseCatalogKeys(prefs[dismissedNextUpKeysKey]).toSet()
+        parseCatalogKeys(prefs[dismissedNextUpKeysKey])
+            .map(::normalizeDismissedNextUpKey)
+            .toSet()
     }
 
     val detailPageTrailerButtonEnabled: Flow<Boolean> = profileFlow { prefs ->
@@ -367,7 +373,7 @@ class LayoutPreferenceDataStore @Inject constructor(
         prefs[preferExternalMetaAddonDetailKey] ?: true
     }
 
-    val hideUnreleasedContent: Flow<Boolean> = profileFlow { prefs ->
+    val hideUnreleasedContent: Flow<Boolean> = effectiveCatalogFlow { prefs ->
         prefs[hideUnreleasedContentKey] ?: false
     }
 
@@ -387,7 +393,7 @@ class LayoutPreferenceDataStore @Inject constructor(
         prefs[fastHorizontalNavigationEnabledKey] ?: false
     }
 
-    val followAddonsOrder: Flow<Boolean> = profileFlow { prefs ->
+    val followAddonsOrder: Flow<Boolean> = effectiveCatalogFlow { prefs ->
         prefs[followAddonsOrderKey] ?: false
     }
 
@@ -450,7 +456,7 @@ class LayoutPreferenceDataStore @Inject constructor(
     }
 
     suspend fun setFollowAddonsOrder(enabled: Boolean) {
-        store().edit { prefs ->
+        effectiveCatalogStore().edit { prefs ->
             prefs[followAddonsOrderKey] = enabled
         }
     }
@@ -808,6 +814,40 @@ class LayoutPreferenceDataStore @Inject constructor(
         }
     }
 
+    /**
+     * Clears every dismiss variant for a content: bare id, typed "type|id" keys
+     * and legacy "id|season|episode" keys. Called on progress save so a dismissed
+     * Next Up row reappears once the user actually watches the show again.
+     */
+    suspend fun removeDismissedNextUpKeysForContent(contentId: String) {
+        if (contentId.isBlank()) return
+        val trimmed = contentId.trim()
+        val prefix = "$trimmed|"
+        store().edit { prefs ->
+            val current = parseCatalogKeys(prefs[dismissedNextUpKeysKey])
+            val filtered = current.filterNot {
+                it == trimmed || it.startsWith(prefix) || it.endsWith("|$trimmed")
+            }
+            if (filtered.size != current.size) {
+                prefs[dismissedNextUpKeysKey] = gson.toJson(filtered)
+            }
+        }
+    }
+
+    /**
+     * Strips the "type|" discriminator ("series|kitsu:123") so every consumer
+     * (including shared reconciliation that matches bare content ids) keeps working.
+     */
+    private fun normalizeDismissedNextUpKey(key: String): String {
+        val separator = key.indexOf('|')
+        if (separator > 0) {
+            when (key.substring(0, separator).lowercase()) {
+                "series", "movie", "tv", "show" -> return key.substring(separator + 1)
+            }
+        }
+        return key
+    }
+
     suspend fun setDetailPageTrailerButtonEnabled(enabled: Boolean) {
         store().edit { prefs ->
             prefs[detailPageTrailerButtonEnabledKey] = enabled
@@ -821,7 +861,7 @@ class LayoutPreferenceDataStore @Inject constructor(
     }
 
     suspend fun setHideUnreleasedContent(enabled: Boolean) {
-        store().edit { prefs ->
+        effectiveCatalogStore().edit { prefs ->
             prefs[hideUnreleasedContentKey] = enabled
         }
     }
@@ -903,10 +943,8 @@ class LayoutPreferenceDataStore @Inject constructor(
             key to item.customTitle
         }.filterValues { it.isNotBlank() }
 
-        store().edit { prefs ->
-            prefs[hideUnreleasedContentKey] = payload.hideUnreleasedContent
-        }
         effectiveCatalogStore().edit { prefs ->
+            prefs[hideUnreleasedContentKey] = payload.hideUnreleasedContent
             if (orderKeys.isNotEmpty()) {
                 prefs[homeCatalogOrderKeysKey] = gson.toJson(orderKeys)
             } else {

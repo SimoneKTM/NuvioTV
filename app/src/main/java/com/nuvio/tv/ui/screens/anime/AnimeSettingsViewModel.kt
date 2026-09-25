@@ -603,6 +603,9 @@ class AnimeSettingsViewModel @Inject constructor(
             disabledKeys = animeDisabledCatalogKeys
         )
         val availableCatalogKeys = availableCatalogEntries.map { it.key }.toSet()
+        // Nothing validated (e.g. phone page state didn't match the TV addon set):
+        // writing now would wipe the stored order/disabled lists with empty ones.
+        if (availableCatalogKeys.isEmpty()) return
         // Anime reorder screen has no collections; `collection_*` keys must never be persisted
         // into the anime order list (they'd be dead entries the Anime tab ignores).
         val allValidOrderKeys = availableCatalogKeys
@@ -618,6 +621,9 @@ class AnimeSettingsViewModel @Inject constructor(
             .distinct()
             .toList()
 
+        // A non-empty proposal that filtered down to nothing means the phone sent
+        // keys this TV can't map — keep the current order instead of resetting it.
+        if (validCatalogOrder.isEmpty() && pending.proposedCatalogOrderKeys.isNotEmpty()) return
         animeLayoutPreferenceDataStore.setHomeCatalogOrderKeys(validCatalogOrder)
         animeLayoutPreferenceDataStore.setDisabledHomeCatalogKeys(validDisabledCatalogs)
     }

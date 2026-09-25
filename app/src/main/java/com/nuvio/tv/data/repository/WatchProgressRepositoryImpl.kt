@@ -58,6 +58,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.async
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Singleton
@@ -66,6 +67,8 @@ class WatchProgressRepositoryImpl @Inject constructor(
     private val watchProgressPreferences: WatchProgressPreferences,
     private val traktSettingsDataStore: TraktSettingsDataStore,
     private val layoutPreferenceDataStore: com.nuvio.tv.data.local.LayoutPreferenceDataStore,
+    @Named("anime_layout") private val animeLayoutPreferenceDataStore: com.nuvio.tv.data.local.LayoutPreferenceDataStore,
+    @Named("extra_layout") private val extraLayoutPreferenceDataStore: com.nuvio.tv.data.local.LayoutPreferenceDataStore,
     private val watchProgressSyncService: WatchProgressSyncService,
     private val watchedItemsPreferences: WatchedItemsPreferences,
     private val watchedItemsSyncService: WatchedItemsSyncService,
@@ -591,11 +594,23 @@ class WatchProgressRepositoryImpl @Inject constructor(
             }
     }
 
+    /**
+     * Main home stores dismiss keys in TraktSettingsDataStore, the Anime and
+     * Extra tabs in their own layout stores — clear all three so a dismissed
+     * Next Up row reappears everywhere once the user watches the show again.
+     */
+    private suspend fun clearDismissedNextUpKeys(contentId: String) {
+        traktSettingsDataStore.removeDismissedNextUpKeysForContent(contentId)
+        layoutPreferenceDataStore.removeDismissedNextUpKeysForContent(contentId)
+        animeLayoutPreferenceDataStore.removeDismissedNextUpKeysForContent(contentId)
+        extraLayoutPreferenceDataStore.removeDismissedNextUpKeysForContent(contentId)
+    }
+
     override suspend fun saveProgress(progress: WatchProgress, syncRemote: Boolean) {
         // Clear any CW dismiss keys for this series so it reappears in Continue Watching.
         if (progress.contentType.equals("series", ignoreCase = true) ||
             progress.contentType.equals("tv", ignoreCase = true)) {
-            traktSettingsDataStore.removeDismissedNextUpKeysForContent(progress.contentId)
+            clearDismissedNextUpKeys(progress.contentId)
         }
         val profileId = profileManager.activeProfileId.value
         activeProgressProvider()?.applyOptimisticProgress(progress, quiet = !syncRemote)
@@ -745,7 +760,7 @@ class WatchProgressRepositoryImpl @Inject constructor(
         val profileId = profileManager.activeProfileId.value
         if (progress.contentType.equals("series", ignoreCase = true) ||
             progress.contentType.equals("tv", ignoreCase = true)) {
-            traktSettingsDataStore.removeDismissedNextUpKeysForContent(progress.contentId)
+            clearDismissedNextUpKeys(progress.contentId)
         }
         val now = System.currentTimeMillis()
         val duration = progress.duration.takeIf { it > 0L } ?: 1L
@@ -773,7 +788,7 @@ class WatchProgressRepositoryImpl @Inject constructor(
         val firstProgress = progressList.first()
         if (firstProgress.contentType.equals("series", ignoreCase = true) ||
             firstProgress.contentType.equals("tv", ignoreCase = true)) {
-            traktSettingsDataStore.removeDismissedNextUpKeysForContent(firstProgress.contentId)
+            clearDismissedNextUpKeys(firstProgress.contentId)
         }
         val now = System.currentTimeMillis()
 
