@@ -43,6 +43,7 @@ import com.nuvio.tv.ui.screens.home.NextUpInfo
 import com.nuvio.tv.ui.screens.home.NextUpResolution
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -50,12 +51,13 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import javax.inject.Inject
 import javax.inject.Named
 
@@ -118,8 +120,9 @@ class AnimeHomeViewModel @Inject constructor(
     val fullCatalogRows: StateFlow<List<CatalogRow>> = _fullCatalogRows.asStateFlow()
 
     private val rows = LinkedHashMap<String, CatalogRow>()
-    private val catalogLoadMutex = Mutex()
-    private var pendingLoads = 0
+    private val catalogLoadSemaphore = Semaphore(MAX_CONCURRENT_CATALOG_LOADS)
+    private val catalogLoadGeneration = AtomicInteger(0)
+    private var lastCatalogLoadSignature: String? = null
     private var lastAddons: List<Addon> = emptyList()
 
     private val layoutOrderKeys = mutableListOf<String>()
@@ -363,9 +366,11 @@ class AnimeHomeViewModel @Inject constructor(
                     lastAddons = addons
                     val enabled = addons.filter { it.enabled }
                     if (enabled.isEmpty()) {
+                        invalidateCatalogLoads()
                         synchronized(rows) { rows.clear() }
                         clearTrailerPreviewState()
                         publishRows()
+                        lastCatalogLoadSignature = null
                         _uiState.update {
                             it.copy(
                                 isLoading = false,
@@ -378,6 +383,14 @@ class AnimeHomeViewModel @Inject constructor(
                     loadAllCatalogs(enabled)
                 }
         }
+    }
+
+    /** Stops in-flight loads writing into the rows map and drops hero enrichment. */
+    private fun invalidateCatalogLoads() {
+        catalogLoadGeneration.incrementAndGet()
+        animeHeroEnrichmentJob?.cancel()
+        animeHeroEnrichmentJob = null
+        lastAnimeHeroEnrichmentSignature = null
     }
 
     private fun catalogKey(addon: Addon, catalog: CatalogDescriptor): String =
@@ -398,34 +411,101 @@ class AnimeHomeViewModel @Inject constructor(
         return !catalog.hasExplicitShowInHome || catalog.showInHome
     }
 
-    private suspend fun loadAllCatalogs(addons: List<Addon>) {
-        _uiState.update {
-            it.copy(isLoading = true, error = null, installedAddonsCount = addons.size)
-        }
-        clearTrailerPreviewState()
-        synchronized(rows) {
-            rows.clear()
-            addons.forEach { addon ->
-                addon.catalogs
-                    .filter(::shouldShowCatalog)
-                    .forEach { catalog -> rows[catalogKey(addon, catalog)] = emptyRow(addon, catalog) }
+    private suspend fun loadAllCatalogs(addons: List<Addon>, forceReload: Boolean = false) {
+        val signature = buildAnimeCatalogLoadSignature(addons)
+        // Same addon set already fully loaded — don't clear the rows just to
+        // rebuild them (that flashed the whole tab on every addon emission).
+        if (!forceReload &&
+            signature == lastCatalogLoadSignature &&
+            synchronized(rows) { rows.isNotEmpty() }
+        ) {
+            _uiState.update {
+                it.copy(isLoading = false, error = null, installedAddonsCount = addons.size)
             }
+            return
         }
-        publishRows()
 
         val catalogsToLoad = addons.flatMap { addon ->
             addon.catalogs.filter(::shouldShowCatalog).map { addon to it }
         }
-        pendingLoads = catalogsToLoad.size
+        if (catalogsToLoad.isEmpty()) {
+            // Enabled addons but nothing showable (all search-only/hidden):
+            // finish the load instead of leaving the spinner up forever.
+            invalidateCatalogLoads()
+            synchronized(rows) { rows.clear() }
+            clearTrailerPreviewState()
+            publishRows()
+            lastCatalogLoadSignature = signature
+            _uiState.update {
+                it.copy(isLoading = false, error = null, installedAddonsCount = addons.size)
+            }
+            return
+        }
 
-        catalogsToLoad.forEach { (addon, catalog) ->
-            viewModelScope.launch {
-                catalogLoadMutex.withLock {
-                    loadCatalog(addon, catalog)
+        val generation = catalogLoadGeneration.incrementAndGet()
+        animeHeroEnrichmentJob?.cancel()
+        animeHeroEnrichmentJob = null
+        lastAnimeHeroEnrichmentSignature = null
+
+        // On reload keep the currently visible rows on screen while the new
+        // ones stream in — same contract as the main home pipeline.
+        val isReload = synchronized(rows) { rows.isNotEmpty() }
+        if (isReload) {
+            _uiState.update { it.copy(error = null, installedAddonsCount = addons.size) }
+        } else {
+            _uiState.update {
+                it.copy(isLoading = true, error = null, installedAddonsCount = addons.size)
+            }
+            synchronized(rows) { rows.clear() }
+        }
+        clearTrailerPreviewState()
+
+        val expectedKeys = catalogsToLoad.map { (addon, catalog) -> catalogKey(addon, catalog) }.toSet()
+        synchronized(rows) {
+            rows.keys.retainAll(expectedKeys)
+            catalogsToLoad.forEach { (addon, catalog) ->
+                rows.putIfAbsent(catalogKey(addon, catalog), emptyRow(addon, catalog))
+            }
+        }
+        publishRows()
+
+        // Structured concurrency: a new addon emission (collectLatest restart)
+        // cancels all in-flight loads, and each load is concurrency-limited by
+        // the semaphore instead of running one at a time.
+        coroutineScope {
+            catalogsToLoad.forEach { (addon, catalog) ->
+                launch {
+                    catalogLoadSemaphore.withPermit {
+                        loadCatalog(addon, catalog, generation)
+                    }
                 }
             }
         }
+
+        lastCatalogLoadSignature = signature
+        _uiState.update { it.copy(isLoading = false) }
     }
+
+    private fun buildAnimeCatalogLoadSignature(addons: List<Addon>): String =
+        addons.joinToString(separator = ",") { addon ->
+            val catalogs = addon.catalogs.joinToString(separator = ";") { catalog ->
+                listOf(
+                    catalog.apiType,
+                    catalog.id,
+                    catalog.name,
+                    catalog.showInHome.toString(),
+                    catalog.hasExplicitShowInHome.toString(),
+                    catalog.pageSize?.toString().orEmpty()
+                ).joinToString("|")
+            }
+            listOf(
+                addon.id,
+                addon.baseUrl,
+                addon.version,
+                addon.displayName,
+                catalogs
+            ).joinToString("|")
+        }
 
     private fun emptyRow(addon: Addon, catalog: CatalogDescriptor): CatalogRow {
         val placeholderItems = (0 until 8).map { i ->
@@ -460,7 +540,7 @@ class AnimeHomeViewModel @Inject constructor(
         )
     }
 
-    private suspend fun loadCatalog(addon: Addon, catalog: CatalogDescriptor) {
+    private suspend fun loadCatalog(addon: Addon, catalog: CatalogDescriptor, generation: Int) {
         val key = catalogKey(addon, catalog)
         val supportsSkip = catalog.supportsExtra("skip")
         val skipStep = catalog.skipStep()
@@ -476,22 +556,17 @@ class AnimeHomeViewModel @Inject constructor(
             skipStep = skipStep,
             supportsSkip = supportsSkip
         ).collect { result ->
+            // A newer load generation owns the rows map — drop stale results
+            // (otherwise catalogs of removed addons reappeared after a reload).
+            if (generation != catalogLoadGeneration.get()) return@collect
             when (result) {
                 is NetworkResult.Success -> {
                     synchronized(rows) { rows[key] = result.data }
-                    pendingLoads = (pendingLoads - 1).coerceAtLeast(0)
                     publishRows()
-                    if (pendingLoads == 0) {
-                        _uiState.update { it.copy(isLoading = false) }
-                    }
                 }
                 is NetworkResult.Error -> {
                     synchronized(rows) { rows[key] = emptyRow(addon, catalog).copy(isLoading = false, items = emptyList()) }
-                    pendingLoads = (pendingLoads - 1).coerceAtLeast(0)
                     publishRows()
-                    if (pendingLoads == 0) {
-                        _uiState.update { it.copy(isLoading = false) }
-                    }
                 }
                 NetworkResult.Loading -> { /* handled by row */ }
             }
@@ -551,21 +626,28 @@ class AnimeHomeViewModel @Inject constructor(
     fun ensureCatalogLoaded(catalogId: String, addonId: String, type: String) {
         val key = "${addonId}_${type}_${catalogId}"
         val existing = synchronized(rows) { rows[key] }
+        // Empty rows are failed (or genuinely empty) catalogs — they must be
+        // retried, otherwise an error on first load blocked See All forever.
+        val firstId = existing?.items?.firstOrNull()?.id
         val hasRealContent = existing != null &&
-            existing.items.firstOrNull()?.id?.startsWith("__placeholder_") != true
+            existing.items.isNotEmpty() &&
+            firstId?.startsWith("__placeholder_") != true
         if (hasRealContent) return
 
         val addon = lastAddons.firstOrNull { it.id == addonId } ?: return
         val catalog = addon.catalogs.firstOrNull { it.apiType == type && it.id == catalogId } ?: return
         if (!shouldShowCatalog(catalog)) return
 
+        val generation = catalogLoadGeneration.get()
         viewModelScope.launch {
-            catalogLoadMutex.withLock {
+            catalogLoadSemaphore.withPermit {
                 val current = synchronized(rows) { rows[key] }
+                val currentFirstId = current?.items?.firstOrNull()?.id
                 val currentHasRealContent = current != null &&
-                    current.items.firstOrNull()?.id?.startsWith("__placeholder_") != true
-                if (currentHasRealContent) return@withLock
-                loadCatalog(addon, catalog)
+                    current.items.isNotEmpty() &&
+                    currentFirstId?.startsWith("__placeholder_") != true
+                if (currentHasRealContent) return@withPermit
+                loadCatalog(addon, catalog, generation)
             }
         }
     }
@@ -585,7 +667,7 @@ class AnimeHomeViewModel @Inject constructor(
             _fullCatalogRows.value = released
         }
         val filtered = released.filter { it.items.isNotEmpty() }
-        val heroRow = computeHeroRow(filtered)
+        val heroRow = computeHeroRow(visibleRows = filtered, allRows = snapshot, today = today)
         val heroItems = heroRow?.items.orEmpty()
         enrichAnimeHeroItemsIfNeeded(heroItems)
         _uiState.update { state ->
@@ -658,15 +740,39 @@ class AnimeHomeViewModel @Inject constructor(
         return ordered
     }
 
-    private fun computeHeroRow(rows: List<CatalogRow>): CatalogRow? {
-        if (!heroSectionEnabled || rows.isEmpty()) return null
+    private fun computeHeroRow(
+        visibleRows: List<CatalogRow>,
+        allRows: List<CatalogRow>,
+        today: java.time.LocalDate
+    ): CatalogRow? {
+        if (!heroSectionEnabled) return null
         fun isRealRow(row: CatalogRow): Boolean =
-            row.items.firstOrNull()?.id?.startsWith("__placeholder_") != true
-        val byKey = rows.associateBy { homeCatalogKey(it.addonId, it.rawType, it.catalogId) }
-        for (key in heroCatalogKeys) {
-            byKey[key]?.takeIf(::isRealRow)?.let { return it }
+            row.items.isNotEmpty() &&
+                row.items.firstOrNull()?.id?.startsWith("__placeholder_") != true
+        if (heroCatalogKeys.isNotEmpty()) {
+            // Selected hero catalogs keep driving the hero even when disabled
+            // from the visible rows (main-tab parity) — lookup the full
+            // snapshot first instead of silently jumping to another catalog.
+            val visibleKeys = visibleRows
+                .map { homeCatalogKey(it.addonId, it.rawType, it.catalogId) }
+                .toSet()
+            val heroOnlyRows = allRows.filter { row ->
+                val key = homeCatalogKey(row.addonId, row.rawType, row.catalogId)
+                key in heroCatalogKeys && key !in visibleKeys
+            }.let { selected ->
+                if (hideUnreleasedContent) selected.map { it.filterReleasedItems(today) } else selected
+            }
+            val candidates = visibleRows + heroOnlyRows
+            for (key in heroCatalogKeys) {
+                candidates.firstOrNull {
+                    homeCatalogKey(it.addonId, it.rawType, it.catalogId) == key
+                }?.takeIf(::isRealRow)?.let { return it }
+            }
+            // Selection matches nothing (catalog uninstalled) — fall through to
+            // the generic fallback, same as the main home pipeline.
         }
-        return rows.firstOrNull(::isRealRow)
+        if (visibleRows.isEmpty()) return null
+        return visibleRows.firstOrNull(::isRealRow)
     }
 
     fun onEvent(event: AnimeHomeEvent) {
@@ -676,7 +782,7 @@ class AnimeHomeViewModel @Inject constructor(
             AnimeHomeEvent.OnRetry -> {
                 viewModelScope.launch {
                     val addons = lastAddons.filter { it.enabled }
-                    if (addons.isNotEmpty()) loadAllCatalogs(addons)
+                    if (addons.isNotEmpty()) loadAllCatalogs(addons, forceReload = true)
                 }
             }
         }
