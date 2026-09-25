@@ -26,8 +26,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.tv.R
+import com.nuvio.tv.data.local.AVAILABLE_SUBTITLE_LANGUAGES
 import com.nuvio.tv.data.local.AudioLanguageOption
 import com.nuvio.tv.data.local.StreamAutoPlayMode
+import com.nuvio.tv.data.local.displayName
 import com.nuvio.tv.ui.components.P2pConsentDialog
 import kotlinx.coroutines.launch
 
@@ -123,7 +125,9 @@ fun EssentialPlaybackSettingsContent(
                         value = if (settings?.subtitleStyle?.preferredLanguage == "none") {
                             stringResource(R.string.action_none)
                         } else {
-                            settings?.subtitleStyle?.preferredLanguage.orEmpty()
+                            AVAILABLE_SUBTITLE_LANGUAGES.find {
+                                it.code == settings?.subtitleStyle?.preferredLanguage
+                            }?.displayName ?: stringResource(R.string.language_english)
                         },
                         trailingIcon = Icons.Default.VideoSettings,
                         onClick = { showSubtitleLanguageDialog = true },
@@ -142,7 +146,14 @@ fun EssentialPlaybackSettingsContent(
                     SettingsActionRow(
                         title = stringResource(R.string.essential_audio_language),
                         subtitle = stringResource(R.string.essential_audio_language_subtitle),
-                        value = settings?.preferredAudioLanguage.orEmpty(),
+                        value = when (settings?.preferredAudioLanguage) {
+                            AudioLanguageOption.DEFAULT -> stringResource(R.string.audio_lang_default)
+                            AudioLanguageOption.DEVICE -> stringResource(R.string.audio_lang_device)
+                            AudioLanguageOption.ORIGINAL -> stringResource(R.string.audio_lang_original)
+                            else -> AVAILABLE_SUBTITLE_LANGUAGES.find {
+                                it.code == settings?.preferredAudioLanguage
+                            }?.displayName ?: settings?.preferredAudioLanguage.orEmpty()
+                        },
                         trailingIcon = Icons.Default.VideoSettings,
                         onClick = { showAudioLanguageDialog = true },
                         enabled = settings != null
@@ -184,7 +195,7 @@ fun EssentialPlaybackSettingsContent(
             selectedLanguage = settings.preferredAudioLanguage,
             showNoneOption = false,
             extraOptions = listOf(
-                AudioLanguageOption.DEFAULT to stringResource(R.string.audio_lang_media_default),
+                AudioLanguageOption.DEFAULT to stringResource(R.string.audio_lang_default),
                 AudioLanguageOption.DEVICE to stringResource(R.string.audio_lang_device),
                 AudioLanguageOption.ORIGINAL to stringResource(R.string.audio_lang_original)
             ),

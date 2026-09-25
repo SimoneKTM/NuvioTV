@@ -521,19 +521,29 @@ internal fun LazyListScope.bufferAndNetworkSettingsItems(
                 ).filter { it.first <= maxChunkSizeMb * 1024 }
 
                 val currentKb = playerSettings.parallelChunkSizeKb
-                val currentIndex = chunkSizes.indexOfFirst { it.first == currentKb }.coerceAtLeast(0)
+                val currentLabel = if (currentKb >= 1024 && currentKb % 1024 == 0) {
+                    "${currentKb / 1024} MB"
+                } else {
+                    "$currentKb KB"
+                }
+                val effectiveChunkSizes = if (chunkSizes.any { it.first == currentKb }) {
+                    chunkSizes
+                } else {
+                    (chunkSizes + (currentKb to currentLabel)).sortedBy { it.first }
+                }
+                val currentIndex = effectiveChunkSizes.indexOfFirst { it.first == currentKb }.coerceAtLeast(0)
 
                 SliderSettingsItem(
                     icon = Icons.Default.Storage,
                     title = stringResource(R.string.playback_net_chunk_size),
                     subtitle = stringResource(R.string.playback_net_chunk_size_sub),
                     value = currentIndex,
-                    valueText = chunkSizes.getOrNull(currentIndex)?.second ?: "${currentKb / 1024} MB",
+                    valueText = effectiveChunkSizes.getOrNull(currentIndex)?.second ?: currentLabel,
                     minValue = 0,
-                    maxValue = (chunkSizes.size - 1).coerceAtLeast(0),
+                    maxValue = (effectiveChunkSizes.size - 1).coerceAtLeast(0),
                     step = 1,
                     onValueChange = { index ->
-                        chunkSizes.getOrNull(index)?.let { onSetParallelChunkSizeKb(it.first) }
+                        effectiveChunkSizes.getOrNull(index)?.let { onSetParallelChunkSizeKb(it.first) }
                     }
                 )
             }

@@ -1121,6 +1121,7 @@
     <string name="autoplay_all_addons">All installed addons</string>
     <string name="autoplay_allowed_plugins">Allowed Plugins</string>
     <string name="autoplay_all_plugins">All enabled plugins</string>
+    <string name="autoplay_selection_count">%1$d selected</string>
     <string name="autoplay_regex_placeholder">No pattern set. Example: 4K|2160p|Remux</string>
     <string name="autoplay_regex_title">Regex Pattern</string>
     <string name="autoplay_no_items">No items available</string>
@@ -3284,7 +3285,7 @@
     <string name="playback_section_buffer_network_desc">How much content to keep in memory and how to fetch streams.</string>
     <string name="playback_net_device_memory_info">Device Memory: %1$s | Recommended Safety Limit: %2$d MB</string>
     <string name="playback_net_nuvio_performance_mode">ExoPlayer Native Memory</string>
-    <string name="playback_net_nuvio_performance_mode_sub">Enable native off-heap allocator and scrubbing optimizations.</string>
+    <string name="playback_net_nuvio_performance_mode_sub">Enable native off-heap allocator and scrubbing optimizations, and apply tuned buffer and network settings (your current buffer values will be overwritten).</string>
     <string name="playback_net_nuvio_performance_mode_not_supported">This feature is not supported by your device.</string>
     <string name="playback_buffer_custom">Custom Playback Buffers</string>
     <string name="playback_buffer_custom_sub">Override Media3\'s default buffering with the values below. When off, the player uses Media3\'s stock buffer durations and target size.</string>

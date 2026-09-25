@@ -295,7 +295,10 @@ internal fun LazyListScope.autoPlaySettingsItems(
                 val addonSubtitle = if (playerSettings.streamAutoPlaySelectedAddons.isEmpty()) {
                     stringResource(R.string.autoplay_all_addons)
                 } else {
-                    "${playerSettings.streamAutoPlaySelectedAddons.size} selected"
+                    stringResource(
+                        R.string.autoplay_selection_count,
+                        playerSettings.streamAutoPlaySelectedAddons.size
+                    )
                 }
                 NavigationSettingsItem(
                     icon = Icons.Default.Language,
@@ -315,7 +318,10 @@ internal fun LazyListScope.autoPlaySettingsItems(
                 val pluginSubtitle = if (playerSettings.streamAutoPlaySelectedPlugins.isEmpty()) {
                     stringResource(R.string.autoplay_all_plugins)
                 } else {
-                    "${playerSettings.streamAutoPlaySelectedPlugins.size} selected"
+                    stringResource(
+                        R.string.autoplay_selection_count,
+                        playerSettings.streamAutoPlaySelectedPlugins.size
+                    )
                 }
                 NavigationSettingsItem(
                     icon = Icons.Default.Extension,
