@@ -52,6 +52,8 @@ class PlayerViewModel @Inject constructor(
     private val streamBadgeSettingsDataStore: StreamBadgeSettingsDataStore,
     private val bingeGroupCacheDataStore: com.nuvio.tv.data.local.BingeGroupCacheDataStore,
     private val layoutPreferenceDataStore: com.nuvio.tv.data.local.LayoutPreferenceDataStore,
+    @javax.inject.Named("anime_layout") private val animeLayoutPreferenceDataStore: com.nuvio.tv.data.local.LayoutPreferenceDataStore,
+    @javax.inject.Named("extra_layout") private val extraLayoutPreferenceDataStore: com.nuvio.tv.data.local.LayoutPreferenceDataStore,
     private val watchedItemsPreferences: com.nuvio.tv.data.local.WatchedItemsPreferences,
     private val trackPreferenceDataStore: com.nuvio.tv.data.local.TrackPreferenceDataStore,
     private val audioDelayRouteDataStore: AudioDelayRouteDataStore,
@@ -98,6 +100,8 @@ class PlayerViewModel @Inject constructor(
         streamBadgeSettingsDataStore = streamBadgeSettingsDataStore,
         bingeGroupCacheDataStore = bingeGroupCacheDataStore,
         layoutPreferenceDataStore = layoutPreferenceDataStore,
+        animeLayoutPreferenceDataStore = animeLayoutPreferenceDataStore,
+        extraLayoutPreferenceDataStore = extraLayoutPreferenceDataStore,
         watchedItemsPreferences = watchedItemsPreferences,
         trackPreferenceDataStore = trackPreferenceDataStore,
         audioDelayRouteDataStore = audioDelayRouteDataStore,
@@ -115,7 +119,8 @@ class PlayerViewModel @Inject constructor(
         streamBadgePresentation = streamBadgePresentation,
         playbackIssueReportRepository = playbackIssueReportRepository,
         savedStateHandle = savedStateHandle,
-        scope = viewModelScope
+        scope = viewModelScope,
+        initialPlaybackSourceAddonBaseUrl = savedStateHandle.get<String>("addonBaseUrl")?.takeIf { it.isNotBlank() }
     )
 
     init {

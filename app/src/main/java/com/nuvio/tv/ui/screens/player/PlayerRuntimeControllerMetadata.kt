@@ -112,6 +112,28 @@ private suspend fun PlayerRuntimeController.resolveActiveTmdbSettings(): com.nuv
     return tmdbSettingsDataStore
 }
 
+/**
+ * Layout settings store for the tab that originated the current playback,
+ * mirroring [resolveActiveTmdbSettings]: the source addon URL selects the
+ * Extra/Anime store, otherwise the Home store applies.
+ */
+internal suspend fun PlayerRuntimeController.resolveActiveLayoutSettings(): com.nuvio.tv.data.local.LayoutPreferenceDataStore {
+    val source = playbackSourceAddonBaseUrl?.trim()?.trimEnd('/').orEmpty().lowercase()
+    if (source.isNotEmpty()) {
+        val fromExtra = runCatching {
+            extraAddonRepository.getInstalledExtraAddons().first()
+                .any { it.baseUrl.trim().trimEnd('/').lowercase() == source }
+        }.getOrDefault(false)
+        if (fromExtra) return extraLayoutPreferenceDataStore
+        val fromAnime = runCatching {
+            animeAddonRepository.getInstalledAnimeAddons().first()
+                .any { it.baseUrl.trim().trimEnd('/').lowercase() == source }
+        }.getOrDefault(false)
+        if (fromAnime) return animeLayoutPreferenceDataStore
+    }
+    return layoutPreferenceDataStore
+}
+
 private suspend fun PlayerRuntimeController.enrichDescriptionFromTmdb(id: String?, type: String?) {
     if (id.isNullOrBlank() || type.isNullOrBlank()) return
     val settings = resolveActiveTmdbSettings().settings.first()

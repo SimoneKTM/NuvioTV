@@ -76,6 +76,8 @@ class PlayerRuntimeController(
     internal val streamBadgeSettingsDataStore: StreamBadgeSettingsDataStore,
     internal val bingeGroupCacheDataStore: BingeGroupCacheDataStore,
     internal val layoutPreferenceDataStore: com.nuvio.tv.data.local.LayoutPreferenceDataStore,
+    internal val animeLayoutPreferenceDataStore: com.nuvio.tv.data.local.LayoutPreferenceDataStore,
+    internal val extraLayoutPreferenceDataStore: com.nuvio.tv.data.local.LayoutPreferenceDataStore,
     internal val watchedItemsPreferences: com.nuvio.tv.data.local.WatchedItemsPreferences,
     internal val trackPreferenceDataStore: com.nuvio.tv.data.local.TrackPreferenceDataStore,
     internal val audioDelayRouteDataStore: AudioDelayRouteDataStore,
@@ -93,14 +95,17 @@ class PlayerRuntimeController(
     internal val streamBadgePresentation: com.nuvio.tv.core.streams.StreamBadgePresentation,
     internal val playbackIssueReportRepository: PlaybackIssueReportRepository,
     savedStateHandle: SavedStateHandle,
-    internal val scope: CoroutineScope
+    internal val scope: CoroutineScope,
+    initialPlaybackSourceAddonBaseUrl: String? = null
 ) {
 
     /**
      * Addon base URL that originated the current playback. When set, stream and
-     * meta lookups are scoped to the same addon group (anime vs Home).
+     * meta lookups are scoped to the same addon group (anime vs Home). Seeded by
+     * the constructor so the init block below already observes the right tab
+     * store (the ViewModel assigns the same value right after construction).
      */
-    internal var playbackSourceAddonBaseUrl: String? = null
+    internal var playbackSourceAddonBaseUrl: String? = initialPlaybackSourceAddonBaseUrl
 
     companion object {
         internal const val TAG = "PlayerViewModel"

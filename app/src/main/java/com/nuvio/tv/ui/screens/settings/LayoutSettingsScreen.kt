@@ -394,7 +394,7 @@ fun LayoutSettingsContent(
                         )
                     }
 
-                    if (uiState.heroSectionEnabled && uiState.availableCatalogs.isNotEmpty() && uiState.selectedLayout != HomeLayout.MODERN) {
+                    if (uiState.heroSectionEnabled && uiState.availableCatalogs.isNotEmpty()) {
                         Text(
                             text = stringResource(R.string.layout_hero_catalogs),
                             style = MaterialTheme.typography.labelLarge,
@@ -427,7 +427,7 @@ fun LayoutSettingsContent(
                 }
             }
 
-            if (animeMode) {
+            if (animeMode && !essentialMode) {
             item(key = "anime_content_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_anime_content),
@@ -448,19 +448,17 @@ fun LayoutSettingsContent(
                         },
                         onFocused = { focusedSection = LayoutSettingsSection.ANIME_CONTENT }
                     )
-                    if (uiState.selectedLayout != HomeLayout.MODERN) {
-                        CompactToggleRow(
-                            title = stringResource(R.string.layout_addon_name),
-                            subtitle = stringResource(R.string.layout_addon_name_sub),
-                            checked = uiState.catalogAddonNameEnabled,
-                            onToggle = {
-                                viewModel.onEvent(
-                                    LayoutSettingsEvent.SetCatalogAddonNameEnabled(!uiState.catalogAddonNameEnabled)
-                                )
-                            },
-                            onFocused = { focusedSection = LayoutSettingsSection.ANIME_CONTENT }
-                        )
-                    }
+                    CompactToggleRow(
+                        title = stringResource(R.string.layout_addon_name),
+                        subtitle = stringResource(R.string.layout_addon_name_sub),
+                        checked = uiState.catalogAddonNameEnabled,
+                        onToggle = {
+                            viewModel.onEvent(
+                                LayoutSettingsEvent.SetCatalogAddonNameEnabled(!uiState.catalogAddonNameEnabled)
+                            )
+                        },
+                        onFocused = { focusedSection = LayoutSettingsSection.ANIME_CONTENT }
+                    )
                     CompactToggleRow(
                         title = stringResource(R.string.layout_catalog_type),
                         subtitle = stringResource(R.string.layout_catalog_type_sub),
@@ -582,19 +580,17 @@ fun LayoutSettingsContent(
                         },
                         onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
                     )
-                    if (uiState.selectedLayout != HomeLayout.MODERN) {
-                        CompactToggleRow(
-                            title = stringResource(R.string.layout_show_hero),
-                            subtitle = stringResource(R.string.layout_show_hero_sub),
-                            checked = uiState.heroSectionEnabled,
-                            onToggle = {
-                                viewModel.onEvent(
-                                    LayoutSettingsEvent.SetHeroSectionEnabled(!uiState.heroSectionEnabled)
-                                )
-                            },
-                            onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
-                        )
-                    }
+                    CompactToggleRow(
+                        title = stringResource(R.string.layout_show_hero),
+                        subtitle = stringResource(R.string.layout_show_hero_sub),
+                        checked = uiState.heroSectionEnabled,
+                        onToggle = {
+                            viewModel.onEvent(
+                                LayoutSettingsEvent.SetHeroSectionEnabled(!uiState.heroSectionEnabled)
+                            )
+                        },
+                        onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
+                    )
                     }
                     CompactToggleRow(
                         title = stringResource(R.string.layout_poster_labels),
@@ -607,19 +603,17 @@ fun LayoutSettingsContent(
                         },
                         onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
                     )
-                    if (uiState.selectedLayout != HomeLayout.MODERN) {
-                        CompactToggleRow(
-                            title = stringResource(R.string.layout_addon_name),
-                            subtitle = stringResource(R.string.layout_addon_name_sub),
-                            checked = uiState.catalogAddonNameEnabled,
-                            onToggle = {
-                                viewModel.onEvent(
-                                    LayoutSettingsEvent.SetCatalogAddonNameEnabled(!uiState.catalogAddonNameEnabled)
-                                )
-                            },
-                            onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
-                        )
-                    }
+                    CompactToggleRow(
+                        title = stringResource(R.string.layout_addon_name),
+                        subtitle = stringResource(R.string.layout_addon_name_sub),
+                        checked = uiState.catalogAddonNameEnabled,
+                        onToggle = {
+                            viewModel.onEvent(
+                                LayoutSettingsEvent.SetCatalogAddonNameEnabled(!uiState.catalogAddonNameEnabled)
+                            )
+                        },
+                        onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
+                    )
                     CompactToggleRow(
                         title = stringResource(R.string.layout_catalog_type),
                         subtitle = stringResource(R.string.layout_catalog_type_sub),

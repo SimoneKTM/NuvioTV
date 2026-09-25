@@ -220,7 +220,9 @@ internal fun PlayerRuntimeController.filterToVisibleAddonSubtitles(
 
 internal fun PlayerRuntimeController.observeBlurUnwatchedEpisodes() {
     scope.launch {
-        layoutPreferenceDataStore.blurUnwatchedEpisodes.collectLatest { enabled ->
+        val activeLayout = runCatching { resolveActiveLayoutSettings() }
+            .getOrDefault(layoutPreferenceDataStore)
+        activeLayout.blurUnwatchedEpisodes.collectLatest { enabled ->
             _uiState.update { it.copy(blurUnwatchedEpisodes = enabled) }
         }
     }
