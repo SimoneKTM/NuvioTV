@@ -88,6 +88,7 @@ import com.nuvio.tv.ui.components.PosterCwStylePreview
 import com.nuvio.tv.ui.components.WideCwStylePreview
 import com.nuvio.tv.ui.components.cardDepthVisual
 import com.nuvio.tv.ui.screens.addon.QrCodeOverlay
+import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
 
 @Composable
 fun LayoutSettingsScreen(
@@ -666,7 +667,7 @@ fun LayoutSettingsContent(
                         onFocused = { focusedSection = LayoutSettingsSection.DETAIL_PAGE }
                     )
 
-                    if (AppFeaturePolicy.inAppTrailerPlaybackEnabled) {
+                    if (!homeOnlyLayout && AppFeaturePolicy.inAppTrailerPlaybackEnabled) {
                         CompactToggleRow(
                             title = stringResource(R.string.audio_autoplay_trailers),
                             subtitle = stringResource(R.string.audio_autoplay_trailers_sub),
@@ -743,6 +744,7 @@ fun LayoutSettingsContent(
             }
             }
 
+            if (!homeOnlyLayout) {
             item(key = "streams_section") {
                 CollapsibleSectionCard(
                     title = stringResource(R.string.layout_section_streams),
@@ -795,6 +797,7 @@ fun LayoutSettingsContent(
                         onFocused = { focusedSection = LayoutSettingsSection.STREAMS }
                     )
                 }
+            }
             }
 
             item(key = "continue_watching_section") {
@@ -1051,6 +1054,7 @@ fun LayoutSettingsContent(
                         },
                         onFocused = { focusedSection = LayoutSettingsSection.POSTER_CARD_STYLE }
                     )
+                    if (!homeOnlyLayout) {
                     Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
                     Text(
                         text = stringResource(R.string.settings_card_depth_title),
@@ -1080,6 +1084,7 @@ fun LayoutSettingsContent(
                         onReset = { viewModel.onEvent(LayoutSettingsEvent.ResetCardDepthStyle) },
                         onFocused = { focusedSection = LayoutSettingsSection.POSTER_CARD_STYLE }
                     )
+                    }
                 }
             }
             }
@@ -1110,7 +1115,7 @@ fun LayoutSettingsContent(
             )
         }
 
-        if (showCardDepthFineTuneDialog) {
+        if (showCardDepthFineTuneDialog && !homeOnlyLayout) {
             CardDepthFineTuneDialog(
                 style = uiState.cardDepthStyle,
                 onEdgeStrengthChange = { strength ->
@@ -1739,7 +1744,7 @@ private fun CardDepthFineTuneDialog(
     val initialFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
-        initialFocusRequester.requestFocus()
+        initialFocusRequester.requestFocusAfterFrames()
     }
 
     NuvioDialog(
