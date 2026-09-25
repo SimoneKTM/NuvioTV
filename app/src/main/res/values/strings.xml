@@ -1171,7 +1171,7 @@
     <string name="layout_fullscreen_hero_backdrop">Fullscreen Hero Backdrop</string>
     <string name="layout_fullscreen_hero_backdrop_sub">Expand the hero backdrop to fill the entire screen.</string>
     <string name="layout_classic_focus_gradient">Focused Item Gradient</string>
-    <string name="layout_classic_focus_gradient_sub">Blend artwork colors into the right side of Classic home.</string>
+    <string name="layout_classic_focus_gradient_sub">Blend artwork colors into the right side of the Classic layout.</string>
     <string name="layout_show_hero">Show Hero Section</string>
     <string name="layout_show_hero_sub">Display hero carousel at top of home.</string>
     <string name="layout_show_anime_tab">Show Anime tab</string>
@@ -1205,9 +1205,9 @@
     <string name="layout_addon_name">Show Addon Name</string>
     <string name="layout_addon_name_sub">Show source name under catalog titles.</string>
     <string name="layout_catalog_type">Show Catalog Type</string>
-    <string name="layout_catalog_type_sub">Show type suffix next to catalog name (Movie/Series).</string>
+    <string name="layout_catalog_type_sub">Show the type suffix next to the catalog name.</string>
     <string name="layout_hide_unreleased">Hide Unreleased Content</string>
-    <string name="layout_hide_unreleased_sub">Hide movies and shows that haven\'t been released yet.</string>
+    <string name="layout_hide_unreleased_sub">Hide content that hasn\'t been released yet.</string>
     <string name="layout_search_include_extra_tab">Include Extra tab in search</string>
     <string name="layout_search_include_extra_tab_sub">When enabled, search results also include content from Extra addons.</string>
     <string name="layout_search_include_anime_tab">Include Anime tab in search</string>

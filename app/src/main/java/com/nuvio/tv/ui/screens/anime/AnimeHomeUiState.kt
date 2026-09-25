@@ -33,10 +33,11 @@ data class AnimeHomeUiState(
     val posterCardCornerRadiusDp: Int = 12,
     val posterLabelsEnabled: Boolean = true,
     val catalogAddonNameEnabled: Boolean = false,
-    val focusedPosterBackdropExpandEnabled: Boolean = false,
+    val focusedPosterBackdropExpandEnabled: Boolean = true,
     val focusedPosterBackdropExpandDelaySeconds: Int = 3,
     val focusedPosterBackdropTrailerEnabled: Boolean = false,
-    val focusedPosterBackdropTrailerMuted: Boolean = true
+    val focusedPosterBackdropTrailerMuted: Boolean = true,
+    val showFullReleaseDate: Boolean = true
 )
 
 sealed class AnimeHomeEvent {

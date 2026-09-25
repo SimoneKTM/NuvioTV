@@ -236,6 +236,7 @@ private fun AnimeModernContent(
                     item = enrichedHeroItem ?: currentHeroItem,
                     fullScreenBackdrop = fullScreenBackdrop,
                     useLandscapePosters = useLandscapePosters,
+                    showFullReleaseDate = uiState.showFullReleaseDate,
                     screenWidth = screenWidth,
                     screenHeight = screenHeight,
                     heroBackdropHeight = heroBackdropHeight,
@@ -655,6 +656,7 @@ private fun AnimeModernHero(
     item: MetaPreview,
     fullScreenBackdrop: Boolean,
     useLandscapePosters: Boolean,
+    showFullReleaseDate: Boolean,
     screenWidth: Dp,
     screenHeight: Dp,
     heroBackdropHeight: Dp,
@@ -663,7 +665,9 @@ private fun AnimeModernHero(
 ) {
     val density = LocalDensity.current
     val context = LocalContext.current
-    val heroPreview = remember(item) { buildAnimeHeroPreview(context, item) }
+    val heroPreview = remember(item, showFullReleaseDate) {
+        buildAnimeHeroPreview(context, item, showFullReleaseDate)
+    }
     val liveHeroSceneState by rememberUpdatedState(
         ModernHeroSceneState(
             heroBackdrop = firstNonBlank(
@@ -986,7 +990,11 @@ private fun AnimeGridCatalogSection(
     }
 }
 
-private fun buildAnimeHeroPreview(context: Context, item: MetaPreview): HeroPreview {
+private fun buildAnimeHeroPreview(
+    context: Context,
+    item: MetaPreview,
+    showFullReleaseDate: Boolean = true
+): HeroPreview {
     val isSeries = isSeriesType(item.apiType)
     val contentTypeText = localizedContentType(context, item.apiType)
     return HeroPreview(
@@ -995,7 +1003,7 @@ private fun buildAnimeHeroPreview(context: Context, item: MetaPreview): HeroPrev
         description = item.description,
         contentTypeText = contentTypeText,
         isSeries = isSeries,
-        yearText = extractYearText(item.type, item.releaseInfo, item.released),
+        yearText = extractYearText(item.type, item.releaseInfo, item.released, showFullReleaseDate),
         runtimeText = formatHeroRuntime(item.runtime),
         imdbText = item.imdbRating?.let { String.format(java.util.Locale.US, "%.1f", it) },
         ageRatingText = item.ageRating,

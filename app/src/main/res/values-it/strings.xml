@@ -661,9 +661,9 @@
 <string name="layout_addon_name">Mostra nome addon</string>
 <string name="layout_addon_name_sub">Mostra il nome della sorgente sotto i titoli dei cataloghi.</string>
 <string name="layout_catalog_type">Mostra tipo di catalogo</string>
-<string name="layout_catalog_type_sub">Mostra il suffisso del tipo accanto al nome del catalogo (Film/Serie).</string>
+    <string name="layout_catalog_type_sub">Mostra il suffisso del tipo accanto al nome del catalogo.</string>
 <string name="layout_hide_unreleased">Nascondi Contenuti non disponibili</string>
-<string name="layout_hide_unreleased_sub">Nascondi Film e Serie TV che non sono ancora stati resi pubblici.</string>
+    <string name="layout_hide_unreleased_sub">Nascondi i contenuti che non sono ancora stati rilasciati.</string>
 <string name="layout_search_include_extra_tab">Includi scheda Extra nella ricerca</string>
 <string name="layout_search_include_extra_tab_sub">Se attivo, i risultati di ricerca includono anche i contenuti dagli addon Extra.</string>
 <string name="layout_search_include_anime_tab">Includi scheda Anime nella ricerca</string>
@@ -1726,7 +1726,7 @@
   <string name="advanced_remember_last_profile">Ricorda l\'ultimo profilo</string>
   <string name="advanced_remember_last_profile_subtitle">Ricorda l\'ultimo profilo selezionato all\'avvio</string>
   <string name="layout_classic_focus_gradient">Sfumatura elemento selezionato</string>
-  <string name="layout_classic_focus_gradient_sub">Sfuma i colori della locandina sul lato destro della Home Classica.</string>
+    <string name="layout_classic_focus_gradient_sub">Sfuma i colori della locandina sul lato destro della vista Classica.</string>
   <string name="collections_editor_source_count">%1$d sorgente/i</string>
   <string name="collections_editor_sources">Sorgenti</string>
   <string name="collections_editor_source">Sorgente</string>

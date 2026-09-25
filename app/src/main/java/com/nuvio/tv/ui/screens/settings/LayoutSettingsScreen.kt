@@ -95,7 +95,8 @@ fun LayoutSettingsScreen(
     onBackPress: () -> Unit,
     headerTitleRes: Int = R.string.layout_title,
     headerSubtitleRes: Int? = null,
-    animeMode: Boolean = false
+    animeMode: Boolean = false,
+    essentialMode: Boolean = false
 ) {
     BackHandler { onBackPress() }
 
@@ -107,7 +108,8 @@ fun LayoutSettingsScreen(
             viewModel = viewModel,
             headerTitleRes = headerTitleRes,
             headerSubtitleRes = headerSubtitleRes,
-            animeMode = animeMode
+            animeMode = animeMode,
+            essentialMode = essentialMode
         )
     }
 }
@@ -242,7 +244,7 @@ fun LayoutSettingsContent(
                     ),
                     description = stringResource(
                         when {
-                            animeMode -> R.string.anime_layout_title
+                            animeMode -> R.string.settings_anime_layout_subtitle
                             homeOnlyLayout -> R.string.layout_section_extra_layout_desc
                             else -> R.string.layout_section_home_desc
                         }
@@ -370,6 +372,20 @@ fun LayoutSettingsContent(
                             onToggle = {
                                 viewModel.onEvent(
                                     LayoutSettingsEvent.SetClassicFocusGradientEnabled(!uiState.classicFocusGradientEnabled)
+                                )
+                            },
+                            onFocused = { focusedSection = LayoutSettingsSection.HOME_LAYOUT }
+                        )
+                    }
+
+                    if (homeOnlyLayout) {
+                        CompactToggleRow(
+                            title = stringResource(R.string.layout_show_hero),
+                            subtitle = stringResource(R.string.layout_show_hero_sub),
+                            checked = uiState.heroSectionEnabled,
+                            onToggle = {
+                                viewModel.onEvent(
+                                    LayoutSettingsEvent.SetHeroSectionEnabled(!uiState.heroSectionEnabled)
                                 )
                             },
                             onFocused = { focusedSection = LayoutSettingsSection.HOME_LAYOUT }

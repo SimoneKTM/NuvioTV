@@ -127,10 +127,11 @@ class AnimeHomeViewModel @Inject constructor(
     private var posterCardCornerRadiusDp = 12
     private var posterLabelsEnabled = true
     private var catalogAddonNameEnabled = false
-    private var focusedPosterBackdropExpandEnabled = false
+    private var focusedPosterBackdropExpandEnabled = true
     private var focusedPosterBackdropExpandDelaySeconds = 3
     private var focusedPosterBackdropTrailerEnabled = false
     private var focusedPosterBackdropTrailerMuted = true
+    private var showFullReleaseDate = true
 
     init {
         observeLayoutPreferences()
@@ -272,11 +273,13 @@ class AnimeHomeViewModel @Inject constructor(
             combine(
                 cardStyleWithAddonNameFlow,
                 layoutPreferenceDataStore.useEpisodeThumbnailsInCw,
-                layoutPreferenceDataStore.blurContinueWatchingNextUp
-            ) { snapshot, thumbnails, blurNextUp ->
+                layoutPreferenceDataStore.blurContinueWatchingNextUp,
+                layoutPreferenceDataStore.showFullReleaseDate
+            ) { snapshot, thumbnails, blurNextUp, showFullReleaseDate ->
                 snapshot.copy(
                     useEpisodeThumbnailsInCw = thumbnails,
-                    blurContinueWatchingNextUp = blurNextUp
+                    blurContinueWatchingNextUp = blurNextUp,
+                    showFullReleaseDate = showFullReleaseDate
                 )
             }.distinctUntilChanged().collectLatest { snapshot ->
                 layoutOrderKeys.clear()
@@ -305,6 +308,7 @@ class AnimeHomeViewModel @Inject constructor(
                 focusedPosterBackdropExpandDelaySeconds = snapshot.focusedPosterBackdropExpandDelaySeconds
                 focusedPosterBackdropTrailerEnabled = snapshot.focusedPosterBackdropTrailerEnabled
                 focusedPosterBackdropTrailerMuted = snapshot.focusedPosterBackdropTrailerMuted
+                showFullReleaseDate = snapshot.showFullReleaseDate
                 publishRows()
             }
         }
@@ -330,10 +334,11 @@ class AnimeHomeViewModel @Inject constructor(
         val posterCardCornerRadiusDp: Int = 12,
         val posterLabelsEnabled: Boolean = true,
         val catalogAddonNameEnabled: Boolean = false,
-        val focusedPosterBackdropExpandEnabled: Boolean = false,
+        val focusedPosterBackdropExpandEnabled: Boolean = true,
         val focusedPosterBackdropExpandDelaySeconds: Int = 3,
         val focusedPosterBackdropTrailerEnabled: Boolean = false,
-        val focusedPosterBackdropTrailerMuted: Boolean = true
+        val focusedPosterBackdropTrailerMuted: Boolean = true,
+        val showFullReleaseDate: Boolean = true
     )
 
     private fun observeAnimeAddons() {
@@ -542,15 +547,17 @@ class AnimeHomeViewModel @Inject constructor(
 
     private fun publishRows() {
         val snapshot = synchronized(rows) { rows.values.toList() }
-        if (_fullCatalogRows.value != snapshot) {
-            _fullCatalogRows.value = snapshot
-        }
         val ordered = orderRows(snapshot)
         val today = java.time.LocalDate.now()
         val released = if (hideUnreleasedContent) {
             ordered.map { it.filterReleasedItems(today) }
         } else {
             ordered
+        }
+        // See All must show the same rows the tab renders (ordered, disabled
+        // excluded, unreleased filtered) — same contract as the regular home.
+        if (_fullCatalogRows.value != released) {
+            _fullCatalogRows.value = released
         }
         val filtered = released.filter { it.items.isNotEmpty() }
         val heroRow = computeHeroRow(filtered)
@@ -559,6 +566,7 @@ class AnimeHomeViewModel @Inject constructor(
         _uiState.update { state ->
             val updated = state.copy(
                 rows = filtered,
+                heroEnabled = heroSectionEnabled,
                 heroItem = heroRow?.items?.firstOrNull(),
                 heroItems = heroItems,
                 heroAddonBaseUrl = heroRow?.addonBaseUrl,
@@ -579,7 +587,8 @@ class AnimeHomeViewModel @Inject constructor(
                 focusedPosterBackdropExpandEnabled = focusedPosterBackdropExpandEnabled,
                 focusedPosterBackdropExpandDelaySeconds = focusedPosterBackdropExpandDelaySeconds,
                 focusedPosterBackdropTrailerEnabled = focusedPosterBackdropTrailerEnabled,
-                focusedPosterBackdropTrailerMuted = focusedPosterBackdropTrailerMuted
+                focusedPosterBackdropTrailerMuted = focusedPosterBackdropTrailerMuted,
+                showFullReleaseDate = showFullReleaseDate
             )
             if (updated == state) state else updated
         }

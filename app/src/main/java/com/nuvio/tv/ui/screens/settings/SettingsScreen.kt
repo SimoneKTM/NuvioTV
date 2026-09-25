@@ -953,6 +953,7 @@ private fun SettingsDetailPane(
             tvdbFocusRequester = animeTvdbFocusRequester,
             animeSkipFocusRequester = animeAnimeSkipFocusRequester,
             openSubtitlesFocusRequester = openSubtitlesFocusRequester,
+            isEssentialMode = isEssentialMode,
             autoFocusEnabled = allowDetailAutofocus
         )
         SettingsCategory.EXTRA -> ExtraSettingsContent(
@@ -968,6 +969,7 @@ private fun SettingsDetailPane(
             hubFocusRequester = extraHubFocusRequester,
             contentDiscoveryFocusRequester = extraContentDiscoveryFocusRequester,
             integrationsFocusRequester = extraIntegrationsFocusRequester,
+            isEssentialMode = isEssentialMode,
             autoFocusEnabled = allowDetailAutofocus
         )
         SettingsCategory.APPEARANCE -> ThemeSettingsContent(
@@ -1229,6 +1231,7 @@ private fun AnimeSettingsContent(
     tvdbFocusRequester: FocusRequester,
     animeSkipFocusRequester: FocusRequester,
     openSubtitlesFocusRequester: FocusRequester,
+    isEssentialMode: Boolean,
     autoFocusEnabled: Boolean
 ) {
     BackHandler(enabled = selectedSection != AnimeSettingsSection.Hub) {
@@ -1361,7 +1364,8 @@ private fun AnimeSettingsContent(
                 initialFocusRequester = layoutFocusRequester,
                 headerTitleRes = R.string.settings_anime_layout_title,
                 headerSubtitleRes = R.string.settings_anime_layout_subtitle,
-                animeMode = true
+                animeMode = true,
+                essentialMode = isEssentialMode
             )
         }
 
@@ -1470,6 +1474,7 @@ private fun ExtraSettingsContent(
     hubFocusRequester: FocusRequester,
     contentDiscoveryFocusRequester: FocusRequester,
     integrationsFocusRequester: FocusRequester,
+    isEssentialMode: Boolean,
     autoFocusEnabled: Boolean
 ) {
     val extraTmdbFocusRequester = remember { FocusRequester() }
@@ -1665,7 +1670,8 @@ private fun ExtraSettingsContent(
                 viewModel = hiltViewModel<ExtraLayoutSettingsViewModel>(),
                 headerTitleRes = R.string.extra_settings_layout_title,
                 headerSubtitleRes = R.string.extra_settings_layout_subtitle,
-                initialFocusRequester = extraLayoutFocusRequester
+                initialFocusRequester = extraLayoutFocusRequester,
+                essentialMode = isEssentialMode
             )
         }
 

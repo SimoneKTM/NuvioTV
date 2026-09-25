@@ -1183,12 +1183,16 @@ fun NuvioNavHost(
         }
 
         composable(Screen.AnimeLayoutSettings.route) {
+            val experienceModeViewModel: com.nuvio.tv.ui.screens.settings.ExperienceModeSettingsViewModel =
+                androidx.hilt.navigation.compose.hiltViewModel()
+            val experienceMode by experienceModeViewModel.mode.collectAsState(initial = null)
             LayoutSettingsScreen(
                 viewModel = androidx.hilt.navigation.compose.hiltViewModel<com.nuvio.tv.ui.screens.settings.AnimeLayoutSettingsViewModel>(),
                 onBackPress = { navController.popBackStack() },
                 headerTitleRes = com.nuvio.tv.R.string.settings_anime_layout_title,
                 headerSubtitleRes = com.nuvio.tv.R.string.settings_anime_layout_subtitle,
-                animeMode = true
+                animeMode = true,
+                essentialMode = experienceMode == ExperienceMode.ESSENTIAL
             )
         }
 
@@ -1248,12 +1252,16 @@ fun NuvioNavHost(
         }
 
         composable(Screen.ExtraLayoutSettings.route) {
+            val experienceModeViewModel: com.nuvio.tv.ui.screens.settings.ExperienceModeSettingsViewModel =
+                androidx.hilt.navigation.compose.hiltViewModel()
+            val experienceMode by experienceModeViewModel.mode.collectAsState(initial = null)
             LayoutSettingsScreen(
                 viewModel = androidx.hilt.navigation.compose.hiltViewModel<com.nuvio.tv.ui.screens.settings.ExtraLayoutSettingsViewModel>(),
                 onBackPress = { navController.popBackStack() },
                 headerTitleRes = com.nuvio.tv.R.string.extra_settings_layout_title,
                 headerSubtitleRes = com.nuvio.tv.R.string.extra_settings_layout_subtitle,
-                animeMode = false
+                animeMode = false,
+                essentialMode = experienceMode == ExperienceMode.ESSENTIAL
             )
         }
 

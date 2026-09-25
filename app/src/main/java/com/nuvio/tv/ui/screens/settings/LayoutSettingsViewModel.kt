@@ -26,7 +26,7 @@ import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -421,8 +421,10 @@ open class LayoutSettingsViewModel @Inject constructor(
                 updateUiStateIfChanged { it.copy(searchIncludeAnimeTab = enabled) }
             }
         }
-        viewModelScope.launch {
-            delay(0)
+        viewModelScope.launch(Dispatchers.Main) {
+            // Deferred past this constructor: Anime/Extra overrides read fields that
+            // are only assigned after super() returns; running inline would NPE and
+            // leave availableCatalogs permanently empty.
             loadAvailableCatalogs()
         }
     }

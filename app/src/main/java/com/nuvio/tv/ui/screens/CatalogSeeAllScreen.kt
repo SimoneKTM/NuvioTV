@@ -94,20 +94,52 @@ fun CatalogSeeAllScreen(
         extraViewModel?.fullCatalogRows?.let { it.collectAsState() }
             ?: remember { mutableStateOf(emptyList()) }
     val extraFullRows by extraFullRowsState
-    val computedHeightDp = (uiState.posterCardWidthDp * 1.5f).roundToInt()
+
+    val isSearchMode = searchViewModel != null
+    val isAnimeMode = animeViewModel != null
+    val isExtraMode = extraViewModel != null
+
+    // Poster style and labels must follow the tab that opened this screen:
+    // anime/extra rows render from their own layout store, not the regular one.
+    val animeUiState by (animeViewModel?.uiState?.collectAsState()
+        ?: remember { mutableStateOf(com.nuvio.tv.ui.screens.anime.AnimeHomeUiState()) })
+    val extraUiState by (extraViewModel?.uiState?.collectAsState()
+        ?: remember { mutableStateOf(com.nuvio.tv.ui.screens.extra.ExtraHomeUiState()) })
+    val activePosterWidthDp = when {
+        isAnimeMode -> animeUiState.posterCardWidthDp
+        isExtraMode -> extraUiState.posterCardWidthDp
+        else -> uiState.posterCardWidthDp
+    }
+    val activePosterHeightDp = when {
+        isAnimeMode -> animeUiState.posterCardHeightDp
+        isExtraMode -> extraUiState.posterCardHeightDp
+        else -> (uiState.posterCardWidthDp * 1.5f).roundToInt()
+    }
+    val activeCornerRadiusDp = when {
+        isAnimeMode -> animeUiState.posterCardCornerRadiusDp
+        isExtraMode -> extraUiState.posterCardCornerRadiusDp
+        else -> uiState.posterCardCornerRadiusDp
+    }
+    val activeLabelsEnabled = when {
+        isAnimeMode -> animeUiState.posterLabelsEnabled
+        isExtraMode -> extraUiState.posterLabelsEnabled
+        else -> uiState.posterLabelsEnabled
+    }
+    val activeAddonNameEnabled = when {
+        isAnimeMode -> animeUiState.catalogAddonNameEnabled
+        isExtraMode -> extraUiState.catalogAddonNameEnabled
+        else -> uiState.catalogAddonNameEnabled
+    }
     val posterCardStyle = PosterCardStyle(
-        width = uiState.posterCardWidthDp.dp,
-        height = computedHeightDp.dp,
-        cornerRadius = uiState.posterCardCornerRadiusDp.dp,
+        width = activePosterWidthDp.dp,
+        height = activePosterHeightDp.dp,
+        cornerRadius = activeCornerRadiusDp.dp,
         focusedBorderWidth = PosterCardDefaults.Style.focusedBorderWidth,
         focusedScale = PosterCardDefaults.Style.focusedScale
     )
 
     BackHandler { onBackPress() }
 
-    val isSearchMode = searchViewModel != null
-    val isAnimeMode = animeViewModel != null
-    val isExtraMode = extraViewModel != null
     val catalogKey = "${addonId}_${type}_${catalogId}"
 
     // In search mode, get the catalog row from SearchViewModel's existing results.
@@ -254,7 +286,7 @@ fun CatalogSeeAllScreen(
             )
         }
 
-        if (uiState.catalogAddonNameEnabled) {
+        if (activeAddonNameEnabled) {
             catalogRow?.addonName?.let { addonName ->
                 Text(
                     modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl),
@@ -304,7 +336,7 @@ fun CatalogSeeAllScreen(
                         GridContentCard(
                             item = item,
                             posterCardStyle = posterCardStyle,
-                            showLabel = uiState.posterLabelsEnabled,
+                            showLabel = activeLabelsEnabled,
                             isWatched = isWatched,
                             focusRequester = if (index == focusedItemIndex) restoreFocusRequester else null,
                             onFocused = {
