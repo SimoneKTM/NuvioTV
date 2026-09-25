@@ -28,6 +28,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.tv.R
 import com.nuvio.tv.data.local.AVAILABLE_SUBTITLE_LANGUAGES
 import com.nuvio.tv.data.local.AudioLanguageOption
+import com.nuvio.tv.data.local.InternalPlayerEngine
+import com.nuvio.tv.data.local.PlayerPreference
 import com.nuvio.tv.data.local.StreamAutoPlayMode
 import com.nuvio.tv.data.local.displayName
 import com.nuvio.tv.ui.components.P2pConsentDialog
@@ -45,7 +47,13 @@ fun EssentialPlaybackSettingsContent(
     var showAudioLanguageDialog by remember { mutableStateOf(false) }
     var showDecoderPriorityDialog by remember { mutableStateOf(false) }
     var showP2pConsentDialog by remember { mutableStateOf(false) }
+    var showStreamSelectionDialog by remember { mutableStateOf(false) }
     val settings = playerSettings
+    val isExternalPlayer = settings?.playerPreference == PlayerPreference.EXTERNAL
+    val isDecoderPriorityCapable = settings != null && (
+        settings.internalPlayerEngine == InternalPlayerEngine.EXOPLAYER ||
+            settings.internalPlayerEngine == InternalPlayerEngine.AUTO
+        )
 
     val listState = rememberLazyListState()
 
@@ -73,15 +81,7 @@ fun EssentialPlaybackSettingsContent(
                             null -> ""
                         },
                         trailingIcon = Icons.Default.PlayArrow,
-                        onClick = {
-                            val current = settings?.streamAutoPlayMode ?: StreamAutoPlayMode.MANUAL
-                            val next = if (current == StreamAutoPlayMode.MANUAL) {
-                                StreamAutoPlayMode.FIRST_STREAM
-                            } else {
-                                StreamAutoPlayMode.MANUAL
-                            }
-                            coroutineScope.launch { viewModel.setStreamAutoPlayMode(next) }
-                        },
+                        onClick = { showStreamSelectionDialog = true },
                         enabled = settings != null,
                         modifier = if (initialFocusRequester != null) {
                             Modifier.focusRequester(initialFocusRequester)
@@ -131,7 +131,8 @@ fun EssentialPlaybackSettingsContent(
                         },
                         trailingIcon = Icons.Default.VideoSettings,
                         onClick = { showSubtitleLanguageDialog = true },
-                        enabled = settings != null
+                        enabled = settings != null &&
+                            (!isExternalPlayer || settings.externalPlayerForwardSubtitles)
                     )
                     SettingsToggleRow(
                         title = stringResource(R.string.sub_use_forced_subtitles),
@@ -141,7 +142,7 @@ fun EssentialPlaybackSettingsContent(
                             val current = settings ?: return@SettingsToggleRow
                             coroutineScope.launch { viewModel.setUseForcedSubtitles(!current.subtitleStyle.useForcedSubtitles) }
                         },
-                        enabled = settings != null
+                        enabled = settings != null && !isExternalPlayer
                     )
                     SettingsActionRow(
                         title = stringResource(R.string.essential_audio_language),
@@ -156,7 +157,7 @@ fun EssentialPlaybackSettingsContent(
                         },
                         trailingIcon = Icons.Default.VideoSettings,
                         onClick = { showAudioLanguageDialog = true },
-                        enabled = settings != null
+                        enabled = settings != null && !isExternalPlayer
                     )
                     SettingsActionRow(
                         title = stringResource(R.string.audio_decoder_priority),
@@ -169,7 +170,7 @@ fun EssentialPlaybackSettingsContent(
                         },
                         trailingIcon = Icons.Default.Tune,
                         onClick = { showDecoderPriorityDialog = true },
-                        enabled = settings != null
+                        enabled = isDecoderPriorityCapable
                     )
                 }
             }
@@ -216,6 +217,16 @@ fun EssentialPlaybackSettingsContent(
                 showDecoderPriorityDialog = false
             },
             onDismiss = { showDecoderPriorityDialog = false }
+        )
+    }
+    if (showStreamSelectionDialog && settings != null) {
+        StreamAutoPlayModeDialog(
+            selectedMode = settings.streamAutoPlayMode,
+            onModeSelected = { mode ->
+                coroutineScope.launch { viewModel.setStreamAutoPlayMode(mode) }
+                showStreamSelectionDialog = false
+            },
+            onDismiss = { showStreamSelectionDialog = false }
         )
     }
     if (showP2pConsentDialog) {

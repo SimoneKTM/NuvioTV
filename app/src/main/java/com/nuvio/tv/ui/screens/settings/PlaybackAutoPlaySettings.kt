@@ -398,8 +398,16 @@ internal fun AutoPlaySettingsDialogs(
     }
 
     if (showSourceDialog) {
+        val effectiveSelectedSource = if (
+            !AppFeaturePolicy.pluginsEnabled &&
+            playerSettings.streamAutoPlaySource == StreamAutoPlaySource.ENABLED_PLUGINS_ONLY
+        ) {
+            StreamAutoPlaySource.INSTALLED_ADDONS_ONLY
+        } else {
+            playerSettings.streamAutoPlaySource
+        }
         StreamAutoPlaySourceDialog(
-            selectedSource = playerSettings.streamAutoPlaySource,
+            selectedSource = effectiveSelectedSource,
             onSourceSelected = {
                 onSetSource(it)
                 onDismissSourceDialog()
@@ -517,7 +525,7 @@ private fun formatReuseCacheDuration(hours: Int): String {
 }
 
 @Composable
-private fun StreamAutoPlayModeDialog(
+internal fun StreamAutoPlayModeDialog(
     selectedMode: StreamAutoPlayMode,
     onModeSelected: (StreamAutoPlayMode) -> Unit,
     onDismiss: () -> Unit

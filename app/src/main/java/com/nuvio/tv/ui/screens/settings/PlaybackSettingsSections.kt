@@ -766,74 +766,75 @@ internal fun PlaybackSettingsSections(
                     onSetEnableHttp2 = onSetEnableHttp2,
                     onResetNetworkToDefaults = onResetNetworkSettingsToDefaults
                 )
-                playbackCollapsibleSection(
-                    keyPrefix = "vpn",
-                    title = strVpnTitle,
-                    description = strVpnDesc,
-                    expanded = vpnExpanded,
-                    onToggle = { vpnExpanded = !vpnExpanded },
-                    focusRequester = vpnHeaderFocus,
-                    onHeaderFocused = { focusedSection = PlaybackSection.VPN },
-                    icon = Icons.Default.VpnKey
-                ) {
-                    item(key = "vpn_config") {
-                        SettingsActionRow(
-                            title = stringResource(R.string.vpn_config_title),
-                            subtitle = stringResource(R.string.vpn_config_subtitle),
-                            value = vpnUiState.configName
-                                ?: stringResource(R.string.vpn_config_missing),
-                            onClick = {
-                                vpnPickerLauncher.launch(arrayOf("*/*"))
-                            }
-                        )
+            }
+        }
+
+        playbackCollapsibleSection(
+            keyPrefix = "vpn",
+            title = strVpnTitle,
+            description = strVpnDesc,
+            expanded = vpnExpanded,
+            onToggle = { vpnExpanded = !vpnExpanded },
+            focusRequester = vpnHeaderFocus,
+            onHeaderFocused = { focusedSection = PlaybackSection.VPN },
+            icon = Icons.Default.VpnKey
+        ) {
+            item(key = "vpn_config") {
+                SettingsActionRow(
+                    title = stringResource(R.string.vpn_config_title),
+                    subtitle = stringResource(R.string.vpn_config_subtitle),
+                    value = vpnUiState.configName
+                        ?: stringResource(R.string.vpn_config_missing),
+                    onClick = {
+                        vpnPickerLauncher.launch(arrayOf("*/*"))
                     }
-                    item(key = "vpn_status") {
-                        SettingsActionRow(
-                            title = stringResource(R.string.vpn_status_title),
-                            subtitle = stringResource(R.string.vpn_status_subtitle),
-                            value = stringResource(
-                                if (vpnUiState.isConnected) R.string.vpn_status_connected
-                                else R.string.vpn_status_disconnected
-                            ),
-                            onClick = {},
-                            enabled = vpnUiState.hasConfig
-                        )
-                    }
-                    item(key = "vpn_enable") {
-                        SettingsToggleRow(
-                            title = stringResource(R.string.vpn_enable_title),
-                            subtitle = stringResource(R.string.vpn_enable_subtitle),
-                            checked = vpnUiState.isConnected,
-                            enabled = vpnUiState.hasConfig && !vpnUiState.isBusy,
-                            onToggle = {
-                                if (vpnUiState.isConnected) {
-                                    vpnViewModel.disconnect()
-                                } else {
-                                    vpnViewModel.connect()
-                                }
-                            }
-                        )
-                    }
-                    if (vpnUiState.hasConfig) {
-                        item(key = "vpn_remove_config") {
-                            SettingsActionRow(
-                                title = stringResource(R.string.vpn_remove_config_title),
-                                subtitle = stringResource(R.string.vpn_remove_config_subtitle),
-                                onClick = { vpnViewModel.removeConfig() },
-                                enabled = !vpnUiState.isBusy
-                            )
+                )
+            }
+            item(key = "vpn_status") {
+                SettingsActionRow(
+                    title = stringResource(R.string.vpn_status_title),
+                    subtitle = stringResource(R.string.vpn_status_subtitle),
+                    value = stringResource(
+                        if (vpnUiState.isConnected) R.string.vpn_status_connected
+                        else R.string.vpn_status_disconnected
+                    ),
+                    onClick = {},
+                    enabled = vpnUiState.hasConfig
+                )
+            }
+            item(key = "vpn_enable") {
+                SettingsToggleRow(
+                    title = stringResource(R.string.vpn_enable_title),
+                    subtitle = stringResource(R.string.vpn_enable_subtitle),
+                    checked = vpnUiState.isConnected,
+                    enabled = vpnUiState.hasConfig && !vpnUiState.isBusy,
+                    onToggle = {
+                        if (vpnUiState.isConnected) {
+                            vpnViewModel.disconnect()
+                        } else {
+                            vpnViewModel.connect()
                         }
                     }
-                    val vpnMessage = vpnUiState.message
-                    if (vpnMessage != null) {
-                        item(key = "vpn_message") {
-                            Text(
-                                text = vpnMessage,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = NuvioTheme.colors.Warning
-                            )
-                        }
-                    }
+                )
+            }
+            if (vpnUiState.hasConfig) {
+                item(key = "vpn_remove_config") {
+                    SettingsActionRow(
+                        title = stringResource(R.string.vpn_remove_config_title),
+                        subtitle = stringResource(R.string.vpn_remove_config_subtitle),
+                        onClick = { vpnViewModel.removeConfig() },
+                        enabled = !vpnUiState.isBusy
+                    )
+                }
+            }
+            val vpnMessage = vpnUiState.message
+            if (vpnMessage != null) {
+                item(key = "vpn_message") {
+                    Text(
+                        text = vpnMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = NuvioTheme.colors.Warning
+                    )
                 }
             }
         }

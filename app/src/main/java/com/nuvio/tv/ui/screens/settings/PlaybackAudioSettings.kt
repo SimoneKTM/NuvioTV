@@ -258,18 +258,16 @@ internal fun LazyListScope.trailerAndAudioSettingsItems(
             )
         }
 
-        if (isExoEngine || isMpvEngine) {
-            item(key = "audio_force_optical_passthrough") {
-                ToggleSettingsItem(
-                    icon = Icons.Default.VolumeUp,
-                    title = stringResource(R.string.audio_force_optical_passthrough),
-                    subtitle = stringResource(R.string.audio_force_optical_passthrough_sub),
-                    isChecked = playerSettings.forceOpticalPassthrough && playerSettings.decoderPriority != 0,
-                    onCheckedChange = onSetForceOpticalPassthrough,
-                    onFocused = onItemFocused,
-                    enabled = enabled && playerSettings.decoderPriority != 0
-                )
-            }
+        item(key = "audio_force_optical_passthrough") {
+            ToggleSettingsItem(
+                icon = Icons.Default.VolumeUp,
+                title = stringResource(R.string.audio_force_optical_passthrough),
+                subtitle = stringResource(R.string.audio_force_optical_passthrough_sub),
+                isChecked = playerSettings.forceOpticalPassthrough,
+                onCheckedChange = onSetForceOpticalPassthrough,
+                onFocused = onItemFocused,
+                enabled = enabled && playerSettings.decoderPriority != 0
+            )
         }
     }
 
