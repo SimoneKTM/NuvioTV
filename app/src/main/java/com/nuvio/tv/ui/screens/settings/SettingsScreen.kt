@@ -1345,7 +1345,7 @@ private fun AnimeSettingsContent(
                             leadingIcon = Icons.Default.Extension,
                             modifier = Modifier.focusRequester(contentDiscoveryFocusRequester)
                         )
-                        if (AppFeaturePolicy.pluginsEnabled) {
+                        if (AppFeaturePolicy.pluginsEnabled && !isEssentialMode) {
                             SettingsActionRow(
                                 title = stringResource(R.string.plugin_title),
                                 subtitle = stringResource(R.string.anime_settings_plugins_subtitle),
@@ -1648,7 +1648,7 @@ private fun ExtraSettingsContent(
                                     modifier = Modifier.focusRequester(contentDiscoveryFocusRequester)
                                 )
                             }
-                            if (AppFeaturePolicy.pluginsEnabled) {
+                            if (AppFeaturePolicy.pluginsEnabled && !isEssentialMode) {
                                 item(key = "extra_content_discovery_plugins") {
                                     SettingsActionRow(
                                         title = stringResource(R.string.plugin_title),
@@ -1862,7 +1862,8 @@ private fun AnimeTmdbSettingsContent(
 ) {
     TmdbSettingsContent(
         viewModel = hiltViewModel<AnimeTmdbSettingsViewModel>(),
-        initialFocusRequester = initialFocusRequester
+        initialFocusRequester = initialFocusRequester,
+        showModernHomeToggle = false
     )
 }
 
@@ -1882,7 +1883,8 @@ private fun ExtraTmdbSettingsContent(
 ) {
     TmdbSettingsContent(
         viewModel = hiltViewModel<ExtraTmdbSettingsViewModel>(),
-        initialFocusRequester = initialFocusRequester
+        initialFocusRequester = initialFocusRequester,
+        showModernHomeToggle = false
     )
 }
 

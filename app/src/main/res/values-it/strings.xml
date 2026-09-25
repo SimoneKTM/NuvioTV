@@ -3020,14 +3020,14 @@
   <string name="settings_library_description">Scegli da dove Nuvio legge la tua libreria e l\'avanzamento della visione.</string>
   <string name="settings_connected_services_title">Sincronizzazioni</string>
   <string name="settings_connected_services_subtitle">Collega e gestisci i servizi di streaming e monitoraggio</string>
-  <string name="settings_anime_subtitle">Addon anime, plugin, layout e TV live</string>
+  <string name="settings_anime_subtitle">Addon anime, plugin e layout</string>
   <string name="settings_anime_layout_title">Layout</string>
   <string name="anime_layout_title">Layout Anime</string>
   <string name="settings_anime_layout_subtitle">Struttura home e stili poster per la scheda Anime</string>
   <string name="settings_anime_content_discovery_title">Contenuti e scoperta</string>
   <string name="settings_anime_content_discovery_subtitle">Add-on Anime e plugin che alimentano la tab Anime</string>
   <string name="settings_anime_integrations_title">Integrazioni</string>
-  <string name="settings_anime_integrations_subtitle">Servizi che arricchiscono solo la tab Anime (TMDB, MDBList, TVDB, Anime-Skip)</string>
+  <string name="settings_anime_integrations_subtitle">Servizi che arricchiscono solo la tab Anime (TMDB, MDBList, TVDB, Anime-Skip, OpenSubtitles)</string>
   <string name="nav_anime">Anime</string>
   <string name="anime_settings_title">Anime</string>
   <string name="anime_settings_subtitle">Addon anime, plugin e monitoraggio</string>

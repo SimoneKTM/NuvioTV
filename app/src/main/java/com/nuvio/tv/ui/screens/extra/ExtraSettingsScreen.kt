@@ -30,7 +30,8 @@ fun ExtraSettingsScreen(
     onBackPress: () -> Unit,
     onNavigateToExtraLayout: () -> Unit,
     onNavigateToExtraAddons: () -> Unit,
-    onNavigateToPlugins: () -> Unit
+    onNavigateToPlugins: () -> Unit,
+    essentialMode: Boolean = false
 ) {
     BackHandler { onBackPress() }
 
@@ -73,7 +74,7 @@ fun ExtraSettingsScreen(
                     onClick = onNavigateToExtraAddons,
                     leadingIcon = Icons.Default.Extension
                 )
-                if (AppFeaturePolicy.pluginsEnabled) {
+                if (AppFeaturePolicy.pluginsEnabled && !essentialMode) {
                     SettingsActionRow(
                         title = stringResource(R.string.plugin_title),
                         subtitle = stringResource(R.string.extra_settings_plugins_subtitle),

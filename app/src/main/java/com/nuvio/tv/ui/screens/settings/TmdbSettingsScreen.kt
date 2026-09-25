@@ -50,7 +50,8 @@ fun TmdbSettingsScreen(
 @Composable
 fun TmdbSettingsContent(
     viewModel: TmdbSettingsViewModel = hiltViewModel(),
-    initialFocusRequester: FocusRequester? = null
+    initialFocusRequester: FocusRequester? = null,
+    showModernHomeToggle: Boolean = true
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showLanguageDialog by remember { mutableStateOf(false) }
@@ -94,18 +95,20 @@ fun TmdbSettingsContent(
                     )
                 }
 
-                item(key = "tmdb_modern_home_enabled") {
-                    SettingsToggleRow(
-                        title = stringResource(R.string.tmdb_modern_home_title),
-                        subtitle = stringResource(R.string.tmdb_modern_home_subtitle),
-                        checked = uiState.modernHomeEnabled,
-                        enabled = uiState.enabled,
-                        onToggle = {
-                            viewModel.onEvent(
-                                TmdbSettingsEvent.ToggleModernHomeEnabled(!uiState.modernHomeEnabled)
-                            )
-                        }
-                    )
+                if (showModernHomeToggle) {
+                    item(key = "tmdb_modern_home_enabled") {
+                        SettingsToggleRow(
+                            title = stringResource(R.string.tmdb_modern_home_title),
+                            subtitle = stringResource(R.string.tmdb_modern_home_subtitle),
+                            checked = uiState.modernHomeEnabled,
+                            enabled = uiState.enabled,
+                            onToggle = {
+                                viewModel.onEvent(
+                                    TmdbSettingsEvent.ToggleModernHomeEnabled(!uiState.modernHomeEnabled)
+                                )
+                            }
+                        )
+                    }
                 }
 
                 item(key = "tmdb_enrich_continue_watching") {

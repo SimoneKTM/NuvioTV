@@ -30,7 +30,8 @@ fun AnimeSettingsScreen(
     onBackPress: () -> Unit,
     onNavigateToAnimeLayout: () -> Unit,
     onNavigateToAnimeAddons: () -> Unit,
-    onNavigateToPlugins: () -> Unit
+    onNavigateToPlugins: () -> Unit,
+    essentialMode: Boolean = false
 ) {
     BackHandler { onBackPress() }
 
@@ -73,7 +74,7 @@ fun AnimeSettingsScreen(
                     onClick = onNavigateToAnimeAddons,
                     leadingIcon = Icons.Default.Extension
                 )
-                if (AppFeaturePolicy.pluginsEnabled) {
+                if (AppFeaturePolicy.pluginsEnabled && !essentialMode) {
                     SettingsActionRow(
                         title = stringResource(R.string.plugin_title),
                         subtitle = stringResource(R.string.anime_settings_plugins_subtitle),

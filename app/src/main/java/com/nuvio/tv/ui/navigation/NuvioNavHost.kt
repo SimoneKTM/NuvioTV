@@ -1177,11 +1177,15 @@ fun NuvioNavHost(
         }
 
         composable(Screen.AnimeSettings.route) {
+            val experienceModeViewModel: com.nuvio.tv.ui.screens.settings.ExperienceModeSettingsViewModel =
+                androidx.hilt.navigation.compose.hiltViewModel()
+            val experienceMode by experienceModeViewModel.mode.collectAsState(initial = null)
             com.nuvio.tv.ui.screens.anime.AnimeSettingsScreen(
                 onBackPress = { navController.popBackStack() },
                 onNavigateToAnimeLayout = { navController.navigate(Screen.AnimeLayoutSettings.route) },
                 onNavigateToAnimeAddons = { navController.navigate(Screen.AnimeAddonManager.route) },
-                onNavigateToPlugins = { if (AppFeaturePolicy.pluginsEnabled) navController.navigate(Screen.Plugins.route) }
+                onNavigateToPlugins = { if (AppFeaturePolicy.pluginsEnabled) navController.navigate(Screen.Plugins.route) },
+                essentialMode = experienceMode == ExperienceMode.ESSENTIAL
             )
         }
 
@@ -1246,11 +1250,15 @@ fun NuvioNavHost(
         }
 
         composable(Screen.ExtraSettings.route) {
+            val experienceModeViewModel: com.nuvio.tv.ui.screens.settings.ExperienceModeSettingsViewModel =
+                androidx.hilt.navigation.compose.hiltViewModel()
+            val experienceMode by experienceModeViewModel.mode.collectAsState(initial = null)
             com.nuvio.tv.ui.screens.extra.ExtraSettingsScreen(
                 onBackPress = { navController.popBackStack() },
                 onNavigateToExtraLayout = { navController.navigate(Screen.ExtraLayoutSettings.route) },
                 onNavigateToExtraAddons = { navController.navigate(Screen.ExtraAddonManager.route) },
-                onNavigateToPlugins = { if (AppFeaturePolicy.pluginsEnabled) navController.navigate(Screen.Plugins.route) }
+                onNavigateToPlugins = { if (AppFeaturePolicy.pluginsEnabled) navController.navigate(Screen.Plugins.route) },
+                essentialMode = experienceMode == ExperienceMode.ESSENTIAL
             )
         }
 

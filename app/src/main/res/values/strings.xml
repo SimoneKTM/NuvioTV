@@ -447,14 +447,14 @@
     <string name="settings_library_description">Choose where Nuvio reads your library and watch progress.</string>
     <string name="settings_connected_services_title">Synchronizations</string>
     <string name="settings_connected_services_subtitle">Connect and manage streaming and tracking services</string>
-    <string name="settings_anime_subtitle">Anime add-ons, plugins, layout and live TV</string>
+    <string name="settings_anime_subtitle">Anime add-ons, plugins and layout</string>
     <string name="settings_anime_layout_title">Layout</string>
     <string name="settings_anime_layout_subtitle">Home structure and poster styles for the Anime tab</string>
     <string name="anime_layout_title">Anime Layout</string>
     <string name="settings_anime_content_discovery_title">Content &amp; Discovery</string>
     <string name="settings_anime_content_discovery_subtitle">Anime add-ons and plugins that power the Anime tab</string>
     <string name="settings_anime_integrations_title">Integrations</string>
-    <string name="settings_anime_integrations_subtitle">Services that enrich the Anime tab only (TMDB, MDBList, TVDB, Anime-Skip)</string>
+    <string name="settings_anime_integrations_subtitle">Services that enrich the Anime tab only (TMDB, MDBList, TVDB, Anime-Skip, OpenSubtitles)</string>
     <string name="custom_tabs_title">Custom Tabs</string>
     <string name="custom_tabs_subtitle">Create and manage your own content tabs</string>
     <string name="custom_tab_settings_title">Custom Tab Settings</string>
