@@ -1697,15 +1697,11 @@
     <string name="advanced_fast_horizontal_navigation_subtitle">Увеличить скорость повторения D-pad в строках при сохранении дросселирования повторений.</string>
     <string name="advanced_nuvio_focus_scroll">Прокрутка фокуса Nuvio</string>
     <string name="advanced_nuvio_focus_scroll_subtitle">Использовать собственную глобальную анимацию прокрутки и позиционирования фокуса Nuvio.</string>
-    <string name="advanced_memory_only_vertical_scroll">Вертикальная прокрутка только из памяти</string>
-    <string name="advanced_memory_only_vertical_scroll_subtitle">Пропускать запросы изображений с диска и сети при вертикальной прокрутке строк главного экрана.</string>
     <string name="advanced_compose_highlighter">Подсветка Compose</string>
     <string name="advanced_compose_highlighter_subtitle">Мигающие границы вокруг перекомпозируемых элементов UI для отладки производительности.</string>
     <string name="advanced_clear_cw_cache">Очистить кэш «Продолжить просмотр»</string>
     <string name="advanced_clear_cw_cache_subtitle">Удалить кэшированные миниатюры, названия и данные обогащения для «Продолжить просмотр»</string>
     <string name="advanced_clear_cw_cache_done">Кэш очищен</string>
-    <string name="advanced_remember_last_profile">Запомнить последний профиль</string>
-    <string name="advanced_remember_last_profile_subtitle">Запоминать последний выбранный профиль при запуске</string>
     <string name="settings_debrid_subtitle">Экспериментальные облачные источники аккаунтов</string>
     <string name="action_apply">Применить</string>
     <string name="sub_opacity">Прозрачность</string>

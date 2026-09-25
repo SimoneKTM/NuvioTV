@@ -469,15 +469,11 @@
     <string name="advanced_fast_horizontal_navigation_subtitle">மீள்வேக கட்டுப்பாட்டை வைத்தபடி டி-பேட் வேகத்தை அதிகரிக்கவும்.</string>
     <string name="advanced_nuvio_focus_scroll">நுவியோ கவன உருட்டல்</string>
     <string name="advanced_nuvio_focus_scroll_subtitle">நுவியோவின் தனிப்பயன் கவன உருட்டல் அசைவூட்டலை பயன்படுத்து.</string>
-    <string name="advanced_memory_only_vertical_scroll">நினைவக மட்டும் செங்குத்து உருட்டல்</string>
-    <string name="advanced_memory_only_vertical_scroll_subtitle">முகப்பு வரிசைகளை உருட்டும் போது வட்டு மற்றும் இணைய பட கோரிக்கைகளை தவிர்.</string>
     <string name="advanced_compose_highlighter">காம்போஸ் ஒளிர்விப்பு</string>
     <string name="advanced_compose_highlighter_subtitle">செயல்திறன் ஆய்வுக்காக மறுஉருவாக்க UI கூறுகளை ஒளிரச்செய்.</string>
     <string name="advanced_clear_cw_cache">தொடர்ந்து பார்ப்பது கேச் அழி</string>
     <string name="advanced_clear_cw_cache_subtitle">தொடர்ந்து பார்ப்பதற்கான சேமித்த சிறுபடங்கள், தலைப்புகள் மற்றும் தரவை அகற்று</string>
     <string name="advanced_clear_cw_cache_done">கேச் அழிக்கப்பட்டது</string>
-    <string name="advanced_remember_last_profile">கடைசி புரொஃபைலை நினைவில் வை</string>
-    <string name="advanced_remember_last_profile_subtitle">தொடக்கத்தில் கடைசியாக தேர்ந்தெடுத்த புரொஃபைலை நினைவில் வைத்திரு</string>
     <string name="settings_debug">பிழைத்திருத்தம்</string>
     <string name="settings_debug_subtitle">உருவாக்குநர் கருவிகள் மற்றும் அம்சக் கொடிகள்</string>
     <string name="settings_plugins_section_subtitle">களஞ்சியங்கள், வழங்குநர்கள் மற்றும் பிளகின் நிலைகளை நிர்வகி</string>

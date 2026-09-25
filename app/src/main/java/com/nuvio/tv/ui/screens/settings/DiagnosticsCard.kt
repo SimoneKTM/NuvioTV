@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -83,6 +84,9 @@ internal fun LazyListScope.diagnosticsCardItems(
     // Card 1: Source + Display + Decoder + Bridge (the input side)
     item(key = "diag_card_input") {
         val unknownLabel = stringResource(R.string.type_unknown)
+        val anyDvDecoderName = remember(diagnostics.dv81DecoderName, dvEngaged) {
+            findAnyDvDecoderName()
+        }
         DiagnosticsSectionCard {
             SectionHeader(
                 stringResource(R.string.diag_section_source_hardware),
@@ -117,7 +121,7 @@ internal fun LazyListScope.diagnosticsCardItems(
                 stringResource(R.string.diag_label_dv_decoder),
                 dv(
                     diagnostics.dv81DecoderName
-                        ?: findAnyDvDecoderName()?.let { stringResource(R.string.diag_value_decoder_hidden, it) }
+                        ?: anyDvDecoderName?.let { stringResource(R.string.diag_value_decoder_hidden, it) }
                         ?: stringResource(R.string.diag_value_none)
                 )
             )

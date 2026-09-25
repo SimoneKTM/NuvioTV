@@ -482,15 +482,11 @@
     <string name="advanced_fast_horizontal_navigation_subtitle">D-padのリピート速度を上げます（リピートスロットリングは有効のまま）。</string>
     <string name="advanced_nuvio_focus_scroll">Nuvioフォーカススクロール</string>
     <string name="advanced_nuvio_focus_scroll_subtitle">Nuvioのカスタムグローバルフォーカススクロールアニメーションと位置決めを使用します。</string>
-    <string name="advanced_memory_only_vertical_scroll">メモリのみの垂直スクロール</string>
-    <string name="advanced_memory_only_vertical_scroll_subtitle">ホーム行を垂直スクロール中にディスクやネットワークの画像リクエストをスキップします。</string>
     <string name="advanced_compose_highlighter">Composeハイライター</string>
     <string name="advanced_compose_highlighter_subtitle">再コンポーズされるUI要素の周囲に境界線をフラッシュしてパフォーマンスをデバッグします。</string>
     <string name="advanced_clear_cw_cache">視聴を続けるキャッシュをクリア</string>
     <string name="advanced_clear_cw_cache_subtitle">視聴を続けるのサムネイル、タイトル、補完データのキャッシュを削除</string>
     <string name="advanced_clear_cw_cache_done">キャッシュをクリアしました</string>
-    <string name="advanced_remember_last_profile">最後のプロフィールを記憶</string>
-    <string name="advanced_remember_last_profile_subtitle">起動時に最後に選択したプロフィールを記憶</string>
     <string name="settings_debug">デバッグ</string>
     <string name="settings_debug_subtitle">開発者ツールと機能フラグ</string>
     <string name="settings_plugins_section_subtitle">リポジトリ、プロバイダー、プラグインの状態を管理</string>

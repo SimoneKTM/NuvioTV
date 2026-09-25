@@ -457,15 +457,11 @@
     <string name="advanced_fast_horizontal_navigation_subtitle">Povečajte hitrost ponavljanja D-pad v vrsticah, hkrati pa obdržite omogočeno omejevanje ponavljanja.</string>
     <string name="advanced_nuvio_focus_scroll">Drsenje s poudarkom Nuvio</string>
     <string name="advanced_nuvio_focus_scroll_subtitle">Uporabi globalno animacijo drsenja in pozicioniranje Nuvio.</string>
-    <string name="advanced_memory_only_vertical_scroll">Navpično drsenje samo iz pomnilnika</string>
-    <string name="advanced_memory_only_vertical_scroll_subtitle">Preskočite zahteve za slike z diska in omrežja med navpičnim drsenjem po vrsticah začetnega zaslona.</string>
     <string name="advanced_compose_highlighter">Osvetljevalnik Compose</string>
     <string name="advanced_compose_highlighter_subtitle">Prikazuj utripajoče obrobe okoli elementov vmesnika, ki se znova izrisujejo, za odpravljanje težav z zmogljivostjo.</string>
     <string name="advanced_clear_cw_cache">Počisti predpomnilnik za Nadaljuj z ogledom</string>
     <string name="advanced_clear_cw_cache_subtitle">Odstranite predpomnjene sličice, naslove in dodatne podatke za Nadaljuj z ogledom</string>
     <string name="advanced_clear_cw_cache_done">Predpomnilnik je počiščen</string>
-    <string name="advanced_remember_last_profile">Zapomni si zadnji profil</string>
-    <string name="advanced_remember_last_profile_subtitle">Zapomni si nazadnje izbrani profil ob zagonu</string>
     <string name="settings_debug">Odpravljanje napak</string>	
     <string name="settings_debug_subtitle">Razvojna orodja in zastavice funkcij.</string>																  
     <string name="settings_plugins_section_subtitle">Upravljanje repozitorijev, ponudnikov in stanj vtičnikov.</string>

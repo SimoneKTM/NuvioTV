@@ -1625,8 +1625,6 @@
     <string name="advanced_fast_horizontal_navigation_subtitle">Zwiększ prędkość powtarzania D-pad w wierszach przy zachowaniu ograniczania powtórzeń.</string>
     <string name="advanced_nuvio_focus_scroll">Przewijanie fokusa Nuvio</string>
     <string name="advanced_nuvio_focus_scroll_subtitle">Używaj niestandardowej globalnej animacji przewijania i pozycjonowania fokusa Nuvio.</string>
-    <string name="advanced_memory_only_vertical_scroll">Przewijanie pionowe tylko z pamięci</string>
-    <string name="advanced_memory_only_vertical_scroll_subtitle">Pomijaj żądania obrazów z dysku i sieci podczas pionowego przewijania wierszy strony głównej.</string>
     <string name="detail_tab_trailer">Zwiastun</string>
     <string name="detail_trailer_error">Nie udało się załadować zwiastuna.</string>
     <string name="detail_trailer_loading">Ładowanie zwiastuna…</string>
@@ -1649,8 +1647,6 @@
     <string name="trakt_library_source_trakt_selected">Wybrano bibliotekę Trakt</string>
 
     <!-- Missing translations -->
-    <string name="advanced_remember_last_profile">Zapamiętaj ostatni profil</string>
-    <string name="advanced_remember_last_profile_subtitle">Zapamiętaj ostatnio wybrany profil przy uruchomieniu</string>
     <string name="appearance_amoled_mode">Tryb AMOLED</string>
     <string name="appearance_amoled_mode_subtitle">Użyj czystej czerni jako tła aplikacji</string>
     <string name="appearance_amoled_surfaces_mode">Czysto czarne powierzchnie</string>
@@ -2794,19 +2790,12 @@
     <string name="audio_strip_hdr10plus_sub">Usuwa dynamiczne metadane HDR10+ ze strumieni. Gdy włączono również Konwertuj do DV8.1, usuwanie następuje po konwersji.</string>
 
     <!-- Advanced settings -->
-    <string name="advanced_nuvio_performance_mode">Pamięć natywna ExoPlayer</string>
-    <string name="advanced_nuvio_performance_mode_subtitle">Włącza wysokowydajny natywny alokator, pamięć poza stertą i optymalizacje sieciowe dla płynniejszego odtwarzania</string>
     <string name="advanced_playback_issue_reports">Raporty problemów z odtwarzaniem</string>
     <string name="advanced_playback_issue_reports_subtitle">Pokaż przyciski zgłaszania problemów podczas odtwarzania, długiego ładowania i błędów odtwarzania</string>
     <string name="advanced_sentry_reports">Raporty awarii Sentry</string>
     <string name="advanced_sentry_reports_subtitle">Wysyłaj raporty awarii i ANR z bezpiecznym kontekstem. Domyślnie włączone.</string>
 
     <!-- Buffer -->
-    <string name="buffer_auto_limit_active">Automatycznie skalowany bezpieczny limit: %d MB</string>
-    <string name="buffer_device_ram_info">RAM urządzenia: %s</string>
-    <string name="buffer_safe_limit_info">Zalecany bezpieczny limit: %d MB</string>
-    <string name="buffer_safe_status">Bezpieczny: W granicach zalecanego limitu dla Twojego urządzenia.</string>
-    <string name="buffer_unsafe_warning">Uwaga: Przekracza zalecany bezpieczny limit (%1$d MB) dla urządzenia %2$s. Może powodować awarie aplikacji.</string>
     <string name="playback_buffer_target_danger_warning">Niebezpieczeństwo: Powyżej limitu ostrzegawczego (%1$d MB). Wysokie ryzyko awarii.</string>
 
     <!-- Debug progress indicator -->
@@ -2892,9 +2881,7 @@
     <!-- Stream test -->
     <string name="stream_test_section_header">Diagnostyka przepustowości strumienia</string>
     <string name="stream_test_card_title">Uruchom test prędkości ostatniego strumienia</string>
-    <string name="stream_test_btn_start">Rozpocznij test</string>
     <string name="stream_test_btn_running">Trwa test...</string>
-    <string name="stream_test_btn_run_again">Uruchom ponownie</string>
     <string name="stream_test_btn_measuring_baseline">Pomiar bazowy...</string>
     <string name="stream_test_btn_measuring_parallel1">Pomiar równoległy (1 MB)...</string>
     <string name="stream_test_btn_measuring_parallel4">Pomiar równoległy (4 MB)...</string>

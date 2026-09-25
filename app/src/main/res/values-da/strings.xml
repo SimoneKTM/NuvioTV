@@ -482,15 +482,11 @@
     <string name="advanced_fast_horizontal_navigation_subtitle">Øg D-pad-gentagnelseshastighed i rækker mens gentagelsesbegrænsning forbliver aktiv.</string>
     <string name="advanced_nuvio_focus_scroll">Nuvio fokusscrolling</string>
     <string name="advanced_nuvio_focus_scroll_subtitle">Brug Nuvio\'s brugerdefinerede globale fokusscroll-animation og -positionering.</string>
-    <string name="advanced_memory_only_vertical_scroll">Hukommelsesbaseret lodret scrolling</string>
-    <string name="advanced_memory_only_vertical_scroll_subtitle">Spring disk- og netværksbilledanmodninger over under lodret scrolling af startsiderækkerne.</string>
     <string name="advanced_compose_highlighter">Compose-fremhæver</string>
     <string name="advanced_compose_highlighter_subtitle">Flash kanter rundt om UI-elementer der rekomponeres, til ydeevnedebugging.</string>
     <string name="advanced_clear_cw_cache">Ryd cache for fortsæt med at se</string>
     <string name="advanced_clear_cw_cache_subtitle">Fjern cachelagrede miniaturer, titler og berigelsesdata for fortsæt med at se</string>
     <string name="advanced_clear_cw_cache_done">Cache ryddet</string>
-    <string name="advanced_remember_last_profile">Husk seneste profil</string>
-    <string name="advanced_remember_last_profile_subtitle">Husk senest valgte profil ved opstart</string>
     <string name="settings_debug">Debug</string>
     <string name="settings_debug_subtitle">Udviklerværktøjer og funktionsflag</string>
     <string name="settings_plugins_section_subtitle">Administrer repositories, udbydere og plugintilstande</string>

@@ -7,6 +7,7 @@ import androidx.media3.datasource.TransferListener
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import com.nuvio.tv.ui.screens.player.ParallelRangeDataSource
 import com.nuvio.tv.ui.screens.player.PlayerPlaybackNetworking
+import kotlinx.coroutines.ensureActive
 import okhttp3.Request
 
 @UnstableApi
@@ -32,11 +33,14 @@ object StreamSpeedTester {
                 val inputStream = response.body?.byteStream() ?: return@withContext 0.0
                 val buffer = ByteArray(64 * 1024)
                 while (System.currentTimeMillis() < tDeadline) {
+                    kotlinx.coroutines.currentCoroutineContext().ensureActive()
                     val read = inputStream.read(buffer)
                     if (read == -1) break
                     totalBytes += read
                 }
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             e.printStackTrace()
             return@withContext 0.0
@@ -85,11 +89,14 @@ object StreamSpeedTester {
             dataSource.open(DataSpec(android.net.Uri.parse(url)))
             val buffer = ByteArray(64 * 1024)
             while (System.currentTimeMillis() < tDeadline) {
+                kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 val read = dataSource.read(buffer, 0, buffer.size)
                 if (read == -1) break
                 totalBytesRead += read
             }
             dataSource.close()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             e.printStackTrace()
             return@withContext 0.0

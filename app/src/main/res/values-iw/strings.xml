@@ -529,24 +529,13 @@
     <string name="advanced_section_dv_diagnostics">אבחון DV</string>
     <string name="advanced_fast_horizontal_navigation">ניווט אופקי מהיר</string>
     <string name="advanced_fast_horizontal_navigation_subtitle">הגבר את מהירות הניווט בלחיצה ממושכת על מקשי הכיוון בשורות התוכן.</string>
-    <string name="advanced_nuvio_performance_mode">זיכרון נייטיבי של ExoPlayer</string>
-    <string name="advanced_nuvio_performance_mode_subtitle">מפעיל הקצאת זיכרון נייטיבית בביצועים גבוהים, זיכרון מחוץ לערימה ואופטימיזציות רשת להפעלה חלקה יותר</string>
-    <string name="buffer_device_ram_info">זיכרון RAM של המכשיר: %s</string>
-    <string name="buffer_safe_limit_info">מגבלה בטוחה מומלצת: %d MB</string>
-    <string name="buffer_safe_status">בטוח: בתוך המגבלה המומלצת עבור המכשיר שלך.</string>
-    <string name="buffer_unsafe_warning">אזהרה: חורג מהמגבלה הבטוחה המומלצת (%1$d MB) עבור מכשיר %2$s שלך. עלול לגרום לקריסות באפליקציה.</string>
-    <string name="buffer_auto_limit_active">מגבלה בטוחה בקנה מידה אוטומטי: %d MB</string>
     <string name="advanced_nuvio_focus_scroll">גלילת מיקוד של Nuvio</string>
     <string name="advanced_nuvio_focus_scroll_subtitle">השתמש באנימציית גלילת המיקוד הגלובלית המותאמת אישית של Nuvio ובמיקום שלה.</string>
-    <string name="advanced_memory_only_vertical_scroll">גלילה אנכית מהזיכרון בלבד</string>
-    <string name="advanced_memory_only_vertical_scroll_subtitle">דלג על בקשות תמונה מהדיסק ומהרשת בעת גלילה אנכית בשורות דף הבית.</string>
     <string name="advanced_compose_highlighter">מדגיש Compose</string>
     <string name="advanced_compose_highlighter_subtitle">הבהב מסגרות סביב רכיבי ממשק המורכבים מחדש לצורך ניפוי ביצועים.</string>
     <string name="advanced_clear_cw_cache">נקה מטמון \"המשך צפייה\"</string>
     <string name="advanced_clear_cw_cache_subtitle">הסר Thumbnails, כותרות ונתוני העשרה שמורים עבור  \"המשך צפייה\"</string>
     <string name="advanced_clear_cw_cache_done">המטמון נוקה</string>
-    <string name="advanced_remember_last_profile">זכור פרופיל אחרון</string>
-    <string name="advanced_remember_last_profile_subtitle">זכור את הפרופיל האחרון שנבחר</string>
     <string name="settings_debug">ניפוי שגיאות</string>
     <string name="settings_debug_subtitle">כלי מפתחים ודגלי פיצ׳רים</string>
     <string name="settings_plugins_section_subtitle">ניהול מאגרים, ספקים ומצבי פלאגינים</string>
@@ -2522,8 +2511,6 @@
     <!-- Stream Throughput Speed & Chunk Diagnostic Test -->
     <string name="stream_test_card_title">הפעל בדיקת מהירות ה-Stream האחרון שנוגן</string>
     <string name="stream_test_server_label">Server: %1$s</string>
-    <string name="stream_test_btn_start">התחל בדיקה</string>
     <string name="stream_test_btn_measuring_baseline">מודד קו בסיס\u2026</string>
-    <string name="stream_test_btn_run_again">הרץ שוב</string>
 
 </resources>

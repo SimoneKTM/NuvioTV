@@ -1620,15 +1620,11 @@
     <string name="advanced_fast_horizontal_navigation_subtitle">Aumenta la velocidad de repetición del D-pad en filas manteniendo el límite de repetición activado.</string>
     <string name="advanced_nuvio_focus_scroll">Desplazamiento de foco de Nuvio</string>
     <string name="advanced_nuvio_focus_scroll_subtitle">Usa la animación global personalizada de desplazamiento de foco y posicionamiento de Nuvio.</string>
-    <string name="advanced_memory_only_vertical_scroll">Desplazamiento vertical solo en memoria</string>
-    <string name="advanced_memory_only_vertical_scroll_subtitle">Evita solicitudes de imágenes en disco y red mientras te desplazas verticalmente por las filas de inicio.</string>
     <string name="advanced_compose_highlighter">Resaltador de Compose</string>
     <string name="advanced_compose_highlighter_subtitle">Parpadea bordes alrededor de elementos de UI que se recomponen para depuración de rendimiento.</string>
     <string name="advanced_clear_cw_cache">Borrar caché de Continuar viendo</string>
     <string name="advanced_clear_cw_cache_subtitle">Elimina miniaturas, títulos y datos enriquecidos en caché de Continuar viendo</string>
     <string name="advanced_clear_cw_cache_done">Caché borrada</string>
-    <string name="advanced_remember_last_profile">Recordar último perfil</string>
-    <string name="advanced_remember_last_profile_subtitle">Recuerda el último perfil seleccionado al iniciar</string>
 
     <string name="account_enter_sync_desc">Introduce un código de sincronización y un PIN para vincular este dispositivo sin crear una cuenta.</string>
     <string name="account_error_incorrect_pin">PIN incorrecto.</string>

@@ -330,7 +330,7 @@
 <string name="settings_network">Velocità di rete</string>
 <string name="settings_network_subtitle">Diagnostica di latenza e download</string>
 <string name="settings_advanced">Avanzate</string>
-<string name="settings_advanced_subtitle">Esegui diagnostica velocità di rete</string>
+<string name="settings_advanced_subtitle">Prestazioni, navigazione, cache e diagnostica</string>
 <string name="network_speed_test_run">Avvia test di velocità</string>
 <string name="network_speed_test_running">Test di velocità in corso</string>
 <string name="network_speed_test_subtitle">Misura velocità di download e latenza</string>
@@ -343,6 +343,7 @@
 <string name="network_powered_by_fast">Fornito da fast.com</string>
 <string name="network_connection_wifi">Wi‑Fi</string>
 <string name="network_connection_ethernet">Ethernet</string>
+<string name="network_connection_cellular">Cellulare</string>
 <string name="network_connection_offline">Offline</string>
 <string name="advanced_section_performance">Prestazioni e navigazione</string>
 <string name="advanced_section_diagnostics">Diagnostica</string>
@@ -351,8 +352,6 @@
 <string name="advanced_fast_horizontal_navigation_subtitle">Aumenta la velocità di ripetizione del D-pad nelle righe mantenendo il throttling attivo.</string>
 <string name="advanced_nuvio_focus_scroll">Scorrimento Focus Nuvio</string>
 <string name="advanced_nuvio_focus_scroll_subtitle">Usa l\'animazione di scorrimento e il posizionamento personalizzato del focus di Nuvio.</string>
-<string name="advanced_memory_only_vertical_scroll">Scorrimento Verticale Solo Memoria</string>
-<string name="advanced_memory_only_vertical_scroll_subtitle">Salta le richieste di immagini su disco e rete durante lo scorrimento verticale della Home.</string>
 <string name="advanced_clear_cw_cache">Svuota Cache \"Continua a Guardare\"</string>
 <string name="advanced_clear_cw_cache_subtitle">Rimuovi miniature, titoli e dati arricchiti in cache per la sezione Continua a Guardare</string>
 <string name="advanced_clear_cw_cache_done">Cache svuotata</string>
@@ -1725,8 +1724,6 @@
   <string name="appearance_amoled_mode_subtitle">Usa il nero assoluto per gli sfondi dell\'app</string>
   <string name="appearance_amoled_surfaces_mode">Superfici nero assoluto</string>
   <string name="appearance_amoled_surfaces_mode_subtitle">Rendi nero assoluto anche schede, pannelli e contenitori</string>
-  <string name="advanced_remember_last_profile">Ricorda l\'ultimo profilo</string>
-  <string name="advanced_remember_last_profile_subtitle">Ricorda l\'ultimo profilo selezionato all\'avvio</string>
   <string name="layout_classic_focus_gradient">Sfumatura elemento selezionato</string>
     <string name="layout_classic_focus_gradient_sub">Sfuma i colori della locandina sul lato destro della vista Classica.</string>
   <string name="collections_editor_source_count">%1$d sorgente/i</string>
@@ -2536,13 +2533,6 @@
   <string name="advanced_playback_issue_reports">Resoconti dei problemi di riproduzione</string>
   <string name="advanced_playback_issue_reports_subtitle">Mostra i pulsanti di segnalazione durante la riproduzione, nei caricamenti lunghi e negli errori di riproduzione</string>
   <string name="advanced_section_dv_diagnostics">Diagnostica DV</string>
-  <string name="advanced_nuvio_performance_mode">Memoria nativa ExoPlayer</string>
-  <string name="advanced_nuvio_performance_mode_subtitle">Abilita l\'allocatore nativo ad alte prestazioni, la memoria off-heap e le ottimizzazioni di rete per una riproduzione più fluida</string>
-  <string name="buffer_device_ram_info">RAM del dispositivo: %s</string>
-  <string name="buffer_safe_limit_info">Limite di sicurezza consigliato: %d MB</string>
-  <string name="buffer_safe_status">Sicuro: entro il limite consigliato per il tuo dispositivo.</string>
-  <string name="buffer_unsafe_warning">Avviso: supera il limite di sicurezza consigliato (%1$d MB) per il tuo dispositivo %2$s. Può causare arresti anomali dell\'app.</string>
-  <string name="buffer_auto_limit_active">Limite di sicurezza scalato automaticamente: %d MB</string>
   <string name="action_switch">Cambia</string>
   <string name="supporters_contributors_donation_progress_title">Server e manutenzione di questo mese</string>
   <string name="supporters_contributors_donation_progress_complete">Coperto. Il supporto aggiuntivo ora va allo sviluppo.</string>
@@ -2866,13 +2856,11 @@
   <string name="stream_test_card_title">Esegui il test di velocità dell\'ultimo stream riprodotto</string>
   <string name="stream_test_server_label">Server: %1$s</string>
   <string name="stream_test_no_stream">Nessuna riproduzione registrata. Riproduci un video per eseguire i test diagnostici sul suo host.</string>
-  <string name="stream_test_btn_start">Avvia test</string>
   <string name="stream_test_btn_measuring_baseline">Misurazione baseline...</string>
   <string name="stream_test_btn_measuring_parallel1">Misurazione parallela (1MB)...</string>
   <string name="stream_test_btn_measuring_parallel4">Misurazione parallela (4MB)...</string>
   <string name="stream_test_btn_measuring_parallel8">Misurazione parallela (8MB)...</string>
   <string name="stream_test_btn_measuring_parallel16">Misurazione parallela (16MB)...</string>
-  <string name="stream_test_btn_run_again">Esegui di nuovo</string>
   <string name="stream_test_btn_running">In esecuzione...</string>
   <string name="stream_test_label_baseline">Connessione singola standard (baseline)</string>
   <string name="stream_test_label_parallel1">Connessione parallela (chunk da 1 MB)</string>

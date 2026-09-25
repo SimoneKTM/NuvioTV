@@ -478,15 +478,11 @@
     <string name="advanced_fast_horizontal_navigation_subtitle">Увеличаване на скоростта на повторение на D-pad в редовете, докато повторението с ограничение е включено.</string>
     <string name="advanced_nuvio_focus_scroll">Nuvio фокусирано превъртане</string>
     <string name="advanced_nuvio_focus_scroll_subtitle">Използвай персонализираната глобална анимация и позициониране на Nuvio за фокус.</string>
-    <string name="advanced_memory_only_vertical_scroll">Превъртане само в паметта (вертикално)</string>
-    <string name="advanced_memory_only_vertical_scroll_subtitle">Пропусни дискови и мрежови заявки за изображения при вертикално превъртане на редове в началния екран.</string>
     <string name="advanced_compose_highlighter">Compose Highlighter</string>
     <string name="advanced_compose_highlighter_subtitle">Мигащи граници около прекомпозиращи се UI елементи за дебъгване на производителността.</string>
     <string name="advanced_clear_cw_cache">Изчисти кеша на Продължи гледането</string>
     <string name="advanced_clear_cw_cache_subtitle">Премахни кешираните миниатюри, заглавия и обогатени данни за Продължи гледането</string>
     <string name="advanced_clear_cw_cache_done">Кешът е изчистен</string>
-    <string name="advanced_remember_last_profile">Запомни последния профил</string>
-    <string name="advanced_remember_last_profile_subtitle">Запомни последно избрания профил при стартиране</string>
     <string name="settings_debug">Дебъг</string>
     <string name="settings_debug_subtitle">Инструменти за разработчици и флагове на функции</string>
     <string name="settings_plugins_section_subtitle">Управление на хранилища, доставчици и състояния на плъгини</string>

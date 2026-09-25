@@ -32,6 +32,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SettingsEthernet
+import androidx.compose.material.icons.filled.SignalCellularAlt
 import androidx.compose.material.icons.filled.SignalWifiOff
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timer
@@ -83,15 +85,9 @@ private interface ClearCwCacheEntryPoint {
     fun cwEnrichmentCache(): com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 }
 
-@dagger.hilt.EntryPoint
-@dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
-private interface ProfileManagerEntryPoint {
-    fun profileManager(): com.nuvio.tv.core.profile.ProfileManager
-}
-
 private enum class NetworkTestState { Idle, TestingLatency, TestingDownload, Done, Error }
 
-private enum class ConnectionType { WiFi, Ethernet, Offline }
+private enum class ConnectionType { WiFi, Ethernet, Cellular, Offline }
 
 private fun getConnectionType(context: android.content.Context): ConnectionType {
     val cm = context.getSystemService<ConnectivityManager>() ?: return ConnectionType.Offline
@@ -100,7 +96,7 @@ private fun getConnectionType(context: android.content.Context): ConnectionType 
     return when {
         caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> ConnectionType.Ethernet
         caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> ConnectionType.WiFi
-        caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> ConnectionType.WiFi // treat cellular as connected
+        caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> ConnectionType.Cellular
         else -> ConnectionType.Offline
     }
 }
@@ -109,7 +105,8 @@ private fun getConnectionType(context: android.content.Context): ConnectionType 
 private fun ConnectionStatusBadge(type: ConnectionType) {
     val (icon, label, color) = when (type) {
         ConnectionType.WiFi -> Triple(Icons.Default.Wifi, stringResource(R.string.network_connection_wifi), NuvioTheme.colors.Success)
-        ConnectionType.Ethernet -> Triple(Icons.Default.Wifi, stringResource(R.string.network_connection_ethernet), NuvioTheme.colors.Success)
+        ConnectionType.Ethernet -> Triple(Icons.Default.SettingsEthernet, stringResource(R.string.network_connection_ethernet), NuvioTheme.colors.Success)
+        ConnectionType.Cellular -> Triple(Icons.Default.SignalCellularAlt, stringResource(R.string.network_connection_cellular), NuvioTheme.colors.Success)
         ConnectionType.Offline -> Triple(Icons.Default.SignalWifiOff, stringResource(R.string.network_connection_offline), NuvioTheme.colors.Error)
     }
     Row(
@@ -274,6 +271,11 @@ fun AdvancedSettingsContent(
                     lastHeadersMap,
                     1 * 1024 * 1024L
                 )
+                if ((streamParallel1Speed ?: 0.0) <= 0.0) {
+                    streamErrorMessage = context.getString(R.string.stream_test_error_connection)
+                    streamTestState = "Error"
+                    return@launch
+                }
 
                 streamTestState = "Parallel4"
                 streamParallel4Speed = com.nuvio.tv.core.network.StreamSpeedTester.runParallelChunkTest(
@@ -281,6 +283,11 @@ fun AdvancedSettingsContent(
                     lastHeadersMap,
                     4 * 1024 * 1024L
                 )
+                if ((streamParallel4Speed ?: 0.0) <= 0.0) {
+                    streamErrorMessage = context.getString(R.string.stream_test_error_connection)
+                    streamTestState = "Error"
+                    return@launch
+                }
 
                 streamTestState = "Parallel8"
                 streamParallel8Speed = com.nuvio.tv.core.network.StreamSpeedTester.runParallelChunkTest(
@@ -288,6 +295,11 @@ fun AdvancedSettingsContent(
                     lastHeadersMap,
                     8 * 1024 * 1024L
                 )
+                if ((streamParallel8Speed ?: 0.0) <= 0.0) {
+                    streamErrorMessage = context.getString(R.string.stream_test_error_connection)
+                    streamTestState = "Error"
+                    return@launch
+                }
 
                 streamTestState = "Parallel16"
                 streamParallel16Speed = com.nuvio.tv.core.network.StreamSpeedTester.runParallelChunkTest(
@@ -295,6 +307,11 @@ fun AdvancedSettingsContent(
                     lastHeadersMap,
                     16 * 1024 * 1024L
                 )
+                if ((streamParallel16Speed ?: 0.0) <= 0.0) {
+                    streamErrorMessage = context.getString(R.string.stream_test_error_connection)
+                    streamTestState = "Error"
+                    return@launch
+                }
 
                 streamTestState = "Done"
             } catch (e: java.lang.Exception) {
@@ -380,6 +397,20 @@ fun AdvancedSettingsContent(
     val networkListState = rememberLazyListState()
     var showExperienceModeConfirmation by remember { mutableStateOf(false) }
     var showSentryDialog by remember { mutableStateOf(false) }
+    var cleared by remember { mutableStateOf(false) }
+    var showModeDialog by remember { mutableStateOf(false) }
+    val modeOptions = listOf(
+        SettingsPickerOption(
+            -1,
+            stringResource(R.string.dv7_libdovi_mode_none_title),
+            stringResource(R.string.dv7_libdovi_mode_none_sub)
+        ),
+        SettingsPickerOption(0, stringResource(R.string.dv7_libdovi_mode_0_title), stringResource(R.string.dv7_libdovi_mode_0_sub)),
+        SettingsPickerOption(1, stringResource(R.string.dv7_libdovi_mode_1_title), stringResource(R.string.dv7_libdovi_mode_1_sub)),
+        SettingsPickerOption(2, stringResource(R.string.dv7_libdovi_mode_2_title), stringResource(R.string.dv7_libdovi_mode_2_sub)),
+        SettingsPickerOption(3, stringResource(R.string.dv7_libdovi_mode_3_title), stringResource(R.string.dv7_libdovi_mode_3_sub)),
+        SettingsPickerOption(4, stringResource(R.string.dv7_libdovi_mode_4_title), stringResource(R.string.dv7_libdovi_mode_4_sub))
+    )
     Box(modifier = Modifier.fillMaxSize()) {
     LazyColumn(
         state = networkListState,
@@ -459,23 +490,6 @@ fun AdvancedSettingsContent(
                                 !uiState.smoothBringIntoViewEnabled
                             )
                         )
-                    }
-                )
-                val profileManager = remember {
-                    dagger.hilt.android.EntryPointAccessors.fromApplication(
-                        context.applicationContext,
-                        ProfileManagerEntryPoint::class.java
-                    ).profileManager()
-                }
-                val rememberLastProfileEnabled by profileManager.rememberLastProfileEnabled.collectAsState()
-                SettingsToggleRow(
-                    title = stringResource(R.string.advanced_remember_last_profile),
-                    subtitle = stringResource(R.string.advanced_remember_last_profile_subtitle),
-                    checked = rememberLastProfileEnabled,
-                    onToggle = {
-                        scope.launch {
-                            profileManager.setRememberLastProfileEnabled(!rememberLastProfileEnabled)
-                        }
                     }
                 )
             }
@@ -595,7 +609,7 @@ fun AdvancedSettingsContent(
                         else R.string.stream_test_card_title
                     ),
                     subtitle = if (hasStream) {
-                        stringResource(R.string.stream_test_server_label, lastStreamUrl.let { android.net.Uri.parse(it).host } ?: stringResource(R.string.stream_quality_unknown))
+                        stringResource(R.string.stream_test_server_label, lastStreamUrl?.let { android.net.Uri.parse(it).host } ?: stringResource(R.string.stream_quality_unknown))
                     } else {
                         stringResource(R.string.stream_test_no_stream)
                     },
@@ -696,7 +710,6 @@ fun AdvancedSettingsContent(
 
         item(key = "clear_cw_cache") {
             SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
-                var cleared by remember { mutableStateOf(false) }
                 SettingsActionRow(
                     title = stringResource(R.string.advanced_clear_cw_cache),
                     subtitle = if (cleared) {
@@ -732,57 +745,25 @@ fun AdvancedSettingsContent(
                 )
             }
 
-            item(key = "dv_conversion_mode") {
-                val overrideEnabled = dvPlayerSettings.dv7HandlingMode == Dv7HandlingMode.DV81_LIBDOVI
-                var showModeDialog by remember { mutableStateOf(false) }
-                val modeOptions = listOf(
-                    SettingsPickerOption(
-                        -1,
-                        stringResource(R.string.dv7_libdovi_mode_none_title),
-                        stringResource(R.string.dv7_libdovi_mode_none_sub)
-                    ),
-                    SettingsPickerOption(0, stringResource(R.string.dv7_libdovi_mode_0_title), stringResource(R.string.dv7_libdovi_mode_0_sub)),
-                    SettingsPickerOption(1, stringResource(R.string.dv7_libdovi_mode_1_title), stringResource(R.string.dv7_libdovi_mode_1_sub)),
-                    SettingsPickerOption(2, stringResource(R.string.dv7_libdovi_mode_2_title), stringResource(R.string.dv7_libdovi_mode_2_sub)),
-                    SettingsPickerOption(3, stringResource(R.string.dv7_libdovi_mode_3_title), stringResource(R.string.dv7_libdovi_mode_3_sub)),
-                    SettingsPickerOption(4, stringResource(R.string.dv7_libdovi_mode_4_title), stringResource(R.string.dv7_libdovi_mode_4_sub))
-                )
-                // Show None whenever the row is disabled so a stale stored override
-                // never displays as a selected mode.
-                val effectiveOverride = if (overrideEnabled) dvPlayerSettings.dv7LibdoviModeOverride else -1
-                val currentLabel = modeOptions.firstOrNull { it.value == effectiveOverride }?.title
-                    ?: modeOptions.first().title
-                SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
-                    SettingsActionRow(
-                        title = stringResource(R.string.dv7_libdovi_mode_row_title),
-                        subtitle = stringResource(R.string.dv7_libdovi_mode_caption),
-                        value = currentLabel,
-                        onClick = { showModeDialog = true },
-                        enabled = overrideEnabled
-                    )
-                }
-                if (showModeDialog) {
-                    SettingsSingleChoiceDialog(
-                        title = stringResource(R.string.dv7_libdovi_mode_row_title),
-                        subtitle = stringResource(R.string.dv7_libdovi_mode_caption),
-                        options = modeOptions,
-                        selectedValue = effectiveOverride,
-                        onOptionSelected = { value ->
-                            scope.launch { playbackVm.setDv7LibdoviModeOverride(value) }
-                            showModeDialog = false
-                        },
-                        onDismiss = { showModeDialog = false },
-                        width = 460.dp,
-                        maxHeight = 360.dp
-                    )
+            if (dvPlayerSettings.dv7HandlingMode == Dv7HandlingMode.DV81_LIBDOVI) {
+                item(key = "dv_conversion_mode") {
+                    SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
+                        SettingsActionRow(
+                            title = stringResource(R.string.dv7_libdovi_mode_row_title),
+                            subtitle = stringResource(R.string.dv7_libdovi_mode_caption),
+                            value = modeOptions.firstOrNull { it.value == dvPlayerSettings.dv7LibdoviModeOverride }?.title
+                                ?: modeOptions.first().title,
+                            onClick = { showModeDialog = true }
+                        )
+                    }
                 }
             }
-
-            diagnosticsCardItems(
-                diagnostics = dvDiagnostics,
-                dvCurrentlyEnabled = dvPlayerSettings.dv7HandlingMode != Dv7HandlingMode.OFF
-            )
         }
+
+        diagnosticsCardItems(
+            diagnostics = dvDiagnostics,
+            dvCurrentlyEnabled = dvPlayerSettings.dv7HandlingMode != Dv7HandlingMode.OFF
+        )
     }
         SettingsVerticalScrollIndicators(state = networkListState)
     }
@@ -804,6 +785,22 @@ fun AdvancedSettingsContent(
                 )
             },
             onDismiss = { showSentryDialog = false }
+        )
+    }
+
+    if (showModeDialog) {
+        SettingsSingleChoiceDialog(
+            title = stringResource(R.string.dv7_libdovi_mode_row_title),
+            subtitle = stringResource(R.string.dv7_libdovi_mode_caption),
+            options = modeOptions,
+            selectedValue = dvPlayerSettings.dv7LibdoviModeOverride,
+            onOptionSelected = { value ->
+                scope.launch { playbackVm.setDv7LibdoviModeOverride(value) }
+                showModeDialog = false
+            },
+            onDismiss = { showModeDialog = false },
+            width = 460.dp,
+            maxHeight = 360.dp
         )
     }
 }

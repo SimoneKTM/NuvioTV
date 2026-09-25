@@ -486,15 +486,11 @@
     <string name="advanced_fast_horizontal_navigation_subtitle">رفع سرعة تكرار أزرار الاتجاهات (D-pad) في الصفوف مع بقاء ميزة تقييد التكرار قيد التشغيل..</string>
     <string name="advanced_nuvio_focus_scroll">تصفح التركيز الخاص بـ Nuvio</string>
     <string name="advanced_nuvio_focus_scroll_subtitle">استخدام نظام Nuvio المخصص للرسوم المتحركة وتموضع التركيز في كافة واجهات التطبيق.</string>
-    <string name="advanced_memory_only_vertical_scroll">التمرير العمودي من الذاكرة فقط</string>
-    <string name="advanced_memory_only_vertical_scroll_subtitle">تخطي طلبات الصور من القرص والشبكة أثناء التمرير العمودي في صفوف الشاشة الرئيسية.</string>
     <string name="advanced_compose_highlighter">مؤشر إعادة البناء (Compose)</string>
     <string name="advanced_compose_highlighter_subtitle">إظهار حدود وامضة حول عناصر الواجهة التي يعاد بناؤها لاختبار الأداء لمعالجة الأخطاء.</string>
     <string name="advanced_clear_cw_cache">مسح ذاكرة التخزين المؤقت لقائمة المتابعة</string>
     <string name="advanced_clear_cw_cache_subtitle">إزالة الصور المصغرة والعناوين وبيانات الإثراء المخزنة مؤقتاً لقائمة متابعة المشاهدة</string>
     <string name="advanced_clear_cw_cache_done">تم مسح الذاكرة المؤقتة</string>
-    <string name="advanced_remember_last_profile">تذكر آخر مستخدم</string>
-    <string name="advanced_remember_last_profile_subtitle">تذكر آخر ملف مستخدم تم اختياره عند بدء التشغيل</string>
     <string name="settings_debug">معالجة الأخطاء</string>
     <string name="settings_debug_subtitle">أدوات المطورين والمزايا التجريبية</string>
     <string name="settings_plugins_section_subtitle">إدارة المستودعات، المصادر، وحالة الملحقات</string>

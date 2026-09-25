@@ -17,7 +17,6 @@ import kotlinx.coroutines.launch
 data class AdvancedSettingsUiState(
     val fastHorizontalNavigationEnabled: Boolean = false,
     val smoothBringIntoViewEnabled: Boolean = true,
-    val composeHighlighterEnabled: Boolean = false,
     val playbackIssueReportsEnabled: Boolean = false,
     val sentryEnabled: Boolean = true
 )
@@ -25,7 +24,6 @@ data class AdvancedSettingsUiState(
 sealed class AdvancedSettingsEvent {
     data class SetFastHorizontalNavigationEnabled(val enabled: Boolean) : AdvancedSettingsEvent()
     data class SetSmoothBringIntoViewEnabled(val enabled: Boolean) : AdvancedSettingsEvent()
-    data class SetComposeHighlighterEnabled(val enabled: Boolean) : AdvancedSettingsEvent()
     data class SetPlaybackIssueReportsEnabled(val enabled: Boolean) : AdvancedSettingsEvent()
     data class SetSentryEnabled(val enabled: Boolean) : AdvancedSettingsEvent()
 }
@@ -51,11 +49,6 @@ class AdvancedSettingsViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
-            layoutPreferenceDataStore.composeHighlighterEnabled.collectLatest { enabled ->
-                _uiState.update { it.copy(composeHighlighterEnabled = enabled) }
-            }
-        }
-        viewModelScope.launch {
             playerSettingsDataStore.playerSettings.collectLatest { settings ->
                 _uiState.update { it.copy(playbackIssueReportsEnabled = settings.playbackIssueReportsEnabled) }
             }
@@ -77,11 +70,6 @@ class AdvancedSettingsViewModel @Inject constructor(
             is AdvancedSettingsEvent.SetSmoothBringIntoViewEnabled -> {
                 viewModelScope.launch {
                     layoutPreferenceDataStore.setSmoothBringIntoViewEnabled(event.enabled)
-                }
-            }
-            is AdvancedSettingsEvent.SetComposeHighlighterEnabled -> {
-                viewModelScope.launch {
-                    layoutPreferenceDataStore.setComposeHighlighterEnabled(event.enabled)
                 }
             }
             is AdvancedSettingsEvent.SetPlaybackIssueReportsEnabled -> {

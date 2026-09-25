@@ -468,15 +468,11 @@
     <string name="advanced_fast_horizontal_navigation_subtitle">Aumenta a velocidade de repetição do D-pad nas linhas, mantendo ativa a limitação de repetição.</string>
     <string name="advanced_nuvio_focus_scroll">Deslocamento de foco do Nuvio</string>
     <string name="advanced_nuvio_focus_scroll_subtitle">Utiliza a animação e o posicionamento personalizados de deslocamento global de foco do Nuvio.</string>
-    <string name="advanced_memory_only_vertical_scroll">Deslocamento vertical apenas em memória</string>
-    <string name="advanced_memory_only_vertical_scroll_subtitle">Ignora pedidos de imagem em disco e rede ao deslocar verticalmente as linhas da página inicial.</string>
     <string name="advanced_compose_highlighter">Destacador de Compose</string>
     <string name="advanced_compose_highlighter_subtitle">Pisca margens em torno de elementos da IU em recomposição para depuração de desempenho.</string>
     <string name="advanced_clear_cw_cache">Limpar cache do Continuar a Ver</string>
     <string name="advanced_clear_cw_cache_subtitle">Remove miniaturas, títulos e dados de enriquecimento em cache do Continuar a Ver</string>
     <string name="advanced_clear_cw_cache_done">Cache limpa</string>
-    <string name="advanced_remember_last_profile">Lembrar o último perfil</string>
-    <string name="advanced_remember_last_profile_subtitle">Lembra o último perfil selecionado ao iniciar</string>
     <string name="settings_debug">Depurar</string>
     <string name="settings_debug_subtitle">Ferramentas de programador e flags de funcionalidades</string>
     <string name="settings_plugins_section_subtitle">Gerir repositórios, fornecedores e estados dos plugins</string>
