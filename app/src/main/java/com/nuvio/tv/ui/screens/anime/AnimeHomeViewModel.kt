@@ -22,6 +22,7 @@ import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
+import com.nuvio.tv.domain.model.FocusedPosterTrailerPlaybackTarget
 import com.nuvio.tv.domain.model.HomeLayout
 import com.nuvio.tv.domain.model.MDBListSettings
 import com.nuvio.tv.domain.model.MetaPreview
@@ -103,6 +104,7 @@ class AnimeHomeViewModel @Inject constructor(
     internal var currentAnimeTvdbSettings: TvdbSettings = TvdbSettings()
     internal var animeHeroEnrichmentJob: Job? = null
     internal var lastAnimeHeroEnrichmentSignature: String? = null
+    internal var lastHeroEnrichedItems: List<MetaPreview> = emptyList()
     internal val trailerPreviewLoadingIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
     internal val trailerPreviewNegativeCache: MutableSet<String> = ConcurrentHashMap.newKeySet()
     internal val trailerPreviewUrlsState = mutableStateMapOf<String, String>()
@@ -148,6 +150,8 @@ class AnimeHomeViewModel @Inject constructor(
     private var focusedPosterBackdropExpandDelaySeconds = 3
     private var focusedPosterBackdropTrailerEnabled = false
     private var focusedPosterBackdropTrailerMuted = true
+    private var focusedPosterBackdropTrailerPlaybackTarget: FocusedPosterTrailerPlaybackTarget =
+        FocusedPosterTrailerPlaybackTarget.HERO_MEDIA
     private var showFullReleaseDate = true
 
     init {
@@ -173,6 +177,7 @@ class AnimeHomeViewModel @Inject constructor(
                     currentAnimeTvdbSettings = tvdb
                     // Settings changed — allow hero items to re-enrich with the new selection.
                     lastAnimeHeroEnrichmentSignature = null
+                    lastHeroEnrichedItems = emptyList()
                     enrichAnimeHeroItemsIfNeeded(_uiState.value.heroItems)
                 }
         }
@@ -185,14 +190,33 @@ class AnimeHomeViewModel @Inject constructor(
         val tvdbEnabled = currentAnimeTvdbSettings.enabled && currentAnimeTvdbSettings.hasApiKey
         if (heroItems.isEmpty() || (!tmdbEnabled && !mdbEnabled && !tvdbEnabled)) {
             lastAnimeHeroEnrichmentSignature = null
+            lastHeroEnrichedItems = emptyList()
             return
         }
         val signature = animeHeroEnrichmentSignature(heroItems)
-        if (lastAnimeHeroEnrichmentSignature == signature) return
         animeHeroEnrichmentJob?.cancel()
         animeHeroEnrichmentJob = viewModelScope.launch {
+            if (lastAnimeHeroEnrichmentSignature == signature) {
+                // Same items already enriched — restore the cached enriched list,
+                // because every publishRows() rewrites heroItems with the raw list.
+                val cached = lastHeroEnrichedItems
+                if (cached.isNotEmpty()) {
+                    _uiState.update { state ->
+                        if (state.heroItems == cached) {
+                            state
+                        } else {
+                            state.copy(
+                                heroItems = cached,
+                                heroItem = cached.firstOrNull() ?: state.heroItem
+                            )
+                        }
+                    }
+                }
+                return@launch
+            }
             val enrichedItems = enrichAnimeHeroItemsBatch(heroItems)
             lastAnimeHeroEnrichmentSignature = signature
+            lastHeroEnrichedItems = enrichedItems
             _uiState.update { state ->
                 if (state.heroItems == enrichedItems) {
                     state
@@ -263,9 +287,13 @@ class AnimeHomeViewModel @Inject constructor(
             }
             val focusedPosterMutedFlow = combine(
                 focusedPosterSnapshotFlow,
-                layoutPreferenceDataStore.focusedPosterBackdropTrailerMuted
-            ) { snapshot, trailerMuted ->
-                snapshot.copy(focusedPosterBackdropTrailerMuted = trailerMuted)
+                layoutPreferenceDataStore.focusedPosterBackdropTrailerMuted,
+                layoutPreferenceDataStore.focusedPosterBackdropTrailerPlaybackTarget
+            ) { snapshot, trailerMuted, playbackTarget ->
+                snapshot.copy(
+                    focusedPosterBackdropTrailerMuted = trailerMuted,
+                    focusedPosterBackdropTrailerPlaybackTarget = playbackTarget
+                )
             }
             val cardStyleSnapshotFlow = combine(
                 focusedPosterMutedFlow,
@@ -325,6 +353,8 @@ class AnimeHomeViewModel @Inject constructor(
                 focusedPosterBackdropExpandDelaySeconds = snapshot.focusedPosterBackdropExpandDelaySeconds
                 focusedPosterBackdropTrailerEnabled = snapshot.focusedPosterBackdropTrailerEnabled
                 focusedPosterBackdropTrailerMuted = snapshot.focusedPosterBackdropTrailerMuted
+                focusedPosterBackdropTrailerPlaybackTarget =
+                    snapshot.focusedPosterBackdropTrailerPlaybackTarget
                 showFullReleaseDate = snapshot.showFullReleaseDate
                 publishRows()
             }
@@ -355,6 +385,8 @@ class AnimeHomeViewModel @Inject constructor(
         val focusedPosterBackdropExpandDelaySeconds: Int = 3,
         val focusedPosterBackdropTrailerEnabled: Boolean = false,
         val focusedPosterBackdropTrailerMuted: Boolean = true,
+        val focusedPosterBackdropTrailerPlaybackTarget: FocusedPosterTrailerPlaybackTarget =
+            FocusedPosterTrailerPlaybackTarget.HERO_MEDIA,
         val showFullReleaseDate: Boolean = true
     )
 
@@ -391,6 +423,7 @@ class AnimeHomeViewModel @Inject constructor(
         animeHeroEnrichmentJob?.cancel()
         animeHeroEnrichmentJob = null
         lastAnimeHeroEnrichmentSignature = null
+        lastHeroEnrichedItems = emptyList()
     }
 
     private fun catalogKey(addon: Addon, catalog: CatalogDescriptor): String =
@@ -446,6 +479,7 @@ class AnimeHomeViewModel @Inject constructor(
         animeHeroEnrichmentJob?.cancel()
         animeHeroEnrichmentJob = null
         lastAnimeHeroEnrichmentSignature = null
+        lastHeroEnrichedItems = emptyList()
 
         // On reload keep the currently visible rows on screen while the new
         // ones stream in — same contract as the main home pipeline.
@@ -472,18 +506,41 @@ class AnimeHomeViewModel @Inject constructor(
         // Structured concurrency: a new addon emission (collectLatest restart)
         // cancels all in-flight loads, and each load is concurrency-limited by
         // the semaphore instead of running one at a time.
-        coroutineScope {
-            catalogsToLoad.forEach { (addon, catalog) ->
-                launch {
-                    catalogLoadSemaphore.withPermit {
-                        loadCatalog(addon, catalog, generation)
+        val failedCount = AtomicInteger(0)
+        val firstError = java.util.concurrent.atomic.AtomicReference<String?>(null)
+        try {
+            coroutineScope {
+                catalogsToLoad.forEach { (addon, catalog) ->
+                    launch {
+                        catalogLoadSemaphore.withPermit {
+                            val failure = loadCatalog(addon, catalog, generation)
+                            if (failure != null) {
+                                failedCount.incrementAndGet()
+                                firstError.compareAndSet(null, failure)
+                            }
+                        }
                     }
                 }
             }
+            lastCatalogLoadSignature = signature
+            val failures = failedCount.get()
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    error = if (failures > 0 && failures == catalogsToLoad.size) {
+                        firstError.get()
+                    } else {
+                        null
+                    }
+                )
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Anime catalog bulk load failed", e)
+            lastCatalogLoadSignature = null
+            _uiState.update { it.copy(isLoading = false, error = e.message) }
         }
-
-        lastCatalogLoadSignature = signature
-        _uiState.update { it.copy(isLoading = false) }
     }
 
     private fun buildAnimeCatalogLoadSignature(addons: List<Addon>): String =
@@ -540,37 +597,56 @@ class AnimeHomeViewModel @Inject constructor(
         )
     }
 
-    private suspend fun loadCatalog(addon: Addon, catalog: CatalogDescriptor, generation: Int) {
+    private suspend fun loadCatalog(addon: Addon, catalog: CatalogDescriptor, generation: Int): String? {
         val key = catalogKey(addon, catalog)
         val supportsSkip = catalog.supportsExtra("skip")
         val skipStep = catalog.skipStep()
         Log.d(TAG, "Loading anime catalog addonId=${addon.id} type=${catalog.apiType} catalogId=${catalog.id}")
-        catalogRepository.getCatalog(
-            addonBaseUrl = addon.baseUrl,
-            addonId = addon.id,
-            addonName = addon.displayName,
-            catalogId = catalog.id,
-            catalogName = catalog.name,
-            type = catalog.apiType,
-            skip = 0,
-            skipStep = skipStep,
-            supportsSkip = supportsSkip
-        ).collect { result ->
-            // A newer load generation owns the rows map — drop stale results
-            // (otherwise catalogs of removed addons reappeared after a reload).
-            if (generation != catalogLoadGeneration.get()) return@collect
-            when (result) {
-                is NetworkResult.Success -> {
-                    synchronized(rows) { rows[key] = result.data }
-                    publishRows()
+        var sawTerminal = false
+        var errorMessage: String? = null
+        try {
+            catalogRepository.getCatalog(
+                addonBaseUrl = addon.baseUrl,
+                addonId = addon.id,
+                addonName = addon.displayName,
+                catalogId = catalog.id,
+                catalogName = catalog.name,
+                type = catalog.apiType,
+                skip = 0,
+                skipStep = skipStep,
+                supportsSkip = supportsSkip
+            ).collect { result ->
+                // A newer load generation owns the rows map — drop stale results
+                // (otherwise catalogs of removed addons reappeared after a reload).
+                if (generation != catalogLoadGeneration.get()) return@collect
+                when (result) {
+                    is NetworkResult.Success -> {
+                        sawTerminal = true
+                        synchronized(rows) { rows[key] = result.data }
+                        publishRows()
+                    }
+                    is NetworkResult.Error -> {
+                        sawTerminal = true
+                        errorMessage = result.message
+                        synchronized(rows) { rows[key] = emptyRow(addon, catalog).copy(isLoading = false, items = emptyList()) }
+                        publishRows()
+                    }
+                    NetworkResult.Loading -> { /* handled by row */ }
                 }
-                is NetworkResult.Error -> {
-                    synchronized(rows) { rows[key] = emptyRow(addon, catalog).copy(isLoading = false, items = emptyList()) }
-                    publishRows()
-                }
-                NetworkResult.Loading -> { /* handled by row */ }
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Anime catalog load failed addonId=${addon.id} catalogId=${catalog.id}", e)
+            if (generation == catalogLoadGeneration.get()) {
+                synchronized(rows) { rows[key] = emptyRow(addon, catalog).copy(isLoading = false, items = emptyList()) }
+                publishRows()
+            }
+            return "${addon.displayName}: ${e.message ?: "load failed"}"
         }
+        if (generation != catalogLoadGeneration.get()) return null
+        if (!sawTerminal) return "${addon.displayName}: empty response"
+        return errorMessage
     }
 
     fun loadMoreCatalogItems(catalogId: String, addonId: String, type: String) {
@@ -582,39 +658,52 @@ class AnimeHomeViewModel @Inject constructor(
         publishRows()
 
         viewModelScope.launch {
-            val nextSkip = currentRow.nextCatalogSkip()
-            catalogRepository.getCatalog(
-                addonBaseUrl = currentRow.addonBaseUrl,
-                addonId = currentRow.addonId,
-                addonName = currentRow.addonName,
-                catalogId = catalogId,
-                catalogName = currentRow.catalogName,
-                type = type,
-                skip = nextSkip,
-                skipStep = currentRow.skipStep,
-                supportsSkip = currentRow.supportsSkip
-            ).collect { result ->
-                when (result) {
-                    is NetworkResult.Success -> {
-                        synchronized(rows) {
-                            val latest = rows[key]
-                            if (latest != null) {
-                                rows[key] = latest.mergeCatalogPage(result.data)
+            try {
+                val nextSkip = currentRow.nextCatalogSkip()
+                catalogRepository.getCatalog(
+                    addonBaseUrl = currentRow.addonBaseUrl,
+                    addonId = currentRow.addonId,
+                    addonName = currentRow.addonName,
+                    catalogId = catalogId,
+                    catalogName = currentRow.catalogName,
+                    type = type,
+                    skip = nextSkip,
+                    skipStep = currentRow.skipStep,
+                    supportsSkip = currentRow.supportsSkip
+                ).collect { result ->
+                    when (result) {
+                        is NetworkResult.Success -> {
+                            synchronized(rows) {
+                                val latest = rows[key]
+                                if (latest != null) {
+                                    rows[key] = latest.mergeCatalogPage(result.data)
+                                }
                             }
+                            publishRows()
                         }
-                        publishRows()
-                    }
-                    is NetworkResult.Error -> {
-                        synchronized(rows) {
-                            val latest = rows[key]
-                            if (latest != null) {
-                                rows[key] = latest.copy(isLoading = false)
+                        is NetworkResult.Error -> {
+                            synchronized(rows) {
+                                val latest = rows[key]
+                                if (latest != null) {
+                                    rows[key] = latest.copy(isLoading = false)
+                                }
                             }
+                            publishRows()
                         }
-                        publishRows()
+                        NetworkResult.Loading -> { }
                     }
-                    NetworkResult.Loading -> { }
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Anime catalog load-more failed catalogId=$catalogId", e)
+                synchronized(rows) {
+                    val latest = rows[key]
+                    if (latest != null) {
+                        rows[key] = latest.copy(isLoading = false)
+                    }
+                }
+                publishRows()
             }
         }
     }
@@ -669,7 +758,6 @@ class AnimeHomeViewModel @Inject constructor(
         val filtered = released.filter { it.items.isNotEmpty() }
         val heroRow = computeHeroRow(visibleRows = filtered, allRows = snapshot, today = today)
         val heroItems = heroRow?.items.orEmpty()
-        enrichAnimeHeroItemsIfNeeded(heroItems)
         _uiState.update { state ->
             val updated = state.copy(
                 rows = filtered,
@@ -695,10 +783,14 @@ class AnimeHomeViewModel @Inject constructor(
                 focusedPosterBackdropExpandDelaySeconds = focusedPosterBackdropExpandDelaySeconds,
                 focusedPosterBackdropTrailerEnabled = focusedPosterBackdropTrailerEnabled,
                 focusedPosterBackdropTrailerMuted = focusedPosterBackdropTrailerMuted,
+                focusedPosterBackdropTrailerPlaybackTarget = focusedPosterBackdropTrailerPlaybackTarget,
                 showFullReleaseDate = showFullReleaseDate
             )
             if (updated == state) state else updated
         }
+        // Called AFTER the state update so the cached-enriched restore (same
+        // signature) is not overwritten by the raw heroItems written above.
+        enrichAnimeHeroItemsIfNeeded(heroItems)
     }
 
     fun removeContinueWatching(item: ContinueWatchingItem) {

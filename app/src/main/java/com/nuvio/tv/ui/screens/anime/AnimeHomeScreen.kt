@@ -57,6 +57,7 @@ import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
+import com.nuvio.tv.domain.model.FocusedPosterTrailerPlaybackTarget
 import com.nuvio.tv.domain.model.HomeLayout
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
@@ -68,6 +69,7 @@ import com.nuvio.tv.ui.components.ContentCard
 import com.nuvio.tv.ui.components.ContinueWatchingCard
 import com.nuvio.tv.ui.components.ContinueWatchingSection
 import com.nuvio.tv.ui.components.EmptyScreenState
+import com.nuvio.tv.ui.components.ErrorState
 import com.nuvio.tv.ui.components.GridContinueWatchingSection
 import com.nuvio.tv.ui.components.HeroCarousel
 import com.nuvio.tv.ui.components.LoadingIndicator
@@ -132,12 +134,29 @@ fun AnimeHomeScreen(
                 }
             }
 
-            rows.isEmpty() -> {
-                EmptyScreenState(
-                    title = stringResource(R.string.anime_home_no_catalogs_title),
-                    subtitle = stringResource(R.string.anime_home_no_catalogs_subtitle),
-                    icon = Icons.Default.FilterDrama
+            uiState.error != null && rows.isEmpty() -> {
+                ErrorState(
+                    message = uiState.error ?: stringResource(R.string.error_generic),
+                    onRetry = { viewModel.onEvent(AnimeHomeEvent.OnRetry) }
                 )
+            }
+
+            rows.isEmpty() -> {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    EmptyScreenState(
+                        title = stringResource(R.string.anime_home_no_catalogs_title),
+                        subtitle = stringResource(R.string.anime_home_no_catalogs_subtitle),
+                        icon = Icons.Default.FilterDrama
+                    )
+                    Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+                    Button(onClick = onOpenSettings) {
+                        Text(stringResource(R.string.anime_home_empty_action))
+                    }
+                }
             }
 
             else -> {
@@ -199,7 +218,7 @@ private fun AnimeModernContent(
     onLoadMoreCatalog: (String, String, String) -> Unit
 ) {
     val defaultHeroItem = uiState.heroItem
-    var focusedHeroItem by remember(uiState.rows, defaultHeroItem) {
+    var focusedHeroItem by remember {
         mutableStateOf(defaultHeroItem)
     }
     val heroItem = focusedHeroItem ?: defaultHeroItem
@@ -220,6 +239,13 @@ private fun AnimeModernContent(
     val heroEnabled = uiState.heroEnabled && heroItem != null
     val fullScreenBackdrop = uiState.modernHeroFullScreenBackdropEnabled
     val useLandscapePosters = uiState.modernLandscapePostersEnabled
+    // Mirror the main modern home: exactly one trailer surface is armed by the
+    // "Playback target" setting — hero or expanded card, never both.
+    val trailerPlaybackTarget = uiState.focusedPosterBackdropTrailerPlaybackTarget
+    val heroPlaysTrailer = uiState.focusedPosterBackdropTrailerEnabled &&
+        trailerPlaybackTarget == FocusedPosterTrailerPlaybackTarget.HERO_MEDIA
+    val cardPlaysTrailer =
+        trailerPlaybackTarget == FocusedPosterTrailerPlaybackTarget.EXPANDED_CARD
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
     val screenWidth = configuration.screenWidthDp.dp
@@ -266,12 +292,12 @@ private fun AnimeModernContent(
                     fullScreenBackdrop = fullScreenBackdrop,
                     useLandscapePosters = useLandscapePosters,
                     showFullReleaseDate = uiState.showFullReleaseDate,
-                    trailerPreviewUrl = if (uiState.focusedPosterBackdropTrailerEnabled) {
+                    trailerPreviewUrl = if (heroPlaysTrailer) {
                         trailerPreviewUrls[currentHeroItem.id]
                     } else {
                         null
                     },
-                    trailerPreviewAudioUrl = if (uiState.focusedPosterBackdropTrailerEnabled) {
+                    trailerPreviewAudioUrl = if (heroPlaysTrailer) {
                         trailerPreviewAudioUrls[currentHeroItem.id]
                     } else {
                         null
@@ -346,12 +372,17 @@ private fun AnimeModernContent(
                     landscapeCardWidth = landscapeCatalogCardWidth,
                     landscapeCardHeight = landscapeCatalogCardHeight,
                     showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
-                    focusedPosterBackdropExpandEnabled = uiState.focusedPosterBackdropExpandEnabled,
+                    focusedPosterBackdropExpandEnabled = uiState.focusedPosterBackdropExpandEnabled &&
+                        !heroPlaysTrailer,
                     focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,
                     focusedPosterBackdropTrailerEnabled = uiState.focusedPosterBackdropTrailerEnabled,
                     focusedPosterBackdropTrailerMuted = uiState.focusedPosterBackdropTrailerMuted,
-                    trailerPreviewUrls = trailerPreviewUrls,
-                    trailerPreviewAudioUrls = trailerPreviewAudioUrls,
+                    trailerPreviewUrls = if (cardPlaysTrailer) trailerPreviewUrls else emptyMap(),
+                    trailerPreviewAudioUrls = if (cardPlaysTrailer) {
+                        trailerPreviewAudioUrls
+                    } else {
+                        emptyMap()
+                    },
                     onItemClick = onNavigateToDetail,
                     onItemFocus = { focusedHeroItem = it },
                     onLoadMoreCatalog = onLoadMoreCatalog

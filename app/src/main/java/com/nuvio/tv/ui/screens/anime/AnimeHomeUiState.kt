@@ -3,6 +3,7 @@ package com.nuvio.tv.ui.screens.anime
 import androidx.compose.runtime.Immutable
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
+import com.nuvio.tv.domain.model.FocusedPosterTrailerPlaybackTarget
 import com.nuvio.tv.domain.model.HomeLayout
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.ui.screens.home.ContinueWatchingItem
@@ -37,6 +38,8 @@ data class AnimeHomeUiState(
     val focusedPosterBackdropExpandDelaySeconds: Int = 3,
     val focusedPosterBackdropTrailerEnabled: Boolean = false,
     val focusedPosterBackdropTrailerMuted: Boolean = true,
+    val focusedPosterBackdropTrailerPlaybackTarget: FocusedPosterTrailerPlaybackTarget =
+        FocusedPosterTrailerPlaybackTarget.HERO_MEDIA,
     val showFullReleaseDate: Boolean = true
 )
 
