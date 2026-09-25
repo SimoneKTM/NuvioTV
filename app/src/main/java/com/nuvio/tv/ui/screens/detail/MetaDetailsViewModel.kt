@@ -1475,14 +1475,13 @@ class MetaDetailsViewModel @Inject constructor(
                 }
 
                 if (tmdbId == null && imdbId == null) {
-                    Log.w(TAG, "loadEpisodeRatings: no TMDB or IMDB ID found for ${meta.id} / $itemId, using fallback")
-                    val fallback = generateFallbackRatings(meta)
+                    Log.w(TAG, "loadEpisodeRatings: no TMDB or IMDB ID found for ${meta.id} / $itemId, ratings unavailable")
                     _uiState.update { state ->
                         if (state.meta == null || state.meta.id != meta.id) {
                             state
                         } else {
                             state.copy(
-                                episodeImdbRatings = fallback,
+                                episodeImdbRatings = emptyMap(),
                                 isEpisodeRatingsLoading = false,
                                 episodeRatingsError = null
                             )
@@ -1498,12 +1497,7 @@ class MetaDetailsViewModel @Inject constructor(
                 )
                 Log.d(TAG, "loadEpisodeRatings: got ${ratings.size} ratings, keys sample=${ratings.keys.take(3)}")
 
-                val effectiveRatings = if (ratings.isEmpty()) {
-                    Log.d(TAG, "loadEpisodeRatings: real ratings empty, generating fallback")
-                    generateFallbackRatings(meta)
-                } else {
-                    ratings
-                }
+                val effectiveRatings = ratings
 
                 _uiState.update { state ->
                     if (state.meta == null || state.meta.id != meta.id) {
@@ -1521,38 +1515,18 @@ class MetaDetailsViewModel @Inject constructor(
                 throw cancelled
             } catch (error: Exception) {
                 Log.w(TAG, "Failed to load episode ratings for ${meta.id}: ${error.message}", error)
-                val fallback = generateFallbackRatings(meta)
                 _uiState.update { state ->
                     if (state.meta == null || state.meta.id != meta.id) {
                         state
                     } else {
                         state.copy(
-                            episodeImdbRatings = fallback,
+                            episodeImdbRatings = emptyMap(),
                             isEpisodeRatingsLoading = false,
                             episodeRatingsError = null
                         )
                     }
                 }
             }
-        }
-    }
-
-    private fun generateFallbackRatings(meta: Meta): Map<Pair<Int, Int>, Double> {
-        val titleHash = (meta.name ?: meta.id).hashCode().toLong()
-        val rng = java.util.Random(titleHash)
-        val seriesRating = meta.imdbRating?.takeIf { it > 0f }?.toDouble()
-        val baseCenter = seriesRating ?: (6.0 + rng.nextDouble() * 2.5)
-        return buildMap {
-            meta.videos
-                .filter { (it.season ?: 0) > 0 && it.episode != null }
-                .forEach { video ->
-                    val season = video.season ?: return@forEach
-                    val episode = video.episode ?: return@forEach
-                    val deviation = (rng.nextDouble() - 0.5) * 1.8
-                    val raw = baseCenter + deviation
-                    val clamped = raw.coerceIn(5.0, 9.5)
-                    put(season to episode, (clamped * 10).toInt() / 10.0)
-                }
         }
     }
 

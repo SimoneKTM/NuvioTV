@@ -18,8 +18,6 @@ import com.nuvio.tv.data.local.AudioOutputChannels
 import com.nuvio.tv.data.local.AutoSkipSegmentType
 import com.nuvio.tv.data.local.MpvHardwareDecodeMode
 import com.nuvio.tv.data.local.SubtitleOrganizationMode
-import com.nuvio.tv.data.local.TrailerSettings
-import com.nuvio.tv.data.local.TrailerSettingsDataStore
 import com.nuvio.tv.core.torrent.TorrentSettings
 import com.nuvio.tv.core.torrent.TorrentSettingsData
 import com.nuvio.tv.data.local.VodCacheSizeMode
@@ -35,14 +33,12 @@ import javax.inject.Inject
 @HiltViewModel
 class PlaybackSettingsViewModel @Inject constructor(
     private val playerSettingsDataStore: PlayerSettingsDataStore,
-    private val trailerSettingsDataStore: TrailerSettingsDataStore,
     private val addonRepository: AddonRepository,
     private val pluginManager: PluginManager,
     private val torrentSettings: TorrentSettings
 ) : ViewModel() {
 
     val playerSettings: Flow<PlayerSettings> = playerSettingsDataStore.playerSettings
-    val trailerSettings: Flow<TrailerSettings> = trailerSettingsDataStore.settings
     val torrentSettingsFlow: Flow<TorrentSettingsData> = torrentSettings.settings
 
     fun setP2pEnabled(enabled: Boolean) = torrentSettings.setP2pEnabled(enabled)
@@ -90,14 +86,6 @@ class PlaybackSettingsViewModel @Inject constructor(
 
     suspend fun setExternalPlayerSendSkipSegments(enabled: Boolean) {
         playerSettingsDataStore.setExternalPlayerSendSkipSegments(enabled)
-    }
-
-    suspend fun setTrailerEnabled(enabled: Boolean) {
-        trailerSettingsDataStore.setEnabled(enabled)
-    }
-
-    suspend fun setTrailerDelaySeconds(seconds: Int) {
-        trailerSettingsDataStore.setDelaySeconds(seconds)
     }
 
     // Audio settings
