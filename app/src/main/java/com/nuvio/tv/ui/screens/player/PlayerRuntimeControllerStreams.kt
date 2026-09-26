@@ -296,7 +296,7 @@ private fun PlayerRuntimeController.markRemainingSourceChipsAsError() {
 
 private fun com.nuvio.tv.domain.model.Addon.supportsStreamResourceForChip(type: String, videoId: String): Boolean {
     val normalizedType = when (type.lowercase()) {
-        "series", "tv", "show", "anime", "sport", "live" -> "tv"
+        "series", "tv", "show", "anime", "sport", "live", "other" -> "tv"
         else -> type.lowercase()
     }
     val originalType = type.lowercase()

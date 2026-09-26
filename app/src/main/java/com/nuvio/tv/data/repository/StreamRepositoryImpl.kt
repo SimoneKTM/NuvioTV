@@ -187,7 +187,10 @@ override fun getStreamsFromAllAddons(
                         // kitsu show id as if it were a TMDB id), so the anime
                         // branch must come first.
                         val pluginRequest = buildPluginRequest(tmdbId, videoId)
-                            ?: return@launch
+                            ?: run {
+                                Log.w(TAG, "No plugin id for videoId=$videoId tmdbId=$tmdbId, skipping plugins")
+                                return@launch
+                            }
 
                         // Anime absolute IDs (kitsu:/mal:/anilist:…:N) must pass the
                         // absolute episode to plugins; SxE would match the wrong entry
