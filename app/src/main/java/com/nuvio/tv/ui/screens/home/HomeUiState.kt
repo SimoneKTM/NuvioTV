@@ -3,6 +3,7 @@ package com.nuvio.tv.ui.screens.home
 import androidx.compose.runtime.Immutable
 import com.nuvio.tv.core.tracking.TrackingMembershipRemovalConfirmation
 import com.nuvio.tv.data.local.StartupAuthNotice
+import com.nuvio.tv.domain.model.CalendarItem
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
 import com.nuvio.tv.domain.model.Collection
@@ -18,6 +19,7 @@ data class HomeUiState(
     val catalogRows: List<CatalogRow> = emptyList(),
     val continueWatchingItems: List<ContinueWatchingItem> = emptyList(),
     val upcomingItems: List<ContinueWatchingItem> = emptyList(),
+    val latestReleaseItems: List<CalendarItem> = emptyList(),
     val isLoading: Boolean = true,
     val layoutPreferencesReady: Boolean = false,
     val error: String? = null,

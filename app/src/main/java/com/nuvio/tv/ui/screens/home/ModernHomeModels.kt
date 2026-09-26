@@ -589,6 +589,8 @@ internal fun catalogRowTitle(
     val typeLabel = when (row.apiType.lowercase()) {
         "movie" -> strTypeMovie.ifBlank { row.apiType.replaceFirstChar { it.uppercase() } }
         "series" -> strTypeSeries.ifBlank { row.apiType.replaceFirstChar { it.uppercase() } }
+        // Mixed rows (e.g. the calendar-backed "Latest Releases") get no suffix.
+        "all" -> return catalogName
         else -> row.apiType.replaceFirstChar { it.uppercase() }
     }
     return "$catalogName - $typeLabel"

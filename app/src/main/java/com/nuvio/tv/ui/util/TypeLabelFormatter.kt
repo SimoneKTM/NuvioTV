@@ -17,6 +17,8 @@ fun localizedContentType(context: Context, contentType: String?): String = when 
     "movie" -> context.getString(R.string.type_movie)
     "series", "tv" -> context.getString(R.string.type_series)
     "anime" -> context.getString(R.string.type_anime)
+    // Mixed rows (e.g. the calendar-backed "Latest Releases") get no suffix.
+    "all" -> ""
     else -> context.getString(R.string.type_other)
 }
 

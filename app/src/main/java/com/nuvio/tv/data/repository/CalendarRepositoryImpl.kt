@@ -34,9 +34,11 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -82,6 +84,7 @@ class CalendarRepositoryImpl @Inject constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val cachedItems = MutableStateFlow<List<CalendarItem>>(emptyList())
+    private val cachedMonthItems = MutableStateFlow<List<CalendarItem>>(emptyList())
     // Attempted-once set (like LibraryRepositoryImpl.enrichedAddonIds) so we
     // don't re-query addons for items that already succeeded or failed.
     private val enrichedAddonIds = ConcurrentHashMap.newKeySet<String>()
@@ -175,6 +178,80 @@ class CalendarRepositoryImpl @Inject constructor(
         cachedItems.value = addonEnrichedItems
         emit(addonEnrichedItems)
     }.flowOn(Dispatchers.IO)
+
+    override fun getMonthReleaseItems(): Flow<List<CalendarItem>> = flow {
+        val monthStart = LocalDate.now().withDayOfMonth(1)
+        val cached = cachedMonthItems.value
+        if (cached.isNotEmpty()) {
+            emitAll(
+                getCalendarItems().map { calendarItems ->
+                    buildLatestReleaseItems(
+                        monthItems = cached,
+                        calendarItems = calendarItems,
+                        monthStart = monthStart,
+                        today = LocalDate.now()
+                    )
+                }
+            )
+            return@flow
+        }
+        val rawMonth = try {
+            fetchMonthItems(monthStart)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Month releases fetch failed: ${e.message}")
+            emptyList()
+        }
+        emitAll(
+            getCalendarItems().map { calendarItems ->
+                buildLatestReleaseItems(
+                    monthItems = rawMonth,
+                    calendarItems = calendarItems,
+                    monthStart = monthStart,
+                    today = LocalDate.now()
+                )
+            }
+        )
+        if (rawMonth.isEmpty()) return@flow
+        try {
+            val enriched = enrichItemsWithAddonData(rawMonth)
+            cachedMonthItems.value = enriched
+            emitAll(
+                getCalendarItems().map { calendarItems ->
+                    buildLatestReleaseItems(
+                        monthItems = enriched,
+                        calendarItems = calendarItems,
+                        monthStart = monthStart,
+                        today = LocalDate.now()
+                    )
+                }
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Month releases enrichment failed: ${e.message}")
+        }
+    }.flowOn(Dispatchers.IO)
+
+    private suspend fun fetchMonthItems(monthStart: LocalDate): List<CalendarItem> {
+        val response = traktApi.getCalendarMedia(
+            target = "all",
+            startDate = monthStart.format(DateTimeFormatter.ISO_LOCAL_DATE),
+            days = TRAKT_MAX_DAYS,
+            extended = "full"
+        )
+        if (!response.isSuccessful) {
+            Log.w(TAG, "Trakt month calendar failed: ${response.code()} ${response.message()}")
+            return emptyList()
+        }
+        val items = response.body().orEmpty().mapNotNull { it.toCalendarItem(monthStart) }
+        val filtered = items
+            .distinctBy { "${it.meta.id}:${it.releaseDate}" }
+            .sortedBy { it.releaseDate }
+        Log.d(TAG, "Month calendar: ${filtered.size} items from $monthStart")
+        return filtered
+    }
 
     private suspend fun enrichItemsWithAddonData(items: List<CalendarItem>): List<CalendarItem> {
         // Attempt every item once (not gated on "missing fields") so addon
@@ -555,7 +632,9 @@ class CalendarRepositoryImpl @Inject constructor(
         return "trakt_${kind}_${trakt ?: 0}"
     }
 
-    private fun TraktCalendarMediaItemDto.toCalendarItem(): CalendarItem? {
+    private fun TraktCalendarMediaItemDto.toCalendarItem(
+        minDate: LocalDate = LocalDate.now(ZoneOffset.UTC).minusDays(1)
+    ): CalendarItem? {
         val movie = movie
         if (movie != null) {
             val id = buildContentId(
@@ -565,8 +644,10 @@ class CalendarRepositoryImpl @Inject constructor(
                 kind = "movie"
             )
             val releaseDate = parseDate(released)
-            // Keep undated items only when we have a title; drop long-past dates.
-            if (releaseDate != null && releaseDate.isBefore(LocalDate.now(ZoneOffset.UTC).minusDays(1))) {
+            // Keep undated items only when we have a title; drop dates before
+            // the caller's floor (yesterday-UTC for the regular calendar,
+            // month start for the month-releases fetch).
+            if (releaseDate != null && releaseDate.isBefore(minDate)) {
                 return null
             }
 
@@ -602,7 +683,7 @@ class CalendarRepositoryImpl @Inject constructor(
                 kind = "tv"
             )
             val airDate = parseDate(firstAired ?: episode?.firstAired)
-            if (airDate != null && airDate.isBefore(LocalDate.now(ZoneOffset.UTC).minusDays(1))) {
+            if (airDate != null && airDate.isBefore(minDate)) {
                 return null
             }
 

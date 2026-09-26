@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.screens.home
 
 import android.content.Context
+import android.util.Log
 import android.os.SystemClock
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.lifecycle.ViewModel
@@ -37,6 +38,7 @@ import com.nuvio.tv.domain.model.MDBListSettings
 import com.nuvio.tv.domain.model.TmdbSettings
 import com.nuvio.tv.domain.model.TvdbSettings
 import com.nuvio.tv.domain.repository.AddonRepository
+import com.nuvio.tv.domain.repository.CalendarRepository
 import com.nuvio.tv.domain.repository.CatalogRepository
 import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import com.nuvio.tv.domain.repository.LibraryRepository
@@ -50,12 +52,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import java.util.Collections
@@ -72,6 +76,7 @@ class HomeViewModel @Inject constructor(
     internal val watchProgressRepository: WatchProgressRepository,
     internal val libraryRepository: LibraryRepository,
     internal val metaRepository: MetaRepository,
+    internal val calendarRepository: CalendarRepository,
     internal val collectionsDataStore: CollectionsDataStore,
     internal val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     internal val playerSettingsDataStore: PlayerSettingsDataStore,
@@ -145,6 +150,7 @@ class HomeViewModel @Inject constructor(
         val tag = LocaleCache.localeTag
         if (_currentLocaleTag.value != tag) {
             _currentLocaleTag.value = tag
+            scheduleUpdateCatalogRows()
         }
     }
 
@@ -343,6 +349,7 @@ class HomeViewModel @Inject constructor(
             observeLayoutPreferences()
             observeModernHomePresentation()
             loadContinueWatching()
+            observeLatestReleases()
             watchedSeriesStateHolder.loadFromDisk()
             observeExternalMetaPrefetchPreference()
             observeContinueWatchingSortMode()
@@ -833,6 +840,29 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun updateCatalogRows() = updateCatalogRowsPipeline()
+
+    private fun observeLatestReleases() {
+        viewModelScope.launch {
+            calendarRepository.getMonthReleaseItems()
+                .retryWhen { _, attempt ->
+                    if (attempt >= 5L) {
+                        false
+                    } else {
+                        delay(10_000L * (attempt + 1))
+                        true
+                    }
+                }
+                .catch { e ->
+                    Log.w(TAG, "latest releases failed: ${e.message}")
+                }
+                .collect { items ->
+                    if (_uiState.value.latestReleaseItems != items) {
+                        _uiState.update { it.copy(latestReleaseItems = items) }
+                        scheduleUpdateCatalogRows()
+                    }
+                }
+        }
+    }
 
     internal var posterStatusReconcileJob: Job? = null
 

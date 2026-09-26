@@ -100,3 +100,11 @@ private fun formatUpcomingReleaseDate(releaseDate: LocalDate, today: LocalDate):
     val date = Date(releaseDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())
     return SimpleDateFormat(pattern, locale).format(date)
 }
+
+/**
+ * Formats any release date as a standalone label (e.g. "9 Ottobre") for
+ * past and future dates alike — used by the "Latest Releases" row cards.
+ */
+internal fun formatCalendarReleaseDate(releaseDate: LocalDate): String {
+    return formatUpcomingReleaseDate(releaseDate, LocalDate.now(ZoneId.systemDefault()))
+}

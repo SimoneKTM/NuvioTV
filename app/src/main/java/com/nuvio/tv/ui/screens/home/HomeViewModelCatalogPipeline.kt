@@ -753,6 +753,8 @@ internal suspend fun HomeViewModel.updateCatalogRowsPipeline() {
                 add(HomeRow.CollectionRow(collection))
             }
         }
+        buildLatestReleaseHomeRow(appContext, _uiState.value.latestReleaseItems)
+            ?.let { add(it) }
         for (key in orderedKeys) {
             if (key in disabledHomeCatalogKeys) continue
             val collectionEntry = collectionsSnapshot[key]

@@ -267,7 +267,7 @@ fun GridContentCard(
                     .width(posterCardStyle.width)
                     .padding(top = NuvioTheme.spacing.sm, start = NuvioTheme.spacing.xxs, end = NuvioTheme.spacing.xxs)
             )
-            nextEpisodeDateLabel?.let { label ->
+            (nextEpisodeDateLabel ?: item.releaseInfo)?.let { label ->
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelMedium,

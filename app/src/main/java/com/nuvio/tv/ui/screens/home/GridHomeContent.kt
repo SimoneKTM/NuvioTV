@@ -569,6 +569,8 @@ fun GridHomeContent(
                         val typeLabel = when (gridItem.type.lowercase()) {
                             "movie" -> strTypeMovie
                             "series" -> strTypeSeries
+                            // Mixed rows get no suffix.
+                            "all" -> ""
                             else -> gridItem.type.replaceFirstChar { it.uppercase() }
                         }
                         val displayName = if (uiState.catalogTypeSuffixEnabled && typeLabel.isNotBlank()) {

@@ -26,6 +26,7 @@ import com.nuvio.tv.ui.screens.ExperienceModeSelectionScreen
 import com.nuvio.tv.ui.screens.LayoutSelectionScreen
 import com.nuvio.tv.ui.screens.detail.MetaDetailsScreen
 import com.nuvio.tv.ui.screens.home.HomeScreen
+import com.nuvio.tv.ui.screens.home.LATEST_RELEASE_ADDON_ID
 import com.nuvio.tv.ui.screens.home.LocalNextEpisodeDates
 import com.nuvio.tv.ui.screens.addon.AddonManagerScreen
 import com.nuvio.tv.ui.screens.addon.AnimeCatalogOrderScreen
@@ -230,7 +231,13 @@ fun NuvioNavHost(
                         )
                     },
                     onNavigateToCatalogSeeAll = { catalogId, addonId, type ->
-                        navController.navigate(Screen.CatalogSeeAll.createRoute(catalogId, addonId, type))
+                        if (addonId == LATEST_RELEASE_ADDON_ID) {
+                            // "Latest Releases" is calendar-backed: show the
+                            // full Calendar screen instead of an addon catalog.
+                            navController.navigate(Screen.Calendar.route)
+                        } else {
+                            navController.navigate(Screen.CatalogSeeAll.createRoute(catalogId, addonId, type))
+                        }
                     },
                     onNavigateToFolderDetail = { collectionId, folderId ->
                         navController.navigate(Screen.FolderDetail.createRoute(collectionId, folderId))
