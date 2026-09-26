@@ -15,6 +15,7 @@ import com.nuvio.tv.data.remote.api.TrailerApi
 import com.nuvio.tv.data.remote.api.IntroDbApi
 import com.nuvio.tv.data.remote.api.ImdbTapframeApi
 import com.nuvio.tv.data.remote.api.MDBListApi
+import com.nuvio.tv.data.remote.api.OmdbApi
 import com.nuvio.tv.data.remote.api.OpenSubtitlesApi
 import com.nuvio.tv.data.remote.api.ParentalGuideApi
 import com.nuvio.tv.data.remote.api.PlaybackIssueReportApi
@@ -663,6 +664,21 @@ object NetworkModule {
     @Singleton
     fun provideMDBListApi(@Named("mdblist") retrofit: Retrofit): MDBListApi =
         retrofit.create(MDBListApi::class.java)
+
+    @Provides
+    @Singleton
+    @Named("omdb")
+    fun provideOmdbRetrofit(okHttpClient: OkHttpClient, moshi: Moshi): Retrofit =
+        Retrofit.Builder()
+            .baseUrl("https://www.omdbapi.com/")
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+
+    @Provides
+    @Singleton
+    fun provideOmdbApi(@Named("omdb") retrofit: Retrofit): OmdbApi =
+        retrofit.create(OmdbApi::class.java)
 
     // --- SeriesGraph API ---
 

@@ -17,6 +17,7 @@ import com.nuvio.tv.data.local.AnimeTvdbSettingsDataStore
 import com.nuvio.tv.data.local.TvdbSettingsDataStore
 import com.nuvio.tv.data.repository.ImdbEpisodeRatingsRepository
 import com.nuvio.tv.data.repository.MDBListRepository
+import com.nuvio.tv.data.repository.OmdbAwardsRepository
 import com.nuvio.tv.data.repository.TraktCommentsService
 import com.nuvio.tv.data.repository.TraktRelatedService
 import com.nuvio.tv.data.repository.parseContentIds
@@ -95,6 +96,7 @@ class MetaDetailsViewModel @Inject constructor(
     private val tmdbMetadataService: TmdbMetadataService,
     private val imdbEpisodeRatingsRepository: ImdbEpisodeRatingsRepository,
     private val mdbListRepository: MDBListRepository,
+    private val omdbAwardsRepository: OmdbAwardsRepository,
     private val mdbListSettingsDataStore: com.nuvio.tv.data.local.MDBListSettingsDataStore,
     @Named("anime_mdblist") private val animeMdbListSettingsDataStore: com.nuvio.tv.data.local.MDBListSettingsDataStore,
     @Named("extra_mdblist") private val extraMdbListSettingsDataStore: com.nuvio.tv.data.local.MDBListSettingsDataStore,
@@ -756,6 +758,7 @@ class MetaDetailsViewModel @Inject constructor(
                     episodeRatingsError = null,
                     mdbListRatings = null,
                     showMdbListImdb = false,
+                    awards = null,
                     tmdbRating = null,
                     tvdbRating = null,
                     moreLikeThis = emptyList(),
@@ -1044,6 +1047,7 @@ class MetaDetailsViewModel @Inject constructor(
         // Episode ratings and MDBList are independent — launch both without waiting.
         loadEpisodeRatingsAsync(enriched)
         viewModelScope.launch { loadMDBListRatings(enriched) }
+        viewModelScope.launch { loadAwards(enriched) }
     }
 
     private fun loadComments(meta: Meta, forceRefresh: Boolean = false) {
@@ -1392,6 +1396,27 @@ class MetaDetailsViewModel @Inject constructor(
                 mdbListRatings = ratingsResult?.ratings,
                 showMdbListImdb = ratingsResult?.hasImdbRating == true
             )
+        }
+    }
+
+    private suspend fun loadAwards(meta: Meta) {
+        val addonAwards = meta.awards?.trim()?.takeIf { it.isNotBlank() }
+        val resolved = addonAwards ?: runCatching {
+            omdbAwardsRepository.getAwards(
+                meta = meta,
+                fallbackItemId = itemId,
+                fallbackItemType = itemType
+            )
+        }.onFailure { e ->
+            Log.w(TAG, "Awards lookup failed for ${meta.id}: ${e.message}")
+        }.getOrNull()
+
+        if (resolved == null) {
+            Log.d(TAG, "Awards: no result for ${meta.id} (no OMDb key, no id, or no data)")
+        }
+
+        _uiState.update { state ->
+            if (state.meta?.id != meta.id) state else state.copy(awards = resolved)
         }
     }
 

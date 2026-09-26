@@ -74,10 +74,12 @@ import com.nuvio.tv.domain.model.Video
 import com.nuvio.tv.domain.model.NextToWatch
 import com.nuvio.tv.ui.components.ImdbRatingSourceLabel
 import com.nuvio.tv.ui.theme.NuvioTheme
+import com.nuvio.tv.ui.theme.NuvioPrimitives
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.painter.Painter
 import coil3.request.ImageRequest
@@ -104,6 +106,7 @@ fun HeroContentSection(
     onTrailerClick: () -> Unit = {},
     hideLogoDuringTrailer: Boolean = false,
     mdbListRatings: MDBListRatings? = null,
+    awards: String? = null,
     hideMetaInfoImdb: Boolean = false,
     tmdbRating: Float? = null,
     tvdbRating: Float? = null,
@@ -402,6 +405,26 @@ fun HeroContentSection(
                                 )
                             }
                         }
+                    }
+
+                    if (!awards.isNullOrBlank()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.EmojiEvents,
+                                contentDescription = null,
+                                tint = NuvioPrimitives.green500,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = awards,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = NuvioPrimitives.green500
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
                     }
 
                     MetaInfoRow(

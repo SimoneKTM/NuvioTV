@@ -1,4 +1,4 @@
-﻿package com.nuvio.tv.ui.screens.detail
+package com.nuvio.tv.ui.screens.detail
 
 import com.nuvio.tv.ui.theme.NuvioMotion
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -494,6 +494,7 @@ fun MetaDetailsScreen(
                     episodeRatingsError = uiState.episodeRatingsError,
                     mdbListRatings = uiState.mdbListRatings,
                     showMdbListImdb = uiState.showMdbListImdb,
+                    awards = uiState.awards,
                     tmdbRating = uiState.tmdbRating,
                     tvdbRating = uiState.tvdbRating,
                     comments = uiState.comments,
@@ -876,6 +877,7 @@ private fun MetaDetailsContent(
     episodeRatingsError: String?,
     mdbListRatings: MDBListRatings?,
     showMdbListImdb: Boolean,
+    awards: String?,
     tmdbRating: Float?,
     tvdbRating: Float?,
     comments: List<TraktCommentReview>,
@@ -1676,6 +1678,7 @@ private fun MetaDetailsContent(
                         onToggleMovieWatched = onToggleMovieWatched,
                         mdbListRatings = mdbListRatings,
                         hideMetaInfoImdb = showMdbListImdb,
+                        awards = awards,
                         tmdbRating = if (mdbListRatings?.isEmpty() != false) tmdbRating else null,
                         tvdbRating = tvdbRating,
                         showFullReleaseDate = showFullReleaseDate,

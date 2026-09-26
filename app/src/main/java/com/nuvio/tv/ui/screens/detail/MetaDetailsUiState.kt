@@ -69,6 +69,7 @@ data class MetaDetailsUiState(
     val episodeRatingsError: String? = null,
     val mdbListRatings: MDBListRatings? = null,
     val showMdbListImdb: Boolean = false,
+    val awards: String? = null,
     val tmdbRating: Float? = null,
     val tvdbRating: Float? = null,
     val comments: List<TraktCommentReview> = emptyList(),
