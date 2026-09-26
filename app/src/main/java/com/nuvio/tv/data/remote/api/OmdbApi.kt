@@ -8,7 +8,7 @@ import retrofit2.http.Query
 interface OmdbApi {
     @GET(".")
     suspend fun getTitle(
-        @Query("i") imdbId: String,
-        @Query("apikey") apiKey: String
+        @Query("apikey") apiKey: String,
+        @Query("i") imdbId: String
     ): Response<OmdbResponseDto>
 }
