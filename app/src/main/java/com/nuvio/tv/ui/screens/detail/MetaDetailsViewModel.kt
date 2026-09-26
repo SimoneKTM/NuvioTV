@@ -805,7 +805,13 @@ class MetaDetailsViewModel @Inject constructor(
                 val preferredMeta: Meta? = preferred?.let { baseUrl ->
                     val candidateIds = buildList {
                         add(metaLookupId)
-                        if (!rawTmdbNumericId.isNullOrBlank() && rawTmdbNumericId != metaLookupId) {
+                        if (itemId.isNotBlank() && itemId != metaLookupId) {
+                            add(itemId)
+                        }
+                        if (!rawTmdbNumericId.isNullOrBlank() &&
+                            rawTmdbNumericId != metaLookupId &&
+                            rawTmdbNumericId != itemId
+                        ) {
                             add(rawTmdbNumericId)
                         }
                     }
@@ -857,6 +863,7 @@ class MetaDetailsViewModel @Inject constructor(
                 id = metaLookupId,
                 sourceAddonBaseUrl = preferredAddonBaseUrl,
                 rawId = rawTmdbNumericId,
+                originalId = itemId,
                 namespace = namespace
             ).collect { result ->
                 when (result) {

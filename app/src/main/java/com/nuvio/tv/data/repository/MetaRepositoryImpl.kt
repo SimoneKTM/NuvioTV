@@ -137,12 +137,14 @@ class MetaRepositoryImpl @Inject constructor(
         sourceAddonBaseUrl: String?,
         rawId: String?,
         namespace: String,
-        preferAnimeAddons: Boolean
+        preferAnimeAddons: Boolean,
+        originalId: String?
     ): Flow<NetworkResult<Meta>> = flow {
         val ctx = context
         val mode = if (preferAnimeAddons) "anime" else "std"
         val cacheType = metaCacheType(type)
         val cacheKey = "$namespace:$cacheType:$id:$mode"
+        val candidateIds = buildMetaCandidateIds(id, originalId, rawId)
         var bypassedCachedMeta: Meta? = null
         val normalizedSource = sourceAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
         fun Meta.matchesRequestedSource(): Boolean {
@@ -272,25 +274,27 @@ class MetaRepositoryImpl @Inject constructor(
 
             for (addon in fallbackAddons) {
                 attemptedAddonNames += addon.displayName
-                val url = buildMetaUrl(addon.baseUrl, requestedType, id)
-                when (val result = safeApiCall(context) { api.getMeta(url) }) {
-                    is NetworkResult.Success -> {
-                        val metaDto = result.data.meta
-                        if (metaDto != null) {
-                            val episodeLabel = context.getString(R.string.episodes_episode)
-                            val meta = metaDto.toDomain(episodeLabel)
-                                .copy(sourceAddonBaseUrl = addon.baseUrl)
-                            addonMetaCache[cacheKey] = meta
-                            emit(NetworkResult.Success(meta))
-                            return@flow
-                        } else {
-                            attemptedFailures += buildMissingMetaFailure(addon)
+                for (candidateId in candidateIds) {
+                    val url = buildMetaUrl(addon.baseUrl, requestedType, candidateId)
+                    when (val result = safeApiCall(context) { api.getMeta(url) }) {
+                        is NetworkResult.Success -> {
+                            val metaDto = result.data.meta
+                            if (metaDto != null) {
+                                val episodeLabel = context.getString(R.string.episodes_episode)
+                                val meta = metaDto.toDomain(episodeLabel)
+                                    .copy(sourceAddonBaseUrl = addon.baseUrl)
+                                addonMetaCache[cacheKey] = meta
+                                emit(NetworkResult.Success(meta))
+                                return@flow
+                            } else {
+                                attemptedFailures += buildMissingMetaFailure(addon)
+                            }
                         }
+                        is NetworkResult.Error -> {
+                            attemptedFailures += buildAddonFailure(addon, result)
+                        }
+                        NetworkResult.Loading -> { /* Try next addon */ }
                     }
-                    is NetworkResult.Error -> {
-                        attemptedFailures += buildAddonFailure(addon, result)
-                    }
-                    NetworkResult.Loading -> { /* Try next addon */ }
                 }
             }
 
@@ -336,10 +340,6 @@ class MetaRepositoryImpl @Inject constructor(
                         val loopFailures = mutableListOf<MetaAttemptFailure>()
                         var attempted = 0
                         var allMissing = true
-                        val candidateIds = buildList {
-                            add(id)
-                            if (!rawId.isNullOrBlank() && rawId != id) add(rawId)
-                        }
 
                         for ((addon, candidateType) in orderedCandidates) {
                             for (candidateId in candidateIds) {
@@ -381,12 +381,6 @@ class MetaRepositoryImpl @Inject constructor(
                         val episodeLabel = context.getString(R.string.episodes_episode)
                         val attemptedCounter = java.util.concurrent.atomic.AtomicInteger(0)
                         val anyRequestFailed = java.util.concurrent.atomic.AtomicBoolean(false)
-                        val candidateIds = buildList {
-                            add(id)
-                            if (!rawId.isNullOrBlank() && rawId != id) {
-                                add(rawId)
-                            }
-                        }
 
                         suspend fun raceMeta(
                             candidates: List<Pair<Addon, String>>
@@ -615,6 +609,12 @@ class MetaRepositoryImpl @Inject constructor(
         val encodedType = encodePathSegment(type)
         val encodedId = encodePathSegment(id)
         return "$basePath/meta/$encodedType/$encodedId.json$baseQuery"
+    }
+
+    private fun buildMetaCandidateIds(id: String, originalId: String?, rawId: String?): List<String> = buildList {
+        add(id)
+        if (!originalId.isNullOrBlank() && originalId != id) add(originalId)
+        if (!rawId.isNullOrBlank() && rawId != id && rawId != originalId) add(rawId)
     }
 
     private fun Addon.supportsMetaType(type: String): Boolean {

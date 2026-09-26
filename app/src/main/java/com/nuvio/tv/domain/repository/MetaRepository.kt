@@ -18,7 +18,8 @@ interface MetaRepository {
         sourceAddonBaseUrl: String? = null,
         rawId: String? = null,
         namespace: String = META_NAMESPACE_HOME,
-        preferAnimeAddons: Boolean = false
+        preferAnimeAddons: Boolean = false,
+        originalId: String? = null
     ): Flow<NetworkResult<Meta>>
 
     fun getMetaFromPrimaryAddon(
