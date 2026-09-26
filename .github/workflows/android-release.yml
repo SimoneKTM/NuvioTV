@@ -164,6 +164,10 @@ jobs:
 
       - name: Configure release properties
         if: inputs.mode != 'dry-run'
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          INTRODB_API_URL: ${{ secrets.INTRODB_API_URL }}
+          INTRODB_API_KEY: ${{ secrets.INTRODB_API_KEY }}
         run: |
           keystore_path="${RUNNER_TEMP}/nuviotv-release.jks"
           printf '%s' "${RELEASE_KEYSTORE_BASE64}" | base64 --decode > "${keystore_path}"
@@ -186,6 +190,9 @@ jobs:
           set_property NUVIO_RELEASE_KEY_ALIAS "${RELEASE_KEY_ALIAS}"
           set_property NUVIO_RELEASE_KEY_PASSWORD "${RELEASE_KEY_PASSWORD}"
           set_property NUVIO_RELEASE_STORE_PASSWORD "${RELEASE_STORE_PASSWORD}"
+          set_property TMDB_API_KEY "${TMDB_API_KEY}"
+          set_property INTRODB_API_URL "${INTRODB_API_URL}"
+          set_property INTRODB_API_KEY "${INTRODB_API_KEY}"
 
           printf 'TRAKT_CLIENT_ID=%s\n' "${{ secrets.TRAKT_CLIENT_ID }}" >> local.properties
           printf 'TRAKT_CLIENT_SECRET=%s\n' "${{ secrets.TRAKT_CLIENT_SECRET }}" >> local.properties
@@ -214,6 +221,24 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Summarize configured property keys
+        if: inputs.mode != 'dry-run'
+        run: |
+          {
+            echo "### local.properties keys (values redacted)"
+            echo '```'
+            grep -E '^[A-Za-z0-9_.\-]+=' local.properties | cut -d= -f1 | sort
+            echo '```'
+            if [ -f local.dev.properties ]; then
+              echo "### local.dev.properties keys (values redacted)"
+              echo '```'
+              grep -E '^[A-Za-z0-9_.\-]+=' local.dev.properties | cut -d= -f1 | sort
+              echo '```'
+            else
+              echo "local.dev.properties not present (secret LOCAL_DEV_PROPERTIES_BASE64 unset)."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build full release APKs
         if: inputs.mode != 'dry-run'
