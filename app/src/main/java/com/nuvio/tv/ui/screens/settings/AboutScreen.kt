@@ -120,7 +120,7 @@ fun AboutSettingsContent(
                 )
 
                 Text(
-                    text = "SimoneKTM",
+                    text = stringResource(R.string.about_version, "SimoneKTM"),
                     style = MaterialTheme.typography.labelSmall,
                     color = NuvioTheme.colors.TextSecondary,
                     textAlign = TextAlign.Center
