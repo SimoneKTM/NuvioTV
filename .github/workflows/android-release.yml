@@ -277,4 +277,17 @@ jobs:
           if [[ "${RELEASE_MODE}" == "draft" ]]; then
             release_args+=(--draft)
           fi
-          gh release create "${release_args[@]}" "${release_apks[@]}"
+          # GitHub intermittently answers POST /releases with
+          # 403 "Resource not accessible by integration" even though the
+          # job token has contents: write (seen after many releases in a
+          # short window). Retry with backoff before failing the job.
+          release_attempt=0
+          until gh release create "${release_args[@]}" "${release_apks[@]}"; do
+            release_attempt=$((release_attempt + 1))
+            if (( release_attempt >= 3 )); then
+              echo "gh release create failed after ${release_attempt} attempts." >&2
+              exit 1
+            fi
+            echo "gh release create failed (attempt ${release_attempt}); retrying in 90s..." >&2
+            sleep 90
+          done
