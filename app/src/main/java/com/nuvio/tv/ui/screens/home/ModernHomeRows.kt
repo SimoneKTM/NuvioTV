@@ -1460,7 +1460,8 @@ private fun ModernCarouselCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                item.subtitle?.takeIf { it.isNotBlank() }?.let { subtitle ->
+                val nextEpisodeDateLabel = item.metaPreview?.let { rememberNextEpisodeDateLabel(it) }
+                (nextEpisodeDateLabel ?: item.subtitle)?.takeIf { it.isNotBlank() }?.let { subtitle ->
                     Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxs))
                     Text(
                         text = subtitle,

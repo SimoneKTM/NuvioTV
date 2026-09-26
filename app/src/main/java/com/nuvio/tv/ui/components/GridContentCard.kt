@@ -56,6 +56,7 @@ import com.nuvio.tv.domain.model.CardDepthSurface
 import androidx.compose.ui.platform.LocalContext
 import com.nuvio.tv.ui.util.recompositionHighlighter
 import com.nuvio.tv.ui.util.rememberLongPressKeyTracker
+import com.nuvio.tv.ui.screens.home.rememberNextEpisodeDateLabel
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
@@ -87,6 +88,7 @@ fun GridContentCard(
     var isFocused by remember { mutableStateOf(false) }
     var longPressTriggered by remember { mutableStateOf(false) }
     val longPressKeyTracker = rememberLongPressKeyTracker()
+    val nextEpisodeDateLabel = rememberNextEpisodeDateLabel(item)
 
 
     Column(
@@ -265,6 +267,18 @@ fun GridContentCard(
                     .width(posterCardStyle.width)
                     .padding(top = NuvioTheme.spacing.sm, start = NuvioTheme.spacing.xxs, end = NuvioTheme.spacing.xxs)
             )
+            nextEpisodeDateLabel?.let { label ->
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = NuvioTheme.colors.TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .width(posterCardStyle.width)
+                        .padding(top = NuvioTheme.spacing.xxs, start = NuvioTheme.spacing.xxs, end = NuvioTheme.spacing.xxs)
+                )
+            }
         }
     }
 }

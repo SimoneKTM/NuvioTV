@@ -8,6 +8,7 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -25,6 +26,7 @@ import com.nuvio.tv.ui.screens.ExperienceModeSelectionScreen
 import com.nuvio.tv.ui.screens.LayoutSelectionScreen
 import com.nuvio.tv.ui.screens.detail.MetaDetailsScreen
 import com.nuvio.tv.ui.screens.home.HomeScreen
+import com.nuvio.tv.ui.screens.home.LocalNextEpisodeDates
 import com.nuvio.tv.ui.screens.addon.AddonManagerScreen
 import com.nuvio.tv.ui.screens.addon.AnimeCatalogOrderScreen
 import com.nuvio.tv.ui.screens.addon.CatalogOrderScreen
@@ -198,39 +200,44 @@ fun NuvioNavHost(
         }
 
         composable(Screen.Home.route) {
-            HomeScreen(
-                onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
-                    val heroBackdrop = HeroBackdropState.consumeAndClear()
-                    navController.navigate(
-                        Screen.Detail.createRoute(
-                            itemId = itemId,
-                            itemType = itemType,
-                            addonBaseUrl = addonBaseUrl,
-                            heroBackdropUrl = heroBackdrop
+            val nextEpisodeDatesViewModel: com.nuvio.tv.ui.screens.home.NextEpisodeDateBadgesViewModel =
+                androidx.hilt.navigation.compose.hiltViewModel()
+            val nextEpisodeDates by nextEpisodeDatesViewModel.labels.collectAsState()
+            CompositionLocalProvider(LocalNextEpisodeDates provides nextEpisodeDates) {
+                HomeScreen(
+                    onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
+                        val heroBackdrop = HeroBackdropState.consumeAndClear()
+                        navController.navigate(
+                            Screen.Detail.createRoute(
+                                itemId = itemId,
+                                itemType = itemType,
+                                addonBaseUrl = addonBaseUrl,
+                                heroBackdropUrl = heroBackdrop
+                            )
                         )
-                    )
-                },
-                onContinueWatchingClick = { item ->
-                    navController.navigate(createContinueWatchingRoute(item))
-                },
-                onContinueWatchingStartFromBeginning = { item ->
-                    navController.navigate(
-                        createContinueWatchingRoute(item, startFromBeginning = true)
-                    )
-                },
-                onContinueWatchingPlayManually = { item ->
-                    navController.navigate(
-                        createContinueWatchingRoute(item, manualSelection = true)
-                    )
-                },
-                onNavigateToCatalogSeeAll = { catalogId, addonId, type ->
-                    navController.navigate(Screen.CatalogSeeAll.createRoute(catalogId, addonId, type))
-                },
-                onNavigateToFolderDetail = { collectionId, folderId ->
-                    navController.navigate(Screen.FolderDetail.createRoute(collectionId, folderId))
-                },
-                onOpenAddons = { navController.navigate(Screen.AddonManager.route) }
-            )
+                    },
+                    onContinueWatchingClick = { item ->
+                        navController.navigate(createContinueWatchingRoute(item))
+                    },
+                    onContinueWatchingStartFromBeginning = { item ->
+                        navController.navigate(
+                            createContinueWatchingRoute(item, startFromBeginning = true)
+                        )
+                    },
+                    onContinueWatchingPlayManually = { item ->
+                        navController.navigate(
+                            createContinueWatchingRoute(item, manualSelection = true)
+                        )
+                    },
+                    onNavigateToCatalogSeeAll = { catalogId, addonId, type ->
+                        navController.navigate(Screen.CatalogSeeAll.createRoute(catalogId, addonId, type))
+                    },
+                    onNavigateToFolderDetail = { collectionId, folderId ->
+                        navController.navigate(Screen.FolderDetail.createRoute(collectionId, folderId))
+                    },
+                    onOpenAddons = { navController.navigate(Screen.AddonManager.route) }
+                )
+            }
         }
 
         composable(
@@ -1146,34 +1153,39 @@ fun NuvioNavHost(
         composable(Screen.Anime.route) {
             val animeViewModel: com.nuvio.tv.ui.screens.anime.AnimeHomeViewModel =
                 androidx.hilt.navigation.compose.hiltViewModel()
-            com.nuvio.tv.ui.screens.anime.AnimeHomeScreen(
-                viewModel = animeViewModel,
-                onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
-                    val heroBackdrop = HeroBackdropState.consumeAndClear()
-                    navController.navigate(
-                        Screen.Detail.createRoute(
-                            itemId = itemId,
-                            itemType = itemType,
-                            addonBaseUrl = addonBaseUrl,
-                            heroBackdropUrl = heroBackdrop
+            val nextEpisodeDatesViewModel: com.nuvio.tv.ui.screens.home.NextEpisodeDateBadgesViewModel =
+                androidx.hilt.navigation.compose.hiltViewModel()
+            val nextEpisodeDates by nextEpisodeDatesViewModel.labels.collectAsState()
+            CompositionLocalProvider(LocalNextEpisodeDates provides nextEpisodeDates) {
+                com.nuvio.tv.ui.screens.anime.AnimeHomeScreen(
+                    viewModel = animeViewModel,
+                    onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
+                        val heroBackdrop = HeroBackdropState.consumeAndClear()
+                        navController.navigate(
+                            Screen.Detail.createRoute(
+                                itemId = itemId,
+                                itemType = itemType,
+                                addonBaseUrl = addonBaseUrl,
+                                heroBackdropUrl = heroBackdrop
+                            )
                         )
-                    )
-                },
-                onNavigateToSeeAll = { catalogId, addonId, type ->
-                    navController.navigate(
-                        Screen.CatalogSeeAll.createRoute(catalogId, addonId, type, fromAnime = true)
-                    )
-                },
-                onContinueWatchingClick = { item ->
-                    navController.navigate(createContinueWatchingRoute(item))
-                },
-                onContinueWatchingStartFromBeginning = { item ->
-                    navController.navigate(
-                        createContinueWatchingRoute(item, startFromBeginning = true)
-                    )
-                },
-                onOpenSettings = { navController.navigate(Screen.AnimeSettings.route) }
-            )
+                    },
+                    onNavigateToSeeAll = { catalogId, addonId, type ->
+                        navController.navigate(
+                            Screen.CatalogSeeAll.createRoute(catalogId, addonId, type, fromAnime = true)
+                        )
+                    },
+                    onContinueWatchingClick = { item ->
+                        navController.navigate(createContinueWatchingRoute(item))
+                    },
+                    onContinueWatchingStartFromBeginning = { item ->
+                        navController.navigate(
+                            createContinueWatchingRoute(item, startFromBeginning = true)
+                        )
+                    },
+                    onOpenSettings = { navController.navigate(Screen.AnimeSettings.route) }
+                )
+            }
         }
 
         composable(Screen.AnimeSettings.route) {
@@ -1223,34 +1235,39 @@ fun NuvioNavHost(
         composable(Screen.Extra.route) {
             val extraViewModel: com.nuvio.tv.ui.screens.extra.ExtraHomeViewModel =
                 androidx.hilt.navigation.compose.hiltViewModel()
-            com.nuvio.tv.ui.screens.extra.ExtraHomeScreen(
-                viewModel = extraViewModel,
-                onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
-                    val heroBackdrop = HeroBackdropState.consumeAndClear()
-                    navController.navigate(
-                        Screen.Detail.createRoute(
-                            itemId = itemId,
-                            itemType = itemType,
-                            addonBaseUrl = addonBaseUrl,
-                            heroBackdropUrl = heroBackdrop
+            val nextEpisodeDatesViewModel: com.nuvio.tv.ui.screens.home.NextEpisodeDateBadgesViewModel =
+                androidx.hilt.navigation.compose.hiltViewModel()
+            val nextEpisodeDates by nextEpisodeDatesViewModel.labels.collectAsState()
+            CompositionLocalProvider(LocalNextEpisodeDates provides nextEpisodeDates) {
+                com.nuvio.tv.ui.screens.extra.ExtraHomeScreen(
+                    viewModel = extraViewModel,
+                    onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
+                        val heroBackdrop = HeroBackdropState.consumeAndClear()
+                        navController.navigate(
+                            Screen.Detail.createRoute(
+                                itemId = itemId,
+                                itemType = itemType,
+                                addonBaseUrl = addonBaseUrl,
+                                heroBackdropUrl = heroBackdrop
+                            )
                         )
-                    )
-                },
-                onNavigateToSeeAll = { catalogId, addonId, type ->
-                    navController.navigate(
-                        Screen.CatalogSeeAll.createRoute(catalogId, addonId, type, fromExtra = true)
-                    )
-                },
-                onContinueWatchingClick = { item ->
-                    navController.navigate(createContinueWatchingRoute(item))
-                },
-                onContinueWatchingStartFromBeginning = { item ->
-                    navController.navigate(
-                        createContinueWatchingRoute(item, startFromBeginning = true)
-                    )
-                },
-                onOpenSettings = { navController.navigate(Screen.ExtraSettings.route) }
-            )
+                    },
+                    onNavigateToSeeAll = { catalogId, addonId, type ->
+                        navController.navigate(
+                            Screen.CatalogSeeAll.createRoute(catalogId, addonId, type, fromExtra = true)
+                        )
+                    },
+                    onContinueWatchingClick = { item ->
+                        navController.navigate(createContinueWatchingRoute(item))
+                    },
+                    onContinueWatchingStartFromBeginning = { item ->
+                        navController.navigate(
+                            createContinueWatchingRoute(item, startFromBeginning = true)
+                        )
+                    },
+                    onOpenSettings = { navController.navigate(Screen.ExtraSettings.route) }
+                )
+            }
         }
 
         composable(Screen.ExtraSettings.route) {

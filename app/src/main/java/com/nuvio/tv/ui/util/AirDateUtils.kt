@@ -4,9 +4,12 @@ import android.content.Context
 import com.nuvio.tv.R
 import com.nuvio.tv.core.util.isEpisodeReleaseAired
 import com.nuvio.tv.core.util.parseEpisodeReleaseLocalDate
+import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
+import java.util.Date
+import java.util.Locale
 
 internal fun parseEpisodeReleaseDate(raw: String?): LocalDate? {
     return parseEpisodeReleaseLocalDate(raw)
@@ -58,14 +61,42 @@ internal fun computeAirDateBadgeTextShort(
     val daysUntil = ChronoUnit.DAYS.between(today, releaseDate)
 
     return when {
-        daysUntil < 0 -> null
+        daysUntil < 0L -> null
         daysUntil == 0L -> context.getString(R.string.cw_airs_today_short)
         daysUntil == 1L -> context.getString(R.string.cw_airs_tomorrow_short)
-        daysUntil in 2..7 -> context.resources.getQuantityString(
+        daysUntil in 2L..7L -> context.resources.getQuantityString(
             R.plurals.cw_airs_in_days_short,
             daysUntil.toInt(),
             daysUntil.toInt()
         )
         else -> airDateLabel?.let { context.getString(R.string.cw_airs_date_short, it) }
     }
+}
+
+internal fun computeUpcomingReleaseBadgeText(
+    context: Context,
+    releaseDate: LocalDate
+): String? {
+    val today = LocalDate.now(ZoneId.systemDefault())
+    val daysUntil = ChronoUnit.DAYS.between(today, releaseDate)
+
+    return when {
+        daysUntil < 0L -> null
+        daysUntil == 0L -> context.getString(R.string.cw_airs_today_short)
+        daysUntil == 1L -> context.getString(R.string.cw_airs_tomorrow_short)
+        daysUntil in 2L..7L -> context.resources.getQuantityString(
+            R.plurals.cw_airs_in_days_short,
+            daysUntil.toInt(),
+            daysUntil.toInt()
+        )
+        else -> formatUpcomingReleaseDate(releaseDate, today)
+    }
+}
+
+private fun formatUpcomingReleaseDate(releaseDate: LocalDate, today: LocalDate): String {
+    val locale = Locale.getDefault()
+    val skeleton = if (releaseDate.year == today.year) "dMMMM" else "dMMMMy"
+    val pattern = android.text.format.DateFormat.getBestDateTimePattern(locale, skeleton)
+    val date = Date(releaseDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli())
+    return SimpleDateFormat(pattern, locale).format(date)
 }

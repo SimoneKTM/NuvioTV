@@ -71,6 +71,7 @@ import coil3.request.ImageRequest
 import coil3.request.CachePolicy
 import coil3.request.crossfade
 import com.nuvio.tv.ui.util.localizedContentType
+import com.nuvio.tv.ui.screens.home.rememberNextEpisodeDateLabel
 import com.nuvio.tv.ui.util.recompositionHighlighter
 import com.nuvio.tv.ui.screens.home.LocalFastScrollActive
 import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
@@ -129,6 +130,7 @@ fun ContentCard(
     var trailerFirstFrameRendered by remember(trailerPreviewUrl) { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
+    val nextEpisodeDateLabel = rememberNextEpisodeDateLabel(item)
 
     LaunchedEffect(isBackdropExpanded) {
         onBackdropExpandedChanged?.invoke(isBackdropExpanded)
@@ -185,7 +187,7 @@ fun ContentCard(
         }
     }
     val metaTokens = if (isBackdropExpanded) {
-        remember(item.type, item.rawType, item.genres, item.releaseInfo, item.imdbRating, item.seasonCount) {
+        remember(item.type, item.rawType, item.genres, item.releaseInfo, item.imdbRating, item.seasonCount, nextEpisodeDateLabel) {
             buildList {
                 add(localizedContentType(context, item.apiType))
                 item.genres.firstOrNull()?.let { add(it) }
@@ -194,19 +196,23 @@ fun ContentCard(
                 ) {
                     add(context.resources.getQuantityString(R.plurals.content_card_season_count, item.seasonCount, item.seasonCount))
                 }
-                item.releaseInfo
-                    ?.let { info ->
-                        val trimmed = info.trim()
-                        val rangeMatch = YEAR_RANGE_REGEX.find(trimmed)
-                        if (rangeMatch != null) {
-                            val startYear = rangeMatch.groupValues[1]
-                            val endYear = rangeMatch.groupValues[3]
-                            if (endYear.isNotBlank()) "$startYear–$endYear" else startYear
-                        } else {
-                            YEAR_REGEX.find(trimmed)?.value
+                if (nextEpisodeDateLabel != null) {
+                    add(nextEpisodeDateLabel)
+                } else {
+                    item.releaseInfo
+                        ?.let { info ->
+                            val trimmed = info.trim()
+                            val rangeMatch = YEAR_RANGE_REGEX.find(trimmed)
+                            if (rangeMatch != null) {
+                                val startYear = rangeMatch.groupValues[1]
+                                val endYear = rangeMatch.groupValues[3]
+                                if (endYear.isNotBlank()) "$startYear–$endYear" else startYear
+                            } else {
+                                YEAR_REGEX.find(trimmed)?.value
+                            }
                         }
-                    }
-                    ?.let { add(it) }
+                        ?.let { add(it) }
+                }
                 item.imdbRating?.let { add(String.format(java.util.Locale.US, "%.1f", it)) }
             }
         }
@@ -557,7 +563,7 @@ fun ContentCard(
                         style = MaterialTheme.typography.titleMedium,
                         color = NuvioTheme.colors.TextPrimary,
                     )
-                    item.releaseInfo?.let { info ->
+                    (nextEpisodeDateLabel ?: item.releaseInfo)?.let { info ->
                         FocusMarqueeText(
                             text = info,
                             focused = isFocused,
