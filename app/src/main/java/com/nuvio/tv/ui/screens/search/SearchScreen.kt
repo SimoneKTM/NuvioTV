@@ -156,7 +156,6 @@ fun SearchScreen(
     val strVoiceUnavailable = stringResource(R.string.search_voice_unavailable)
     val voiceFocusRequester = remember { FocusRequester() }
     val searchFocusRequester = remember { FocusRequester() }
-    val discoverFirstItemFocusRequester = remember { FocusRequester() }
     val recentFirstItemFocusRequester = remember { FocusRequester() }
     var isSearchFieldFocused by remember { mutableStateOf(false) }
     var isRecentSearchSectionFocused by remember { mutableStateOf(false) }
@@ -384,32 +383,13 @@ fun SearchScreen(
             .mapNotNull { item -> entryByKey["${item.apiType}:${item.id}"] }
     }
 
-    val isDiscoverMode = remember(uiState.discoverLocation, trimmedQuery, trimmedSubmittedQuery) {
-        shouldShowDiscoverInSearch(
-            discoverLocation = uiState.discoverLocation,
-            query = trimmedQuery,
-            submittedQuery = trimmedSubmittedQuery
-        )
-    }
-    LaunchedEffect(isDiscoverMode) {
-        if (isDiscoverMode) viewModel.ensureDiscoverLoaded()
-    }
-    val hasPendingUnsubmittedQuery = remember(isDiscoverMode, trimmedQuery, trimmedSubmittedQuery) {
-        !isDiscoverMode &&
-            trimmedQuery.length >= MIN_SEARCH_QUERY_LENGTH &&
+    val hasPendingUnsubmittedQuery = remember(trimmedQuery, trimmedSubmittedQuery) {
+        trimmedQuery.length >= MIN_SEARCH_QUERY_LENGTH &&
             trimmedQuery != trimmedSubmittedQuery
     }
-    val canMoveToResults = remember(
-        isDiscoverMode,
-        trimmedSubmittedQuery,
-        uiState.catalogRows
-    ) {
-        if (isDiscoverMode) {
-            false
-        } else {
-            trimmedSubmittedQuery.length >= MIN_SEARCH_QUERY_LENGTH &&
-                uiState.catalogRows.any { it.items.isNotEmpty() }
-        }
+    val canMoveToResults = remember(trimmedSubmittedQuery, uiState.catalogRows) {
+        trimmedSubmittedQuery.length >= MIN_SEARCH_QUERY_LENGTH &&
+            uiState.catalogRows.any { it.items.isNotEmpty() }
     }
     val submitCurrentQuery: (String) -> Unit = { submittedQuery ->
         viewModel.onEvent(SearchEvent.SubmitSearch)
@@ -452,28 +432,13 @@ fun SearchScreen(
         }
     }
 
-    val hasDiscoverContent = remember(uiState.discoverResults) {
-        uiState.discoverResults.isNotEmpty()
-    }
-    LaunchedEffect(focusResults, isDiscoverMode, hasDiscoverContent) {
-        if (focusResults && isDiscoverMode && hasDiscoverContent) {
-            delay(100)
-            runCatching { discoverFirstItemFocusRequester.requestFocus() }
-            focusResults = false
-            pendingFocusMoveToResultsQuery = null
-            pendingFocusMoveSawSearching = false
-            pendingFocusMoveHadExistingSearchRows = false
-        }
-    }
-
     LaunchedEffect(
         pendingFocusMoveToResultsQuery,
         pendingFocusMoveSawSearching,
         pendingFocusMoveHadExistingSearchRows,
         uiState.isSearching,
         uiState.submittedQuery,
-        canMoveToResults,
-        isDiscoverMode
+        canMoveToResults
     ) {
         val pendingQuery = pendingFocusMoveToResultsQuery ?: return@LaunchedEffect
         val currentSubmittedQuery = uiState.submittedQuery.trim()
@@ -489,13 +454,9 @@ fun SearchScreen(
             return@LaunchedEffect
         }
 
-        if (isDiscoverMode) {
-            focusResults = true
-        } else {
-            // Use explicit first-item focus for deterministic landing on row 1 / column 1.
-            delay(80)
-            focusResults = true
-        }
+        // Use explicit first-item focus for deterministic landing on row 1 / column 1.
+        delay(80)
+        focusResults = true
         pendingFocusMoveToResultsQuery = null
         pendingFocusMoveSawSearching = false
         pendingFocusMoveHadExistingSearchRows = false
@@ -699,26 +660,18 @@ fun SearchScreen(
                 .recompositionHighlighter()
         ) {
             when {
-                isDiscoverMode -> {
-                    DiscoverSection(
-                        uiState = uiState,
-                        posterCardStyle = posterCardStyle,
-                        watchedMovieIds = watchedMovieIds,
-                        watchedSeriesIds = watchedSeriesIds,
-                        showBuiltInHeader = false,
-                        onNavigateToDetail = onNavigateToDetail,
-                        onItemLongPress = { item, addonBaseUrl ->
-                            viewModel.posterOptions.show(item, addonBaseUrl)
-                        },
-                        onEvent = { viewModel.onEvent(it) },
-                        modifier = Modifier
-                    )
-                }
-
                 showGhostSkeleton -> {
                     SearchResultsSkeletonGrid(
                         posterCardStyle = posterCardStyle,
                         modifier = Modifier
+                    )
+                }
+
+                trimmedQuery.length < MIN_SEARCH_QUERY_LENGTH && !uiState.isSearching -> {
+                    EmptyScreenState(
+                        title = stringResource(R.string.search_start_title),
+                        subtitle = stringResource(R.string.search_start_subtitle),
+                        icon = Icons.Default.Search
                     )
                 }
 

@@ -11,15 +11,6 @@ internal const val MIN_SEARCH_QUERY_LENGTH = 2
 internal fun submittedSearchQuery(rawQuery: String): String =
     rawQuery.trim().takeIf { it.length >= MIN_SEARCH_QUERY_LENGTH }.orEmpty()
 
-internal fun shouldShowDiscoverInSearch(
-    discoverLocation: DiscoverLocation,
-    query: String,
-    submittedQuery: String
-): Boolean =
-    discoverLocation != DiscoverLocation.OFF &&
-        submittedQuery.isEmpty() &&
-        query.length < MIN_SEARCH_QUERY_LENGTH
-
 @Immutable
 data class SearchUiState(
     val query: String = "",
