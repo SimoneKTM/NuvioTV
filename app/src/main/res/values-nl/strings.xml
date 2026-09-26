@@ -591,7 +591,6 @@
 
 <!-- PlayerScreen -->
 <string name="player_ends_at">Eindigt om %1$s</string>
-<string name="player_via">via %1$s</string>
 <string name="player_subtitle_delay">Ondertitelvertraging</string>
 <string name="player_error_title">Afspeelfout</string>
 <string name="player_go_back">Ga terug</string>

@@ -1474,7 +1474,6 @@
     <string name="parental_severity_moderate">中等</string>
     <string name="parental_severity_mild">輕微</string>
     <string name="player_ends_at">結束於 %1$s</string>
-    <string name="player_via">透過 %1$s</string>
     <!-- 播放器 UI 中顯示的季/集代碼 -->
     <string name="season_episode_format">S%1$d E%2$d</string>
     <string name="player_subtitle_delay">字幕延遲</string>
