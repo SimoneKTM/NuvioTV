@@ -994,6 +994,11 @@ fun ModernHomeContent(
                     if (isRapidHorizontalNav.value || state.enrichmentActive) null
                     else state.preview
                 },
+                metaPreviewProvider = {
+                    val state = heroSceneStateLambda()
+                    if (isRapidHorizontalNav.value || state.enrichmentActive || isScrollInProgressUpdated) null
+                    else activeCarouselItemState.value?.metaPreview
+                },
                 enrichmentActive = {
                     if (isRapidHorizontalNav.value) false
                     else heroSceneStateLambda().enrichmentActive

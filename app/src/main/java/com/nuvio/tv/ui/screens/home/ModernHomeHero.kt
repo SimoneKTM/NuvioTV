@@ -54,9 +54,11 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import com.nuvio.tv.ui.util.LocalRecompositionHighlighterEnabled
+import com.nuvio.tv.ui.util.computeHeroNextEpisodeText
 import com.nuvio.tv.ui.util.recompositionHighlighter
 import coil3.request.transitionFactory
 import com.nuvio.tv.R
+import com.nuvio.tv.domain.model.MetaPreview
 import kotlinx.coroutines.delay
 import com.nuvio.tv.ui.components.ImdbRatingSourceLabel
 import com.nuvio.tv.ui.components.TrailerPlayer
@@ -288,6 +290,7 @@ internal fun ModernHeroGradientLayer(
 @Composable
 internal fun HeroTitleBlock(
     previewProvider: () -> HeroPreview?,
+    metaPreviewProvider: () -> MetaPreview? = { null },
     enrichmentActive: () -> Boolean = { false },
     portraitMode: Boolean,
     trailerPlaying: () -> Boolean = { false },
@@ -310,13 +313,16 @@ internal fun HeroTitleBlock(
 
     val displayPreview = if (!isEnriching && currentPreview != null) currentPreview else stablePreview
     if (displayPreview == null) return
-    
+
+    val nextEpisodeLabel = metaPreviewProvider()?.let { rememberNextEpisodeDateLabel(it) }
+
     Box(
         modifier = modifier,
         contentAlignment = Alignment.BottomStart
     ) {
         HeroTitleContent(
             previewProvider = { displayPreview },
+            nextEpisodeLabel = nextEpisodeLabel,
             portraitMode = portraitMode,
             trailerPlaying = trailerPlaying
         )
@@ -326,6 +332,7 @@ internal fun HeroTitleBlock(
 @Composable
 private fun HeroTitleContent(
     previewProvider: () -> HeroPreview?,
+    nextEpisodeLabel: String? = null,
     portraitMode: Boolean,
     trailerPlaying: () -> Boolean = { false }
 ) {
@@ -400,6 +407,22 @@ private fun HeroTitleContent(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+
+        nextEpisodeLabel?.let { label ->
+            if (preview.isSeries && preview.secondaryHighlightText == null) {
+                val heroEpisodeText = remember(context, label) {
+                    computeHeroNextEpisodeText(context, label)
+                }
+                Text(
+                    text = heroEpisodeText,
+                    style = labelMedium,
+                    color = NuvioTheme.colors.TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.graphicsLayer { alpha = metaAlpha }
+                )
+            }
         }
 
         val strStatusEnded = stringResource(if (preview.isSeries) R.string.series_status_ended else R.string.movie_status_ended)

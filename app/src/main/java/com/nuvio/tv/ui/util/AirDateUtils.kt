@@ -108,3 +108,48 @@ private fun formatUpcomingReleaseDate(releaseDate: LocalDate, today: LocalDate):
 internal fun formatCalendarReleaseDate(releaseDate: LocalDate): String {
     return formatUpcomingReleaseDate(releaseDate, LocalDate.now(ZoneId.systemDefault()))
 }
+
+/**
+ * Turns the short card label produced by [computeUpcomingReleaseBadgeText]
+ * ("Today"/"Oggi", "Tomorrow"/"Domani", "In 6 Days"/"Tra 6 giorni", "21 ottobre")
+ * into the hero line ("New Episode Today" / "Nuovo Episodio Oggi", ...).
+ * Pure so it can be unit tested; resource resolution happens in
+ * [computeHeroNextEpisodeText].
+ */
+internal fun resolveHeroNextEpisodeText(
+    cardLabel: String,
+    todayLabel: String,
+    tomorrowLabel: String,
+    relativeLabels: Map<String, Int>,
+    todayText: String,
+    tomorrowText: String,
+    inDaysText: (Int) -> String,
+    onDateText: (String) -> String
+): String {
+    return when {
+        cardLabel == todayLabel -> todayText
+        cardLabel == tomorrowLabel -> tomorrowText
+        else -> relativeLabels[cardLabel]?.let(inDaysText) ?: onDateText(cardLabel)
+    }
+}
+
+internal fun computeHeroNextEpisodeText(context: Context, cardLabel: String): String {
+    val resources = context.resources
+    val relativeLabels = (2..7).associate { days ->
+        resources.getQuantityString(R.plurals.cw_airs_in_days_short, days, days) to days
+    }
+    return resolveHeroNextEpisodeText(
+        cardLabel = cardLabel,
+        todayLabel = context.getString(R.string.cw_airs_today_short),
+        tomorrowLabel = context.getString(R.string.cw_airs_tomorrow_short),
+        relativeLabels = relativeLabels,
+        todayText = context.getString(R.string.hero_next_episode_today),
+        tomorrowText = context.getString(R.string.hero_next_episode_tomorrow),
+        inDaysText = { days ->
+            resources.getQuantityString(R.plurals.hero_next_episode_in_days, days, days)
+        },
+        onDateText = { date ->
+            context.getString(R.string.hero_next_episode_on_date, date)
+        }
+    )
+}

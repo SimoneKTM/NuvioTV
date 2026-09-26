@@ -856,6 +856,7 @@ private fun AnimeModernHero(
         )
         HeroTitleBlock(
             previewProvider = { heroPreview },
+            metaPreviewProvider = { item },
             portraitMode = !useLandscapePosters,
             trailerPlaying = { shouldPlayTrailer && trailerFirstFrameRendered && !trailerEnded },
             modifier = Modifier
