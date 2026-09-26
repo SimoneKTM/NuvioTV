@@ -166,6 +166,7 @@ jobs:
         if: inputs.mode != 'dry-run'
         env:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
           INTRODB_API_URL: ${{ secrets.INTRODB_API_URL }}
           INTRODB_API_KEY: ${{ secrets.INTRODB_API_KEY }}
         run: |
@@ -191,6 +192,7 @@ jobs:
           set_property NUVIO_RELEASE_KEY_PASSWORD "${RELEASE_KEY_PASSWORD}"
           set_property NUVIO_RELEASE_STORE_PASSWORD "${RELEASE_STORE_PASSWORD}"
           set_property TMDB_API_KEY "${TMDB_API_KEY}"
+          set_property OMDB_API_KEY "${OMDB_API_KEY}"
           set_property INTRODB_API_URL "${INTRODB_API_URL}"
           set_property INTRODB_API_KEY "${INTRODB_API_KEY}"
 
