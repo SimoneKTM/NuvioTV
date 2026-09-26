@@ -1459,7 +1459,7 @@ class MetaDetailsViewModel @Inject constructor(
                 var tmdbId = metaIds.tmdb ?: routeIds.tmdb
                 Log.d(TAG, "loadEpisodeRatings: after parseContentIds: imdbId=$imdbId, tmdbId=$tmdbId")
 
-                if (tmdbId == null && imdbId == null) {
+                if (tmdbId == null) {
                     Log.d(TAG, "loadEpisodeRatings: trying ensureTmdbId(meta.id=$meta.id, type=$tmdbLookupType)")
                     val tmdbIdString = tmdbService.ensureTmdbId(meta.id, tmdbLookupType)
                     Log.d(TAG, "loadEpisodeRatings: ensureTmdbId(meta.id) returned: $tmdbIdString")
