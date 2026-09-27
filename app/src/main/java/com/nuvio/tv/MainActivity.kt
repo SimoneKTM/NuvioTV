@@ -1192,7 +1192,10 @@ private fun LegacySidebarScaffold(
             return@LaunchedEffect
         }
         repeat(2) { withFrameNanos { } }
-        runCatching { contentFocusRequester.requestFocus() }
+        val requested = runCatching { contentFocusRequester.requestFocus() }.getOrDefault(false)
+        if (!requested) {
+            focusManager.moveFocus(if (isRtl) FocusDirection.Left else FocusDirection.Right)
+        }
         pendingContentFocusTransfer = false
     }
 
@@ -1239,7 +1242,7 @@ private fun LegacySidebarScaffold(
                             val closeKey = if (isRtl) Key.DirectionLeft else Key.DirectionRight
                             if (keyEvent.key == closeKey && keyEvent.type == KeyEventType.KeyDown) {
                                 drawerState.setValue(DrawerValue.Closed)
-                                pendingContentFocusTransfer = false
+                                pendingContentFocusTransfer = true
                                 true
                             } else {
                                 false
@@ -1703,7 +1706,12 @@ private fun ModernSidebarScaffold(
         if (!showSidebar || !pendingContentFocusTransfer || isSidebarExpanded || sidebarCollapsePending) {
             return@LaunchedEffect
         }
-        contentFocusRequester.requestFocusAfterFrames(8)
+        val requested = contentFocusRequester.requestFocusAfterFrames(8)
+        if (!requested) {
+            // Root screens without a registered content requester (Search, Library, ...):
+            // steer the d-pad at the content so the remote does not go dead.
+            focusManager.moveFocus(if (isRtl) FocusDirection.Left else FocusDirection.Right)
+        }
         pendingContentFocusTransfer = false
     }
 
@@ -1825,7 +1833,7 @@ private fun ModernSidebarScaffold(
                             Key.DirectionRight, Key.DirectionLeft -> {
                                 val collapseKey = if (isRtl) Key.DirectionLeft else Key.DirectionRight
                                 if (keyEvent.key == collapseKey) {
-                                    pendingContentFocusTransfer = false
+                                    pendingContentFocusTransfer = true
                                     sidebarCollapsePending = true
                                     true
                                 } else {
