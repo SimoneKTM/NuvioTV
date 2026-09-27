@@ -60,4 +60,31 @@ class TranslationPolicyTest {
         assertNotEquals(key, translationCacheKey("en", longText))
         assertNotEquals(key, translationCacheKey("it", "$longText!"))
     }
+
+    @Test
+    fun `short texts pass only with the short minimum length`() {
+        val award = "Won 1 Oscar. 4 nominations total."
+        assertFalse(shouldTranslate(award, "it"))
+        assertTrue(shouldTranslate(award, "it", TRANSLATION_SHORT_MIN_TEXT_LENGTH))
+        assertFalse(
+            shouldTranslate("!!", "it", TRANSLATION_SHORT_MIN_TEXT_LENGTH)
+        )
+        assertFalse(
+            shouldTranslate(award, "it", TRANSLATION_SHORT_MIN_TEXT_LENGTH + award.length)
+        )
+    }
+
+    @Test
+    fun `detected short awards translate from english to italian`() {
+        val award = "Won 1 Oscar. 4 nominations total."
+        assertTrue(
+            shouldTranslateDetected(award, "en", "it", TRANSLATION_SHORT_MIN_TEXT_LENGTH)
+        )
+        assertFalse(
+            shouldTranslateDetected(award, "it", "it", TRANSLATION_SHORT_MIN_TEXT_LENGTH)
+        )
+        assertFalse(
+            shouldTranslateDetected(award, "und", "it", TRANSLATION_SHORT_MIN_TEXT_LENGTH)
+        )
+    }
 }

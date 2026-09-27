@@ -245,7 +245,30 @@ class MetaDetailsViewModel @Inject constructor(
         observeBlurUnwatchedEpisodes()
         observeShowFullReleaseDate()
         observeHideUnreleasedContent()
+        // Start the OMDb awards lookup before the addon meta round trip so the
+        // hero awards line is ready on first composition (shared repository
+        // caches and in-flight dedup make the later loadAwards call free).
+        prefetchAwards()
         loadMeta()
+    }
+
+    private fun prefetchAwards() {
+        if (itemId.isBlank()) return
+        viewModelScope.launch {
+            runCatching {
+                omdbAwardsRepository.getAwards(
+                    imdbId = null,
+                    primaryId = itemId,
+                    apiType = itemType,
+                    fallbackItemId = itemId,
+                    fallbackItemType = itemType
+                )
+            }.getOrNull()?.let { prefetched ->
+                // Never overwrite a value already decided by loadAwards
+                // (addon awards win over the OMDb prefetch).
+                _uiState.update { state -> state.copy(awards = state.awards ?: prefetched) }
+            }
+        }
     }
 
     private fun observeAnimeLayoutSource() {
@@ -1428,7 +1451,13 @@ class MetaDetailsViewModel @Inject constructor(
         }
 
         _uiState.update { state ->
-            if (state.meta?.id != meta.id) state else state.copy(awards = resolved)
+            if (state.meta?.id != meta.id) {
+                state
+            } else {
+                // Keep a value already published by prefetchAwards when this
+                // resolution comes back empty.
+                state.copy(awards = resolved ?: state.awards)
+            }
         }
     }
 

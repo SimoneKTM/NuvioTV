@@ -71,4 +71,52 @@ class OmdbAwardsTest {
         assertNull(OmdbAwardsRepository.extractTmdbId("1396"))
         assertNull(OmdbAwardsRepository.extractTmdbId("trakt:1396"))
     }
+
+    @Test
+    fun `candidate cache keys cover primary and fallback ids without network`() {
+        assertEquals(
+            listOf("omdb:id:movie:tmdb:603", "omdb:id:series:tmdb:1396"),
+            OmdbAwardsRepository.candidateCacheKeys(
+                primaryId = "tmdb:603",
+                apiType = "movie",
+                fallbackItemId = "tmdb:1396",
+                fallbackItemType = "series"
+            )
+        )
+    }
+
+    @Test
+    fun `candidate cache keys skip ids already resolvable as imdb`() {
+        assertEquals(
+            emptyList<String>(),
+            OmdbAwardsRepository.candidateCacheKeys(
+                primaryId = "tt0903747",
+                apiType = "series",
+                fallbackItemId = "tt0903747:1:2",
+                fallbackItemType = "series"
+            )
+        )
+    }
+
+    @Test
+    fun `candidate cache keys normalize type and deduplicate`() {
+        assertEquals(
+            listOf("omdb:id:movie:603"),
+            OmdbAwardsRepository.candidateCacheKeys(
+                primaryId = "603",
+                apiType = " Movie ",
+                fallbackItemId = "603",
+                fallbackItemType = "movie"
+            )
+        )
+        assertEquals(
+            listOf("omdb:id:unknown:abc"),
+            OmdbAwardsRepository.candidateCacheKeys(
+                primaryId = "abc",
+                apiType = null,
+                fallbackItemId = null,
+                fallbackItemType = null
+            )
+        )
+    }
 }

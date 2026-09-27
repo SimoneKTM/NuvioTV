@@ -66,6 +66,30 @@ class MetadataTextTranslator @Inject constructor(
         }
     }
 
+    /**
+     * Translates short single-line metadata (e.g. OMDb awards text) that is
+     * below the synopsis length gate. Same detection, timeout and persistent
+     * cache rules as [translateMeta]; returns null when nothing to show.
+     */
+    suspend fun translateAwardText(text: String, targetLanguage: String): String? =
+        withContext(Dispatchers.IO) {
+            val target = normalizeLanguageCode(targetLanguage) ?: return@withContext null
+            if (target !in TRANSLATION_SUPPORTED_LANGUAGES || target == "en") {
+                return@withContext null
+            }
+            val startedAtMs = System.currentTimeMillis()
+            try {
+                translateText(
+                    text = text,
+                    targetLanguage = target,
+                    startedAtMs = startedAtMs,
+                    minLength = TRANSLATION_SHORT_MIN_TEXT_LENGTH
+                )
+            } finally {
+                withContext(NonCancellable) { persistCacheIfDirty() }
+            }
+        }
+
     private suspend fun translateVideos(
         meta: Meta,
         targetLanguage: String,
@@ -92,12 +116,13 @@ class MetadataTextTranslator @Inject constructor(
     private suspend fun translateText(
         text: String,
         targetLanguage: String,
-        startedAtMs: Long
+        startedAtMs: Long,
+        minLength: Int = TRANSLATION_MIN_TEXT_LENGTH
     ): String? {
         val target = normalizeLanguageCode(targetLanguage) ?: return null
         if (target !in TRANSLATION_SUPPORTED_LANGUAGES) return null
         val body = text.trim()
-        if (body.length < TRANSLATION_MIN_TEXT_LENGTH || body.length > TRANSLATION_MAX_TEXT_LENGTH) {
+        if (body.length < minLength || body.length > TRANSLATION_MAX_TEXT_LENGTH) {
             return null
         }
         val key = translationCacheKey(target, text)
@@ -108,7 +133,7 @@ class MetadataTextTranslator @Inject constructor(
             identifyLanguage(body)
         }
         if (detected == null) return null
-        if (!shouldTranslateDetected(body, detected, target)) {
+        if (!shouldTranslateDetected(body, detected, target, minLength)) {
             rememberValue(key, null)
             return null
         }
