@@ -200,6 +200,7 @@ internal suspend fun HomeViewModel.loadAllCatalogsPipeline(
         clearCatalogData()
     } else {
         _uiState.update { it.copy(error = null, installedAddonsCount = addons.size) }
+        pruneStaleCatalogData(addons.mapTo(mutableSetOf()) { it.id })
     }
     posterStatusReconcileJob?.cancel()
     reconcilePosterStatusObserversPipeline(emptyList())
@@ -231,6 +232,7 @@ internal suspend fun HomeViewModel.loadAllCatalogsPipeline(
         if (addons.isEmpty()) {
             catalogsLoadInProgress = false
             _uiState.update { it.copy(isLoading = false, error = appContext.getString(R.string.home_error_no_addons)) }
+            scheduleUpdateCatalogRows()
             return
         }
 
@@ -248,6 +250,7 @@ internal suspend fun HomeViewModel.loadAllCatalogsPipeline(
         if (isCatalogOrderEmpty() && !hasHeroSelections) {
             catalogsLoadInProgress = false
             _uiState.update { it.copy(isLoading = false, error = appContext.getString(R.string.home_error_no_catalog_addons)) }
+            scheduleUpdateCatalogRows()
             return
         }
 

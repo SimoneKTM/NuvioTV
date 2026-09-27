@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.joinAll
@@ -204,6 +205,47 @@ class SearchViewModel @Inject constructor(
             searchHistoryDataStore.recentSearches.collectLatest { recent ->
                 _uiState.update { it.copy(recentSearches = recent.take(MAX_RECENT_SEARCHES)) }
             }
+        }
+        viewModelScope.launch {
+            combine(
+                addonRepository.getInstalledAddons(),
+                animeAddonRepository.getInstalledAnimeAddons(),
+                extraAddonRepository.getInstalledExtraAddons()
+            ) { regular, anime, extra ->
+                (regular + anime + extra)
+                    .map { "${it.id}|${it.enabled}" }
+                    .sorted()
+            }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect {
+                    val wasDiscoverInitialized = _uiState.value.discoverInitialized
+                    discoverJob?.cancel()
+                    discoverJob = null
+                    _uiState.update {
+                        it.copy(
+                            discoverInitialized = false,
+                            discoverLoading = wasDiscoverInitialized,
+                            discoverLoadingMore = false,
+                            discoverResults = emptyList(),
+                            pendingDiscoverResults = emptyList(),
+                            discoverPage = 1,
+                            discoverHasMore = true
+                        )
+                    }
+                    val addons = mutableListOf<Addon>()
+                    try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
+                    if (searchIncludeAnimeTab) {
+                        try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
+                    }
+                    if (searchIncludeExtraTab) {
+                        try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+                    }
+                    _uiState.update { it.copy(installedAddons = addons) }
+                    if (wasDiscoverInitialized) {
+                        ensureDiscoverLoaded()
+                    }
+                }
         }
     }
 

@@ -23,8 +23,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.URLEncoder
 import java.util.concurrent.ConcurrentHashMap
@@ -86,6 +90,26 @@ class MetaRepositoryImpl @Inject constructor(
     private val inFlightMeta = ConcurrentHashMap<String, Deferred<Meta?>>()
     private val inFlightAddonMeta = ConcurrentHashMap<String, Deferred<MetaLookupOutcome>>()
     private val inFlightPrimaryMeta = ConcurrentHashMap<String, Deferred<Meta?>>()
+
+    init {
+        repositoryScope.launch {
+            kotlinx.coroutines.flow.combine(
+                addonRepository.getInstalledAddons(),
+                animeAddonRepository.getInstalledAnimeAddons(),
+                extraAddonRepository.getInstalledExtraAddons()
+            ) { regular, anime, extra ->
+                (regular + anime + extra)
+                    .map { "${it.id}|${it.enabled}|${it.version}" }
+                    .sorted()
+            }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect {
+                    clearCache()
+                    Log.d(TAG, "Installed addons changed — meta cache cleared")
+                }
+        }
+    }
 
     override fun getMeta(
         addonBaseUrl: String,

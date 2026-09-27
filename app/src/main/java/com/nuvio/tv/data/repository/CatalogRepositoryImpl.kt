@@ -24,6 +24,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
@@ -57,6 +60,7 @@ class CatalogRepositoryImpl @Inject constructor(
     private val warmScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var warmJob: Job? = null
     private var profileWatchJob: Job? = null
+    private var addonWatchJob: Job? = null
     private val catalogCache = ConcurrentHashMap<String, CacheEntry>()
     private val _warmComplete = kotlinx.coroutines.flow.MutableStateFlow(false)
     override val warmComplete: kotlinx.coroutines.flow.StateFlow<Boolean> = _warmComplete
@@ -75,6 +79,23 @@ class CatalogRepositoryImpl @Inject constructor(
                     warmUp()
                 }
             }
+        }
+        addonWatchJob = warmScope.launch {
+            kotlinx.coroutines.flow.combine(
+                addonRepository.getInstalledAddons(),
+                animeAddonRepository.getInstalledAnimeAddons(),
+                extraAddonRepository.getInstalledExtraAddons()
+            ) { regular, anime, extra ->
+                (regular + anime + extra)
+                    .map { "${it.id}|${it.enabled}|${it.version}" }
+                    .sorted()
+            }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect {
+                    catalogCache.clear()
+                    Log.d(TAG, "Installed addons changed — catalog cache cleared")
+                }
         }
     }
 

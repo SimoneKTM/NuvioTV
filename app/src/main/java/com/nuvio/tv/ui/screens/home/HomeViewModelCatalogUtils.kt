@@ -144,6 +144,35 @@ internal fun HomeViewModel.clearCatalogData() {
     lazyLoadRequestedKeys.clear()
 }
 
+/**
+ * Drops rows and placeholders belonging to addons that are no longer installed or
+ * enabled, so a reload keeps the visible rows of the remaining addons without
+ * leaving content from removed addons behind (including as hero fallback sources).
+ */
+internal fun HomeViewModel.pruneStaleCatalogData(validAddonIds: Set<String>) {
+    synchronized(catalogStateLock) {
+        val staleKeys = catalogsMap.filterValues { it.addonId !in validAddonIds }.keys
+        staleKeys.forEach { key ->
+            val row = catalogsMap.remove(key)
+            row?.items?.forEach { item ->
+                catalogItemKeyIndex[item.id]?.remove(key)
+                if (catalogItemKeyIndex[item.id]?.isEmpty() == true) {
+                    catalogItemKeyIndex.remove(item.id)
+                }
+            }
+            truncatedRowCache.remove(key)
+        }
+        val staleLazyKeys = pendingLazyCatalogs.filterValues { (addon, _) ->
+            addon.id !in validAddonIds
+        }.keys.toList()
+        staleLazyKeys.forEach { key ->
+            pendingLazyCatalogs.remove(key)
+            lazyLoadRequestedKeys.remove(key)
+        }
+        placeholderDescriptors.removeAll { it.addonId !in validAddonIds }
+    }
+}
+
 internal fun HomeViewModel.snapshotCatalogKeys(): Set<String> = synchronized(catalogStateLock) {
     catalogsMap.keys.toSet()
 }
