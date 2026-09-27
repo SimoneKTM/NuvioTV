@@ -84,6 +84,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.painter.Painter
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.nuvio.tv.ui.util.formatAwards
 import com.nuvio.tv.ui.util.rememberLongPressKeyTracker
 import com.nuvio.tv.ui.util.localizedLanguageText
 import java.util.Locale
@@ -407,7 +408,8 @@ fun HeroContentSection(
                         }
                     }
 
-                    if (!awards.isNullOrBlank()) {
+                    val localizedAwards = remember(awards, context) { formatAwards(awards, context) }
+                    if (!localizedAwards.isNullOrBlank()) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
@@ -419,7 +421,7 @@ fun HeroContentSection(
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
-                                text = awards,
+                                text = localizedAwards,
                                 style = MaterialTheme.typography.labelLarge,
                                 color = NuvioPrimitives.green500
                             )

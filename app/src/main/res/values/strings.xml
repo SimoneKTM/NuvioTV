@@ -1240,6 +1240,34 @@
         <item quantity="other">New Episode in %d Days</item>
     </plurals>
     <string name="hero_next_episode_on_date">New Episode on %1$s</string>
+    <plurals name="awards_won">
+        <item quantity="one">Won %1$d %2$s</item>
+        <item quantity="other">Won %1$d %2$s</item>
+    </plurals>
+    <plurals name="awards_nominated">
+        <item quantity="one">Nominated for %1$d %2$s</item>
+        <item quantity="other">Nominated for %1$d %2$s</item>
+    </plurals>
+    <plurals name="awards_nominations_total">
+        <item quantity="one">%1$d nomination total</item>
+        <item quantity="other">%1$d nominations total</item>
+    </plurals>
+    <plurals name="awards_wins_and_nominations">
+        <item quantity="one">%1$d win &amp; %2$d nominations</item>
+        <item quantity="other">%1$d wins &amp; %2$d nominations</item>
+    </plurals>
+    <plurals name="awards_another_win_and_nominations">
+        <item quantity="one">Another win. Nominations: %2$d</item>
+        <item quantity="other">%1$d more wins. Nominations: %2$d</item>
+    </plurals>
+    <plurals name="awards_wins">
+        <item quantity="one">%1$d win</item>
+        <item quantity="other">%1$d wins</item>
+    </plurals>
+    <plurals name="awards_nominations">
+        <item quantity="one">%1$d nomination</item>
+        <item quantity="other">%1$d nominations</item>
+    </plurals>
     <string name="layout_trailer_button">Show Trailer Button</string>
     <string name="layout_trailer_button_sub">Show trailer button on detail page (only when trailer is available).</string>
     <string name="layout_prefer_external_meta">Prefer meta from external addon</string>
