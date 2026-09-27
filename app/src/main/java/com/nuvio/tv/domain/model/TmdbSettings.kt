@@ -4,8 +4,10 @@ data class TmdbSettings(
     val enabled: Boolean = false,
     val modernHomeEnabled: Boolean = false,
     val enrichContinueWatching: Boolean = true,
-    // TMDB language preference (ISO-639-1, default English)
-    val language: String = "en",
+    // TMDB language preference (ISO-639-1); follows the system language unless overridden
+    val language: String = systemMetadataLanguage(),
+    // Raw stored preference: "system" or an explicit language code (used by the settings UI)
+    val languagePreference: String = METADATA_LANGUAGE_SYSTEM,
     // Group: Artwork (logo, backdrop)
     val useArtwork: Boolean = true,
     // Group: Basic Info (description, genres, rating)

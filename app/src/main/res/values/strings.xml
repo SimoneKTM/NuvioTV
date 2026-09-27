@@ -16,6 +16,7 @@
 
     <string name="language_none">None</string>
     <string name="language_unknown">Unknown</string>
+    <string name="language_system">System (device language)</string>
 
     <string name="web_manage_addons_title">Manage Addons</string>
     <string name="web_manage_addons_subtitle">Manage addons, catalogs, and collections</string>

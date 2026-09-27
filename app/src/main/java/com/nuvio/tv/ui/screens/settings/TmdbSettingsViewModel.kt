@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
 import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 import com.nuvio.tv.data.trailer.TrailerService
+import com.nuvio.tv.domain.model.METADATA_LANGUAGE_SYSTEM
 import com.nuvio.tv.domain.model.TmdbSettings
 import com.nuvio.tv.domain.repository.MetaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,11 +46,13 @@ open class TmdbSettingsViewModel @Inject constructor(
                 update { dataStore.setEnrichContinueWatching(event.enabled) }
             }
             is TmdbSettingsEvent.SetLanguage -> update {
-                val newLanguage = event.language.ifBlank { "en" }
-                val currentLanguage = _uiState.value.language.ifBlank { "en" }
+                val newLanguage = event.language.ifBlank { METADATA_LANGUAGE_SYSTEM }
+                val currentLanguage = _uiState.value.languagePreference
                 dataStore.setLanguage(newLanguage)
                 if (!newLanguage.equals(currentLanguage, ignoreCase = true)) {
                     trailerService.clearCache()
+                    metaRepository.clearCache()
+                    cwEnrichmentCache.clearAll()
                 }
             }
             is TmdbSettingsEvent.ToggleArtwork -> update { dataStore.setUseArtwork(event.enabled) }
@@ -80,6 +83,7 @@ data class TmdbSettingsUiState(
     val modernHomeEnabled: Boolean = false,
     val enrichContinueWatching: Boolean = true,
     val language: String = "en",
+    val languagePreference: String = METADATA_LANGUAGE_SYSTEM,
     val useArtwork: Boolean = true,
     val useBasicInfo: Boolean = true,
     val useDetails: Boolean = true,
@@ -97,6 +101,7 @@ data class TmdbSettingsUiState(
         modernHomeEnabled = settings.modernHomeEnabled,
         enrichContinueWatching = settings.enrichContinueWatching,
         language = settings.language,
+        languagePreference = settings.languagePreference,
         useArtwork = settings.useArtwork,
         useBasicInfo = settings.useBasicInfo,
         useDetails = settings.useDetails,

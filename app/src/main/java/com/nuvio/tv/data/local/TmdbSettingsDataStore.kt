@@ -4,7 +4,9 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.nuvio.tv.core.profile.ProfileManager
+import com.nuvio.tv.domain.model.METADATA_LANGUAGE_SYSTEM
 import com.nuvio.tv.domain.model.TmdbSettings
+import com.nuvio.tv.domain.model.resolveMetadataLanguage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -55,7 +57,9 @@ class TmdbSettingsDataStore @Inject constructor(
                 enabled = prefs[enabledKey] ?: true,
                 modernHomeEnabled = prefs[modernHomeEnabledKey] ?: false,
                 enrichContinueWatching = prefs[enrichContinueWatchingKey] ?: true,
-                language = prefs[languageKey] ?: "en",
+                language = resolveMetadataLanguage(prefs[languageKey]),
+                languagePreference = prefs[languageKey]?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: METADATA_LANGUAGE_SYSTEM,
                 useArtwork = prefs[useArtworkKey] ?: true,
                 useBasicInfo = prefs[useBasicInfoKey] ?: true,
                 useDetails = prefs[useDetailsKey] ?: true,
@@ -84,7 +88,7 @@ class TmdbSettingsDataStore @Inject constructor(
     }
 
     suspend fun setLanguage(language: String) {
-        store().edit { it[languageKey] = language.ifBlank { "en" } }
+        store().edit { it[languageKey] = language.trim().ifBlank { METADATA_LANGUAGE_SYSTEM } }
     }
 
     suspend fun setUseArtwork(enabled: Boolean) {

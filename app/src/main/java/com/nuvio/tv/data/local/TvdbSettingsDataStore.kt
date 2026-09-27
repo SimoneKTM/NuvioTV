@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.domain.model.TvdbSettings
+import com.nuvio.tv.domain.model.resolveMetadataLanguage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -40,7 +41,7 @@ class TvdbSettingsDataStore @Inject constructor(
             TvdbSettings(
                 enabled = (prefs[enabledKey] ?: false) && apiKey.isNotBlank(),
                 apiKey = apiKey,
-                language = prefs[languageKey] ?: "en",
+                language = resolveMetadataLanguage(prefs[languageKey]),
                 useTrailers = prefs[useTrailersKey] ?: true,
                 useArtwork = prefs[useArtworkKey] ?: true,
                 useBasicInfo = prefs[useBasicInfoKey] ?: true,

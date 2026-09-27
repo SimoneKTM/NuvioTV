@@ -1829,6 +1829,7 @@
   </plurals>
   <string name="language_none">Nessuno</string>
   <string name="language_unknown">Sconosciuto</string>
+  <string name="language_system">Sistema (lingua del dispositivo)</string>
   <string name="web_manage_addons_only_subtitle">Installa o rimuovi add-on</string>
   <string name="web_import_paste_placeholder">Incolla qui il JSON delle collezioni...</string>
   <string name="web_import_file_select">Tocca per selezionare un file .json</string>

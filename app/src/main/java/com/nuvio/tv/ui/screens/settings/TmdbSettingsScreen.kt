@@ -31,6 +31,7 @@ import com.nuvio.tv.R
 import com.nuvio.tv.core.build.AppFeaturePolicy
 import com.nuvio.tv.data.local.AVAILABLE_TMDB_LANGUAGES
 import com.nuvio.tv.data.local.displayName
+import com.nuvio.tv.domain.model.METADATA_LANGUAGE_SYSTEM
 
 @Composable
 fun TmdbSettingsScreen(
@@ -126,10 +127,14 @@ fun TmdbSettingsContent(
                 }
 
                 item(key = "tmdb_language") {
-                    val languageName = AVAILABLE_TMDB_LANGUAGES
-                        .find { it.code == uiState.language }
-                        ?.displayName
-                        ?: uiState.language.uppercase()
+                    val languageName = if (uiState.languagePreference == METADATA_LANGUAGE_SYSTEM) {
+                        stringResource(R.string.language_system)
+                    } else {
+                        AVAILABLE_TMDB_LANGUAGES
+                            .find { it.code == uiState.language }
+                            ?.displayName
+                            ?: uiState.language.uppercase()
+                    }
                     SettingsActionRow(
                         title = stringResource(R.string.tmdb_language_title),
                         subtitle = stringResource(R.string.tmdb_language_subtitle),
@@ -272,10 +277,13 @@ fun TmdbSettingsContent(
     if (showLanguageDialog) {
         LanguageSelectionDialog(
             title = stringResource(R.string.tmdb_language_dialog_title),
-            selectedLanguage = uiState.language,
+            selectedLanguage = uiState.languagePreference,
             showNoneOption = false,
+            extraOptions = listOf(METADATA_LANGUAGE_SYSTEM to stringResource(R.string.language_system)),
             onLanguageSelected = { language ->
-                viewModel.onEvent(TmdbSettingsEvent.SetLanguage(language ?: "en"))
+                viewModel.onEvent(
+                    TmdbSettingsEvent.SetLanguage(language ?: METADATA_LANGUAGE_SYSTEM)
+                )
                 showLanguageDialog = false
             },
             onDismiss = { showLanguageDialog = false }
