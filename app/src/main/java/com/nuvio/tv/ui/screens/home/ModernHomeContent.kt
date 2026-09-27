@@ -672,8 +672,9 @@ fun ModernHomeContent(
             // focus event that arms enrichment can be lost to focus contention,
             // leaving effectiveEnrichmentActive open with no fetch in flight and
             // no title. Re-issue onItemFocus for the active item at most once per
-            // composition session, after the row (140 ms) and pipeline (220 ms)
-            // debounces have had time to win: any gate-relevant key change
+            // composition session, after the row's 140 ms focus debounce (the
+            // pipeline claims pending synchronously, so its own 220 ms delay
+            // does not need to elapse): any gate-relevant key change
             // restarts this effect, and the re-armed id set bounds it to a
             // single attempt so a permanently failing source cannot bounce it.
             val activeEnrichmentId = activeCarouselItemState.value?.metaPreview?.id
@@ -690,9 +691,10 @@ fun ModernHomeContent(
                 if (enrichingItemId != null) return@LaunchedEffect
                 if (item.id in enrichedPreviews || item.id in failedEnrichmentIds) return@LaunchedEffect
                 if (item.id in enrichmentRearmedIds) return@LaunchedEffect
-                // Let the normal focus pipeline win first; re-arming after the
-                // debounces only fires when that focus event was truly lost.
-                delay(400)
+                // Just above the row focus debounce: the normal focus pipeline
+                // wins first and this becomes a no-op; it only fires when that
+                // focus event was truly lost.
+                delay(200)
                 enrichmentRearmedIds.add(item.id)
                 onItemFocus(item)
             }
