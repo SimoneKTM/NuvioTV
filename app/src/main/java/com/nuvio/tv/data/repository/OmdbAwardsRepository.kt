@@ -37,12 +37,34 @@ class OmdbAwardsRepository @Inject constructor(
         meta: Meta,
         fallbackItemId: String,
         fallbackItemType: String
+    ): String? = getAwards(
+        imdbId = meta.imdbId,
+        primaryId = meta.id,
+        apiType = meta.apiType,
+        fallbackItemId = fallbackItemId,
+        fallbackItemType = fallbackItemType
+    )
+
+    /**
+     * Resolves awards without a full [Meta]: usable straight from a catalog
+     * MetaPreview so callers can start the OMDb lookup without waiting for the
+     * addon meta round trip. The 24h cache and in-flight dedup are shared with
+     * the meta-based overload, so a later call for the same title costs no
+     * additional request.
+     */
+    suspend fun getAwards(
+        imdbId: String?,
+        primaryId: String?,
+        apiType: String,
+        fallbackItemId: String,
+        fallbackItemType: String
     ): String? {
         val apiKey = BuildConfig.OMDB_API_KEY.trim()
         if (apiKey.isEmpty()) return null
-        val imdbId = resolveImdbId(meta, fallbackItemId, fallbackItemType) ?: return null
+        val imdbTitleId = resolveImdbId(imdbId, primaryId, apiType, fallbackItemId, fallbackItemType)
+            ?: return null
 
-        val cacheKey = "omdb:$imdbId"
+        val cacheKey = "omdb:$imdbTitleId"
         val now = System.currentTimeMillis()
         cache[cacheKey]?.let { cached ->
             if (cached.expiresAtMs > now) return cached.awards
@@ -52,7 +74,7 @@ class OmdbAwardsRepository @Inject constructor(
         val deferred = inFlightMutex.withLock {
             inFlight[cacheKey] ?: scope.async {
                 try {
-                    val awards = fetchAwards(imdbId, apiKey)
+                    val awards = fetchAwards(imdbTitleId, apiKey)
                     cache[cacheKey] = CacheEntry(
                         awards = awards,
                         expiresAtMs = System.currentTimeMillis() + cacheTtlMs
@@ -78,21 +100,23 @@ class OmdbAwardsRepository @Inject constructor(
     }
 
     private suspend fun resolveImdbId(
-        meta: Meta,
+        imdbId: String?,
+        primaryId: String?,
+        apiType: String,
         fallbackItemId: String,
         fallbackItemType: String
     ): String? {
-        extractImdbTitleId(meta.imdbId)?.let { return it }
-        extractImdbTitleId(meta.id)?.let { return it }
+        extractImdbTitleId(imdbId)?.let { return it }
+        extractImdbTitleId(primaryId)?.let { return it }
         extractImdbTitleId(fallbackItemId)?.let { return it }
 
-        val tmdbId = extractTmdbId(meta.id)
+        val tmdbId = extractTmdbId(primaryId)
             ?: extractTmdbId(fallbackItemId)
-            ?: meta.id.trim().takeIf { it.all(Char::isDigit) }?.toIntOrNull()
+            ?: primaryId?.trim()?.takeIf { it.all(Char::isDigit) }?.toIntOrNull()
             ?: fallbackItemId.trim().takeIf { it.all(Char::isDigit) }?.toIntOrNull()
             ?: return null
 
-        val mediaType = meta.apiType.ifBlank { fallbackItemType }
+        val mediaType = apiType.ifBlank { fallbackItemType }
         return tmdbService.tmdbToImdb(tmdbId, mediaType)?.takeIf { it.startsWith("tt") }
     }
 

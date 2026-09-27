@@ -34,9 +34,10 @@ private val AWARD_SEGMENT_SPLIT = Regex("""(?<=\.)\s+""")
 private val WON_REGEX = Regex("""^won\s+(\d+)\s+(.+?)\.?$""", RegexOption.IGNORE_CASE)
 private val NOMINATED_REGEX = Regex("""^nominated\s+for\s+(\d+)\s+(.+?)\.?$""", RegexOption.IGNORE_CASE)
 private val NOMINATIONS_TOTAL_REGEX = Regex("""^(\d+)\s+nominations?\s+total\.?$""", RegexOption.IGNORE_CASE)
-private val WINS_AND_NOMS_REGEX = Regex("""^(\d+)\s+wins?\s+&\s+(\d+)\s+nominations?\.?$""", RegexOption.IGNORE_CASE)
+private val WINS_AND_NOMS_REGEX =
+    Regex("""^(\d+)\s+wins?\s+&\s+(\d+)\s+nominations?(?:\s+total)?\.?$""", RegexOption.IGNORE_CASE)
 private val ANOTHER_WIN_AND_NOMS_REGEX =
-    Regex("""^another\s+(?:(\d+)\s+)?wins?\s+&\s+(\d+)\s+nominations?\.?$""", RegexOption.IGNORE_CASE)
+    Regex("""^another\s+(?:(\d+)\s+)?wins?\s+&\s+(\d+)\s+nominations?(?:\s+total)?\.?$""", RegexOption.IGNORE_CASE)
 private val WINS_REGEX = Regex("""^(\d+)\s+wins?\.?$""", RegexOption.IGNORE_CASE)
 private val NOMINATIONS_REGEX = Regex("""^(\d+)\s+nominations?\.?$""", RegexOption.IGNORE_CASE)
 private val WINNER_REGEX = Regex("""^winner\.?$""", RegexOption.IGNORE_CASE)

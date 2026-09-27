@@ -2,6 +2,7 @@ package com.nuvio.tv.ui.screens.home
 
 import android.util.Log
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.LocaleCache
 import com.nuvio.tv.core.build.AppFeaturePolicy
@@ -930,27 +931,51 @@ private fun HomeViewModel.prefetchBackgroundMetaForItem(item: MetaPreview) {
     if (item.id in backgroundMetaPrefetchedIds) return
     backgroundMetaPrefetchedIds.add(item.id)
     viewModelScope.launch(Dispatchers.IO) {
+        // Start the OMDb lookup from the catalog preview ids right away so the
+        // hero awards don't wait for two serial round trips (addon meta, then OMDb).
+        // The repository cache and in-flight dedup make the later meta-based
+        // fallback free when both paths resolve the same title.
+        val earlyAwards = async {
+            if (findCatalogItemById(item.id)?.awards.isNullOrBlank()) {
+                runCatching {
+                    omdbAwardsRepository.getAwards(
+                        imdbId = item.imdbId,
+                        primaryId = item.id,
+                        apiType = item.apiType,
+                        fallbackItemId = item.id,
+                        fallbackItemType = item.apiType
+                    )
+                }.getOrNull()
+            } else {
+                null
+            }
+        }
         val result = metaRepository.getMetaFromAllAddons(
             type = item.apiType,
             id = item.id
         ).first { it !is NetworkResult.Loading }
-        resolveAndPublishItemAwards(item, result)
+        resolveAndPublishItemAwards(item, result, earlyAwards)
     }
 }
 
 private suspend fun HomeViewModel.resolveAndPublishItemAwards(
     item: MetaPreview,
-    result: NetworkResult<Meta>
+    result: NetworkResult<Meta>,
+    earlyAwards: Deferred<String?>
 ) {
-    val meta = (result as? NetworkResult.Success<*>)?.data as? Meta ?: return
-    meta.awards?.takeIf { it.isNotBlank() }?.let { addonAwards ->
+    val meta = (result as? NetworkResult.Success<*>)?.data as? Meta
+    meta?.awards?.takeIf { it.isNotBlank() }?.let { addonAwards ->
         publishItemAwards(item.id, addonAwards)
         return
     }
     if (!findCatalogItemById(item.id)?.awards.isNullOrBlank()) return
-    val omdbAwards = runCatching {
-        omdbAwardsRepository.getAwards(meta, item.id, item.apiType)
-    }.getOrNull()?.takeIf { it.isNotBlank() } ?: return
+    val omdbAwards = earlyAwards.await()?.takeIf { it.isNotBlank() }
+        ?: meta?.let { resolvedMeta ->
+            runCatching {
+                omdbAwardsRepository.getAwards(resolvedMeta, item.id, item.apiType)
+            }.getOrNull()?.takeIf { it.isNotBlank() }
+        }
+        ?: return
     publishItemAwards(item.id, omdbAwards)
 }
 

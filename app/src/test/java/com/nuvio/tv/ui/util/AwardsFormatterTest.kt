@@ -82,4 +82,28 @@ class AwardsFormatterTest {
         val out = formatAwards("Nominated. 5 nominations.", labels)
         assertEquals("Nominato. 5 candidature.", out)
     }
+
+    @Test
+    fun `wins and nominations total without trailing period translates`() {
+        val out = formatAwards("Won 7 Oscars. 370 wins & 378 nominations total", labels)
+        assertEquals("Vinti 7 Oscars. Vittorie: 370. Candidature: 378.", out)
+    }
+
+    @Test
+    fun `nominated header with wins and nominations total translates`() {
+        val out = formatAwards("Nominated for 7 Oscars. 21 wins & 43 nominations total", labels)
+        assertEquals("Candidature: 7 Oscars. Vittorie: 21. Candidature: 43.", out)
+    }
+
+    @Test
+    fun `emmy header with wins and nominations total translates`() {
+        val out = formatAwards("Won 16 Primetime Emmys. 172 wins & 269 nominations total", labels)
+        assertEquals("Vinti 16 Primetime Emmys. Vittorie: 172. Candidature: 269.", out)
+    }
+
+    @Test
+    fun `another wins and nominations total translates`() {
+        val out = formatAwards("Won 1 Oscar. Another 64 wins & 62 nominations total", labels)
+        assertEquals("Vinto 1 Oscar. 64 vittorie aggiuntive. Candidature: 62.", out)
+    }
 }
