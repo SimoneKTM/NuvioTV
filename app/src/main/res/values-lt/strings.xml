@@ -65,7 +65,6 @@
     <string name="home_poster_dialog_subtitle">Pavadinimo veiksmai</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">iš %1$s</string>
     <string name="action_see_all">Žiūrėti viską</string>
 
     <!-- HeroSection -->
@@ -419,8 +418,6 @@
     <string name="layout_show_discover_sub">Rodyti naršymo skiltį, kai paieška tuščia.</string>
     <string name="layout_poster_labels">Rodyti plakatų etiketes</string>
     <string name="layout_poster_labels_sub">Rodyti pavadinimus po plakatais eilutėse, tinklelyje ir „Rodyti viską“.</string>
-    <string name="layout_addon_name">Rodyti priedo pavadinimą</string>
-    <string name="layout_addon_name_sub">Rodyti šaltinio pavadinimą po katalogo pavadinimu.</string>
     <string name="layout_catalog_type">Rodyti katalogo tipą</string>
     <string name="layout_catalog_type_sub">Rodyti tipo galūnę šalia katalogo pavadinimo (Filmas/Serialas).</string>
     <string name="layout_hide_unreleased">Slėpti neišleistą turinį</string>
@@ -944,7 +941,6 @@ Klaida: Bandomoji simuliuojama klaida — tai nėra tikras gedimas. Šaltinis gr
     <string name="cast_detail_filmography">Filmografija</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">iš %1$s</string>
     <string name="catalog_see_all_empty_title">Elementų nėra</string>
     <string name="catalog_see_all_empty_subtitle">Šiame kataloge turinio nerasta</string>
 

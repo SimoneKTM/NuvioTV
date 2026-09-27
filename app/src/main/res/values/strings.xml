@@ -188,7 +188,6 @@
     <string name="cw_dialog_subtitle">Choose what you want to do with this item.</string>
     <string name="home_poster_dialog_subtitle">Title actions</string>
 
-    <string name="catalog_from_addon">from %1$s</string>
     <string name="action_see_all">See All</string>
     <string name="action_load_more">Load More</string>
 
@@ -512,7 +511,6 @@
     <string name="custom_tab_poster_height">Poster Height</string>
     <string name="custom_tab_poster_corner_radius">Corner Radius</string>
     <string name="custom_tab_poster_labels">Poster Labels</string>
-    <string name="custom_tab_catalog_addon_name">Show Add-on Name</string>
 
     <string name="custom_tab_hero_expand">Expand on Focus</string>
     <string name="custom_tab_hero_expand_delay">Expand Delay (seconds)</string>
@@ -1194,8 +1192,6 @@
     <string name="layout_discover_location_in_sidebar_desc">Discover gets its own item in the side panel.</string>
     <string name="layout_poster_labels">Show Poster Labels</string>
     <string name="layout_poster_labels_sub">Show titles under posters in rows, grid, and see-all.</string>
-    <string name="layout_addon_name">Show Addon Name</string>
-    <string name="layout_addon_name_sub">Show source name under catalog titles.</string>
     <string name="layout_catalog_type">Show Catalog Type</string>
     <string name="layout_catalog_type_sub">Show the type suffix next to the catalog name.</string>
     <string name="layout_hide_unreleased">Hide Unreleased Content</string>
@@ -2336,7 +2332,6 @@
     <string name="cast_detail_born_died">Born: %1$s — †%2$s</string>
     <string name="cast_detail_age">age %1$d</string>
 
-    <string name="catalog_see_all_from">from %1$s</string>
     <string name="catalog_see_all_empty_title">No items available</string>
     <string name="catalog_see_all_empty_subtitle">Try a different catalog or check back later</string>
 

@@ -161,7 +161,6 @@
 <string name="home_poster_dialog_subtitle">Azioni Titolo</string>
 
     <!-- CatalogRowSection -->
-<string name="catalog_from_addon">da %1$s</string>
 <string name="action_see_all">Vedi tutto</string>
 <string name="action_load_more">Carica Altro</string>
 
@@ -659,8 +658,6 @@
 <string name="layout_show_discover_sub">Mostra la sezione sfoglia quando la ricerca è vuota.</string>
 <string name="layout_poster_labels">Mostra etichette locandine</string>
 <string name="layout_poster_labels_sub">Mostra i titoli sotto le locandine nelle righe, nella griglia e in \"vedi tutto\".</string>
-<string name="layout_addon_name">Mostra nome addon</string>
-<string name="layout_addon_name_sub">Mostra il nome della sorgente sotto i titoli dei cataloghi.</string>
 <string name="layout_catalog_type">Mostra tipo di catalogo</string>
     <string name="layout_catalog_type_sub">Mostra il suffisso del tipo accanto al nome del catalogo.</string>
 <string name="layout_hide_unreleased">Nascondi Contenuti non disponibili</string>
@@ -1392,7 +1389,6 @@
 <string name="cast_detail_age">età %1$d</string>
 
     <!-- CatalogSeeAllScreen -->
-<string name="catalog_see_all_from">da %1$s</string>
 <string name="catalog_see_all_empty_title">Nessun elemento disponibile</string>
 <string name="catalog_see_all_empty_subtitle">Prova un catalogo diverso o ricontrolla più tardi</string>
 

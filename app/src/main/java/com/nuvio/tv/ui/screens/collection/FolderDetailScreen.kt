@@ -652,7 +652,6 @@ private fun RowsContent(
                             showSeeAll = catalogRow.hasMore && !catalogRow.isLoading,
                             seeAllLabel = loadMoreLabel,
                             showPosterLabels = true,
-                            showAddonName = false,
                             showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
                             isItemWatched = isItemWatched,
                             onItemFocus = onItemFocus,

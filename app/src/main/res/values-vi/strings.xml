@@ -33,7 +33,6 @@
     <string name="home_poster_dialog_subtitle">Thao tác với tựa phim</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">từ %1$s</string>
     <string name="action_see_all">Xem tất cả</string>
 
     <!-- HeroSection -->
@@ -334,8 +333,6 @@
     <string name="layout_show_discover_sub">Hiện phần duyệt khi tìm kiếm trống.</string>
     <string name="layout_poster_labels">Hiện nhãn poster</string>
     <string name="layout_poster_labels_sub">Hiện tiêu đề bên dưới poster trong hàng, lưới và xem tất cả.</string>
-    <string name="layout_addon_name">Hiện tên addon</string>
-    <string name="layout_addon_name_sub">Hiện tên nguồn bên dưới tiêu đề danh mục.</string>
     <string name="layout_catalog_type">Hiện loại danh mục</string>
     <string name="layout_catalog_type_sub">Hiện hậu tố loại bên cạnh tên danh mục (Phim/Chương trình TV).</string>
     <string name="layout_hide_unreleased">Ẩn nội dung chưa phát hành</string>
@@ -816,7 +813,6 @@
     <string name="cast_detail_filmography">Sự nghiệp</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">từ %1$s</string>
     <string name="catalog_see_all_empty_title">Không có mục nào</string>
     <string name="catalog_see_all_empty_subtitle">Thử danh mục khác hoặc quay lại sau</string>
 

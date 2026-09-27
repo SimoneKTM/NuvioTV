@@ -162,7 +162,6 @@
     <string name="cw_dialog_subtitle">Izberite, kaj želite storiti s tem elementom.</string>
 	<string name="home_poster_dialog_subtitle">Dejanja naslova</string>																 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">od %1$s</string>
     <string name="action_see_all">Prikaži vse</string>
 	<string name="action_load_more">Naloži več</string>												  
     <!-- HeroSection -->
@@ -747,8 +746,6 @@
     <string name="layout_discover_location_in_sidebar_desc">Odkrivanje dobi svoj element v stranski plošči.</string>
     <string name="layout_poster_labels">Prikaži oznake plakatov</string>
     <string name="layout_poster_labels_sub">Prikaži naslove pod plakati v vrsticah, mreži in pogledu za prikaz vseh.</string>
-    <string name="layout_addon_name">Prikaži ime dodatka</string>
-    <string name="layout_addon_name_sub">Prikaži ime vira pod naslovi kataloga.</string>
     <string name="layout_catalog_type">Prikaži vrsto kataloga</string>
     <string name="layout_catalog_type_sub">Prikaži pripono vrste ob imenu kataloga (Film/Serija).</string>
     <string name="layout_hide_unreleased">Skrij neizdano vsebino</string>
@@ -1492,7 +1489,6 @@
 	<string name="cast_detail_born_died">Rojen/a: %1$s — †%2$s</string>
     <string name="cast_detail_age">starost %1$d</string>
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">od %1$s</string>
     <string name="catalog_see_all_empty_title">Ni elementov na voljo</string>
     <string name="catalog_see_all_empty_subtitle">Poskusite z drugim katalogom ali preverite kasneje</string>
     <!-- LayoutSelectionScreen -->

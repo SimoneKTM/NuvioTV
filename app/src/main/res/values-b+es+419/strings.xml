@@ -159,7 +159,6 @@
     <string name="cw_dialog_subtitle">Elige qué quieres hacer con este elemento.</string>
     <string name="home_poster_dialog_subtitle">Acciones del título</string>
 
-    <string name="catalog_from_addon">de %1$s</string>
     <string name="action_see_all">Ver todo</string>
     <string name="action_load_more">Cargar más</string>
 
@@ -874,8 +873,6 @@
     <string name="layout_discover_location_in_sidebar_desc">Descubrir obtiene su propio elemento en el panel lateral.</string>
     <string name="layout_poster_labels">Mostrar Etiquetas de Pósteres</string>
     <string name="layout_poster_labels_sub">Mostrar los títulos debajo de los pósteres en filas, cuadrículas y en "ver todo".</string>
-    <string name="layout_addon_name">Mostrar Nombre del Addon</string>
-    <string name="layout_addon_name_sub">Mostrar el nombre de la fuente debajo de los títulos del catálogo.</string>
     <string name="layout_catalog_type">Mostrar Tipo de Catálogo</string>
     <string name="layout_catalog_type_sub">Mostrar el sufijo de tipo junto al nombre del catálogo (Película/Serie).</string>
     <string name="layout_hide_unreleased">Ocultar contenido no estrenado</string>
@@ -1956,7 +1953,6 @@
     <string name="cast_detail_born_died">Nacimiento: %1$s — †%2$s</string>
     <string name="cast_detail_age">%1$d años</string>
 
-    <string name="catalog_see_all_from">de %1$s</string>
     <string name="catalog_see_all_empty_title">No hay elementos disponibles</string>
     <string name="catalog_see_all_empty_subtitle">Prueba un catálogo diferente o revisa más tarde</string>
 

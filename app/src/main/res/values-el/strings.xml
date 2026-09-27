@@ -169,7 +169,6 @@
   <string name="cw_dialog_subtitle">Επιλέξτε τι θέλετε να κάνετε με αυτό το στοιχείο.</string>
   <string name="home_poster_dialog_subtitle">Ενέργειες τίτλου</string>
   <!-- CatalogRowSection -->
-  <string name="catalog_from_addon">από %1$s</string>
   <string name="action_see_all">Προβολή όλων</string>
   <string name="action_load_more">Φόρτωση περισσότερων</string>
   <!-- HeroSection -->
@@ -774,8 +773,6 @@
   <string name="layout_discover_location_in_sidebar_desc">Η Ανακάλυψη έχει δικό της στοιχείο στο πλαϊνό πάνελ.</string>
   <string name="layout_poster_labels">Εμφάνιση ετικετών αφισών</string>
   <string name="layout_poster_labels_sub">Εμφάνιση τίτλων κάτω από τις αφίσες σε σειρές, πλέγμα και «Προβολή όλων».</string>
-  <string name="layout_addon_name">Εμφάνιση ονόματος πρόσθετου</string>
-  <string name="layout_addon_name_sub">Εμφάνιση ονόματος πηγής κάτω από τους τίτλους καταλόγων.</string>
   <string name="layout_catalog_type">Εμφάνιση τύπου καταλόγου</string>
   <string name="layout_catalog_type_sub">Εμφάνιση επιθέματος τύπου δίπλα στο όνομα καταλόγου (Ταινία/Σειρά).</string>
   <string name="layout_hide_unreleased">Απόκρυψη μη κυκλοφορημένου περιεχομένου</string>
@@ -1784,7 +1781,6 @@
   <string name="cast_detail_born_died">Γεννήθηκε: %1$s — †%2$s</string>
   <string name="cast_detail_age">ηλικία %1$d</string>
   <!-- CatalogSeeAllScreen -->
-  <string name="catalog_see_all_from">από %1$s</string>
   <string name="catalog_see_all_empty_title">Δεν υπάρχουν διαθέσιμα στοιχεία</string>
   <string name="catalog_see_all_empty_subtitle">Δοκιμάστε διαφορετικό κατάλογο ή ελέγξτε αργότερα</string>
   <!-- LayoutSelectionScreen -->

@@ -46,7 +46,6 @@
     <string name="home_poster_dialog_subtitle">Akcje tytułu</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">z %1$s</string>
     <string name="action_see_all">Zobacz wszystkie</string>
 
     <!-- HeroSection -->
@@ -403,8 +402,6 @@
     <string name="layout_show_discover_sub">Pokaż sekcję przeglądania gdy wyszukiwarka jest pusta.</string>
     <string name="layout_poster_labels">Pokaż etykiety plakatów</string>
     <string name="layout_poster_labels_sub">Pokaż tytuły pod plakatami w wierszach, siatce i widoku wszystkich.</string>
-    <string name="layout_addon_name">Pokaż nazwę dodatku</string>
-    <string name="layout_addon_name_sub">Pokaż nazwę źródła pod tytułami katalogów.</string>
     <string name="layout_catalog_type">Pokaż typ katalogu</string>
     <string name="layout_catalog_type_sub">Pokaż sufiks typu obok nazwy katalogu (Film/Serial).</string>
     <string name="layout_section_detail">Strona szczegółów</string>
@@ -988,7 +985,6 @@
     <string name="cast_detail_age">%1$d lat</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">z %1$s</string>
     <string name="catalog_see_all_empty_title">Brak dostępnych pozycji</string>
     <string name="catalog_see_all_empty_subtitle">Spróbuj innego katalogu lub wróć później</string>
 

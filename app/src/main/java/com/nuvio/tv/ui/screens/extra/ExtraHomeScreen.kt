@@ -308,7 +308,6 @@ private fun ExtraClassicContent(
                     showSeeAll = row.hasMore || row.items.size >= 15,
                     posterCardStyle = posterCardStyle,
                     showPosterLabels = uiState.posterLabelsEnabled,
-                    showAddonName = uiState.catalogAddonNameEnabled,
                     showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
                     focusedPosterBackdropExpandEnabled = uiState.focusedPosterBackdropExpandEnabled,
                     focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,
@@ -401,7 +400,6 @@ private fun ExtraModernContent(
                 showSeeAll = row.hasMore || row.items.size >= 15,
                 posterCardStyle = posterCardStyle,
                 showPosterLabels = uiState.posterLabelsEnabled,
-                showAddonName = uiState.catalogAddonNameEnabled,
                 showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
                 focusedPosterBackdropExpandEnabled = uiState.focusedPosterBackdropExpandEnabled,
                 focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds
@@ -485,7 +483,6 @@ private fun ExtraGridContent(
                 showSeeAll = row.hasMore || row.items.size >= 15,
                 posterCardStyle = posterCardStyle,
                 showPosterLabels = uiState.posterLabelsEnabled,
-                showAddonName = uiState.catalogAddonNameEnabled,
                 showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled
             )
         }

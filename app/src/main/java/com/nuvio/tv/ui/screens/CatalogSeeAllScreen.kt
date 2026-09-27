@@ -125,11 +125,6 @@ fun CatalogSeeAllScreen(
         isExtraMode -> extraUiState.posterLabelsEnabled
         else -> uiState.posterLabelsEnabled
     }
-    val activeAddonNameEnabled = when {
-        isAnimeMode -> animeUiState.catalogAddonNameEnabled
-        isExtraMode -> extraUiState.catalogAddonNameEnabled
-        else -> uiState.catalogAddonNameEnabled
-    }
     val posterCardStyle = PosterCardStyle(
         width = activePosterWidthDp.dp,
         height = activePosterHeightDp.dp,
@@ -284,17 +279,6 @@ fun CatalogSeeAllScreen(
                 style = MaterialTheme.typography.headlineLarge,
                 color = NuvioTheme.colors.TextPrimary
             )
-        }
-
-        if (activeAddonNameEnabled) {
-            catalogRow?.addonName?.let { addonName ->
-                Text(
-                    modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl),
-                    text = stringResource(R.string.catalog_see_all_from, addonName),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = NuvioTheme.colors.TextSecondary
-                )
-            }
         }
 
         Spacer(modifier = Modifier.height(NuvioTheme.spacing.xl))

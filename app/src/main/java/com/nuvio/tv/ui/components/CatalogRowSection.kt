@@ -80,7 +80,6 @@ fun CatalogRowSection(
     seeAllLabel: String? = null,
     posterCardStyle: PosterCardStyle = PosterCardDefaults.Style,
     showPosterLabels: Boolean = true,
-    showAddonName: Boolean = true,
     showCatalogTypeSuffix: Boolean = true,
     focusedPosterBackdropExpandEnabled: Boolean = false,
     focusedPosterBackdropExpandDelaySeconds: Int = 3,
@@ -222,13 +221,6 @@ fun CatalogRowSection(
                     maxLines = 3,
                     overflow = TextOverflow.Clip
                 )
-                if (showAddonName) {
-                    Text(
-                        text = if (catalogTitle.isBlank()) " " else stringResource(R.string.catalog_from_addon, catalogRow.addonName),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (catalogTitle.isBlank()) Color.Transparent else NuvioTheme.colors.TextTertiary
-                    )
-                }
             }
         }
 

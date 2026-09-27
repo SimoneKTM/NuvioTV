@@ -978,7 +978,6 @@ private fun AnimeClassicContent(
                     showSeeAll = row.hasMore || row.items.size >= 15,
                     posterCardStyle = animePosterCardStyle(uiState),
                     showPosterLabels = uiState.posterLabelsEnabled,
-                    showAddonName = uiState.catalogAddonNameEnabled,
                     showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
                     focusedPosterBackdropExpandEnabled = uiState.focusedPosterBackdropExpandEnabled,
                     focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,
@@ -1046,8 +1045,7 @@ private fun AnimeGridContent(
                     onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
                 },
                 showSeeAll = row.hasMore || row.items.size >= 15,
-                showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
-                showAddonName = uiState.catalogAddonNameEnabled
+                showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled
             )
         }
     }
@@ -1075,7 +1073,6 @@ private fun AnimeGridCatalogSection(
     onSeeAll: () -> Unit,
     showSeeAll: Boolean,
     showCatalogTypeSuffix: Boolean,
-    showAddonName: Boolean,
     modifier: Modifier = Modifier
 ) {
     val catalogContext = LocalContext.current
@@ -1105,13 +1102,6 @@ private fun AnimeGridCatalogSection(
                     maxLines = 3,
                     overflow = TextOverflow.Clip
                 )
-                if (showAddonName && catalogTitle.isNotBlank()) {
-                    Text(
-                        text = stringResource(R.string.catalog_from_addon, catalogRow.addonName),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = NuvioTheme.colors.TextTertiary
-                    )
-                }
             }
         }
 

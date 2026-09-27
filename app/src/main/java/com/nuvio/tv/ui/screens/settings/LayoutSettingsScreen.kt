@@ -449,17 +449,6 @@ fun LayoutSettingsContent(
                         onFocused = { focusedSection = LayoutSettingsSection.ANIME_CONTENT }
                     )
                     CompactToggleRow(
-                        title = stringResource(R.string.layout_addon_name),
-                        subtitle = stringResource(R.string.layout_addon_name_sub),
-                        checked = uiState.catalogAddonNameEnabled,
-                        onToggle = {
-                            viewModel.onEvent(
-                                LayoutSettingsEvent.SetCatalogAddonNameEnabled(!uiState.catalogAddonNameEnabled)
-                            )
-                        },
-                        onFocused = { focusedSection = LayoutSettingsSection.ANIME_CONTENT }
-                    )
-                    CompactToggleRow(
                         title = stringResource(R.string.layout_catalog_type),
                         subtitle = stringResource(R.string.layout_catalog_type_sub),
                         checked = uiState.catalogTypeSuffixEnabled,
@@ -599,17 +588,6 @@ fun LayoutSettingsContent(
                         onToggle = {
                             viewModel.onEvent(
                                 LayoutSettingsEvent.SetPosterLabelsEnabled(!uiState.posterLabelsEnabled)
-                            )
-                        },
-                        onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }
-                    )
-                    CompactToggleRow(
-                        title = stringResource(R.string.layout_addon_name),
-                        subtitle = stringResource(R.string.layout_addon_name_sub),
-                        checked = uiState.catalogAddonNameEnabled,
-                        onToggle = {
-                            viewModel.onEvent(
-                                LayoutSettingsEvent.SetCatalogAddonNameEnabled(!uiState.catalogAddonNameEnabled)
                             )
                         },
                         onFocused = { focusedSection = LayoutSettingsSection.HOME_CONTENT }

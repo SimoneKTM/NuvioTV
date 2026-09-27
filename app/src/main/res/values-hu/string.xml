@@ -159,7 +159,6 @@
     <string name="cw_dialog_subtitle">Válaszd ki a műveletet.</string>
     <string name="home_poster_dialog_subtitle">Műveletek</string>
 
-    <string name="catalog_from_addon">forrás: %1$s</string>
     <string name="action_see_all">Összes megtekintése</string>
     <string name="action_load_more">Több betöltése</string>
 
@@ -874,8 +873,6 @@
     <string name="layout_discover_location_in_sidebar_desc">A Felfedezés saját elemet kap az oldalsó panelen.</string>
     <string name="layout_poster_labels">Poszter feliratok megjelenítése</string>
     <string name="layout_poster_labels_sub">Címek megjelenítése a poszterek alatt a sorokban, rácsban és az összes nézetben.</string>
-    <string name="layout_addon_name">Bővítmény nevének megjelenítése</string>
-    <string name="layout_addon_name_sub">Forrás nevének megjelenítése a katalóguscímek alatt.</string>
     <string name="layout_catalog_type">Katalógus típusának megjelenítése</string>
     <string name="layout_catalog_type_sub">Típus utótag megjelenítése a katalógus neve mellett (Film/Sorozat).</string>
     <string name="layout_hide_unreleased">Még meg nem jelent tartalmak elrejtése</string>
@@ -1956,7 +1953,6 @@
     <string name="cast_detail_born_died">Született: %1$s – † %2$s</string>
     <string name="cast_detail_age">%1$d éves</string>
 
-    <string name="catalog_see_all_from">innen: %1$s</string>
     <string name="catalog_see_all_empty_title">Nincsenek elérhető tételek</string>
     <string name="catalog_see_all_empty_subtitle">Próbálkozz másik katalógussal, vagy térj vissza később</string>
 

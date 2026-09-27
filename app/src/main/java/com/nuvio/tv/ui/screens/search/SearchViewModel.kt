@@ -157,17 +157,15 @@ class SearchViewModel @Inject constructor(
             combine(
                 layoutPreferenceDataStore.posterCardWidthDp,
                 layoutPreferenceDataStore.posterLabelsEnabled,
-                layoutPreferenceDataStore.catalogAddonNameEnabled,
                 layoutPreferenceDataStore.posterCardHeightDp,
                 layoutPreferenceDataStore.posterCardCornerRadiusDp
-            ) { widthDp, labelsEnabled, addonNameEnabled, heightDp, cornerRadiusDp ->
-                LayoutPrefs(widthDp, labelsEnabled, addonNameEnabled, heightDp, cornerRadiusDp)
+            ) { widthDp, labelsEnabled, heightDp, cornerRadiusDp ->
+                LayoutPrefs(widthDp, labelsEnabled, heightDp, cornerRadiusDp)
             }.collectLatest { prefs ->
                 _uiState.update {
                     it.copy(
                         posterCardWidthDp = prefs.widthDp,
                         posterLabelsEnabled = prefs.labelsEnabled,
-                        catalogAddonNameEnabled = prefs.addonNameEnabled,
                         posterCardHeightDp = prefs.heightDp,
                         posterCardCornerRadiusDp = prefs.cornerRadiusDp
                     )
@@ -254,7 +252,6 @@ class SearchViewModel @Inject constructor(
     private data class LayoutPrefs(
         val widthDp: Int,
         val labelsEnabled: Boolean,
-        val addonNameEnabled: Boolean,
         val heightDp: Int,
         val cornerRadiusDp: Int
     )

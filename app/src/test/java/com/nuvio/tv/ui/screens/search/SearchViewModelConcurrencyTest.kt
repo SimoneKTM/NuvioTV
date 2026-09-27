@@ -97,7 +97,6 @@ class SearchViewModelConcurrencyTest {
         every { layoutPreferences.discoverLocation } returns flowOf(com.nuvio.tv.domain.model.DiscoverLocation.OFF)
         every { layoutPreferences.posterCardWidthDp } returns flowOf(126)
         every { layoutPreferences.posterLabelsEnabled } returns flowOf(true)
-        every { layoutPreferences.catalogAddonNameEnabled } returns flowOf(true)
         every { layoutPreferences.posterCardHeightDp } returns flowOf(189)
         every { layoutPreferences.posterCardCornerRadiusDp } returns flowOf(12)
         every { layoutPreferences.catalogTypeSuffixEnabled } returns flowOf(true)

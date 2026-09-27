@@ -174,7 +174,6 @@
     <string name="home_poster_dialog_subtitle">İçerik işlemleri</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">Kaynak: %1$s</string>
     <string name="action_see_all">Tümünü Gör</string>
     <string name="action_load_more">Daha Fazla Yükle</string>
 
@@ -885,8 +884,6 @@
     <string name="layout_discover_location_in_sidebar_desc">Keşif, yan panelde kendi öğesi olarak görünür.</string>
     <string name="layout_poster_labels">Poster Etiketlerini Göster</string>
     <string name="layout_poster_labels_sub">Satırlardaki, ızgaradaki ve tümünü gör listesindeki başlıkları posterlerin altında göster.</string>
-    <string name="layout_addon_name">Eklenti Adını Göster</string>
-    <string name="layout_addon_name_sub">Katalog başlıklarının altında kaynağın (eklenti) adını göster.</string>
     <string name="layout_catalog_type">Katalog Türünü Göster</string>
     <string name="layout_catalog_type_sub">Katalog adının yanında tür sonekini (Film/Dizi) göster.</string>
     <string name="layout_hide_unreleased">Yayınlanmamış İçerikleri Gizle</string>
@@ -1945,7 +1942,6 @@
     <string name="cast_detail_age">%1$d yaşında</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">Kaynak: %1$s</string>
     <string name="catalog_see_all_empty_title">Görsel öğe bulunamadı</string>
     <string name="catalog_see_all_empty_subtitle">Daha sonra başka bir alt alan türünü denemek de faydalı olacaktır</string>
 

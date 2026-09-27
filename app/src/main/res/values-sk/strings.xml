@@ -164,7 +164,6 @@
     <string name="home_poster_dialog_subtitle">Možnosti titulu</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">z %1$s</string>
     <string name="action_see_all">Zobraziť všetko</string>
     <string name="action_load_more">Načítať viac</string>
 
@@ -781,8 +780,6 @@
     <string name="layout_discover_location_in_sidebar_desc">Objavovanie dostane vlastnú položku v bočnom paneli</string>
     <string name="layout_poster_labels">Zobraziť názvy posterov</string>
     <string name="layout_poster_labels_sub">Zobraziť názvy pod postermi v radoch, mriežke a zobrazení všetkých.</string>
-    <string name="layout_addon_name">Zobraziť názov doplnku</string>
-    <string name="layout_addon_name_sub">Zobraziť názov zdroja pod katalógovými titulmi</string>
     <string name="layout_catalog_type">Zobraziť typ katalógu</string>
     <string name="layout_catalog_type_sub">Zobraziť typ (Film/Seriál) vedľa názvu katalógu</string>
     <string name="layout_hide_unreleased">Skryť nevydaný obsah</string>
@@ -1733,7 +1730,6 @@
     <string name="cast_detail_age">vek %1$d</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">z %1$s</string>
     <string name="catalog_see_all_empty_title">Žiadne položky nie sú dostupné</string>
     <string name="catalog_see_all_empty_subtitle">Skúste iný katalóg alebo sa vráťte neskôr</string>
 

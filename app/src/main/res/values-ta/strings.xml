@@ -158,7 +158,6 @@
     <string name="home_poster_dialog_subtitle">தலைப்பு செயல்கள்</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">%1$s இலிருந்து</string>
     <string name="action_see_all">அனைத்தையும் காண்க</string>
     <string name="action_load_more">மேலும் ஏற்று</string>
 
@@ -767,8 +766,6 @@
     <string name="layout_discover_location_in_sidebar_desc">டிஸ்கவருக்கு பக்கப் பலகையில் தனி உருப்படி கிடைக்கும்.</string>
     <string name="layout_poster_labels">போஸ்டர் தலைப்புகளைக் காட்டு</string>
     <string name="layout_poster_labels_sub">வரிகள், கிரிட், அனைத்தையும் காண் பகுதிகளில் போஸ்டரின் கீழ் தலைப்புகளைக் காட்டு.</string>
-    <string name="layout_addon_name">ஆட்ஒன் பெயரைக் காட்டு</string>
-    <string name="layout_addon_name_sub">பட்டியல் தலைப்புகளின் கீழ் மூலப் பெயரைக் காட்டு.</string>
     <string name="layout_catalog_type">பட்டியல் வகையைக் காட்டு</string>
     <string name="layout_catalog_type_sub">பட்டியல் பெயருக்கு அருகில் வகை பின்னொட்டு காட்டு (படம்/தொடர்).</string>
     <string name="layout_hide_unreleased">வெளியிடாத உள்ளடக்கத்தை மறை</string>
@@ -1553,7 +1550,6 @@
     <string name="cast_detail_age">வயது %1$d</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">%1$s இலிருந்து</string>
     <string name="catalog_see_all_empty_title">உருப்படிகள் எதுவும் இல்லை</string>
     <string name="catalog_see_all_empty_subtitle">வேறு கேட்டலாக் முயற்சிக்கவும் அல்லது பின்னர் பார்க்கவும்</string>
 

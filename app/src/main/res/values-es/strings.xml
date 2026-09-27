@@ -115,7 +115,6 @@
     <string name="home_poster_dialog_subtitle">Acciones del título</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">de %1$s</string>
     <string name="action_see_all">Ver todo</string>
 
     <!-- HeroSection -->
@@ -442,8 +441,6 @@
     <string name="layout_discover_location_in_sidebar_desc">Discover obtiene su propio elemento en el panel lateral.</string>
     <string name="layout_poster_labels">Mostrar etiquetas de póster</string>
     <string name="layout_poster_labels_sub">Muestra títulos bajo pósters en filas, cuadrícula y ver todo.</string>
-    <string name="layout_addon_name">Mostrar nombre del complemento</string>
-    <string name="layout_addon_name_sub">Muestra nombre de fuente bajo títulos de catálogo.</string>
     <string name="layout_catalog_type">Mostrar tipo de catálogo</string>
     <string name="layout_catalog_type_sub">Muestra sufijo de tipo junto al nombre del catálogo (Película/Series).</string>
     <string name="layout_hide_unreleased">Ocultar contenido no estrenado</string>
@@ -1019,7 +1016,6 @@
     <string name="cast_detail_filmography">Filmografía</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">de %1$s</string>
     <string name="catalog_see_all_empty_title">No hay elementos disponibles</string>
     <string name="catalog_see_all_empty_subtitle">Intenta un catálogo diferente o vuelve más tarde</string>
 

@@ -169,7 +169,6 @@
     <string name="cw_dialog_subtitle">Vælg hvad du vil gøre med dette element.</string>
     <string name="home_poster_dialog_subtitle">Titelhandlinger</string>
 
-    <string name="catalog_from_addon">fra %1$s</string>
     <string name="action_see_all">Se alle</string>
     <string name="action_load_more">Indlæs mere</string>
 
@@ -818,8 +817,6 @@
     <string name="layout_discover_location_in_sidebar_desc">Opdag får sit eget element i sidepanelet.</string>
     <string name="layout_poster_labels">Vis postertitler</string>
     <string name="layout_poster_labels_sub">Vis titler under postere i rækker, gitre og se-alle-visninger.</string>
-    <string name="layout_addon_name">Vis addon-navn</string>
-    <string name="layout_addon_name_sub">Vis kildenavn under katalogtitler.</string>
     <string name="layout_catalog_type">Vis katalogtype</string>
     <string name="layout_catalog_type_sub">Vis typesuffiks ved siden af katalognavnet (film/serie).</string>
     <string name="layout_hide_unreleased">Skjul uudgivet indhold</string>
@@ -1827,7 +1824,6 @@
     <string name="cast_detail_born_died">Født: %1$s — †%2$s</string>
     <string name="cast_detail_age">alder %1$d</string>
 
-    <string name="catalog_see_all_from">fra %1$s</string>
     <string name="catalog_see_all_empty_title">Ingen indhold tilgængeligt</string>
     <string name="catalog_see_all_empty_subtitle">Prøv et andet katalog, eller kom tilbage senere</string>
 

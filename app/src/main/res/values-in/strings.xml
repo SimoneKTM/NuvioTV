@@ -174,7 +174,6 @@
     <string name="home_poster_dialog_subtitle">Aksi judul</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">dari %1$s</string>
     <string name="action_see_all">Lihat Semua</string>
     <string name="action_load_more">Muat Lebih Banyak</string>
 
@@ -790,8 +789,6 @@
     <string name="layout_discover_location_in_sidebar_desc">Penemuan mendapat item tersendiri di panel sisi.</string>
     <string name="layout_poster_labels">Tampilkan Label Poster</string>
     <string name="layout_poster_labels_sub">Tampilkan judul di bawah poster di baris, grid, dan lihat-semua.</string>
-    <string name="layout_addon_name">Tampilkan Nama Addon</string>
-    <string name="layout_addon_name_sub">Tampilkan nama sumber di bawah judul katalog.</string>
     <string name="layout_catalog_type">Tampilkan Tipe Katalog</string>
     <string name="layout_catalog_type_sub">Tampilkan sufiks tipe di sebelah nama katalog (Film/Serial).</string>
     <string name="layout_hide_unreleased">Sembunyikan Konten Belum Dirilis</string>
@@ -1742,7 +1739,6 @@
     <string name="cast_detail_age">usia %1$d</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">dari %1$s</string>
     <string name="catalog_see_all_empty_title">Tidak ada item tersedia</string>
     <string name="catalog_see_all_empty_subtitle">Coba katalog lain atau periksa kembali nanti</string>
 

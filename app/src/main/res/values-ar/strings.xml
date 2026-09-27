@@ -174,7 +174,6 @@
     <string name="home_poster_dialog_subtitle">خيارات العمل</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">من %1$s</string>
     <string name="action_see_all">عرض الكل</string>
     <string name="action_load_more">تحميل المزيد</string>    
 
@@ -818,8 +817,6 @@
     <string name="layout_discover_location_in_sidebar_desc">إضافة علامة تبويب مستقلة لميزة "استكشاف" في القائمة الجانبية.</string>
     <string name="layout_poster_labels">إظهار عناوين البطاقات</string>
     <string name="layout_poster_labels_sub">إظهار العناوين تحت البطاقات في القوائم , و"عرض الكل".</string>
-    <string name="layout_addon_name">إظهار اسم الإضافة</string>
-    <string name="layout_addon_name_sub">إظهار اسم المصدر تحت عناوين القوائم.</string>
     <string name="layout_catalog_type">إظهار نوع القوائم</string>
     <string name="layout_catalog_type_sub">إظهار النوع بجانب اسم القوائم (أفلام/مسلسلات).</string>
     <string name="layout_hide_unreleased">إخفاء المحتوى الذي لم يصدر بعد</string>
@@ -1846,7 +1843,6 @@
     <string name="cast_detail_age">العمر %1$d</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">من %1$s</string>
     <string name="catalog_see_all_empty_title">لا توجد عناصر متاحة</string>
     <string name="catalog_see_all_empty_subtitle">جرب فئة أخرى أو تفقدها لاحقاً</string>
 

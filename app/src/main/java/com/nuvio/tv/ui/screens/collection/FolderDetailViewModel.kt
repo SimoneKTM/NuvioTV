@@ -67,7 +67,6 @@ data class FolderDetailUiState(
     val viewMode: FolderViewMode = FolderViewMode.TABBED_GRID,
     val homeLayout: HomeLayout = HomeLayout.MODERN,
     val posterLabelsEnabled: Boolean = true,
-    val catalogAddonNameEnabled: Boolean = false,
     val catalogTypeSuffixEnabled: Boolean = true,
     val hideUnreleasedContent: Boolean = false,
     val showFullReleaseDate: Boolean = true,
@@ -320,7 +319,6 @@ class FolderDetailViewModel @Inject constructor(
             val liveTvPlaylists = liveTvSettingsDataStore.playlists.first()
             val homeLayout = activeLayoutDataStore.selectedLayout.first()
             val posterLabelsEnabled = activeLayoutDataStore.posterLabelsEnabled.first()
-            val catalogAddonNameEnabled = activeLayoutDataStore.catalogAddonNameEnabled.first()
             val catalogTypeSuffixEnabled = activeLayoutDataStore.catalogTypeSuffixEnabled.first()
             val hideUnreleasedContent = activeLayoutDataStore.hideUnreleasedContent.first()
             val showFullReleaseDate = activeLayoutDataStore.showFullReleaseDate.first()
@@ -430,7 +428,6 @@ class FolderDetailViewModel @Inject constructor(
                     viewMode = viewMode,
                     homeLayout = homeLayout,
                     posterLabelsEnabled = posterLabelsEnabled,
-                    catalogAddonNameEnabled = catalogAddonNameEnabled,
                     catalogTypeSuffixEnabled = catalogTypeSuffixEnabled,
                     hideUnreleasedContent = hideUnreleasedContent,
                     showFullReleaseDate = showFullReleaseDate,
@@ -645,7 +642,6 @@ class FolderDetailViewModel @Inject constructor(
                         posterLabelsEnabled = if (s.homeLayout == HomeLayout.MODERN) false else s.posterLabelsEnabled,
                         modernLandscapePostersEnabled = s.modernLandscapePostersEnabled,
                         modernHeroFullScreenBackdropEnabled = s.modernHeroFullScreenBackdropEnabled,
-                        catalogAddonNameEnabled = s.catalogAddonNameEnabled,
                         catalogTypeSuffixEnabled = s.catalogTypeSuffixEnabled,
                         focusedPosterBackdropExpandEnabled = s.focusedPosterBackdropExpandEnabled,
                         focusedPosterBackdropExpandDelaySeconds = s.focusedPosterBackdropExpandDelaySeconds,
@@ -676,7 +672,6 @@ class FolderDetailViewModel @Inject constructor(
                     posterLabelsEnabled = s.posterLabelsEnabled,
                     modernLandscapePostersEnabled = s.modernLandscapePostersEnabled,
                     modernHeroFullScreenBackdropEnabled = s.modernHeroFullScreenBackdropEnabled,
-                    catalogAddonNameEnabled = s.catalogAddonNameEnabled,
                     catalogTypeSuffixEnabled = s.catalogTypeSuffixEnabled,
                     focusedPosterBackdropExpandEnabled = s.focusedPosterBackdropExpandEnabled,
                     focusedPosterBackdropExpandDelaySeconds = s.focusedPosterBackdropExpandDelaySeconds,

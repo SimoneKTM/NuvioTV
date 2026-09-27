@@ -129,7 +129,6 @@
     <string name="home_poster_dialog_subtitle">Akcije za naslov</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">od %1$s</string>
     <string name="action_see_all">Prikaži Sve</string>
     <string name="action_load_more">Učitaj Više</string>
 
@@ -545,8 +544,6 @@
     <string name="layout_show_discover_sub">Prikaži browse sekciju kada je pretraga prazna.</string>
     <string name="layout_poster_labels">Prikaži Nazive Postera</string>
     <string name="layout_poster_labels_sub">Prikaži naslove ispod postera u redovima, mreži i prikazu “Vidi sve”.</string>
-    <string name="layout_addon_name">Prikaži Naziv Addona</string>
-    <string name="layout_addon_name_sub">Prikaži naziv izvora ispod naziva kataloga.</string>
     <string name="layout_catalog_type">Prikaži Tip Kataloga</string>
     <string name="layout_catalog_type_sub">Prikaži sufiks tipa pored naziva kataloga (Film/Serija).</string>
     <string name="layout_hide_unreleased">Sakrij Neobjavljen Sadržaj</string>
@@ -1232,7 +1229,6 @@
     <string name="cast_detail_age">%1$d god.</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">od %1$s</string>
     <string name="catalog_see_all_empty_title">Nema dostupnih stavki</string>
     <string name="catalog_see_all_empty_subtitle">Pokušaj sa drugim katalogom ili provjeri kasnije</string>
 

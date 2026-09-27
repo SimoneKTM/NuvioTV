@@ -174,7 +174,6 @@
     <string name="cw_dialog_subtitle">Оберіть дію для цього елемента.</string>
     <string name="home_poster_dialog_subtitle">Дії з тайтлом</string>
 
-    <string name="catalog_from_addon">від %1$s</string>
     <string name="action_see_all">Показати всі</string>
     <string name="action_load_more">Завантажити ще</string>
 
@@ -815,8 +814,6 @@
     <string name="layout_discover_location_in_sidebar_desc">Навігатор отримує окремий елемент у бічній панелі.</string>
     <string name="layout_poster_labels">Показувати назви під постерами</string>
     <string name="layout_poster_labels_sub">Показувати назви під постерами в рядках, сітці та меню «показати всі».</string>
-    <string name="layout_addon_name">Показувати назву адона</string>
-    <string name="layout_addon_name_sub">Показувати назву джерела під заголовками каталогів.</string>
     <string name="layout_catalog_type">Показувати тип каталогу</string>
     <string name="layout_catalog_type_sub">Показувати суфікс типу поряд з назвою каталогу (Фільм/Серіал).</string>
     <string name="layout_hide_unreleased">Приховати контент, що не вийшов</string>
@@ -1821,7 +1818,6 @@
     <string name="cast_detail_born_died">Роки життя: %1$s — †%2$s</string>
     <string name="cast_detail_age">вік %1$d</string>
 
-    <string name="catalog_see_all_from">з %1$s</string>
     <string name="catalog_see_all_empty_title">Немає доступних елементів</string>
     <string name="catalog_see_all_empty_subtitle">Спробуйте інший каталог або зайдіть пізніше</string>
 

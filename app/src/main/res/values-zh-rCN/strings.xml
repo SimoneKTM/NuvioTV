@@ -169,7 +169,6 @@
     <string name="cw_dialog_subtitle">选择您要对此项目进行的操作。</string>
     <string name="home_poster_dialog_subtitle">标题操作</string>
 
-    <string name="catalog_from_addon">来自 %1$s</string>
     <string name="action_see_all">查看全部</string>
     <string name="action_load_more">加载更多</string>
 
@@ -852,8 +851,6 @@
     <string name="layout_discover_location_in_sidebar_desc">发现在侧边面板中有自己的项目。</string>
     <string name="layout_poster_labels">显示海报标签</string>
     <string name="layout_poster_labels_sub">在行、网格和「查看全部」中的海报下方显示标题。</string>
-    <string name="layout_addon_name">显示扩展名称</string>
-    <string name="layout_addon_name_sub">在目录标题下方显示来源名称。</string>
     <string name="layout_catalog_type">显示目录类型</string>
     <string name="layout_catalog_type_sub">在目录名称旁显示类型后缀 (电影/剧集)。</string>
     <string name="layout_hide_unreleased">隐藏未发行内容</string>
@@ -1892,7 +1889,6 @@
     <string name="cast_detail_born_died">出生：%1$s — †%2$s</string>
     <string name="cast_detail_age">%1$d 岁</string>
 
-    <string name="catalog_see_all_from">来自 %1$s</string>
     <string name="catalog_see_all_empty_title">没有可用的项目</string>
     <string name="catalog_see_all_empty_subtitle">请尝试其他目录或稍后再查看</string>
 

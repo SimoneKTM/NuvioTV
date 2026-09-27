@@ -36,7 +36,6 @@ private data class CoreLayoutPrefs(
     val heroCatalogKeys: List<String>,
     val heroSectionEnabled: Boolean,
     val posterLabelsEnabled: Boolean,
-    val catalogAddonNameEnabled: Boolean,
     val catalogTypeSuffixEnabled: Boolean,
     val classicFocusGradientEnabled: Boolean,
     val hideUnreleasedContent: Boolean,
@@ -56,7 +55,6 @@ private data class LayoutUiPrefs(
     val heroCatalogKeys: List<String>,
     val heroSectionEnabled: Boolean,
     val posterLabelsEnabled: Boolean,
-    val catalogAddonNameEnabled: Boolean,
     val catalogTypeSuffixEnabled: Boolean,
     val classicFocusGradientEnabled: Boolean,
     val hideUnreleasedContent: Boolean,
@@ -80,15 +78,13 @@ internal fun HomeViewModel.observeLayoutPreferencesPipeline() {
             layoutPreferenceDataStore.selectedLayout,
             layoutPreferenceDataStore.heroCatalogSelections,
             layoutPreferenceDataStore.heroSectionEnabled,
-            layoutPreferenceDataStore.posterLabelsEnabled,
-            layoutPreferenceDataStore.catalogAddonNameEnabled
-        ) { layout, heroCatalogKeys, heroSectionEnabled, posterLabelsEnabled, catalogAddonNameEnabled ->
+            layoutPreferenceDataStore.posterLabelsEnabled
+        ) { layout, heroCatalogKeys, heroSectionEnabled, posterLabelsEnabled ->
             CoreLayoutPrefs(
                 layout = layout,
                 heroCatalogKeys = heroCatalogKeys,
                 heroSectionEnabled = heroSectionEnabled,
                 posterLabelsEnabled = posterLabelsEnabled,
-                catalogAddonNameEnabled = catalogAddonNameEnabled,
                 catalogTypeSuffixEnabled = true,
                 classicFocusGradientEnabled = false,
                 hideUnreleasedContent = false,
@@ -143,7 +139,6 @@ internal fun HomeViewModel.observeLayoutPreferencesPipeline() {
             heroCatalogKeys = corePrefs.heroCatalogKeys,
             heroSectionEnabled = corePrefs.heroSectionEnabled,
             posterLabelsEnabled = corePrefs.posterLabelsEnabled,
-            catalogAddonNameEnabled = corePrefs.catalogAddonNameEnabled,
             catalogTypeSuffixEnabled = corePrefs.catalogTypeSuffixEnabled,
             classicFocusGradientEnabled = corePrefs.classicFocusGradientEnabled,
             hideUnreleasedContent = corePrefs.hideUnreleasedContent,
@@ -202,7 +197,6 @@ internal fun HomeViewModel.observeLayoutPreferencesPipeline() {
                         heroCatalogKeys = prefs.heroCatalogKeys,
                         heroSectionEnabled = prefs.heroSectionEnabled,
                         posterLabelsEnabled = effectivePosterLabelsEnabled,
-                        catalogAddonNameEnabled = prefs.catalogAddonNameEnabled,
                         catalogTypeSuffixEnabled = prefs.catalogTypeSuffixEnabled,
                         classicFocusGradientEnabled = prefs.classicFocusGradientEnabled && prefs.layout == HomeLayout.CLASSIC,
                         hideUnreleasedContent = prefs.hideUnreleasedContent,

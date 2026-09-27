@@ -173,7 +173,6 @@
     <string name="cw_dialog_subtitle">Vyberte, co chcete s touto položkou udělat.</string>
     <string name="home_poster_dialog_subtitle">Akce titulu</string>
 
-    <string name="catalog_from_addon">od %1$s</string>
     <string name="action_see_all">Zobrazit vše</string>
     <string name="action_load_more">Načíst další</string>
 
@@ -856,8 +855,6 @@
     <string name="layout_discover_location_in_sidebar_desc">Objevování dostane vlastní položku v bočním panelu.</string>
     <string name="layout_poster_labels">Zobrazit štítky plakátů</string>
     <string name="layout_poster_labels_sub">Zobrazit názvy pod plakáty v řádcích, mřížce a zobrazit vše.</string>
-    <string name="layout_addon_name">Zobrazit název doplňku</string>
-    <string name="layout_addon_name_sub">Zobrazit název zdroje pod názvy katalogů.</string>
     <string name="layout_catalog_type">Zobrazit typ katalogu</string>
     <string name="layout_catalog_type_sub">Zobrazit příponu typu vedle názvu katalogu (Film/Seriál).</string>
     <string name="layout_hide_unreleased">Skrýt nevydaný obsah</string>
@@ -1925,7 +1922,6 @@
     <string name="cast_detail_born_died">Narozen/a: %1$s — †%2$s</string>
     <string name="cast_detail_age">věk %1$d</string>
 
-    <string name="catalog_see_all_from">od %1$s</string>
     <string name="catalog_see_all_empty_title">Žádné položky nejsou k dispozici</string>
     <string name="catalog_see_all_empty_subtitle">Zkuste jiný katalog nebo to zkontrolujte později</string>
 

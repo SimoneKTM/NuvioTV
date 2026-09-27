@@ -169,7 +169,6 @@
     <string name="cw_dialog_subtitle">選擇您要對此項目進行的操作。</string>
     <string name="home_poster_dialog_subtitle">標題操作</string>
 
-    <string name="catalog_from_addon">來自 %1$s</string>
     <string name="action_see_all">查看全部</string>
     <string name="action_load_more">載入更多</string>
 
@@ -852,8 +851,6 @@
     <string name="layout_discover_location_in_sidebar_desc">探索在側邊面板中有自己的項目。</string>
     <string name="layout_poster_labels">顯示海報標籤</string>
     <string name="layout_poster_labels_sub">在列、網格和「查看全部」中的海報下方顯示標題。</string>
-    <string name="layout_addon_name">顯示擴充套件名稱</string>
-    <string name="layout_addon_name_sub">在目錄標題下方顯示來源名稱。</string>
     <string name="layout_catalog_type">顯示目錄類型</string>
     <string name="layout_catalog_type_sub">在目錄名稱旁顯示類型後綴 (電影/影集)。</string>
     <string name="layout_hide_unreleased">隱藏未發行內容</string>
@@ -1892,7 +1889,6 @@
     <string name="cast_detail_born_died">出生：%1$s — †%2$s</string>
     <string name="cast_detail_age">%1$d 歲</string>
 
-    <string name="catalog_see_all_from">來自 %1$s</string>
     <string name="catalog_see_all_empty_title">沒有可用的項目</string>
     <string name="catalog_see_all_empty_subtitle">請嘗試其他目錄或稍後再查看</string>
 

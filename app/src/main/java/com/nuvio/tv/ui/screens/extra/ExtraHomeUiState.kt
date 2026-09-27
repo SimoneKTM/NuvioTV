@@ -29,7 +29,6 @@ data class ExtraHomeUiState(
     val posterCardHeightDp: Int = 189,
     val posterCardCornerRadiusDp: Int = 12,
     val posterLabelsEnabled: Boolean = true,
-    val catalogAddonNameEnabled: Boolean = false,
     val focusedPosterBackdropExpandEnabled: Boolean = false,
     val focusedPosterBackdropExpandDelaySeconds: Int = 3,
     val extraTabName: String = ""

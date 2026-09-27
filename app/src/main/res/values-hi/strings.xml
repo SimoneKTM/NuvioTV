@@ -74,7 +74,6 @@
     <string name="home_poster_dialog_subtitle">टाइटल एक्शन</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">%1$s से</string>
     <string name="action_see_all">सब देखें</string>
 
     <!-- HeroSection -->
@@ -428,8 +427,6 @@
     <string name="layout_show_discover_sub">जब सर्च खाली हो तो ब्राउज़ सेक्शन दिखाएँ।</string>
     <string name="layout_poster_labels">पोस्टर लेबल दिखाएँ</string>
     <string name="layout_poster_labels_sub">रो, ग्रिड और see-all में पोस्टर के नीचे टाइटल दिखाएँ।</string>
-    <string name="layout_addon_name">ऐडऑन नाम दिखाएँ</string>
-    <string name="layout_addon_name_sub">कैटलॉग टाइटल के नीचे सोर्स नाम दिखाएँ।</string>
     <string name="layout_catalog_type">कैटलॉग प्रकार दिखाएँ</string>
     <string name="layout_catalog_type_sub">कैटलॉग नाम के पास प्रकार (मूवी/सीरीज़) दिखाएँ।</string>
     <string name="layout_hide_unreleased">अनरिलीज़ कंटेंट छुपाएँ</string>
@@ -942,7 +939,6 @@
     <string name="cast_detail_filmography">फिल्मोग्राफी</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">%1$s से</string>
     <string name="catalog_see_all_empty_title">कोई आइटम उपलब्ध नहीं</string>
     <string name="catalog_see_all_empty_subtitle">कोई दूसरा कैटलॉग आज़माएँ या बाद में देखें</string>
 

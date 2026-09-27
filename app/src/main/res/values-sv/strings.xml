@@ -76,7 +76,6 @@
     <string name="home_poster_dialog_subtitle">Titel händelse</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">Från %1$s</string>
     <string name="action_see_all">Se Allt</string>
 
     <!-- HeroSection -->
@@ -430,8 +429,6 @@
     <string name="layout_show_discover_sub">Visa bläddringssektion när sökningen är tom.</string>
     <string name="layout_poster_labels">Visa affischetiketter</string>
     <string name="layout_poster_labels_sub">Visa titlar under affischer i rader, rutnät och se allt.</string>
-    <string name="layout_addon_name">Visa tilläggsnamn</string>
-    <string name="layout_addon_name_sub">Visa källnamn under katalogtitlar.</string>
     <string name="layout_catalog_type">Visa katalogtyp</string>
     <string name="layout_catalog_type_sub">Visa typsuffix bredvid katalognamn (Film/Serie).</string>
     <string name="layout_hide_unreleased">Dölj osläppt innehåll</string>
@@ -996,7 +993,6 @@
     <string name="cast_detail_filmography">Filmografi</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">från %1$s</string>
     <string name="catalog_see_all_empty_title">Inga objekt tillgängliga</string>
     <string name="catalog_see_all_empty_subtitle">Prova en annan katalog eller kom tillbaka senare</string>
 

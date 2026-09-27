@@ -169,7 +169,6 @@
     <string name="cw_dialog_subtitle">Escolha o que deseja fazer com este item.</string>
     <string name="home_poster_dialog_subtitle">Opções do título</string>
 
-    <string name="catalog_from_addon">de %1$s</string>
     <string name="action_see_all">Ver Todos</string>
     <string name="action_load_more">Carregar Mais</string>
 
@@ -852,8 +851,6 @@
     <string name="layout_discover_location_in_sidebar_desc">Descobrir terá item próprio no painel lateral</string>
     <string name="layout_poster_labels">Títulos nos pôsteres</string>
     <string name="layout_poster_labels_sub">Exiba os títulos abaixo das imagens e grades.</string>
-    <string name="layout_addon_name">Nome do addon</string>
-    <string name="layout_addon_name_sub">Mostre o nome do addon abaixo dos títulos.</string>
     <string name="layout_catalog_type">Tipo de conteúdo</string>
     <string name="layout_catalog_type_sub">Indique se é Filme ou Série ao lado do subtítulo.</string>
     <string name="layout_hide_unreleased">Ocultar não lançados</string>
@@ -1926,7 +1923,6 @@
     <string name="cast_detail_born_died">Nascimento: %1$s — †%2$s</string>
     <string name="cast_detail_age">%1$d anos</string>
 
-    <string name="catalog_see_all_from">de %1$s</string>
     <string name="catalog_see_all_empty_title">Nada por aqui</string>
     <string name="catalog_see_all_empty_subtitle">Tente outro catálogo ou volte mais tarde</string>
 

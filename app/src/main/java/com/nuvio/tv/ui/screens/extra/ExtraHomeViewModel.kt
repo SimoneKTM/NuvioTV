@@ -133,7 +133,6 @@ class ExtraHomeViewModel @Inject constructor(
     private var posterCardHeightDp = 189
     private var posterCardCornerRadiusDp = 12
     private var posterLabelsEnabled = true
-    private var catalogAddonNameEnabled = false
     private var focusedPosterBackdropExpandEnabled = false
     private var focusedPosterBackdropExpandDelaySeconds = 3
 
@@ -307,14 +306,8 @@ class ExtraHomeViewModel @Inject constructor(
                     posterLabelsEnabled = posterLabels
                 )
             }
-            val cardStyleWithAddonNameFlow = combine(
-                cardStyleSnapshotFlow,
-                layoutPreferenceDataStore.catalogAddonNameEnabled
-            ) { snapshot, addonName ->
-                snapshot.copy(catalogAddonNameEnabled = addonName)
-            }
             combine(
-                cardStyleWithAddonNameFlow,
+                cardStyleSnapshotFlow,
                 layoutPreferenceDataStore.useEpisodeThumbnailsInCw,
                 layoutPreferenceDataStore.blurContinueWatchingNextUp
             ) { snapshot, thumbnails, blurNextUp ->
@@ -344,7 +337,6 @@ class ExtraHomeViewModel @Inject constructor(
                 posterCardHeightDp = snapshot.posterCardHeightDp
                 posterCardCornerRadiusDp = snapshot.posterCardCornerRadiusDp
                 posterLabelsEnabled = snapshot.posterLabelsEnabled
-                catalogAddonNameEnabled = snapshot.catalogAddonNameEnabled
                 focusedPosterBackdropExpandEnabled = snapshot.focusedPosterBackdropExpandEnabled
                 focusedPosterBackdropExpandDelaySeconds = snapshot.focusedPosterBackdropExpandDelaySeconds
                 publishRows()
@@ -369,7 +361,6 @@ class ExtraHomeViewModel @Inject constructor(
         val posterCardHeightDp: Int = 189,
         val posterCardCornerRadiusDp: Int = 12,
         val posterLabelsEnabled: Boolean = true,
-        val catalogAddonNameEnabled: Boolean = false,
         val focusedPosterBackdropExpandEnabled: Boolean = false,
         val focusedPosterBackdropExpandDelaySeconds: Int = 3
     )
@@ -752,7 +743,6 @@ class ExtraHomeViewModel @Inject constructor(
                 posterCardHeightDp = posterCardHeightDp,
                 posterCardCornerRadiusDp = posterCardCornerRadiusDp,
                 posterLabelsEnabled = posterLabelsEnabled,
-                catalogAddonNameEnabled = catalogAddonNameEnabled,
                 focusedPosterBackdropExpandEnabled = focusedPosterBackdropExpandEnabled,
                 focusedPosterBackdropExpandDelaySeconds = focusedPosterBackdropExpandDelaySeconds
             )

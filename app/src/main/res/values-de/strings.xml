@@ -174,7 +174,6 @@
     <string name="home_poster_dialog_subtitle">Titelaktionen</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">aus %1$s</string>
     <string name="action_see_all">Alle anzeigen</string>
     <string name="action_load_more">Mehr laden</string>
 
@@ -783,8 +782,6 @@
     <string name="layout_discover_location_in_sidebar_desc">Discover gets its own item in the side panel.</string>
     <string name="layout_poster_labels">Poster-Labels anzeigen</string>
     <string name="layout_poster_labels_sub">Titel unter Postern in Zeilen, Raster und „Alle anzeigen” anzeigen.</string>
-    <string name="layout_addon_name">Addon-Name anzeigen</string>
-    <string name="layout_addon_name_sub">Quellennamen unter Katalogtiteln anzeigen.</string>
     <string name="layout_catalog_type">Katalogtyp anzeigen</string>
     <string name="layout_catalog_type_sub">Typ-Suffix neben dem Katalognamen anzeigen (Film/Serie).</string>
     <string name="layout_hide_unreleased">Unveröffentlichte Inhalte ausblenden</string>
@@ -1569,7 +1566,6 @@
     <string name="cast_detail_age">Alter %1$d</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">von %1$s</string>
     <string name="catalog_see_all_empty_title">Keine Artikel verfügbar</string>
     <string name="catalog_see_all_empty_subtitle">Versuchen Sie es mit einem anderen Katalog oder schauen Sie später noch einmal vorbei</string>
 

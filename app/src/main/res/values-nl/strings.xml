@@ -45,7 +45,6 @@
     <string name="home_poster_dialog_subtitle">Titelacties</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">van %1$s</string>
     <string name="action_see_all">Bekijk alles</string>
 
     <!-- HeroSection -->
@@ -344,8 +343,6 @@
 <string name="layout_show_discover_sub">Toon bladersectie wanneer zoekveld leeg is.</string>
 <string name="layout_poster_labels">Posterlabels tonen</string>
 <string name="layout_poster_labels_sub">Toon titels onder posters in rijen, raster en alles-bekijken.</string>
-<string name="layout_addon_name">Addonnaam tonen</string>
-<string name="layout_addon_name_sub">Toon bronnaam onder catalogustitels.</string>
 <string name="layout_catalog_type">Catalogustype tonen</string>
 <string name="layout_catalog_type_sub">Toon type achter catalogusnaam (Film/Serie).</string>
 <string name="layout_hide_unreleased">Niet-uitgebrachte content verbergen</string>
@@ -807,7 +804,6 @@
 <string name="cast_detail_filmography">Filmografie</string>
 
 <!-- CatalogSeeAllScreen -->
-<string name="catalog_see_all_from">van %1$s</string>
 <string name="catalog_see_all_empty_title">Geen items beschikbaar</string>
 <string name="catalog_see_all_empty_subtitle">Probeer een andere catalogus of kom later terug</string>
 

@@ -661,7 +661,6 @@ fun ClassicHomeContent(
                         catalogRow = catalogRow,
                         posterCardStyle = classicCatalogPosterCardStyle,
                         showPosterLabels = uiState.posterLabelsEnabled,
-                        showAddonName = uiState.catalogAddonNameEnabled,
                         showCatalogTypeSuffix = uiState.catalogTypeSuffixEnabled,
                         focusedPosterBackdropExpandEnabled = uiState.focusedPosterBackdropExpandEnabled,
                         focusedPosterBackdropExpandDelaySeconds = uiState.focusedPosterBackdropExpandDelaySeconds,

@@ -169,7 +169,6 @@
     <string name="cw_dialog_subtitle">このアイテムに対する操作を選択してください</string>
     <string name="home_poster_dialog_subtitle">タイトルの操作</string>
 
-    <string name="catalog_from_addon">%1$s から</string>
     <string name="action_see_all">すべて表示</string>
     <string name="action_load_more">さらに読み込む</string>
 
@@ -823,8 +822,6 @@
     <string name="layout_discover_location_in_sidebar_desc">ディスカバーがサイドパネルに独自の項目を持ちます。</string>
     <string name="layout_poster_labels">ポスターラベルを表示</string>
     <string name="layout_poster_labels_sub">行、グリッド、全表示のポスター下にタイトルを表示</string>
-    <string name="layout_addon_name">アドオン名を表示</string>
-    <string name="layout_addon_name_sub">カタログタイトルの下にソース名を表示</string>
     <string name="layout_catalog_type">カタログタイプを表示</string>
     <string name="layout_catalog_type_sub">カタログ名の横にタイプを表示（映画/シリーズ）</string>
     <string name="layout_hide_unreleased">未公開コンテンツを非表示</string>
@@ -1831,7 +1828,6 @@
     <string name="cast_detail_born_died">生年月日: %1$s — †%2$s</string>
     <string name="cast_detail_age">%1$d歳</string>
 
-    <string name="catalog_see_all_from">%1$s より</string>
     <string name="catalog_see_all_empty_title">利用可能なアイテムがありません</string>
     <string name="catalog_see_all_empty_subtitle">別のカタログを試すか、後でもう一度ご確認ください</string>
 

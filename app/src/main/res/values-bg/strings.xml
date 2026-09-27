@@ -169,7 +169,6 @@
     <string name="cw_dialog_subtitle">Изберете какво искате да направите с този елемент.</string>
     <string name="home_poster_dialog_subtitle">Действия за заглавие</string>
 
-    <string name="catalog_from_addon">от %1$s</string>
     <string name="action_see_all">Виж всички</string>
     <string name="action_load_more">Зареди още</string>
 
@@ -810,8 +809,6 @@
     <string name="layout_discover_location_in_sidebar_desc">Discover получава собствен елемент в страничния панел.</string>
     <string name="layout_poster_labels">Показвай надписи под постерите</string>
     <string name="layout_poster_labels_sub">Показвай заглавия под постерите в редове, решетка и „виж всички“.</string>
-    <string name="layout_addon_name">Показвай името на добавката</string>
-    <string name="layout_addon_name_sub">Показвай името на източника под заглавията на каталозите.</string>
     <string name="layout_catalog_type">Показвай типа на каталога</string>
     <string name="layout_catalog_type_sub">Показвай суфикс за типа до името на каталога (Филм/Сериал).</string>
     <string name="layout_hide_unreleased">Скрий неиздадено съдържание</string>
@@ -1819,7 +1816,6 @@
     <string name="cast_detail_born_died">Роден: %1$s — †%2$s</string>
     <string name="cast_detail_age">на %1$d години</string>
 
-    <string name="catalog_see_all_from">от %1$s</string>
     <string name="catalog_see_all_empty_title">Няма налични елементи</string>
     <string name="catalog_see_all_empty_subtitle">Опитай друг каталог или провери по-късно</string>
 

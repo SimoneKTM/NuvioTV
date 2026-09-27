@@ -142,7 +142,6 @@
     <string name="home_poster_dialog_subtitle">Действия с тайтлом</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">от %1$s</string>
     <string name="action_see_all">Показать все</string>
 
     <!-- HeroSection -->
@@ -557,8 +556,6 @@
     <string name="layout_show_discover_sub">Показывать раздел навигации, когда поиск пуст.</string>
     <string name="layout_poster_labels">Показывать названия под постерами</string>
     <string name="layout_poster_labels_sub">Показывать названия под постерами в строках, сетке и меню \"показать все\".</string>
-    <string name="layout_addon_name">Показывать имя аддона</string>
-    <string name="layout_addon_name_sub">Показывать название источника под заголовками каталогов.</string>
     <string name="layout_catalog_type">Показывать тип каталога</string>
     <string name="layout_catalog_type_sub">Показывать суффикс типа рядом с названием каталога (Фильм/Сериал).</string>
     <string name="layout_hide_unreleased">Скрыть невышедший контент</string>
@@ -1228,7 +1225,6 @@
     <string name="cast_detail_age">возраст %1$d</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">из %1$s</string>
     <string name="catalog_see_all_empty_title">Нет доступных элементов</string>
     <string name="catalog_see_all_empty_subtitle">Попробуйте другой каталог или загляните позже</string>
 

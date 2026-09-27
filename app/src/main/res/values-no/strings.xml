@@ -81,7 +81,6 @@
     <string name="home_poster_dialog_subtitle">Tittelhandlinger</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">fra %1$s</string>
     <string name="action_see_all">Se alt</string>
 
     <!-- HeroSection -->
@@ -473,8 +472,6 @@
     <string name="layout_show_discover_sub">Vis blareavsnitt når søket er tomt.</string>
     <string name="layout_poster_labels">Vis plakatlabeler</string>
     <string name="layout_poster_labels_sub">Vis titler under plakater i rader, rutenett og se-alle.</string>
-    <string name="layout_addon_name">Vis tilleggsavn</string>
-    <string name="layout_addon_name_sub">Vis kildenavn under katalogtitler.</string>
     <string name="layout_catalog_type">Vis katalogtype</string>
     <string name="layout_catalog_type_sub">Vis typesuffiks ved siden av katalognavn (Film/Serie).</string>
     <string name="layout_hide_unreleased">Skjul usluttpet innhold</string>
@@ -1062,7 +1059,6 @@
     <string name="cast_detail_age">alder %1$d</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">fra %1$s</string>
     <string name="catalog_see_all_empty_title">Ingen elementer tilgjengelig</string>
     <string name="catalog_see_all_empty_subtitle">Prøv en annen katalog eller kom tilbake senere</string>
 

@@ -164,7 +164,6 @@
     <string name="cw_action_remove">Remover</string>
     <string name="cw_dialog_subtitle">Escolhe o que queres fazer com este item.</string>
     <string name="home_poster_dialog_subtitle">Ações do título</string>
-    <string name="catalog_from_addon">de %1$s</string>
     <string name="action_see_all">Ver tudo</string>
     <string name="action_load_more">Carregar mais</string>
     <string name="hero_creator">Criação: %1$s</string>
@@ -793,8 +792,6 @@
     <string name="layout_discover_location_in_sidebar_desc">O Descobrir ganha o seu próprio item no painel lateral.</string>
     <string name="layout_poster_labels">Mostrar etiquetas nos cartazes</string>
     <string name="layout_poster_labels_sub">Mostra os títulos por baixo dos cartazes nas linhas, grelha e em Ver tudo.</string>
-    <string name="layout_addon_name">Mostrar nome do addon</string>
-    <string name="layout_addon_name_sub">Mostrar o nome da fonte debaixo dos títulos dos catálogos.</string>
     <string name="layout_catalog_type">Mostrar tipo de catálogo</string>
     <string name="layout_catalog_type_sub">Mostrar o sufixo do tipo ao lado do nome do catálogo (Filme/Série).</string>
     <string name="layout_hide_unreleased">Ocultar conteúdo não lançado</string>
@@ -1763,7 +1760,6 @@
     <string name="cast_detail_born">Nascimento: %1$s</string>
     <string name="cast_detail_born_died">Nascimento: %1$s — †%2$s</string>
     <string name="cast_detail_age">%1$d anos</string>
-    <string name="catalog_see_all_from">de %1$s</string>
     <string name="catalog_see_all_empty_title">Nenhum item disponível</string>
     <string name="catalog_see_all_empty_subtitle">Tenta um catálogo diferente ou volta a verificar mais tarde</string>
     <string name="layout_selection_welcome">Bem-vindo ao Nuvio</string>

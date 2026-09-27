@@ -34,7 +34,6 @@
     <string name="home_poster_dialog_subtitle">Acțiuni titlu</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">de la %1$s</string>
     <string name="action_see_all">Vezi tot</string>
 
     <!-- HeroSection -->
@@ -325,8 +324,6 @@
     <string name="layout_show_discover_sub">Afișează secțiunea de navigare când căutarea este goală.</string>
     <string name="layout_poster_labels">Afișează Etichete Poster</string>
     <string name="layout_poster_labels_sub">Afișează titlurile sub postere în rânduri, grilă și vezi tot.</string>
-    <string name="layout_addon_name">Afișează Numele Addon-ului</string>
-    <string name="layout_addon_name_sub">Afișează numele sursei sub titlurile catalogului.</string>
     <string name="layout_catalog_type">Afișează Tipul Catalogului</string>
     <string name="layout_catalog_type_sub">Afișează sufixul tipului lângă numele catalogului (Film/Serial).</string>
     <string name="layout_hide_unreleased">Ascunde Conținutul Nerealizat</string>
@@ -778,7 +775,6 @@
     <string name="cast_detail_filmography">Filmografie</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">din %1$s</string>
     <string name="catalog_see_all_empty_title">Niciun element disponibil</string>
     <string name="catalog_see_all_empty_subtitle">Încearcă un catalog diferit sau revino mai târziu</string>
 

@@ -169,7 +169,6 @@
     <string name="cw_dialog_subtitle">מה תרצה לעשות עם הפריט הזה?</string>
     <string name="home_poster_dialog_subtitle">פעולות עבור הכותרת הזו</string>
 
-    <string name="catalog_from_addon">מ-%1$s</string>
     <string name="action_see_all">הצג הכל</string>
     <string name="action_load_more">טען עוד</string>
 
@@ -847,8 +846,6 @@
     <string name="layout_discover_location_in_sidebar_desc">כפתור הגילוי יופיע בחלונית הימנית.</string>
     <string name="layout_poster_labels">הצג תוויות פוסטרים</string>
     <string name="layout_poster_labels_sub">הצג כותרות מתחת לפוסטרים בשורות, רשת וראה הכל.</string>
-    <string name="layout_addon_name">הצג שם תוסף</string>
-    <string name="layout_addon_name_sub">הצג שם מקור מתחת לכותרות קטלוג.</string>
     <string name="layout_catalog_type">הצג סוג קטלוג</string>
     <string name="layout_catalog_type_sub">הצג סיומת סוג ליד שם הקטלוג (סרט/סדרה).</string>
     <string name="layout_hide_unreleased">הסתר תוכן שלא יצא</string>
@@ -1840,7 +1837,6 @@
     <string name="cast_detail_born_died">%1$s — †%2$s</string>
     <string name="cast_detail_age">גיל %1$d</string>
 
-    <string name="catalog_see_all_from">מ-%1$s</string>
     <string name="catalog_see_all_empty_title">אין פריטים זמינים</string>
     <string name="catalog_see_all_empty_subtitle">נסה קטלוג אחר או חזור מאוחר יותר</string>
 

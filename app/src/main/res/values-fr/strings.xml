@@ -174,7 +174,6 @@
     <string name="home_poster_dialog_subtitle">Actions sur le titre</string>
 
     <!-- CatalogRowSection -->
-    <string name="catalog_from_addon">depuis %1$s</string>
     <string name="action_see_all">Voir tout</string>
     <string name="action_load_more">Charger plus</string>
 
@@ -714,8 +713,6 @@
     <string name="layout_show_discover_sub">Afficher la section navigation quand la recherche est vide.</string>
     <string name="layout_poster_labels">Afficher les titres des affiches</string>
     <string name="layout_poster_labels_sub">Afficher les titres sous les affiches dans les rangées, la grille et la vue complète.</string>
-    <string name="layout_addon_name">Afficher le nom de l’addon</string>
-    <string name="layout_addon_name_sub">Afficher le nom de la source sous les titres de catalogue.</string>
     <string name="layout_catalog_type">Afficher le type de catalogue</string>
     <string name="layout_catalog_type_sub">Afficher le suffixe de type à côté du nom du catalogue (film/série).</string>
     <string name="layout_hide_unreleased">Masquer le contenu non sorti</string>
@@ -1502,7 +1499,6 @@
     <string name="cast_detail_age">%1$d ans</string>
 
     <!-- CatalogSeeAllScreen -->
-    <string name="catalog_see_all_from">depuis %1$s</string>
     <string name="catalog_see_all_empty_title">Aucun élément disponible</string>
     <string name="catalog_see_all_empty_subtitle">Essayez un autre catalogue ou revenez plus tard</string>
 
