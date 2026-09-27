@@ -488,15 +488,7 @@ internal fun HomeViewModel.onItemFocusPipeline(item: MetaPreview) {
             }
             if (_enrichingItemId.value == item.id) setEnrichingItemId(null)
             // Still prefetch full meta in background for instant detail screen.
-            if (item.id !in backgroundMetaPrefetchedIds) {
-                backgroundMetaPrefetchedIds.add(item.id)
-                viewModelScope.launch {
-                    metaRepository.getMetaFromAllAddons(
-                        type = item.apiType,
-                        id = item.id
-                    ).first { it !is NetworkResult.Loading }
-                }
-            }
+            prefetchBackgroundMetaForItem(item)
             return
         }
     }
@@ -527,15 +519,7 @@ internal fun HomeViewModel.onItemFocusPipeline(item: MetaPreview) {
             if (!externalEnrichmentOutstanding(item.id)) {
                 if (_enrichingItemId.value == item.id) setEnrichingItemId(null)
                 // Still prefetch full meta in background for instant detail screen.
-                if (item.id !in backgroundMetaPrefetchedIds) {
-                    backgroundMetaPrefetchedIds.add(item.id)
-                    launch {
-                        metaRepository.getMetaFromAllAddons(
-                            type = item.apiType,
-                            id = item.id
-                        ).first { it !is NetworkResult.Loading }
-                    }
-                }
+                prefetchBackgroundMetaForItem(item)
                 return@launch
             }
         }
@@ -616,15 +600,7 @@ internal fun HomeViewModel.onItemFocusPipeline(item: MetaPreview) {
             }
 
             // Always prefetch full meta in background for instant detail screen loading.
-            if (item.id !in backgroundMetaPrefetchedIds) {
-                backgroundMetaPrefetchedIds.add(item.id)
-                viewModelScope.launch {
-                    metaRepository.getMetaFromAllAddons(
-                        type = item.apiType,
-                        id = item.id
-                    ).first { it !is NetworkResult.Loading }
-                }
-            }
+            prefetchBackgroundMetaForItem(item)
 
             // Warm up watch progress pipeline so detail screen reads are fast.
             viewModelScope.launch {
@@ -740,15 +716,7 @@ internal fun HomeViewModel.preloadAdjacentItemPipeline(item: MetaPreview) {
             }
 
             // Background prefetch for detail screen cache.
-            if (item.id !in backgroundMetaPrefetchedIds) {
-                backgroundMetaPrefetchedIds.add(item.id)
-                viewModelScope.launch {
-                    metaRepository.getMetaFromAllAddons(
-                        type = item.apiType,
-                        id = item.id
-                    ).first { it !is NetworkResult.Loading }
-                }
-            }
+            prefetchBackgroundMetaForItem(item)
 
         } finally {
             if (pendingAdjacentPrefetchItemId == item.id) {
@@ -958,6 +926,45 @@ private fun HomeViewModel.updateCatalogItemImdbRating(itemId: String, rating: Fl
     }
 }
 
+private fun HomeViewModel.prefetchBackgroundMetaForItem(item: MetaPreview) {
+    if (item.id in backgroundMetaPrefetchedIds) return
+    backgroundMetaPrefetchedIds.add(item.id)
+    viewModelScope.launch(Dispatchers.IO) {
+        val result = metaRepository.getMetaFromAllAddons(
+            type = item.apiType,
+            id = item.id
+        ).first { it !is NetworkResult.Loading }
+        resolveAndPublishItemAwards(item, result)
+    }
+}
+
+private suspend fun HomeViewModel.resolveAndPublishItemAwards(
+    item: MetaPreview,
+    result: NetworkResult<Meta>
+) {
+    val meta = (result as? NetworkResult.Success<*>)?.data as? Meta ?: return
+    meta.awards?.takeIf { it.isNotBlank() }?.let { addonAwards ->
+        publishItemAwards(item.id, addonAwards)
+        return
+    }
+    if (!findCatalogItemById(item.id)?.awards.isNullOrBlank()) return
+    val omdbAwards = runCatching {
+        omdbAwardsRepository.getAwards(meta, item.id, item.apiType)
+    }.getOrNull()?.takeIf { it.isNotBlank() } ?: return
+    publishItemAwards(item.id, omdbAwards)
+}
+
+private fun HomeViewModel.publishItemAwards(itemId: String, awards: String) {
+    fun mergeItem(currentItem: MetaPreview): MetaPreview = currentItem.copy(awards = awards)
+
+    updateIndexedCatalogItem(itemId, ::mergeItem)
+    applyEnrichmentToDisplayedRows(itemId, ::mergeItem)
+    findCatalogItemById(itemId)?.let { enriched ->
+        _lastEnrichedPreview.value = enriched
+        addEnrichedPreview(itemId, enriched)
+    }
+}
+
 private fun HomeViewModel.updateCatalogItemWithMeta(itemId: String, meta: Meta) {
     enrichmentMergedIds.add(itemId)
     val incomingTrailerYtIds = meta.trailerYtIds
@@ -981,6 +988,7 @@ private fun HomeViewModel.updateCatalogItemWithMeta(itemId: String, meta: Meta) 
         language = meta.language ?: currentItem.language,
         country = meta.country ?: currentItem.country,
         seasonCount = seasonCount ?: currentItem.seasonCount,
+        awards = meta.awards?.takeIf { it.isNotBlank() } ?: currentItem.awards,
         trailerYtIds = if (incomingTrailerYtIds.isNotEmpty()) incomingTrailerYtIds else currentItem.trailerYtIds
     )
 

@@ -38,6 +38,7 @@ import com.nuvio.tv.domain.repository.AnimeAddonRepository
 import com.nuvio.tv.domain.repository.CatalogRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.domain.repository.WatchProgressRepository
+import com.nuvio.tv.data.repository.OmdbAwardsRepository
 import com.nuvio.tv.ui.screens.home.ContinueWatchingItem
 import com.nuvio.tv.ui.screens.home.CwMetaSummary
 import com.nuvio.tv.ui.screens.home.NextUpInfo
@@ -68,6 +69,7 @@ class AnimeHomeViewModel @Inject constructor(
     private val catalogRepository: CatalogRepository,
     internal val watchProgressRepository: WatchProgressRepository,
     internal val metaRepository: MetaRepository,
+    internal val omdbAwardsRepository: OmdbAwardsRepository,
     @Named("anime_layout") internal val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     @Named("anime_cw_cache") internal val animeCwEnrichmentCache: ContinueWatchingEnrichmentCache,
     @Named("anime_tmdb") internal val animeTmdbSettingsDataStore: TmdbSettingsDataStore,

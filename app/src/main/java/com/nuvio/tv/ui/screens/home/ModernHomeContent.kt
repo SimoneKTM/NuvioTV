@@ -629,7 +629,8 @@ fun ModernHomeContent(
                             backdrop = enrichedItem.backdropUrl,
                             imageUrl = activeCarouselItem?.heroPreview?.imageUrl,
                             frozenBackdropUrl = activeCarouselItem?.heroPreview?.frozenBackdropUrl,
-                            frozenLogoUrl = activeCarouselItem?.heroPreview?.frozenLogoUrl
+                            frozenLogoUrl = activeCarouselItem?.heroPreview?.frozenLogoUrl,
+                            awards = enrichedItem.awards
                         )
                     } else null
 

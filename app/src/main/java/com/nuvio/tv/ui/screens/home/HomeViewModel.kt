@@ -34,6 +34,7 @@ import com.nuvio.tv.domain.model.ListMembershipChanges
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.data.repository.MDBListRepository
+import com.nuvio.tv.data.repository.OmdbAwardsRepository
 import com.nuvio.tv.domain.model.MDBListSettings
 import com.nuvio.tv.domain.model.TmdbSettings
 import com.nuvio.tv.domain.model.TvdbSettings
@@ -77,6 +78,7 @@ class HomeViewModel @Inject constructor(
     internal val watchProgressRepository: WatchProgressRepository,
     internal val libraryRepository: LibraryRepository,
     internal val metaRepository: MetaRepository,
+    internal val omdbAwardsRepository: OmdbAwardsRepository,
     internal val calendarRepository: CalendarRepository,
     internal val collectionsDataStore: CollectionsDataStore,
     internal val layoutPreferenceDataStore: LayoutPreferenceDataStore,

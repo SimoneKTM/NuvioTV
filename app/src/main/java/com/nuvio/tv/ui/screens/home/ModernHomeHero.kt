@@ -63,6 +63,11 @@ import kotlinx.coroutines.delay
 import com.nuvio.tv.ui.components.ImdbRatingSourceLabel
 import com.nuvio.tv.ui.components.TrailerPlayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.tv.material3.Icon
+import com.nuvio.tv.ui.theme.NuvioPrimitives
+import com.nuvio.tv.ui.util.formatAwards
 
 private data class ModernHeroSecondaryMeta(
     val highlightText: String?,
@@ -407,6 +412,31 @@ private fun HeroTitleContent(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+
+        val localizedAwards = remember(preview.awards, context) {
+            formatAwards(preview.awards, context)
+        }
+        if (!localizedAwards.isNullOrBlank()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),
+                modifier = Modifier.graphicsLayer { alpha = metaAlpha }
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.EmojiEvents,
+                    contentDescription = null,
+                    tint = NuvioPrimitives.green500,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = localizedAwards,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = NuvioPrimitives.green500,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
 
         nextEpisodeLabel?.let { label ->

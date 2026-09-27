@@ -1168,7 +1168,8 @@ private fun buildAnimeHeroPreview(
         genres = item.genres.take(3).asStable(),
         poster = item.poster,
         backdrop = item.backdropUrl,
-        imageUrl = item.poster ?: item.backdropUrl
+        imageUrl = item.poster ?: item.backdropUrl,
+        awards = item.awards
     )
 }
 

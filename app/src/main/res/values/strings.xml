@@ -1264,6 +1264,8 @@
         <item quantity="one">%1$d nomination</item>
         <item quantity="other">%1$d nominations</item>
     </plurals>
+    <string name="awards_winner">Winner</string>
+    <string name="awards_nominated_bare">Nominated</string>
     <string name="layout_trailer_button">Show Trailer Button</string>
     <string name="layout_trailer_button_sub">Show trailer button on detail page (only when trailer is available).</string>
     <string name="layout_prefer_external_meta">Prefer meta from external addon</string>

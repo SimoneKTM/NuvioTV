@@ -63,7 +63,9 @@ data class HeroPreview(
      *  even after navigation away and back. */
     val frozenBackdropUrl: String? = null,
     /** Same idea for the logo URL. */
-    val frozenLogoUrl: String? = null
+    val frozenLogoUrl: String? = null,
+    /** Raw awards text (OMDb/addon) localized by AwardsFormatter before display. */
+    val awards: String? = null
 )
 
 @Immutable
@@ -487,7 +489,8 @@ internal fun buildCatalogItem(
             item.poster ?: item.backdropUrl
         },
         frozenBackdropUrl = frozenBackdrop,
-        frozenLogoUrl = frozenLogo
+        frozenLogoUrl = frozenLogo,
+        awards = item.awards
     )
 
     return ModernCarouselItem(

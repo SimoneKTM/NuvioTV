@@ -11,6 +11,8 @@ internal sealed interface AwardClause {
     data class AnotherWinAndNominations(val wins: Int, val nominations: Int) : AwardClause
     data class Wins(val count: Int) : AwardClause
     data class Nominations(val count: Int) : AwardClause
+    data object Winner : AwardClause
+    data object NominatedBare : AwardClause
     data class Unknown(val text: String) : AwardClause
 }
 
@@ -22,7 +24,9 @@ internal class AwardLabels(
     val winsAndNominations: (wins: Int, nominations: Int) -> String,
     val anotherWinAndNominations: (wins: Int, nominations: Int) -> String,
     val wins: (count: Int) -> String,
-    val nominations: (count: Int) -> String
+    val nominations: (count: Int) -> String,
+    val winner: () -> String,
+    val nominatedBare: () -> String
 )
 
 private val AWARD_SEGMENT_SPLIT = Regex("""(?<=\.)\s+""")
@@ -32,9 +36,11 @@ private val NOMINATED_REGEX = Regex("""^nominated\s+for\s+(\d+)\s+(.+?)\.?$""", 
 private val NOMINATIONS_TOTAL_REGEX = Regex("""^(\d+)\s+nominations?\s+total\.?$""", RegexOption.IGNORE_CASE)
 private val WINS_AND_NOMS_REGEX = Regex("""^(\d+)\s+wins?\s+&\s+(\d+)\s+nominations?\.?$""", RegexOption.IGNORE_CASE)
 private val ANOTHER_WIN_AND_NOMS_REGEX =
-    Regex("""^another\s+wins?\s+&\s+(\d+)\s+nominations?\.?$""", RegexOption.IGNORE_CASE)
+    Regex("""^another\s+(?:(\d+)\s+)?wins?\s+&\s+(\d+)\s+nominations?\.?$""", RegexOption.IGNORE_CASE)
 private val WINS_REGEX = Regex("""^(\d+)\s+wins?\.?$""", RegexOption.IGNORE_CASE)
 private val NOMINATIONS_REGEX = Regex("""^(\d+)\s+nominations?\.?$""", RegexOption.IGNORE_CASE)
+private val WINNER_REGEX = Regex("""^winner\.?$""", RegexOption.IGNORE_CASE)
+private val NOMINATED_BARE_REGEX = Regex("""^nominated\.?$""", RegexOption.IGNORE_CASE)
 
 internal fun parseAwardClause(segment: String): AwardClause {
     val text = segment.trim()
@@ -51,7 +57,8 @@ internal fun parseAwardClause(segment: String): AwardClause {
         return AwardClause.WinsAndNominations(m.groupValues[1].toInt(), m.groupValues[2].toInt())
     }
     ANOTHER_WIN_AND_NOMS_REGEX.matchEntire(text)?.let { m ->
-        return AwardClause.AnotherWinAndNominations(1, m.groupValues[1].toInt())
+        val wins = m.groupValues[1].toIntOrNull() ?: 1
+        return AwardClause.AnotherWinAndNominations(wins, m.groupValues[2].toInt())
     }
     WINS_REGEX.matchEntire(text)?.let { m ->
         return AwardClause.Wins(m.groupValues[1].toInt())
@@ -59,6 +66,8 @@ internal fun parseAwardClause(segment: String): AwardClause {
     NOMINATIONS_REGEX.matchEntire(text)?.let { m ->
         return AwardClause.Nominations(m.groupValues[1].toInt())
     }
+    if (WINNER_REGEX.matches(text)) return AwardClause.Winner
+    if (NOMINATED_BARE_REGEX.matches(text)) return AwardClause.NominatedBare
     return AwardClause.Unknown(text)
 }
 
@@ -86,6 +95,8 @@ internal fun formatAwards(raw: String?, labels: AwardLabels): String? {
                     labels.anotherWinAndNominations(parsed.wins, parsed.nominations)
                 is AwardClause.Wins -> labels.wins(parsed.count)
                 is AwardClause.Nominations -> labels.nominations(parsed.count)
+                AwardClause.Winner -> labels.winner()
+                AwardClause.NominatedBare -> labels.nominatedBare()
                 is AwardClause.Unknown -> parsed.text
             }
         }
@@ -120,7 +131,9 @@ internal fun awardLabels(context: Context): AwardLabels {
         },
         nominations = { count ->
             res.getQuantityString(R.plurals.awards_nominations, count, count)
-        }
+        },
+        winner = { res.getString(R.string.awards_winner) },
+        nominatedBare = { res.getString(R.string.awards_nominated_bare) }
     )
 }
 

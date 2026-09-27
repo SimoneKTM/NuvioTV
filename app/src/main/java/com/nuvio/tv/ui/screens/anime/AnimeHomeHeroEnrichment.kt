@@ -75,7 +75,13 @@ internal suspend fun AnimeHomeViewModel.enrichAnimeHeroItem(item: MetaPreview): 
     }
 
     val resolved = tryResolve(useAllAddons = true) ?: tryResolve(useAllAddons = false)
-    val merged = resolved?.mergeIntoAnimePreview(item) ?: item
+    var merged = resolved?.mergeIntoAnimePreview(item) ?: item
+    if (resolved != null && merged.awards.isNullOrBlank()) {
+        val omdbAwards = runCatching {
+            omdbAwardsRepository.getAwards(resolved, item.id, item.apiType)
+        }.getOrNull()?.takeIf { it.isNotBlank() }
+        if (omdbAwards != null) merged = merged.copy(awards = omdbAwards)
+    }
     animeHeroEnrichmentCache[key] = merged
     return applyAnimeHeroExternalEnrichment(merged)
 }
@@ -337,6 +343,7 @@ private fun Meta.mergeIntoAnimePreview(preview: MetaPreview): MetaPreview {
         ageRating = ageRating ?: preview.ageRating,
         country = country ?: preview.country,
         language = language ?: preview.language,
+        awards = awards?.takeIf { it.isNotBlank() } ?: preview.awards,
         trailerYtIds = if (trailerYtIds.isNotEmpty()) trailerYtIds else preview.trailerYtIds,
         trailers = if (trailers.isNotEmpty()) trailers else preview.trailers
     )

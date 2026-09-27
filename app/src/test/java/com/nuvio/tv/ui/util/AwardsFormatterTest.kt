@@ -13,7 +13,9 @@ class AwardsFormatterTest {
         winsAndNominations = { w, n -> "Vittorie: $w. Candidature: $n" },
         anotherWinAndNominations = { w, n -> if (w == 1) "Altra vittoria. Candidature: $n" else "$w vittorie aggiuntive. Candidature: $n" },
         wins = { n -> if (n == 1) "$n vittoria" else "$n vittorie" },
-        nominations = { n -> if (n == 1) "$n candidatura" else "$n candidature" }
+        nominations = { n -> if (n == 1) "$n candidatura" else "$n candidature" },
+        winner = { "Vincitore" },
+        nominatedBare = { "Nominato" }
     )
 
     @Test
@@ -62,5 +64,22 @@ class AwardsFormatterTest {
     fun `unknown segment keeps source language`() {
         val out = formatAwards("Won 1 Saturn Award. Some festival mention.", labels)
         assertEquals("Vinto 1 Saturn Award. Some festival mention.", out)
+    }
+
+    @Test
+    fun `another with win count translates`() {
+        val out = formatAwards("Won 1 Oscar. Another 64 wins & 62 nominations.", labels)
+        assertEquals("Vinto 1 Oscar. 64 vittorie aggiuntive. Candidature: 62.", out)
+    }
+
+    @Test
+    fun `bare winner segment translates`() {
+        assertEquals("Vincitore.", formatAwards("Winner.", labels))
+    }
+
+    @Test
+    fun `bare nominated segment translates`() {
+        val out = formatAwards("Nominated. 5 nominations.", labels)
+        assertEquals("Nominato. 5 candidature.", out)
     }
 }
