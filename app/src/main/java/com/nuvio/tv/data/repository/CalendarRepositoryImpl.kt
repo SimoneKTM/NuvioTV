@@ -155,14 +155,14 @@ class CalendarRepositoryImpl @Inject constructor(
             throw IllegalStateException("Trakt calendar request failed")
         }
 
-        val filteredItems = allItems
-            .filter { item ->
+        val filteredItems = distinctCalendarItems(
+            allItems.filter { item ->
                 val date = item.releaseDate ?: return@filter false
                 // Trakt dates are UTC; keep yesterday-UTC items so Italian
                 // evenings around midnight are not dropped.
                 !date.isBefore(today.minusDays(1))
             }
-            .distinctBy { "${it.meta.id}:${it.releaseDate}:${it.episodeLabel ?: ""}" }
+        )
             .sortedWith(compareBy({ it.releaseDate }, { it.meta.name.lowercase() }, { it.episodeLabel ?: "" }, { it.meta.id }))
 
         Log.d(TAG, "Calendar: ${filteredItems.size} items after filtering (${allItems.size} raw)")
@@ -246,8 +246,7 @@ class CalendarRepositoryImpl @Inject constructor(
             return emptyList()
         }
         val items = response.body().orEmpty().mapNotNull { it.toCalendarItem(monthStart) }
-        val filtered = items
-            .distinctBy { "${it.meta.id}:${it.releaseDate}:${it.episodeLabel ?: ""}" }
+        val filtered = distinctCalendarItems(items)
             .sortedWith(compareBy({ it.releaseDate }, { it.meta.name.lowercase() }, { it.episodeLabel ?: "" }, { it.meta.id }))
         Log.d(TAG, "Month calendar: ${filtered.size} items from $monthStart")
         return filtered
@@ -738,3 +737,11 @@ class CalendarRepositoryImpl @Inject constructor(
         return runCatching { LocalDate.parse(raw.take(10)) }.getOrNull()
     }
 }
+
+/**
+ * One card per title per calendar day: same-day episodes of the same show
+ * (binge drops, Trakt multi-episode rows) collapse to a single entry so the
+ * calendar never shows visually identical duplicates.
+ */
+internal fun distinctCalendarItems(items: List<CalendarItem>): List<CalendarItem> =
+    items.distinctBy { "${it.meta.id}:${it.releaseDate}" }
