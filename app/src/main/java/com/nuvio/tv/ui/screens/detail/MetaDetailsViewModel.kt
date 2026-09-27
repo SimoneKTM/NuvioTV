@@ -1564,7 +1564,7 @@ class MetaDetailsViewModel @Inject constructor(
                         state.copy(
                             episodeImdbRatings = emptyMap(),
                             isEpisodeRatingsLoading = false,
-                            episodeRatingsError = null
+                            episodeRatingsError = localizedContext.getString(R.string.ratings_load_error)
                         )
                     }
                 }

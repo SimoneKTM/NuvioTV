@@ -483,7 +483,7 @@ object NetworkModule {
     @Named("parentalGuide")
     fun provideParentalGuideRetrofit(okHttpClient: OkHttpClient, moshi: Moshi): Retrofit =
         Retrofit.Builder()
-            .baseUrl("https://api.tiffara.com/")
+            .baseUrl(normalizedBaseUrl(BuildConfig.PARENTAL_GUIDE_API_URL, "https://api.tiffara.com/"))
             .client(okHttpClient)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
@@ -690,7 +690,7 @@ object NetworkModule {
         val normalizedBaseUrl = if (rawBaseUrl.isNotBlank()) {
             if (rawBaseUrl.endsWith('/')) rawBaseUrl else "$rawBaseUrl/"
         } else {
-            "http://localhost/"
+            "https://localhost/"
         }
         return Retrofit.Builder()
             .baseUrl(normalizedBaseUrl)
@@ -712,7 +712,7 @@ object NetworkModule {
         val normalizedBaseUrl = if (rawBaseUrl.isNotBlank()) {
             if (rawBaseUrl.endsWith('/')) rawBaseUrl else "$rawBaseUrl/"
         } else {
-            "http://localhost/"
+            "https://localhost/"
         }
         return Retrofit.Builder()
             .baseUrl(normalizedBaseUrl)

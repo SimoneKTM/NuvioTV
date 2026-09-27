@@ -1,4 +1,4 @@
-﻿package com.nuvio.tv.data.repository
+package com.nuvio.tv.data.repository
 
 import android.util.Log
 import com.nuvio.tv.BuildConfig
@@ -92,13 +92,13 @@ class ImdbEpisodeRatingsRepository @Inject constructor(
             Log.d(tag, "TMDB episode ratings empty for tmdbId=$tmdbId, trying other sources.")
         }
 
-        if (!imdbId.isNullOrBlank()) {
+        if (!imdbId.isNullOrBlank() && BuildConfig.IMDB_TAPFRAME_API_BASE_URL.isNotBlank()) {
             val primary = fetchFromImdbTapframe(imdbId)
             if (primary.isNotEmpty()) return primary
             Log.w(tag, "Primary episode ratings empty for imdbId=$imdbId, trying fallback.")
         }
 
-        if (tmdbId != null && tmdbId > 0) {
+        if (tmdbId != null && tmdbId > 0 && BuildConfig.IMDB_RATINGS_API_BASE_URL.isNotBlank()) {
             return fetchFromSeriesGraph(tmdbId)
         }
 
