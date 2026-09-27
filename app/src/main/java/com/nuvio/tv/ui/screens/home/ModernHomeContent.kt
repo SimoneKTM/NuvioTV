@@ -668,6 +668,35 @@ fun ModernHomeContent(
                 }
             }
 
+            // Self-heal the hero enrichment gate: on re-entry (tab switch) the
+            // focus event that arms enrichment can be lost to focus contention,
+            // leaving effectiveEnrichmentActive open with no fetch in flight and
+            // no title. Re-issue onItemFocus for the active item at most once per
+            // composition session, after the row (140 ms) and pipeline (220 ms)
+            // debounces have had time to win: any gate-relevant key change
+            // restarts this effect, and the re-armed id set bounds it to a
+            // single attempt so a permanently failing source cannot bounce it.
+            val activeEnrichmentId = activeCarouselItemState.value?.metaPreview?.id
+            val enrichmentRearmedIds = remember { mutableSetOf<String>() }
+            LaunchedEffect(
+                activeEnrichmentId,
+                activeEnrichmentId != null && activeEnrichmentId in enrichedPreviews,
+                activeEnrichmentId != null && activeEnrichmentId in failedEnrichmentIds,
+                uiState.heroEnrichmentEnabled,
+                enrichingItemId
+            ) {
+                val item = activeCarouselItemState.value?.metaPreview ?: return@LaunchedEffect
+                if (!uiState.heroEnrichmentEnabled) return@LaunchedEffect
+                if (enrichingItemId != null) return@LaunchedEffect
+                if (item.id in enrichedPreviews || item.id in failedEnrichmentIds) return@LaunchedEffect
+                if (item.id in enrichmentRearmedIds) return@LaunchedEffect
+                // Let the normal focus pipeline win first; re-arming after the
+                // debounces only fires when that focus event was truly lost.
+                delay(400)
+                enrichmentRearmedIds.add(item.id)
+                onItemFocus(item)
+            }
+
             val expandedFocusedSelectionState = remember {
                 derivedStateOf {
                     focusedCatalogSelection.value

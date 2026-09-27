@@ -139,7 +139,10 @@ internal fun ModernHeroMediaLayer(
     val rawBackdrop by remember { derivedStateOf { heroBackdrop() } }
     val enriching by remember { derivedStateOf { enrichmentActive() } }
     var displayedBackdrop by remember { mutableStateOf(heroBackdrop()) }
-    if (rawBackdrop != displayedBackdrop && !enriching) {
+    // Adopt a backdrop while enriching only when nothing is displayed yet:
+    // on tab re-entry the gate opens at frame 0 (active row not restored) and
+    // would otherwise freeze the hero on its initial null (black hero).
+    if (rawBackdrop != displayedBackdrop && (!enriching || displayedBackdrop == null)) {
         displayedBackdrop = rawBackdrop
     }
     val imageModel = remember(
