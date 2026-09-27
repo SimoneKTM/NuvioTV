@@ -18,6 +18,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -40,6 +41,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -330,112 +332,114 @@ fun HeroContentSection(
                     // below stays on-screen (the hero is a fixed 540dp = full height on a 1080p
                     // TV). When the synopsis is long enough to be truncated it becomes focusable;
                     // pressing OK opens the full, scrollable text overlay.
-                    meta.description?.let { description ->
-                        var descriptionFocused by remember { mutableStateOf(false) }
-                        var descriptionTruncated by rememberSaveable(description) { mutableStateOf(false) }
-                        val descriptionInteraction = remember { MutableInteractionSource() }
-                        // Inset of the focus highlight; offset back by the same amount so the text
-                        // stays left-aligned with the rest of the hero while the highlight gets
-                        // even padding on all sides.
-                        val highlightInset = 12.dp
+                    GlassPanel(modifier = Modifier.fillMaxWidth(0.7f)) {
+                        meta.description?.let { description ->
+                            var descriptionFocused by remember { mutableStateOf(false) }
+                            var descriptionTruncated by rememberSaveable(description) { mutableStateOf(false) }
+                            val descriptionInteraction = remember { MutableInteractionSource() }
+                            // Inset of the focus highlight; offset back by the same amount so the text
+                            // stays left-aligned with the rest of the hero while the highlight gets
+                            // even padding on all sides.
+                            val highlightInset = 12.dp
 
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth(0.6f)
-                                .padding(bottom = NuvioTheme.spacing.md)
-                                .then(
-                                    if (descriptionTruncated) {
-                                        Modifier
-                                            .offset(x = -highlightInset)
-                                            .onFocusChanged {
-                                                descriptionFocused = it.isFocused
-                                                if (it.isFocused) {
-                                                    onHeroActionFocused()
-                                                }
-                                            }
-                                            .background(
-                                                color = if (descriptionFocused) {
-                                                    Color.White.copy(alpha = 0.10f)
-                                                } else {
-                                                    Color.Transparent
-                                                },
-                                                shape = RoundedCornerShape(8.dp)
-                                            )
-                                            .then(
-                                                if (playButtonFocusRequester != null) {
-                                                    Modifier.focusProperties {
-                                                        up = playButtonFocusRequester
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = NuvioTheme.spacing.md)
+                                    .then(
+                                        if (descriptionTruncated) {
+                                            Modifier
+                                                .offset(x = -highlightInset)
+                                                .onFocusChanged {
+                                                    descriptionFocused = it.isFocused
+                                                    if (it.isFocused) {
+                                                        onHeroActionFocused()
                                                     }
-                                                } else {
-                                                    Modifier
                                                 }
-                                            )
-                                            .clickable(
-                                                interactionSource = descriptionInteraction,
-                                                indication = null,
-                                                onClick = onShowFullDescription
-                                            )
-                                            .padding(horizontal = highlightInset, vertical = 8.dp)
-                                    } else {
-                                        Modifier
-                                    }
-                                )
-                        ) {
-                            Text(
-                                text = description,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = NuvioTheme.colors.TextPrimary,
-                                maxLines = 8,
-                                overflow = TextOverflow.Ellipsis,
-                                onTextLayout = { result ->
-                                    if (result.hasVisualOverflow != descriptionTruncated) {
-                                        descriptionTruncated = result.hasVisualOverflow
-                                    }
-                                }
-                            )
-                            if (descriptionTruncated) {
+                                                .background(
+                                                    color = if (descriptionFocused) {
+                                                        Color.White.copy(alpha = 0.10f)
+                                                    } else {
+                                                        Color.Transparent
+                                                    },
+                                                    shape = RoundedCornerShape(8.dp)
+                                                )
+                                                .then(
+                                                    if (playButtonFocusRequester != null) {
+                                                        Modifier.focusProperties {
+                                                            up = playButtonFocusRequester
+                                                        }
+                                                    } else {
+                                                        Modifier
+                                                    }
+                                                )
+                                                .clickable(
+                                                    interactionSource = descriptionInteraction,
+                                                    indication = null,
+                                                    onClick = onShowFullDescription
+                                                )
+                                                .padding(horizontal = highlightInset, vertical = 8.dp)
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
+                            ) {
                                 Text(
-                                    text = stringResource(R.string.hero_synopsis_read_more),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = if (descriptionFocused) {
-                                        NuvioTheme.colors.TextPrimary
-                                    } else {
-                                        NuvioTheme.extendedColors.textSecondary
-                                    },
-                                    modifier = Modifier.padding(top = 4.dp)
+                                    text = description,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = NuvioTheme.colors.TextPrimary,
+                                    maxLines = 8,
+                                    overflow = TextOverflow.Ellipsis,
+                                    onTextLayout = { result ->
+                                        if (result.hasVisualOverflow != descriptionTruncated) {
+                                            descriptionTruncated = result.hasVisualOverflow
+                                        }
+                                    }
                                 )
+                                if (descriptionTruncated) {
+                                    Text(
+                                        text = stringResource(R.string.hero_synopsis_read_more),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = if (descriptionFocused) {
+                                            NuvioTheme.colors.TextPrimary
+                                        } else {
+                                            NuvioTheme.extendedColors.textSecondary
+                                        },
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
                             }
                         }
-                    }
 
-                    val localizedAwards = remember(awards, context) { formatAwards(awards, context) }
-                    if (!localizedAwards.isNullOrBlank()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.EmojiEvents,
-                                contentDescription = null,
-                                tint = NuvioPrimitives.green500,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Text(
-                                text = localizedAwards,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = NuvioPrimitives.green500
-                            )
+                        val localizedAwards = remember(awards, context) { formatAwards(awards, context) }
+                        if (!localizedAwards.isNullOrBlank()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.EmojiEvents,
+                                    contentDescription = null,
+                                    tint = NuvioPrimitives.green500,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Text(
+                                    text = localizedAwards,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = NuvioPrimitives.green500
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
                         }
-                        Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
-                    }
 
-                    MetaInfoRow(
-                        meta = meta,
-                        hideImdbRating = hideMetaInfoImdb,
-                        showFullReleaseDate = showFullReleaseDate,
-                        tmdbRating = tmdbRating,
-                        tvdbRating = tvdbRating
-                    )
+                        MetaInfoRow(
+                            meta = meta,
+                            hideImdbRating = hideMetaInfoImdb,
+                            showFullReleaseDate = showFullReleaseDate,
+                            tmdbRating = tmdbRating,
+                            tvdbRating = tvdbRating
+                        )
+                    }
                 }
             }
         }
@@ -938,6 +942,44 @@ private fun CombinedMetaBadge(
             style = MaterialTheme.typography.labelMedium,
             color = rightColor,
             maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun GlassPanel(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Black.copy(alpha = 0.48f),
+                        Color.Black.copy(alpha = 0.62f)
+                    )
+                )
+            )
+            .border(
+                border = BorderStroke(
+                    NuvioTheme.spacing.hairline,
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.35f),
+                            Color.White.copy(alpha = 0.12f),
+                            Color.White.copy(alpha = 0.06f)
+                        )
+                    )
+                ),
+                shape = shape
+            )
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            content = content
         )
     }
 }
