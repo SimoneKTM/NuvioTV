@@ -109,6 +109,7 @@ private fun MalLibraryItem.toMalWatchedProgress(
     lastWatched = updatedAt,
     progressPercent = 100f,
     source = MAL_PROGRESS_SOURCE,
+    pool = WatchProgress.POOL_ANIME,
     trackingProviderId = TrackingProviderId.MAL.storageId,
     trackingProviderItemId = id.toString(),
     trackingSourceUrl = "https://myanimelist.net/anime/$id"
@@ -130,6 +131,7 @@ private fun MalLibraryItem.toMalNextUpSeed(contentId: String): WatchProgress = W
     lastWatched = updatedAt,
     progressPercent = 100f,
     source = MAL_PROGRESS_SOURCE,
+    pool = WatchProgress.POOL_ANIME,
     trackingProviderId = TrackingProviderId.MAL.storageId,
     trackingProviderItemId = id.toString(),
     trackingSourceUrl = "https://myanimelist.net/anime/$id"

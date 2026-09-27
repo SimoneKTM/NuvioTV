@@ -109,6 +109,7 @@ private fun AniListLibraryItem.toAniListWatchedProgress(
     lastWatched = updatedAt.coerceAtLeast(0L) * 1_000L,
     progressPercent = 100f,
     source = ANILIST_PROGRESS_SOURCE,
+    pool = WatchProgress.POOL_ANIME,
     trackingProviderId = TrackingProviderId.ANILIST.storageId,
     trackingProviderItemId = id.toString(),
     trackingSourceUrl = "https://anilist.co/anime/$id"
@@ -130,6 +131,7 @@ private fun AniListLibraryItem.toAniListNextUpSeed(contentId: String): WatchProg
     lastWatched = updatedAt.coerceAtLeast(0L) * 1_000L,
     progressPercent = 100f,
     source = ANILIST_PROGRESS_SOURCE,
+    pool = WatchProgress.POOL_ANIME,
     trackingProviderId = TrackingProviderId.ANILIST.storageId,
     trackingProviderItemId = id.toString(),
     trackingSourceUrl = "https://anilist.co/anime/$id"

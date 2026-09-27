@@ -109,6 +109,7 @@ private fun KitsuLibraryItem.toKitsuWatchedProgress(
     lastWatched = updatedAt,
     progressPercent = 100f,
     source = KITSU_PROGRESS_SOURCE,
+    pool = WatchProgress.POOL_ANIME,
     trackingProviderId = TrackingProviderId.KITSU.storageId,
     trackingProviderItemId = id.toString(),
     trackingSourceUrl = "https://kitsu.app/anime/$id"
@@ -130,6 +131,7 @@ private fun KitsuLibraryItem.toKitsuNextUpSeed(contentId: String): WatchProgress
     lastWatched = updatedAt,
     progressPercent = 100f,
     source = KITSU_PROGRESS_SOURCE,
+    pool = WatchProgress.POOL_ANIME,
     trackingProviderId = TrackingProviderId.KITSU.storageId,
     trackingProviderItemId = id.toString(),
     trackingSourceUrl = "https://kitsu.app/anime/$id"

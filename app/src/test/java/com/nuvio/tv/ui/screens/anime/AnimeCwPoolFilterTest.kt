@@ -21,6 +21,27 @@ class AnimeCwPoolFilterTest {
     }
 
     @Test
+    fun `anilist anime source url passes the anime filter`() {
+        val progress = progress(trackingSourceUrl = "https://anilist.co/anime/21/one-piece")
+
+        assertTrue(isAnimeProgress(progress, emptySet()))
+    }
+
+    @Test
+    fun `kitsu anime source url passes the anime filter`() {
+        val progress = progress(trackingSourceUrl = "https://kitsu.app/anime/1/one-piece")
+
+        assertTrue(isAnimeProgress(progress, emptySet()))
+    }
+
+    @Test
+    fun `myanimelist anime source url passes the anime filter`() {
+        val progress = progress(trackingSourceUrl = "https://myanimelist.net/anime/21/one-piece")
+
+        assertTrue(isAnimeProgress(progress, emptySet()))
+    }
+
+    @Test
     fun `simkl non-anime source url does not pass the anime filter`() {
         val progress = progress(trackingSourceUrl = "https://simkl.com/tv/12345/slug")
 

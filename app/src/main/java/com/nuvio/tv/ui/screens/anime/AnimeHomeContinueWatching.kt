@@ -721,15 +721,24 @@ private fun normalizeAnimeBaseUrl(raw: String?): String =
     raw?.trim()?.trimEnd('/')?.lowercase(Locale.US).orEmpty()
 
 // Accepts progress from anime-pool addons, plus remote-sourced anime items
-// (Simkl playback/watch history carry no addonBaseUrl but are marked either
-// via the explicit pool field or the simkl.com/anime source URL).
+// (Simkl/AniList/Kitsu/MAL playback/watch history carry no addonBaseUrl but
+// are marked either via the explicit pool field or an /anime/ source URL).
+private val ANIME_SOURCE_URL_MARKERS = listOf(
+    "simkl.com/anime/",
+    "anilist.co/anime/",
+    "kitsu.app/anime/",
+    "myanimelist.net/anime/"
+)
+
 internal fun isAnimeProgress(progress: WatchProgress, animeBaseUrls: Set<String>): Boolean =
     progress.pool == WatchProgress.POOL_ANIME ||
-        isSimklAnimeSourceUrl(progress.trackingSourceUrl) ||
+        isAnimeSourceUrl(progress.trackingSourceUrl) ||
         normalizeAnimeBaseUrl(progress.addonBaseUrl) in animeBaseUrls
 
-private fun isSimklAnimeSourceUrl(raw: String?): Boolean =
-    raw?.contains("simkl.com/anime/", ignoreCase = true) == true
+private fun isAnimeSourceUrl(raw: String?): Boolean {
+    val url = raw ?: return false
+    return ANIME_SOURCE_URL_MARKERS.any { marker -> url.contains(marker, ignoreCase = true) }
+}
 
 private fun isSeriesTypeCW(type: String?): Boolean {
     return type.equals("series", ignoreCase = true) || type.equals("tv", ignoreCase = true)

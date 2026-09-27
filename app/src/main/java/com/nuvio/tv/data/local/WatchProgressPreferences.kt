@@ -757,7 +757,8 @@ class WatchProgressPreferences @Inject constructor(
             backdrop = existing.backdrop ?: remote.backdrop,
             logo = existing.logo ?: remote.logo,
             episodeTitle = existing.episodeTitle ?: remote.episodeTitle,
-            addonBaseUrl = remote.addonBaseUrl ?: existing.addonBaseUrl
+            addonBaseUrl = remote.addonBaseUrl ?: existing.addonBaseUrl,
+            pool = remote.pool ?: existing.pool
         )
     }
 
