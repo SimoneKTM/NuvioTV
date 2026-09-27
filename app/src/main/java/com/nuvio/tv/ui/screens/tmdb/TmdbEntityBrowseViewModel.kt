@@ -15,6 +15,8 @@ import com.nuvio.tv.domain.repository.AnimeAddonRepository
 import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.nuvio.tv.core.util.installedAnimeAddonsNow
+import com.nuvio.tv.core.util.installedExtraAddonsNow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -63,9 +65,9 @@ class TmdbEntityBrowseViewModel @Inject constructor(
         val normalizedSource = sourceAddonBaseUrl.trim().trimEnd('/').lowercase()
         val store = when {
             normalizedSource.isEmpty() -> tmdbSettingsDataStore
-            animeAddonRepository.getInstalledAnimeAddons().first()
+            animeAddonRepository.installedAnimeAddonsNow()
                 .any { addon -> addon.baseUrl.trim().trimEnd('/').lowercase() == normalizedSource } -> animeTmdbSettingsDataStore
-            extraAddonRepository.getInstalledExtraAddons().first()
+            extraAddonRepository.installedExtraAddonsNow()
                 .any { addon -> addon.baseUrl.trim().trimEnd('/').lowercase() == normalizedSource } -> extraTmdbSettingsDataStore
             else -> tmdbSettingsDataStore
         }

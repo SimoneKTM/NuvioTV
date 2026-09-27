@@ -8,6 +8,8 @@ import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.Stream
 import com.nuvio.tv.domain.model.resolveContentLanguage
+import com.nuvio.tv.core.util.installedExtraAddonsNow
+import com.nuvio.tv.core.util.installedAnimeAddonsNow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -99,12 +101,12 @@ private suspend fun PlayerRuntimeController.resolveActiveTmdbSettings(): com.nuv
     val source = playbackSourceAddonBaseUrl?.trim()?.trimEnd('/').orEmpty().lowercase()
     if (source.isNotEmpty()) {
         val fromExtra = runCatching {
-            extraAddonRepository.getInstalledExtraAddons().first()
+            extraAddonRepository.installedExtraAddonsNow()
                 .any { it.baseUrl.trim().trimEnd('/').lowercase() == source }
         }.getOrDefault(false)
         if (fromExtra) return extraTmdbSettingsDataStore
         val fromAnime = runCatching {
-            animeAddonRepository.getInstalledAnimeAddons().first()
+            animeAddonRepository.installedAnimeAddonsNow()
                 .any { it.baseUrl.trim().trimEnd('/').lowercase() == source }
         }.getOrDefault(false)
         if (fromAnime) return animeTmdbSettingsDataStore
@@ -121,12 +123,12 @@ internal suspend fun PlayerRuntimeController.resolveActiveLayoutSettings(): com.
     val source = playbackSourceAddonBaseUrl?.trim()?.trimEnd('/').orEmpty().lowercase()
     if (source.isNotEmpty()) {
         val fromExtra = runCatching {
-            extraAddonRepository.getInstalledExtraAddons().first()
+            extraAddonRepository.installedExtraAddonsNow()
                 .any { it.baseUrl.trim().trimEnd('/').lowercase() == source }
         }.getOrDefault(false)
         if (fromExtra) return extraLayoutPreferenceDataStore
         val fromAnime = runCatching {
-            animeAddonRepository.getInstalledAnimeAddons().first()
+            animeAddonRepository.installedAnimeAddonsNow()
                 .any { it.baseUrl.trim().trimEnd('/').lowercase() == source }
         }.getOrDefault(false)
         if (fromAnime) return animeLayoutPreferenceDataStore

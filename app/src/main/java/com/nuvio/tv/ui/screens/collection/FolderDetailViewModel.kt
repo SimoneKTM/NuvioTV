@@ -45,6 +45,9 @@ import com.nuvio.tv.ui.screens.home.homeItemStatusKey
 import com.nuvio.tv.domain.repository.CatalogRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import com.nuvio.tv.core.util.enabledAddonsNow
+import com.nuvio.tv.core.util.enabledAnimeAddonsNow
+import com.nuvio.tv.core.util.enabledExtraAddonsNow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -189,9 +192,9 @@ class FolderDetailViewModel @Inject constructor(
     }
 
     private suspend fun installedAddons(): List<com.nuvio.tv.domain.model.Addon> =
-        (addonRepository.getInstalledAddons().first().enabledAddons() +
-            animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons() +
-            extraAddonRepository.getInstalledExtraAddons().first().enabledAddons())
+        (addonRepository.enabledAddonsNow() +
+            animeAddonRepository.enabledAnimeAddonsNow() +
+            extraAddonRepository.enabledExtraAddonsNow())
             .distinctBy { it.id }
 
     private fun resolveAddonForSource(
@@ -312,8 +315,8 @@ class FolderDetailViewModel @Inject constructor(
             }
 
             val addons = installedAddons()
-            val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
-            val extraAddons = extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()
+            val animeAddons = animeAddonRepository.enabledAnimeAddonsNow()
+            val extraAddons = extraAddonRepository.enabledExtraAddonsNow()
             val liveTvPlaylists = liveTvSettingsDataStore.playlists.first()
             val homeLayout = activeLayoutDataStore.selectedLayout.first()
             val posterLabelsEnabled = activeLayoutDataStore.posterLabelsEnabled.first()
@@ -792,8 +795,8 @@ class FolderDetailViewModel @Inject constructor(
     private fun loadAddonCatalogForTab(tabIndex: Int, source: AddonCatalogCollectionSource) {
         viewModelScope.launch {
             val addons = installedAddons()
-            val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
-            val extraAddons = extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()
+            val animeAddons = animeAddonRepository.enabledAnimeAddonsNow()
+            val extraAddons = extraAddonRepository.enabledExtraAddonsNow()
             val addon = resolveAddonForSource(source, addons, animeAddons, extraAddons)
 
             if (addon == null) {

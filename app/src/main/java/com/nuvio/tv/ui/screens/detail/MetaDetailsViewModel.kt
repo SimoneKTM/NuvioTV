@@ -273,11 +273,11 @@ class MetaDetailsViewModel @Inject constructor(
      * query the HOME (or ALL) pool instead of their own tab.
      */
     private suspend fun resolveLayoutSource() {
-        animeLayoutActive.value = resolveAnimeLayoutSource().first()
+        animeLayoutActive.value = readLayoutFlag(resolveAnimeLayoutSource())
         extraLayoutActive.value = if (animeLayoutActive.value) {
             false
         } else {
-            resolveExtraLayoutSource().first()
+            readLayoutFlag(resolveExtraLayoutSource())
         }
     }
 
@@ -286,14 +286,24 @@ class MetaDetailsViewModel @Inject constructor(
         if (animeLayoutActive.value || extraLayoutActive.value) return
         val source = meta.sourceAddonBaseUrl?.trim()?.trimEnd('/').orEmpty()
         if (source.isEmpty()) return
-        if (resolveAnimeLayoutSource(source).first()) {
+        if (readLayoutFlag(resolveAnimeLayoutSource(source))) {
             extraLayoutActive.value = false
             animeLayoutActive.value = true
-        } else if (resolveExtraLayoutSource(source).first()) {
+        } else if (readLayoutFlag(resolveExtraLayoutSource(source))) {
             animeLayoutActive.value = false
             extraLayoutActive.value = true
         }
     }
+
+    /**
+     * The underlying addon flows are gated on a disk read, so a bare `.first()` could
+     * suspend past the detail load (or propagate a flow failure into the load scope).
+     * Cap the wait and degrade to false instead.
+     */
+    private suspend fun readLayoutFlag(source: Flow<Boolean>): Boolean =
+        runCatching {
+            kotlinx.coroutines.withTimeoutOrNull(8_000L) { source.first() }
+        }.getOrNull() ?: false
 
     private fun resolveAnimeLayoutSource(source: String? = preferredAddonBaseUrl): Flow<Boolean> {
         val normalizedSource = source?.trim()?.trimEnd('/')?.lowercase().orEmpty()

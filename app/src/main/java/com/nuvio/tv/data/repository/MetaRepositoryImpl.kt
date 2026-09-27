@@ -3,6 +3,9 @@ package com.nuvio.tv.data.repository
 import android.content.Context
 import android.util.Log
 import com.nuvio.tv.core.network.NetworkResult
+import com.nuvio.tv.core.util.installedAddonsNow
+import com.nuvio.tv.core.util.installedAnimeAddonsNow
+import com.nuvio.tv.core.util.installedExtraAddonsNow
 import com.nuvio.tv.core.network.safeApiCall
 import com.nuvio.tv.data.mapper.toDomain
 import com.nuvio.tv.data.remote.api.AddonApi
@@ -26,7 +29,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -216,9 +218,9 @@ class MetaRepositoryImpl @Inject constructor(
 
         emit(NetworkResult.Loading)
 
-        val regularAddons = addonRepository.getInstalledAddons().first()
-        val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first()
-        val extraAddons = extraAddonRepository.getInstalledExtraAddons().first()
+        val regularAddons = addonRepository.installedAddonsNow()
+        val animeAddons = animeAddonRepository.installedAnimeAddonsNow()
+        val extraAddons = extraAddonRepository.installedExtraAddonsNow()
         // Strict namespace isolation: each tab only races its own addon pool.
         // Home -> regular only (TMDB), Anime -> anime only (TVDB),
         // Extra -> extra only, all -> every pool (global screens).
@@ -544,9 +546,9 @@ class MetaRepositoryImpl @Inject constructor(
 
         emit(NetworkResult.Loading)
 
-        val regularAddons = addonRepository.getInstalledAddons().first()
-        val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first()
-        val extraAddons = extraAddonRepository.getInstalledExtraAddons().first()
+        val regularAddons = addonRepository.installedAddonsNow()
+        val animeAddons = animeAddonRepository.installedAnimeAddonsNow()
+        val extraAddons = extraAddonRepository.installedExtraAddonsNow()
         // Strict namespace isolation: each namespace only queries its own
         // addon pool with no cross-fallbacks (Home -> TMDB, Anime -> TVDB,
         // Extra -> extra addons). "all" unions every pool for global screens

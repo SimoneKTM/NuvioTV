@@ -39,6 +39,7 @@ import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.nuvio.tv.core.util.installedAddonsNow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -464,7 +465,7 @@ class AccountViewModel @Inject constructor(
             _uiState.update { it.copy(isStatsLoading = true) }
 
             val stats = runCatching {
-                val addonsCount = addonRepository.getInstalledAddons().first().size
+                val addonsCount = addonRepository.installedAddonsNow().size
                 val pluginsCount = pluginManager.repositories.first().size
                 val libraryCount = libraryPreferences.getAllItems().size
                 val watchProgressCount = watchProgressRepository.allProgress.first().size

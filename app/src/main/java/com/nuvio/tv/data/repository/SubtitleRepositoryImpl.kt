@@ -9,15 +9,16 @@ import com.nuvio.tv.data.remote.api.AddonApi
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.OpenSubtitlesManualSubtitle
 import com.nuvio.tv.domain.model.Subtitle
-import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import com.nuvio.tv.domain.repository.SubtitleRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import com.nuvio.tv.core.util.enabledAddonsNow
+import com.nuvio.tv.core.util.enabledAnimeAddonsNow
+import com.nuvio.tv.core.util.enabledExtraAddonsNow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicInteger
@@ -54,9 +55,9 @@ class SubtitleRepositoryImpl @Inject constructor(
         // Get installed addons from both groups; when the current stream came
         // from an anime addon, its subtitle addons are consulted first.
         val addons = try {
-            val homeAddons = addonRepository.getInstalledAddons().first().enabledAddons()
-            val animeAddons = animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()
-            val extraAddons = try { extraAddonRepository.getInstalledExtraAddons().first().enabledAddons() } catch (_: Exception) { emptyList() }
+            val homeAddons = addonRepository.enabledAddonsNow()
+            val animeAddons = animeAddonRepository.enabledAnimeAddonsNow()
+            val extraAddons = extraAddonRepository.enabledExtraAddonsNow()
             val merged = (homeAddons + animeAddons + extraAddons).distinctBy { it.baseUrl.trimEnd('/').lowercase() }
             if (sourceAddonBaseUrl != null && merged.any { matchesBaseUrl(it.baseUrl, sourceAddonBaseUrl) }) {
                 merged.sortedByDescending { matchesBaseUrl(it.baseUrl, sourceAddonBaseUrl) }

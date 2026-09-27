@@ -14,6 +14,7 @@ import com.nuvio.tv.domain.model.Stream
 import com.nuvio.tv.domain.model.Video
 import com.nuvio.tv.ui.components.SourceChipItem
 import com.nuvio.tv.ui.components.SourceChipStatus
+import com.nuvio.tv.core.util.installedAddonsNow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -116,7 +117,7 @@ internal fun PlayerRuntimeController.loadSourceStreams(forceRefresh: Boolean) {
             )
         }
 
-        val installedAddons = addonRepository.getInstalledAddons().first()
+        val installedAddons = addonRepository.installedAddonsNow()
         val installedAddonOrder = installedAddons.map { it.displayName }
         updateSourceChipsForFetchStart(type, vid, installedAddons)
 
@@ -719,7 +720,7 @@ internal fun PlayerRuntimeController.loadStreamsForEpisode(video: Video, forceRe
             )
         }
 
-        val installedAddons = addonRepository.getInstalledAddons().first()
+        val installedAddons = addonRepository.installedAddonsNow()
         val installedAddonOrder = installedAddons.map { it.displayName }
 
         streamRepository.getStreamsFromAllAddons(
@@ -1062,7 +1063,7 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
                 return@launch
             }
 
-            val installedAddons = addonRepository.getInstalledAddons().first()
+            val installedAddons = addonRepository.installedAddonsNow()
             val installedAddonOrder = installedAddons.map { it.displayName }
             val effectiveMode = if (shouldAutoSelectInManualMode) {
                 StreamAutoPlayMode.FIRST_STREAM

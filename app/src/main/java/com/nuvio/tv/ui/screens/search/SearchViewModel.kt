@@ -19,6 +19,9 @@ import com.nuvio.tv.domain.model.stableKey
 import com.nuvio.tv.domain.model.supportsExtra
 import com.nuvio.tv.core.util.filterReleasedItems
 import com.nuvio.tv.core.util.isUnreleased
+import com.nuvio.tv.core.util.enabledAddonsNow
+import com.nuvio.tv.core.util.enabledAnimeAddonsNow
+import com.nuvio.tv.core.util.enabledExtraAddonsNow
 import com.nuvio.tv.domain.repository.AddonRepository
 import java.time.LocalDate
 import com.nuvio.tv.domain.model.ContentType
@@ -38,7 +41,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -234,12 +236,12 @@ class SearchViewModel @Inject constructor(
                         )
                     }
                     val addons = mutableListOf<Addon>()
-                    try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
+                    addons.addAll(addonRepository.enabledAddonsNow())
                     if (searchIncludeAnimeTab) {
-                        try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
+                        addons.addAll(animeAddonRepository.enabledAnimeAddonsNow())
                     }
                     if (searchIncludeExtraTab) {
-                        try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+                        addons.addAll(extraAddonRepository.enabledExtraAddonsNow())
                     }
                     _uiState.update { it.copy(installedAddons = addons) }
                     if (wasDiscoverInitialized) {
@@ -501,12 +503,12 @@ class SearchViewModel @Inject constructor(
             kotlinx.coroutines.delay(SUGGESTION_DEBOUNCE_MS)
 
             val addons = mutableListOf<Addon>()
-            try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
+            addons.addAll(addonRepository.enabledAddonsNow())
             if (includeAnimeAddons) {
-                try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
+                addons.addAll(animeAddonRepository.enabledAnimeAddonsNow())
             }
             if (searchIncludeExtraTab) {
-                try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+                addons.addAll(extraAddonRepository.enabledExtraAddonsNow())
             }
             if (addons.isEmpty()) {
                 return@launch
@@ -650,12 +652,12 @@ class SearchViewModel @Inject constructor(
 
         val job = viewModelScope.launch {
             val addons = mutableListOf<Addon>()
-            try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
+            addons.addAll(addonRepository.enabledAddonsNow())
             if (includeAnimeAddons) {
-                try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
+                addons.addAll(animeAddonRepository.enabledAnimeAddonsNow())
             }
             if (searchIncludeExtraTab) {
-                try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+                addons.addAll(extraAddonRepository.enabledExtraAddonsNow())
             }
             if (addons.isEmpty()) {
                 if (generation == searchGeneration && activeSearchQuery == query) {
@@ -1010,12 +1012,12 @@ class SearchViewModel @Inject constructor(
         if (_uiState.value.discoverLocation == DiscoverLocation.OFF) return
         _uiState.update { it.copy(discoverLoading = true) }
         val addons = mutableListOf<Addon>()
-        try { addons.addAll(addonRepository.getInstalledAddons().first().enabledAddons()) } catch (_: Exception) {}
+        addons.addAll(addonRepository.enabledAddonsNow())
         if (searchIncludeAnimeTab) {
-            try { addons.addAll(animeAddonRepository.getInstalledAnimeAddons().first().enabledAddons()) } catch (_: Exception) {}
+            addons.addAll(animeAddonRepository.enabledAnimeAddonsNow())
         }
         if (searchIncludeExtraTab) {
-            try { addons.addAll(extraAddonRepository.getInstalledExtraAddons().first().enabledAddons()) } catch (_: Exception) {}
+            addons.addAll(extraAddonRepository.enabledExtraAddonsNow())
         }
 
         android.util.Log.d("SearchVM", "loadDiscoverCatalogs: addons=${addons.size}")

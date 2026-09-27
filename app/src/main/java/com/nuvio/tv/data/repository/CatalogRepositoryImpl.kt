@@ -11,7 +11,6 @@ import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.ContentType
-import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.model.skipStep
 import com.nuvio.tv.domain.model.supportsExtra
 import com.nuvio.tv.domain.repository.AddonRepository
@@ -19,6 +18,9 @@ import com.nuvio.tv.domain.repository.AnimeAddonRepository
 import com.nuvio.tv.domain.repository.CatalogRepository
 import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import com.nuvio.tv.core.util.enabledAddonsNow
+import com.nuvio.tv.core.util.enabledAnimeAddonsNow
+import com.nuvio.tv.core.util.enabledExtraAddonsNow
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -105,9 +107,9 @@ class CatalogRepositoryImpl @Inject constructor(
         warmJob = warmScope.launch {
             try {
                 profileManager.activeProfileReady.first { it }
-                val regular = addonRepository.getInstalledAddons().first().enabledAddons()
-                val anime = animeAddonRepository.getInstalledAnimeAddons().first().filter { it.enabled }
-                val extra = extraAddonRepository.getInstalledExtraAddons().first().filter { it.enabled }
+                val regular = addonRepository.enabledAddonsNow()
+                val anime = animeAddonRepository.enabledAnimeAddonsNow()
+                val extra = extraAddonRepository.enabledExtraAddonsNow()
 
                 val targets = buildList {
                     addAll(warmTargets(regular))

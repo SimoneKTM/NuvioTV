@@ -46,6 +46,7 @@ import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.domain.repository.WatchProgressRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.nuvio.tv.core.util.installedExtraAddonsNow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -663,7 +664,7 @@ class HomeViewModel @Inject constructor(
             // One-shot pool check so the bootstrap never renders cached items
             // that belong to the Extra tab (older builds wrote them here).
             // Anime items are kept: their details open with the Anime tab settings.
-            val extraBaseUrls = extraAddonRepository.getInstalledExtraAddons().first()
+            val extraBaseUrls = extraAddonRepository.installedExtraAddonsNow()
                 .map { normalizeExtraAddonBaseUrl(it.baseUrl) }.filter { it.isNotEmpty() }.toSet()
             val cachedInProgress = runCatching { cwEnrichmentCache.getInProgressSnapshot() }.getOrDefault(emptyList())
                 .filterNot { isExtraPoolAddon(it.addonBaseUrl, extraBaseUrls) }

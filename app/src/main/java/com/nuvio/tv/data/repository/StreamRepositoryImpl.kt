@@ -26,6 +26,9 @@ import com.nuvio.tv.domain.repository.AnimeAddonRepository
 import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import com.nuvio.tv.domain.repository.StreamRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import com.nuvio.tv.core.util.installedAddonsNow
+import com.nuvio.tv.core.util.installedAnimeAddonsNow
+import com.nuvio.tv.core.util.installedExtraAddonsNow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
@@ -71,9 +74,9 @@ override fun getStreamsFromAllAddons(
         emit(NetworkResult.Loading)
 
         try {
-            val regularAddons = addonRepository.getInstalledAddons().first()
-            val animeAddons = try { animeAddonRepository.getInstalledAnimeAddons().first() } catch (_: Exception) { emptyList() }
-            val extraAddons = try { extraAddonRepository.getInstalledExtraAddons().first() } catch (_: Exception) { emptyList() }
+            val regularAddons = addonRepository.installedAddonsNow()
+            val animeAddons = animeAddonRepository.installedAnimeAddonsNow()
+            val extraAddons = extraAddonRepository.installedExtraAddonsNow()
             val allAddons = (regularAddons + animeAddons + extraAddons)
                 .distinctBy { it.baseUrl.trimEnd('/').lowercase() }
             val addons = allAddons.enabledAddons()
