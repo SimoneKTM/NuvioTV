@@ -43,6 +43,7 @@ import com.nuvio.tv.domain.repository.WatchProgressRepository
 import com.nuvio.tv.data.local.WatchedItemsPreferences
 import com.nuvio.tv.data.local.TrailerSettingsDataStore
 import com.nuvio.tv.data.trailer.TrailerService
+import com.nuvio.tv.data.translation.MetadataTextTranslator
 import com.nuvio.tv.core.util.isUnreleased
 import com.nuvio.tv.core.util.selectEpisodeReleaseValue
 import java.time.LocalDate
@@ -94,6 +95,7 @@ class MetaDetailsViewModel @Inject constructor(
     private val tvdbMetadataService: TvdbMetadataService,
     private val tmdbService: TmdbService,
     private val tmdbMetadataService: TmdbMetadataService,
+    private val metadataTextTranslator: MetadataTextTranslator,
     private val imdbEpisodeRatingsRepository: ImdbEpisodeRatingsRepository,
     private val mdbListRepository: MDBListRepository,
     private val omdbAwardsRepository: OmdbAwardsRepository,
@@ -1576,7 +1578,7 @@ class MetaDetailsViewModel @Inject constructor(
         val settings = activeTmdbSettingsDataStore.settings.first()
         if (!settings.enabled) {
             fetchTmdbRatingOnly(meta)
-            return enrichSeriesWithTvdb(meta)
+            return translateMetaTexts(enrichSeriesWithTvdb(meta), settings.language)
         }
 
         val tmdbContentType = resolveTmdbContentType(meta)
@@ -1585,7 +1587,7 @@ class MetaDetailsViewModel @Inject constructor(
             ?: tmdbService.ensureTmdbId(itemId, itemType)
         if (tmdbId == null) {
             // TMDB ID resolution failed — TVDB must still run independently.
-            return enrichSeriesWithTvdb(meta)
+            return translateMetaTexts(enrichSeriesWithTvdb(meta), settings.language)
         }
 
         val isSeries = meta.apiType in listOf("series", "tv")
@@ -1719,7 +1721,18 @@ class MetaDetailsViewModel @Inject constructor(
             loadCollectionAsync(enrichment.collectionId, enrichment.collectionName, settings)
         }
 
-        return enrichSeriesWithTvdb(updated)
+        return translateMetaTexts(enrichSeriesWithTvdb(updated), settings.language)
+    }
+
+    private suspend fun translateMetaTexts(meta: Meta, targetLanguage: String): Meta {
+        return try {
+            metadataTextTranslator.translateMeta(meta, targetLanguage)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Metadata text translation failed: ${e.message}")
+            meta
+        }
     }
 
     private suspend fun fetchTmdbRatingOnly(meta: Meta) {

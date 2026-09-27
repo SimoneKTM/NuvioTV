@@ -532,6 +532,10 @@ dependencies {
     // Markdown rendering
     implementation(libs.markdown.renderer.m3)
 
+    // ML Kit on-device translation
+    implementation(libs.mlkit.translate)
+    implementation(libs.mlkit.language.id)
+
     add("fullImplementation", libs.crypto.js)
     // QR code + local server for addon management
     implementation(libs.nanohttpd)
