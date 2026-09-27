@@ -71,6 +71,50 @@ class SearchResultsRankingTest {
         assertTrue(ranked.map { it.id }.indexOf("high") < ranked.map { it.id }.indexOf("low"))
     }
 
+    @Test
+    fun `seasons sort numerically before alphabetical fallback`() {
+        val s1 = preview(id = "s1", name = "Berlin Station Season 1")
+        val s2 = preview(id = "s2", name = "Berlin Station Season 2")
+        val s10 = preview(id = "s10", name = "Berlin Station Season 10")
+        val ranked = rankSearchResults("berlin station", listOf(s10, s1, s2))
+        assertEquals(listOf("s1", "s2", "s10"), ranked.map { it.id })
+    }
+
+    @Test
+    fun `contiguous phrase match ranks above scattered tokens`() {
+        val phrase = searchMatchQuality("dark water", "The Dark Water Falls")
+        val scattered = searchMatchQuality("dark water", "Water In The Dark")
+        assertTrue(
+            "expected phrase match ($phrase) before scattered match ($scattered)",
+            phrase < scattered
+        )
+    }
+
+    @Test
+    fun `query ending with a season number promotes that season on top`() {
+        val s1 = preview(id = "s1", name = "Dark Matter Season 1")
+        val s2 = preview(id = "s2", name = "Dark Matter Season 2")
+        val s3 = preview(id = "s3", name = "Dark Matter Season 3")
+        val ranked = rankSearchResults("dark matter stagione 2", listOf(s3, s1, s2))
+        assertEquals(listOf("s2", "s1", "s3"), ranked.map { it.id })
+    }
+
+    @Test
+    fun `irrelevant season match does not beat relevant title matches`() {
+        val s2 = preview(id = "s2", name = "Dark Matter Season 2")
+        val s3 = preview(id = "s3", name = "Dark Matter Season 3")
+        val other = preview(id = "other", name = "Bright City Season 2")
+        val ranked = rankSearchResults("dark matter s2", listOf(other, s3, s2))
+        assertEquals(listOf("s2", "s3"), ranked.map { it.id }.take(2))
+        assertEquals("other", ranked.last().id)
+    }
+
+    @Test
+    fun `season number survives a trailing year`() {
+        assertEquals(2, searchSeasonNumber(preview(id = "x", name = "Berlin Station Season 2 (2020)")))
+        assertEquals(4, searchSeasonNumber(preview(id = "y", name = "Some Show S04")))
+    }
+
     private fun preview(
         id: String,
         name: String,

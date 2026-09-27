@@ -162,8 +162,8 @@ class CalendarRepositoryImpl @Inject constructor(
                 // evenings around midnight are not dropped.
                 !date.isBefore(today.minusDays(1))
             }
-            .distinctBy { "${it.meta.id}:${it.releaseDate}" }
-            .sortedBy { it.releaseDate }
+            .distinctBy { "${it.meta.id}:${it.releaseDate}:${it.episodeLabel ?: ""}" }
+            .sortedWith(compareBy({ it.releaseDate }, { it.meta.name.lowercase() }, { it.episodeLabel ?: "" }, { it.meta.id }))
 
         Log.d(TAG, "Calendar: ${filteredItems.size} items after filtering (${allItems.size} raw)")
 
@@ -247,8 +247,8 @@ class CalendarRepositoryImpl @Inject constructor(
         }
         val items = response.body().orEmpty().mapNotNull { it.toCalendarItem(monthStart) }
         val filtered = items
-            .distinctBy { "${it.meta.id}:${it.releaseDate}" }
-            .sortedBy { it.releaseDate }
+            .distinctBy { "${it.meta.id}:${it.releaseDate}:${it.episodeLabel ?: ""}" }
+            .sortedWith(compareBy({ it.releaseDate }, { it.meta.name.lowercase() }, { it.episodeLabel ?: "" }, { it.meta.id }))
         Log.d(TAG, "Month calendar: ${filtered.size} items from $monthStart")
         return filtered
     }
@@ -711,7 +711,8 @@ class CalendarRepositoryImpl @Inject constructor(
                     imdbId = show.ids?.imdb,
                     sourceAddonBaseUrl = null
                 ),
-                releaseDate = airDate
+                releaseDate = airDate,
+                episodeLabel = episodeLabel
             )
         }
 

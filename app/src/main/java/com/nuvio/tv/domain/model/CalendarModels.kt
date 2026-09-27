@@ -16,5 +16,7 @@ data class CalendarItem(
     val releaseDate: LocalDate?,
     val addonName: String = "Trakt",
     /** True when no installed tab addon knows this title. */
-    val notInCatalog: Boolean = false
+    val notInCatalog: Boolean = false,
+    /** Episode label ("S1E5") so two episodes airing the same day both survive dedup. */
+    val episodeLabel: String? = null
 )

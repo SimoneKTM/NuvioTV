@@ -134,6 +134,14 @@ private data class SearchGridEntry(
     val addonBaseUrl: String
 ) {
     fun key(): String = "${item.apiType}:${item.id}"
+
+    /** True when this copy carries better metadata than [other] (same key). */
+    fun isRicherThan(other: SearchGridEntry): Boolean {
+        val poster = !item.poster.isNullOrBlank()
+        val otherPoster = !other.item.poster.isNullOrBlank()
+        if (poster != otherPoster) return poster
+        return (item.imdbRating ?: -1f) > (other.item.imdbRating ?: -1f)
+    }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -377,9 +385,17 @@ fun SearchScreen(
                     !item.background.isNullOrBlank() ||
                     !item.landscapePoster.isNullOrBlank()
             }
-            .distinctBy { it.key() }
-        val entryByKey = entries.associateBy { it.key() }
-        rankSearchResults(trimmedQuery, entries.map { it.item })
+        // Same title from several addons: keep the richest duplicate so ranking
+        // sees the copy with poster/rating instead of the first addon's order.
+        val entryByKey = LinkedHashMap<String, SearchGridEntry>(entries.size)
+        entries.forEach { entry ->
+            val key = entry.key()
+            val current = entryByKey[key]
+            if (current == null || entry.isRicherThan(current)) {
+                entryByKey[key] = entry
+            }
+        }
+        rankSearchResults(trimmedQuery, entryByKey.values.map { it.item })
             .mapNotNull { item -> entryByKey["${item.apiType}:${item.id}"] }
     }
 

@@ -103,7 +103,7 @@ class CalendarHomeViewModel @Inject constructor(
                 CalendarSection(
                     label = context.getString(R.string.calendar_this_week),
                     dateRange = today..thisWeekEnd,
-                    items = thisWeekItems.sortedBy { it.releaseDate }
+                    items = thisWeekItems.sortedWith(compareBy({ it.releaseDate }, { it.meta.name.lowercase() }, { it.episodeLabel ?: "" }, { it.meta.id }))
                 )
             )
         }
@@ -118,7 +118,7 @@ class CalendarHomeViewModel @Inject constructor(
                 CalendarSection(
                     label = context.getString(R.string.calendar_next_week),
                     dateRange = nextWeekStart..nextWeekEnd,
-                    items = nextWeekItems.sortedBy { it.releaseDate }
+                    items = nextWeekItems.sortedWith(compareBy({ it.releaseDate }, { it.meta.name.lowercase() }, { it.episodeLabel ?: "" }, { it.meta.id }))
                 )
             )
         }
@@ -139,7 +139,7 @@ class CalendarHomeViewModel @Inject constructor(
                     CalendarSection(
                         label = monthLabel.replaceFirstChar { it.uppercase(Locale.getDefault()) },
                         dateRange = monthStart..monthEnd,
-                        items = monthItems.sortedBy { it.releaseDate }
+                        items = monthItems.sortedWith(compareBy({ it.releaseDate }, { it.meta.name.lowercase() }, { it.episodeLabel ?: "" }, { it.meta.id }))
                     )
                 )
             }

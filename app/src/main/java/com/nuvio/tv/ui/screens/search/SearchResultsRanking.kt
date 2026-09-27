@@ -20,6 +20,8 @@ internal fun searchMatchQuality(query: String, title: String): Int {
         t == q -> 0
         t.startsWith(q) -> 1
         t.split(' ').any { it.startsWith(q) } -> 2
+        // Contiguous phrase implies every token is present, so it ranks above
+        // the looser "all tokens somewhere in the title" match.
         t.contains(q) -> 3
         q.split(' ').all { token -> token.isNotEmpty() && t.contains(token) } -> 4
         else -> 5
@@ -53,6 +55,32 @@ internal fun searchReleaseYear(item: MetaPreview): Int? {
     return null
 }
 
+private val SEASON_NUMBER_REGEX = Regex(
+    """\s(?:season|stagione|series|s|volume|vol|part(?:e)?)\s*[-]?\s*(\d{1,3})(?:\s*[(\[]?(?:19|20)\d{2}[)\]]?)?\s*$""",
+    RegexOption.IGNORE_CASE
+)
+
+/** Season number extracted from titles like "Show Season 10" so episodes sort 1, 2, 10. */
+internal fun searchSeasonNumber(item: MetaPreview): Int? =
+    SEASON_NUMBER_REGEX.find(item.name)?.groupValues?.get(1)?.toIntOrNull()
+
+private val QUERY_SEASON_REGEX = Regex(
+    """\s+(?:season|stagione|series|s|vol(?:ume)?|part(?:e)?)\s*[-#]?\s*(\d{1,3})\s*$""",
+    RegexOption.IGNORE_CASE
+)
+
+/**
+ * "dexter stagione 2" -> ("dexter", 2): the caller ranks against the base
+ * title and [searchResultsComparator] promotes the requested season on top.
+ */
+internal fun searchQuerySeason(query: String): Pair<String, Int>? {
+    val match = QUERY_SEASON_REGEX.find(query) ?: return null
+    val season = match.groupValues[1].toIntOrNull() ?: return null
+    val base = query.substring(0, match.range.first).trim()
+    if (base.isEmpty()) return null
+    return base to season
+}
+
 internal fun searchNormalizeTitle(name: String): String {
     var base = searchNormalizeText(name)
     while (true) {
@@ -73,21 +101,28 @@ internal fun searchNormalizeText(value: String): String =
 /**
  * Relevance first (closer title match), then more popular franchises, and
  * within one franchise oldest release first (Dexter before Dexter: New Blood).
+ * [familyRankByTitle] maps normalized title -> family popularity rank and is
+ * computed once per result set by [rankSearchResults] (no shared mutable state).
+ * When [requiredSeason] is set (query ended with "season N"), items matching
+ * that season win among equally relevant title matches.
  */
-internal fun searchResultsComparator(query: String): Comparator<MetaPreview> {
+internal fun searchResultsComparator(
+    query: String,
+    familyRankByTitle: Map<String, Int> = emptyMap(),
+    requiredSeason: Int? = null
+): Comparator<MetaPreview> {
     val normalizedTitles = listOf(searchNormalizeTitle(query))
 
-    // Families are assigned against the full result set once via decorate-sort-undecorate
-    // in [rankSearchResults]; this comparator only needs per-item keys that stay consistent
-    // when familyRank is empty (single-item sorts / tests).
     return Comparator { left, right ->
         compareValuesBy(
             left,
             right,
             { searchMatchQuality(query, it.name) },
-            { searchFamilyPopularityRank(it) },
+            { if (requiredSeason == null || searchSeasonNumber(it) == requiredSeason) 0 else 1 },
+            { familyRankByTitle[searchNormalizeTitle(it.name)] ?: 0 },
             { searchTitleFamily(it.name, normalizedTitles) },
             { searchReleaseYear(it) ?: Int.MAX_VALUE },
+            { searchSeasonNumber(it) ?: Int.MAX_VALUE },
             { it.imdbRating ?: -1f },
             { it.name.lowercase(Locale.ROOT) }
         ).let { base ->
@@ -96,17 +131,14 @@ internal fun searchResultsComparator(query: String): Comparator<MetaPreview> {
     }
 }
 
-private var familyRankByTitle: Map<String, Int> = emptyMap()
-
-private fun searchFamilyPopularityRank(item: MetaPreview): Int =
-    familyRankByTitle[searchNormalizeTitle(item.name)] ?: 0
-
 /**
  * Sorts a merged search grid: best title matches first, popular franchises
  * ahead of deep cuts, and sequels after their original in release order.
  */
 internal fun rankSearchResults(query: String, items: List<MetaPreview>): List<MetaPreview> {
     if (items.size <= 1) return items
+
+    val (baseQuery, requiredSeason) = searchQuerySeason(query) ?: (query to null)
 
     val normalizedTitles = items
         .map { searchNormalizeTitle(it.name) }
@@ -139,17 +171,9 @@ internal fun rankSearchResults(query: String, items: List<MetaPreview>): List<Me
         .mapIndexed { index, entry -> entry.key to index }
         .toMap()
 
-    synchronized(familyRankByTitle) {
-        familyRankByTitle = families.entries
-            .map { (normalized, family) -> normalized to (familyRank[family] ?: Int.MAX_VALUE) }
-            .toMap()
-    }
+    val familyRankByTitle = families.entries
+        .map { (normalized, family) -> normalized to (familyRank[family] ?: Int.MAX_VALUE) }
+        .toMap()
 
-    return try {
-        items.sortedWith(searchResultsComparator(query))
-    } finally {
-        synchronized(familyRankByTitle) {
-            familyRankByTitle = emptyMap()
-        }
-    }
+    return items.sortedWith(searchResultsComparator(baseQuery, familyRankByTitle, requiredSeason))
 }

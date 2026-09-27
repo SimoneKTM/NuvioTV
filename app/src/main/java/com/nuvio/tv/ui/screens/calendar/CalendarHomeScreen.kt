@@ -460,7 +460,7 @@ private fun CalendarHeroSection(
         ) {
             itemsIndexed(
                 items = heroItems,
-                key = { _, it -> it.meta.id }
+                key = { _, it -> "${it.meta.id}:${it.releaseDate}:${it.episodeLabel ?: ""}" }
             ) { index, calendarItem ->
                 CalendarWideCard(
                     meta = calendarItem.meta,
@@ -538,7 +538,7 @@ private fun CalendarSection(
         ) {
             itemsIndexed(
                 items = section.items,
-                key = { _, it -> it.meta.id }
+                key = { _, it -> "${it.meta.id}:${it.releaseDate}:${it.episodeLabel ?: ""}" }
             ) { index, calendarItem ->
                 CalendarPortraitCard(
                     meta = calendarItem.meta,
