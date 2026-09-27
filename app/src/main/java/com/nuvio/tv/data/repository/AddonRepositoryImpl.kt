@@ -30,6 +30,8 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import com.nuvio.tv.core.auth.AuthManager
 import com.nuvio.tv.core.sync.AddonSyncService
+import com.nuvio.tv.core.sync.RemoteAddonSnapshot
+import kotlinx.coroutines.CompletableDeferred
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 
@@ -97,8 +99,16 @@ class AddonRepositoryImpl @Inject constructor(
     private var lastManifestRefreshTime = 0L
     private var manifestRefreshJob: Job? = null
 
+    private val diskLoaded = CompletableDeferred<Unit>()
+
     init {
-        syncScope.launch { loadManifestCacheFromDisk() }
+        syncScope.launch {
+            try {
+                loadManifestCacheFromDisk()
+            } finally {
+                diskLoaded.complete(Unit)
+            }
+        }
     }
 
     private fun isCacheStale(): Boolean =
@@ -161,6 +171,7 @@ class AddonRepositoryImpl @Inject constructor(
         ) { urls, names, enabledStates, _ -> Triple(urls, names, enabledStates) }
         .flatMapLatest { (urls, userNames, enabledStates) ->
             flow {
+                diskLoaded.await()
                 if (urls.isEmpty()) {
                     emit(emptyList())
                     return@flow
@@ -267,62 +278,67 @@ class AddonRepositoryImpl @Inject constructor(
         triggerRemoteSync()
     }
 
-    suspend fun reconcileWithRemoteAddonUrls(
-        remoteUrls: List<String>,
-        removeMissingLocal: Boolean = true
+    internal suspend fun reconcileWithRemoteAddons(
+        snapshot: RemoteAddonSnapshot,
+        mode: AddonReconcileMode
     ) {
-        val normalizedRemote = remoteUrls
-            .map { canonicalizeUrl(it) }
-            .filter { it.isNotBlank() }
-            .distinctBy { normalizeUrl(it) }
-        val remoteSet = normalizedRemote.map { normalizeUrl(it) }.toSet()
+        val initialLocalUrls = preferences.installedAddonUrls.first().map { canonicalizeUrl(it) }
+        val plan = planAddonReconcile(
+            localUrls = initialLocalUrls,
+            remoteUrls = snapshot.urls.map { canonicalizeUrl(it) },
+            mode = mode
+        )
 
-        val initialLocalUrls = preferences.installedAddonUrls.first()
-        val initialLocalSet = initialLocalUrls.map { normalizeUrl(it) }.toSet()
-        val shouldRemoveMissingLocal = if (removeMissingLocal && normalizedRemote.isEmpty() && initialLocalUrls.isNotEmpty()) {
-            Log.w(
-                TAG,
-                "reconcileWithRemoteAddonUrls: remote list empty while local has ${initialLocalUrls.size} entries; preserving local addons"
-            )
-            false
-        } else {
-            removeMissingLocal
-        }
-
-     
-        val localByNormalized = linkedMapOf<String, String>()
-        initialLocalUrls.forEach { url ->
-            localByNormalized.putIfAbsent(normalizeUrl(url), canonicalizeUrl(url))
-        }
-
-        val remoteOrdered = normalizedRemote.map { remote ->
-            localByNormalized[normalizeUrl(remote)] ?: remote
-        }
-
-        val finalList = if (shouldRemoveMissingLocal) {
-            remoteOrdered
-        } else {
-            val extras = initialLocalUrls
-                .map { canonicalizeUrl(it) }
-                .filter { normalizeUrl(it) !in remoteSet }
-            remoteOrdered + extras
-        }
-
-        if (shouldRemoveMissingLocal) {
-            val removedAny = initialLocalUrls
-                .filter { normalizeUrl(it) !in remoteSet }
-                .map { canonicalizeUrl(it) }
-                .fold(false) { removed, url -> removeCachedManifest(url) || removed }
+        if (plan.removedUrls.isNotEmpty() && preferences.canWriteInstalledAddons()) {
+            val removedAny = plan.removedUrls.fold(false) { removed, url -> removeCachedManifest(url) || removed }
             if (removedAny) {
                 persistManifestCacheToDisk()
                 bumpManifestCacheRevision()
             }
         }
 
-
-        val currentCanonical = initialLocalUrls.map { canonicalizeUrl(it) }
-        if (finalList != currentCanonical) {
-            preferences.setAddonOrder(finalList)
+        when (mode) {
+            AddonReconcileMode.ADOPT_REMOTE -> {
+                val remotePresent = snapshot.urls.isNotEmpty()
+                val listChanged = plan.finalUrls != initialLocalUrls
+                if (listChanged || remotePresent) {
+                    preferences.replaceAddonList(
+                        urls = plan.finalUrls,
+                        names = if (remotePresent) snapshot.names else null,
+                        enabledStates = if (remotePresent) snapshot.enabled else null
+                    )
+                }
+            }
+            AddonReconcileMode.MERGE_KEEP_LOCAL -> {
+                if (plan.finalUrls != initialLocalUrls) {
+                    preferences.setAddonOrder(plan.finalUrls)
+                }
+                if (snapshot.urls.isNotEmpty()) {
+                    val finalSet = plan.finalUrls.map { it.lowercase() }.toSet()
+                    val remoteNames = snapshot.names
+                        .mapKeys { (url, _) -> canonicalizeUrl(url) }
+                        .filterKeys { it.lowercase() in finalSet }
+                    if (remoteNames.isNotEmpty()) {
+                        val current = preferences.userSetNames.first()
+                            .mapKeys { (url, _) -> canonicalizeUrl(url) }
+                        val merged = current + remoteNames
+                        if (merged != current) {
+                            preferences.setUserSetNames(merged)
+                        }
+                    }
+                    val remoteEnabled = snapshot.enabled
+                        .mapKeys { (url, _) -> canonicalizeUrl(url) }
+                        .filterKeys { it.lowercase() in finalSet }
+                    if (remoteEnabled.isNotEmpty()) {
+                        val current = preferences.addonEnabledStates.first()
+                            .mapKeys { (url, _) -> canonicalizeUrl(url) }
+                        val merged = current + remoteEnabled
+                        if (merged != current) {
+                            preferences.setAddonEnabledStates(merged)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -355,10 +371,12 @@ class AddonRepositoryImpl @Inject constructor(
         userSetNames: Map<String, String>,
         enabledStates: Map<String, Boolean>
     ): List<Addon> {
+        val namesByLower = userSetNames.entries.associate { (url, name) -> url.lowercase() to name }
+        val enabledByLower = enabledStates.entries.associate { (url, enabled) -> url.lowercase() to enabled }
         val withUserNames = addons.map { addon ->
             val canonical = canonicalizeUrl(addon.baseUrl)
-            val userSetName = userSetNames[canonical] ?: userSetNames[addon.baseUrl]
-            val enabled = enabledStates[canonical] ?: addon.enabled
+            val userSetName = namesByLower[canonical.lowercase()] ?: namesByLower[addon.baseUrl.lowercase()]
+            val enabled = enabledByLower[canonical.lowercase()] ?: addon.enabled
             if (!userSetName.isNullOrBlank() && userSetName != addon.name) {
                 addon.copy(displayName = userSetName, enabled = enabled)
             } else {

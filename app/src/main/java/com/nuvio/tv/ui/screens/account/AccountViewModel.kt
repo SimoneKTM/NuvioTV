@@ -28,6 +28,7 @@ import com.nuvio.tv.data.local.LibraryPreferences
 import com.nuvio.tv.data.local.WatchedItemsPreferences
 import com.nuvio.tv.data.local.TraktAuthDataStore
 import com.nuvio.tv.data.local.WatchProgressPreferences
+import com.nuvio.tv.data.repository.AddonReconcileMode
 import com.nuvio.tv.data.repository.AddonRepositoryImpl
 import com.nuvio.tv.data.repository.AuthDiagnosticReportRepository
 import com.nuvio.tv.data.repository.LibraryRepositoryImpl
@@ -720,12 +721,15 @@ class AccountViewModel @Inject constructor(
             pluginManager.flushPendingSync()
 
             addonRepository.isSyncingFromRemote = true
-            val remoteAddonUrls = addonSyncService.getRemoteAddonUrls().getOrElse { throw it }
-            addonRepository.reconcileWithRemoteAddonUrls(
-                remoteUrls = remoteAddonUrls,
-                removeMissingLocal = true
-            )
-            addonRepository.isSyncingFromRemote = false
+            try {
+                val snapshot = addonSyncService.pullSnapshot().getOrElse { throw it }
+                addonRepository.reconcileWithRemoteAddons(
+                    snapshot = snapshot,
+                    mode = AddonReconcileMode.ADOPT_REMOTE
+                )
+            } finally {
+                addonRepository.isSyncingFromRemote = false
+            }
 
             val isTraktConnected = traktAuthDataStore.isEffectivelyAuthenticated.first()
             val shouldUseSupabaseWatchProgressSync = watchProgressSyncService.shouldUseSupabaseWatchProgressSync()

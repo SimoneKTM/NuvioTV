@@ -18,6 +18,12 @@ import javax.inject.Singleton
 
 private const val TAG = "AddonSyncService"
 
+data class RemoteAddonSnapshot(
+    val urls: List<String>,
+    val names: Map<String, String>,
+    val enabled: Map<String, Boolean>
+)
+
 @Singleton
 class AddonSyncService @Inject constructor(
     private val postgrest: Postgrest,
@@ -86,7 +92,7 @@ class AddonSyncService @Inject constructor(
         }
     }
 
-    suspend fun getRemoteAddonUrls(): Result<List<String>> = withContext(Dispatchers.IO) {
+    suspend fun pullSnapshot(): Result<RemoteAddonSnapshot> = withContext(Dispatchers.IO) {
         try {
             val effectiveUserId = authManager.getEffectiveUserId(fallbackToOwnIdOnFailure = false)
                 ?: return@withContext Result.failure(
@@ -115,18 +121,16 @@ class AddonSyncService @Inject constructor(
                 }
                 enabledMap[canonicalUrl] = addon.enabled
             }
-            if (remoteAddons.isNotEmpty()) {
-                addonPreferences.setUserSetNames(nameMap)
-                addonPreferences.setAddonEnabledStates(enabledMap)
-            }
 
             Result.success(
-                remoteAddons
-                .sortedBy { it.sortOrder }
-                .map { it.url }
+                RemoteAddonSnapshot(
+                    urls = remoteAddons.sortedBy { it.sortOrder }.map { it.url },
+                    names = nameMap,
+                    enabled = enabledMap
+                )
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to get remote addon URLs", e)
+            Log.e(TAG, "Failed to pull remote addon snapshot", e)
             Result.failure(e)
         }
     }

@@ -7,6 +7,7 @@ import com.nuvio.tv.core.plugin.PluginManager
 import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.data.local.StartupSyncPreferences
 import com.nuvio.tv.data.local.WatchProgressPreferences
+import com.nuvio.tv.data.repository.AddonReconcileMode
 import com.nuvio.tv.data.repository.AddonRepositoryImpl
 import com.nuvio.tv.data.repository.LibraryRepositoryImpl
 import com.nuvio.tv.data.repository.WatchProgressRepositoryImpl
@@ -180,14 +181,14 @@ class StartupSyncService @Inject constructor(
 
             addonRepository.isSyncingFromRemote = true
             try {
-                val remoteAddonUrls = addonSyncService.getRemoteAddonUrls().getOrElse { throw it }
+                val snapshot = addonSyncService.pullSnapshot().getOrElse { throw it }
 
-                addonRepository.reconcileWithRemoteAddonUrls(
-                    remoteUrls = remoteAddonUrls,
-                    removeMissingLocal = true
+                addonRepository.reconcileWithRemoteAddons(
+                    snapshot = snapshot,
+                    mode = AddonReconcileMode.ADOPT_REMOTE
                 )
 
-                Log.d(TAG, "Manual addon sync pulled ${remoteAddonUrls.size} addons for profile $profileId")
+                Log.d(TAG, "Manual addon sync pulled ${snapshot.urls.size} addons for profile $profileId")
             } catch (e: Exception) {
                 Log.e(TAG, "Manual addon sync failed for profile $profileId", e)
             } finally {
@@ -567,12 +568,12 @@ class StartupSyncService @Inject constructor(
             val addonJob = async {
                 addonRepository.isSyncingFromRemote = true
                 try {
-                    val remoteAddonUrls = addonSyncService.getRemoteAddonUrls().getOrElse { throw it }
-                    addonRepository.reconcileWithRemoteAddonUrls(
-                        remoteUrls = remoteAddonUrls,
-                        removeMissingLocal = true
+                    val snapshot = addonSyncService.pullSnapshot().getOrElse { throw it }
+                    addonRepository.reconcileWithRemoteAddons(
+                        snapshot = snapshot,
+                        mode = AddonReconcileMode.MERGE_KEEP_LOCAL
                     )
-                    Log.d(TAG, "Pulled ${remoteAddonUrls.size} addons from remote for profile $profileId")
+                    Log.d(TAG, "Pulled ${snapshot.urls.size} addons from remote for profile $profileId")
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to pull addons from remote, keeping local cache", e)
                 } finally {
@@ -661,12 +662,12 @@ class StartupSyncService @Inject constructor(
     private suspend fun pullRealtimeAddons(profileId: Int) {
         addonRepository.isSyncingFromRemote = true
         try {
-            val remoteAddonUrls = addonSyncService.getRemoteAddonUrls().getOrElse { throw it }
-            addonRepository.reconcileWithRemoteAddonUrls(
-                remoteUrls = remoteAddonUrls,
-                removeMissingLocal = true
+            val snapshot = addonSyncService.pullSnapshot().getOrElse { throw it }
+            addonRepository.reconcileWithRemoteAddons(
+                snapshot = snapshot,
+                mode = AddonReconcileMode.MERGE_KEEP_LOCAL
             )
-            Log.d(TAG, "Realtime addons pull reconciled ${remoteAddonUrls.size} addons for profile $profileId")
+            Log.d(TAG, "Realtime addons pull reconciled ${snapshot.urls.size} addons for profile $profileId")
         } catch (e: Exception) {
             Log.e(TAG, "Realtime addons pull failed profile=$profileId", e)
         } finally {

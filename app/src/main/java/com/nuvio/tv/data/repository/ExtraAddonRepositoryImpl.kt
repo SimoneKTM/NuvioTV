@@ -12,6 +12,7 @@ import com.nuvio.tv.data.remote.api.AddonApi
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.repository.ExtraAddonRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -50,9 +51,16 @@ class ExtraAddonRepositoryImpl @Inject constructor(
     private val manifestCache = mutableMapOf<String, Addon>()
     private val manifestCacheLock = Any()
     private val manifestCacheRevision = MutableStateFlow(0L)
+    private val diskLoaded = CompletableDeferred<Unit>()
 
     init {
-        scope.launch { loadManifestCacheFromDisk() }
+        scope.launch {
+            try {
+                loadManifestCacheFromDisk()
+            } finally {
+                diskLoaded.complete(Unit)
+            }
+        }
     }
 
     private fun canonicalizeUrl(url: String): String {
@@ -106,6 +114,7 @@ class ExtraAddonRepositoryImpl @Inject constructor(
         ) { urls, enabledStates, _ -> urls to enabledStates }
         .flatMapLatest { (urls, enabledStates) ->
             flow {
+                diskLoaded.await()
                 if (urls.isEmpty()) {
                     emit(emptyList())
                     return@flow

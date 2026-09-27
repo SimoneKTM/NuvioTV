@@ -150,6 +150,48 @@ class AddonPreferences @Inject constructor(
         }
     }
 
+    /**
+     * Replaces the installed list verbatim (unlike [setAddonOrder], which re-attaches
+     * URLs the caller does not mention). Used when adopting a remote addon list where
+     * the remote side is authoritative, including explicit removals.
+     * Null names/enabledStates keep the local values untouched.
+     */
+    suspend fun replaceAddonList(
+        urls: List<String>,
+        names: Map<String, String>? = null,
+        enabledStates: Map<String, Boolean>? = null
+    ) {
+        val active = profileManager.activeProfile
+        if (active != null && !active.isPrimary && active.usesPrimaryAddons) return
+        store().edit { preferences ->
+            val finalUrls = urls.map(::canonicalizeUrl).distinctBy { it.lowercase() }
+            preferences[orderedUrlsKey] = gson.toJson(finalUrls)
+            if (names != null) {
+                val finalSet = finalUrls.map { it.lowercase() }.toSet()
+                val localByLower = finalUrls.associateBy { it.lowercase() }
+                preferences[userSetNamesKey] = gson.toJson(
+                    names.mapKeys { (url, _) -> canonicalizeUrl(url) }
+                        .filterKeys { it.lowercase() in finalSet }
+                        .map { (url, name) -> (localByLower[url.lowercase()] ?: url) to name }
+                        .toMap()
+                )
+            }
+            if (enabledStates != null) {
+                val canonicalEnabled = enabledStates
+                    .mapKeys { (url, _) -> canonicalizeUrl(url).lowercase() }
+                preferences[addonEnabledStatesKey] = gson.toJson(
+                    finalUrls.associateWith { url -> canonicalEnabled[url.lowercase()] ?: true }
+                )
+            }
+        }
+    }
+
+    /** True when writes to the installed-addon list are allowed for the active profile. */
+    fun canWriteInstalledAddons(): Boolean {
+        val active = profileManager.activeProfile
+        return !(active != null && !active.isPrimary && active.usesPrimaryAddons)
+    }
+
     suspend fun setAddonEnabled(url: String, enabled: Boolean) {
         val active = profileManager.activeProfile
         if (active != null && !active.isPrimary && active.usesPrimaryAddons) return
