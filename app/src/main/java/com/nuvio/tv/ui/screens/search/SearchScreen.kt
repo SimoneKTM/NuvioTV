@@ -115,6 +115,7 @@ import com.nuvio.tv.ui.screens.home.HeroBackdropState
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.dpadRepeatThrottle
 import com.nuvio.tv.ui.util.recompositionHighlighter
+import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -309,8 +310,11 @@ fun SearchScreen(
         }
     }
 
-    val posterCardStyle = remember(uiState.posterCardCornerRadiusDp) {
+    // Same poster size as Home/Discover so decode and memory-cache keys match.
+    val posterCardStyle = remember(uiState.posterCardWidthDp, uiState.posterCardCornerRadiusDp) {
         PosterCardStyle(
+            width = uiState.posterCardWidthDp.dp,
+            height = (uiState.posterCardWidthDp * 1.5f).roundToInt().dp,
             cornerRadius = uiState.posterCardCornerRadiusDp.dp,
             focusedBorderWidth = PosterCardDefaults.Style.focusedBorderWidth,
             focusedScale = PosterCardDefaults.Style.focusedScale

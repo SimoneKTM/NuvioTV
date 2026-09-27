@@ -57,6 +57,7 @@ import com.nuvio.tv.ui.util.StableList
 import com.nuvio.tv.ui.util.StableMap
 import com.nuvio.tv.ui.util.StableRef
 import com.nuvio.tv.ui.util.dpadVerticalFastScroll
+import com.nuvio.tv.ui.util.posterMemoryCacheKey
 import com.nuvio.tv.ui.util.recompositionHighlighter
 import com.nuvio.tv.ui.components.rememberPlaceholderShimmerOffsetState
 import kotlinx.coroutines.Dispatchers
@@ -198,7 +199,7 @@ internal fun ModernHomeRowsList(
                             val wPx = with(density) { metrics.width.roundToPx() }
                             val hPx = with(density) { metrics.height.roundToPx() }
                             if (wPx <= 0 || hPx <= 0) continue
-                            val cacheKey = "${url}_${wPx}x${hPx}"
+                            val cacheKey = posterMemoryCacheKey(url, wPx, hPx) ?: continue
                             if (verticalPrefetchImageLoader.memoryCache?.get(MemoryCache.Key(cacheKey)) != null) continue
                             verticalPrefetchImageLoader.enqueue(
                                 ImageRequest.Builder(context)

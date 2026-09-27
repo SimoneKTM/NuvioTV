@@ -125,6 +125,8 @@ import com.nuvio.tv.ui.components.rememberArtworkBackedCardGlow
 import com.nuvio.tv.ui.components.rememberPlaceholderShimmerOffsetState
 import com.nuvio.tv.LocalSidebarExpanded
 import com.nuvio.tv.ui.theme.ThemeColors
+import com.nuvio.tv.ui.util.posterMemoryCacheKey
+import com.nuvio.tv.ui.util.rememberPosterImageRequest
 import kotlin.math.abs
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -650,7 +652,8 @@ internal fun ModernRowSection(
                         )
                         val widthPx = with(density) { metrics.width.roundToPx() }
                         val heightPx = with(density) { metrics.height.roundToPx() }
-                        url to "${url}_${widthPx}x${heightPx}"
+                        val cacheKey = posterMemoryCacheKey(url, widthPx, heightPx) ?: return null
+                        url to cacheKey
                     }
                     is ModernPayload.CollectionFolder -> {
                         val url = item.imageUrl ?: return null
@@ -663,7 +666,8 @@ internal fun ModernRowSection(
                         )
                         val widthPx = with(density) { metrics.width.roundToPx() }
                         val heightPx = with(density) { metrics.height.roundToPx() }
-                        url to "${url}_${widthPx}x${heightPx}"
+                        val cacheKey = posterMemoryCacheKey(url, widthPx, heightPx) ?: return null
+                        url to cacheKey
                     }
                     is ModernPayload.ContinueWatching -> {
                         // Use the same model and cache key the card computes so the prefetch warms the entry the card actually reads.
@@ -1147,16 +1151,7 @@ private fun ModernCarouselCard(
         with(density) { cardHeight.roundToPx() }.coerceAtLeast(1)
     }
 
-    val imageModel = remember(context, imageUrl, requestWidthPx, requestHeightPx) {
-        imageUrl?.let {
-            ImageRequest.Builder(context)
-                .data(it)
-                .crossfade(true)
-                .memoryCacheKey("${it}_${requestWidthPx}x${requestHeightPx}")
-                .size(width = requestWidthPx, height = requestHeightPx)
-                .build()
-        }
-    }
+    val imageModel = rememberPosterImageRequest(imageUrl, requestWidthPx, requestHeightPx)
     val logoHeight = cardHeight * 0.34f
     val logoHeightPx = remember(logoHeight, density) {
         with(density) { logoHeight.roundToPx() }.coerceAtLeast(1)

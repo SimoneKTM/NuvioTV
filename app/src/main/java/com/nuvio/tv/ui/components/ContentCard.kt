@@ -77,6 +77,7 @@ import com.nuvio.tv.ui.screens.home.LocalFastScrollActive
 import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
 import com.nuvio.tv.ui.theme.ThemeColors
 import com.nuvio.tv.ui.util.rememberLongPressKeyTracker
+import com.nuvio.tv.ui.util.rememberPosterImageRequest
 import kotlinx.coroutines.delay
 
 private const val BACKDROP_ASPECT_RATIO = 16f / 9f
@@ -244,14 +245,7 @@ fun ContentCard(
         } else {
             item.poster
         }
-        val imageModel = remember(imageUrl, requestWidthPx, requestHeightPx) {
-            ImageRequest.Builder(context)
-                .data(imageUrl)
-                .crossfade(true)
-                .memoryCacheKey("${imageUrl}_${requestWidthPx}x${requestHeightPx}")
-                .size(width = requestWidthPx, height = requestHeightPx)
-                .build()
-        }
+        val imageModel = rememberPosterImageRequest(imageUrl, requestWidthPx, requestHeightPx)
         val logoRequestHeightPx = remember(density) {
             with(density) { NuvioTheme.spacing.xxxl.roundToPx() }
         }

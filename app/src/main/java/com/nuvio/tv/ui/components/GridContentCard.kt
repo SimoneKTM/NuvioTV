@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.components
 
+import com.nuvio.tv.domain.model.isPlaceholder
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import android.view.KeyEvent as AndroidKeyEvent
@@ -60,6 +61,7 @@ import com.nuvio.tv.ui.screens.home.rememberNextEpisodeDateLabel
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.nuvio.tv.ui.util.rememberPosterImageRequest
 import com.nuvio.tv.ui.theme.ThemeColors
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -184,15 +186,24 @@ fun GridContentCard(
                 val context = LocalContext.current
                 val bgCardColor = NuvioTheme.colors.BackgroundCard
                 val bgPainter = remember(bgCardColor) { androidx.compose.ui.graphics.painter.ColorPainter(bgCardColor) }
-                val imageModel = remember(item.poster, requestWidthPx, requestHeightPx) {
-                    ImageRequest.Builder(context)
-                        .data(item.poster)
-                        .crossfade(imageCrossfade)
-                        .size(width = requestWidthPx, height = requestHeightPx)
-                        .memoryCacheKey("${item.poster}_${requestWidthPx}x${requestHeightPx}")
-                        .build()
-                }
-                if (item.poster.isNullOrBlank()) {
+                val imageModel = rememberPosterImageRequest(
+                    item.poster,
+                    requestWidthPx,
+                    requestHeightPx,
+                    imageCrossfade
+                )
+                if (item.poster.isPlaceholder()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .placeholderCardShimmer(
+                                shimmerOffsetState = rememberPlaceholderShimmerOffsetState(
+                                    label = "gridPlaceholderShimmer"
+                                ),
+                                backgroundColor = NuvioTheme.colors.BackgroundCard
+                            )
+                    )
+                } else if (item.poster.isNullOrBlank()) {
                     MonochromePosterPlaceholder()
                 } else {
                     AsyncImage(
