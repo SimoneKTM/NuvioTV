@@ -512,7 +512,8 @@ private suspend fun AnimeHomeViewModel.buildAnimeContinueWatching(snapshot: Anim
                     isReleaseAlert = freshIsReleaseAlert,
                     isNewSeasonRelease = freshIsNewSeasonRelease,
                     seedSeason = cached.seedSeason,
-                    seedEpisode = cached.seedEpisode
+                    seedEpisode = cached.seedEpisode,
+                    addonBaseUrl = cached.addonBaseUrl
                 )
             )
         }
@@ -719,8 +720,16 @@ private fun AnimeHomeViewModel.deriveAnimeNextUpSeeds(
 private fun normalizeAnimeBaseUrl(raw: String?): String =
     raw?.trim()?.trimEnd('/')?.lowercase(Locale.US).orEmpty()
 
-private fun isAnimeProgress(progress: WatchProgress, animeBaseUrls: Set<String>): Boolean =
-    normalizeAnimeBaseUrl(progress.addonBaseUrl) in animeBaseUrls
+// Accepts progress from anime-pool addons, plus remote-sourced anime items
+// (Simkl playback/watch history carry no addonBaseUrl but are marked either
+// via the explicit pool field or the simkl.com/anime source URL).
+internal fun isAnimeProgress(progress: WatchProgress, animeBaseUrls: Set<String>): Boolean =
+    progress.pool == WatchProgress.POOL_ANIME ||
+        isSimklAnimeSourceUrl(progress.trackingSourceUrl) ||
+        normalizeAnimeBaseUrl(progress.addonBaseUrl) in animeBaseUrls
+
+private fun isSimklAnimeSourceUrl(raw: String?): Boolean =
+    raw?.contains("simkl.com/anime/", ignoreCase = true) == true
 
 private fun isSeriesTypeCW(type: String?): Boolean {
     return type.equals("series", ignoreCase = true) || type.equals("tv", ignoreCase = true)

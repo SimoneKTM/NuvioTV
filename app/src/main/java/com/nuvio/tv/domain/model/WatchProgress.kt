@@ -21,6 +21,7 @@ data class WatchProgress(
     val duration: Long,              // Total duration in ms
     val lastWatched: Long,           // Timestamp when last watched
     val addonBaseUrl: String? = null, // Addon that was used to play
+    val pool: String? = null,       // Content pool marker (e.g. POOL_ANIME) for remote-sourced items
     val progressPercent: Float? = null, // 0..100 from remote sources like Trakt playback
     val source: String = SOURCE_LOCAL,
     val traktPlaybackId: Long? = null,
@@ -44,6 +45,7 @@ data class WatchProgress(
         const val STARTED_THRESHOLD = 0.02f
         const val COMPLETED_THRESHOLD = 0.90f
         const val SIMKL_COMPLETED_THRESHOLD = 0.80f
+        const val POOL_ANIME = "anime"
     }
 
     /**

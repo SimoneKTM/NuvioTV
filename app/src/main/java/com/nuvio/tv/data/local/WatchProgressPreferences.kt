@@ -814,12 +814,14 @@ class WatchProgressPreferences @Inject constructor(
             duration = obj.getLong("duration") ?: 0L,
             lastWatched = lastWatched,
             addonBaseUrl = obj.getString("addonBaseUrl", "addon_base_url"),
+            pool = obj.getString("pool"),
             progressPercent = obj.getFloat("progressPercent", "progress_percent"),
             source = obj.getString("source")?.takeIf { it.isNotBlank() } ?: WatchProgress.SOURCE_LOCAL,
             traktPlaybackId = obj.getLong("traktPlaybackId", "trakt_playback_id"),
             traktMovieId = obj.getInt("traktMovieId", "trakt_movie_id"),
             traktShowId = obj.getInt("traktShowId", "trakt_show_id"),
-            traktEpisodeId = obj.getInt("traktEpisodeId", "trakt_episode_id")
+            traktEpisodeId = obj.getInt("traktEpisodeId", "trakt_episode_id"),
+            trackingSourceUrl = obj.getString("trackingSourceUrl", "tracking_source_url")
         )
     }
 
