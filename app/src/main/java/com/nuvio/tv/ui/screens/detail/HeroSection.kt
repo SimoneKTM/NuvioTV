@@ -18,7 +18,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -41,7 +40,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -53,7 +51,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.tv.material3.Border
 import androidx.tv.material3.Button
@@ -74,6 +71,7 @@ import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MDBListRatings
 import com.nuvio.tv.domain.model.Video
 import com.nuvio.tv.domain.model.NextToWatch
+import com.nuvio.tv.ui.components.GlassPanel
 import com.nuvio.tv.ui.components.ImdbRatingSourceLabel
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.theme.NuvioPrimitives
@@ -942,44 +940,6 @@ private fun CombinedMetaBadge(
             style = MaterialTheme.typography.labelMedium,
             color = rightColor,
             maxLines = 1
-        )
-    }
-}
-
-@Composable
-private fun GlassPanel(
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    val shape = RoundedCornerShape(16.dp)
-    Box(
-        modifier = modifier
-            .clip(shape)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color.Black.copy(alpha = 0.48f),
-                        Color.Black.copy(alpha = 0.62f)
-                    )
-                )
-            )
-            .border(
-                border = BorderStroke(
-                    NuvioTheme.spacing.hairline,
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.35f),
-                            Color.White.copy(alpha = 0.12f),
-                            Color.White.copy(alpha = 0.06f)
-                        )
-                    )
-                ),
-                shape = shape
-            )
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            content = content
         )
     }
 }

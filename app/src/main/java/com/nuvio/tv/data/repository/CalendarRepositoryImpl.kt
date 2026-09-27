@@ -391,7 +391,8 @@ class CalendarRepositoryImpl @Inject constructor(
     /**
      * External posters/ratings like the Anime tab (TMDB + MDBList + TVDB).
      * Never touches [CalendarItem.releaseDate] (Trakt owns dates) and never
-     * overwrites a non-blank description (Trakt episode label "S1E5").
+     * overwrites a non-blank description (Trakt series overview or episode
+     * label "S1E5").
      * Uses the settings of the pool that won (anime/extra/home) so each tab's
      * TMDB/MDBList/TVDB toggles stay independent.
      */
@@ -568,9 +569,9 @@ class CalendarRepositoryImpl @Inject constructor(
         namespace: String
     ): CalendarItem {
         // Addon is the primary source: prefer its values when present.
-        // Description keeps Trakt's episode label ("S1E5") when set —
-        // it is calendar context addons don't provide. releaseDate is
-        // never copied here (Trakt owns the calendar dates).
+        // Description keeps Trakt's series overview (or the "S1E5" episode
+        // label fallback) when set — it is calendar context addons don't
+        // provide. releaseDate is never copied here (Trakt owns the dates).
         val updatedMeta = item.meta.copy(
             name = addonMeta.name.ifBlank { item.meta.name },
             poster = addonMeta.poster ?: item.meta.poster,
@@ -703,7 +704,7 @@ class CalendarRepositoryImpl @Inject constructor(
                     posterShape = PosterShape.POSTER,
                     background = images.traktBestBackdropUrl(),
                     logo = images.traktBestLogoUrl(),
-                    description = episodeLabel,
+                    description = show.overview?.takeIf { it.isNotBlank() } ?: episodeLabel,
                     releaseInfo = show.year?.toString(),
                     imdbRating = show.rating?.toFloat(),
                     genres = show.genres.orEmpty(),

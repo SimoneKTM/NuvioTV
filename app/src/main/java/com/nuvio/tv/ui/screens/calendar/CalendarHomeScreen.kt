@@ -60,6 +60,7 @@ import coil3.request.crossfade
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.CalendarSection
 import com.nuvio.tv.domain.model.MetaPreview
+import com.nuvio.tv.ui.components.GlassPanel
 import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
 import com.nuvio.tv.ui.screens.home.HeroBackdropState
@@ -220,31 +221,48 @@ private fun CalendarHeroSection(
     initialFocusRequester: FocusRequester
 ) {
     val firstItem = section.items.firstOrNull() ?: return
-    var focusedIndex by rememberSaveable(section.label) { mutableIntStateOf(0) }
+    var displayedIndex by rememberSaveable(section.label) { mutableIntStateOf(0) }
     var userInteracting by remember { mutableStateOf(false) }
-    // Use the full row for rotation so backdrop index always matches the
-    // focused card (previous take(10) desynced with >10 items).
+    // Use the full row for candidate detection so hero indices always map
+    // to valid row positions (previous take(10) desynced with >10 items).
     val heroItems = section.items
-    val focusedItem = heroItems.getOrNull(focusedIndex) ?: firstItem
+    // Vetrina solo per i titoli con logo + sfondo + testo descrittivo: gli
+    // altri restano esclusivamente nelle card orizzontali sotto la hero.
+    val heroCandidateIndexes = remember(section) {
+        heroItems.indices.filter { index ->
+            val item = heroItems[index]
+            item.meta.logo != null &&
+                item.meta.backdropUrl != null &&
+                !item.meta.description.isNullOrBlank()
+        }
+    }
+    LaunchedEffect(section.label, heroItems.size, heroCandidateIndexes.size) {
+        if (displayedIndex !in heroItems.indices) {
+            displayedIndex = 0
+        }
+        if (displayedIndex !in heroCandidateIndexes && heroCandidateIndexes.isNotEmpty()) {
+            displayedIndex = heroCandidateIndexes.first()
+        }
+    }
+    val displayedItem = heroItems.getOrNull(displayedIndex) ?: firstItem
     val heroRowState = rememberLazyListState()
     val firstWideCardRequester = remember { FocusRequester() }
 
     // Keep Detail's hero backdrop in sync with the calendar hero so back/nav
     // does not inherit a stale Home backdrop.
-    LaunchedEffect(focusedItem.meta.backdropUrl) {
-        HeroBackdropState.update(focusedItem.meta.backdropUrl)
+    LaunchedEffect(displayedItem.meta.backdropUrl) {
+        HeroBackdropState.update(displayedItem.meta.backdropUrl)
     }
 
     LaunchedEffect(heroItems.size, userInteracting) {
-        if (heroItems.size <= 1) return@LaunchedEffect
+        if (heroCandidateIndexes.size <= 1) return@LaunchedEffect
         while (true) {
-            delay(5000L)
+            delay(10000L)
             if (!userInteracting) {
-                focusedIndex = (focusedIndex + 1) % heroItems.size
-                val next = focusedIndex
-                if (next < heroItems.size) {
-                    runCatching { heroRowState.scrollToItem(next) }
-                }
+                val next = heroCandidateIndexes.firstOrNull { it > displayedIndex }
+                    ?: heroCandidateIndexes.first()
+                displayedIndex = next
+                runCatching { heroRowState.scrollToItem(next) }
             }
         }
     }
@@ -261,16 +279,18 @@ private fun CalendarHeroSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(HERO_HEIGHT)
+                .padding(horizontal = SECTION_PADDING_HORIZONTAL)
+                .clip(RoundedCornerShape(20.dp))
         ) {
-            if (focusedItem.meta.backdropUrl != null) {
+            if (displayedItem.meta.backdropUrl != null) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(focusedItem.meta.backdropUrl)
+                        .data(displayedItem.meta.backdropUrl)
                         .crossfade(true)
                         .memoryCachePolicy(CachePolicy.ENABLED)
                         .diskCachePolicy(CachePolicy.ENABLED)
                         .build(),
-                    contentDescription = focusedItem.meta.name,
+                    contentDescription = displayedItem.meta.name,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -317,13 +337,13 @@ private fun CalendarHeroSection(
                     )
             )
 
-            Column(
+            GlassPanel(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = SECTION_PADDING_HORIZONTAL, end = 48.dp, bottom = 20.dp)
+                    .padding(start = 24.dp, end = 24.dp, bottom = 16.dp)
                     .fillMaxWidth(0.55f)
             ) {
-                focusedItem.meta.logo?.let { logoUrl ->
+                displayedItem.meta.logo?.let { logoUrl ->
                     var logoLoadFailed by remember(logoUrl) { mutableStateOf(false) }
                     if (!logoLoadFailed) {
                         AsyncImage(
@@ -331,7 +351,7 @@ private fun CalendarHeroSection(
                                 .data(logoUrl)
                                 .crossfade(true)
                                 .build(),
-                            contentDescription = focusedItem.meta.name,
+                            contentDescription = displayedItem.meta.name,
                             onError = { logoLoadFailed = true },
                             modifier = Modifier
                                 .height(80.dp)
@@ -341,7 +361,7 @@ private fun CalendarHeroSection(
                         )
                     } else {
                         Text(
-                            text = focusedItem.meta.name,
+                            text = displayedItem.meta.name,
                             style = MaterialTheme.typography.headlineLarge,
                             color = Color.White,
                             maxLines = 2,
@@ -351,7 +371,7 @@ private fun CalendarHeroSection(
                 } ?: run {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = focusedItem.meta.name,
+                            text = displayedItem.meta.name,
                             style = MaterialTheme.typography.headlineLarge,
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
@@ -366,11 +386,11 @@ private fun CalendarHeroSection(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                val focusedTypeLabel = remember(focusedItem) {
-                    when (focusedItem.meta.rawType.lowercase()) {
+                val focusedTypeLabel = remember(displayedItem) {
+                    when (displayedItem.meta.rawType.lowercase()) {
                         "movie" -> "Film"
                         "tv", "series" -> "Serie TV"
-                        else -> focusedItem.meta.rawType
+                        else -> displayedItem.meta.rawType
                     }
                 }
 
@@ -378,7 +398,7 @@ private fun CalendarHeroSection(
                     horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    focusedItem.meta.imdbRating?.let { rating ->
+                    displayedItem.meta.imdbRating?.let { rating ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
@@ -397,8 +417,8 @@ private fun CalendarHeroSection(
                         }
                     }
 
-                    val releaseYear = remember(focusedItem.meta.releaseInfo) {
-                        focusedItem.meta.releaseInfo?.let { releaseInfo ->
+                    val releaseYear = remember(displayedItem.meta.releaseInfo) {
+                        displayedItem.meta.releaseInfo?.let { releaseInfo ->
                             releaseInfo.split("-").firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
                         }
                     }
@@ -417,12 +437,24 @@ private fun CalendarHeroSection(
                     )
                 }
 
-                if (focusedItem.meta.genres.isNotEmpty()) {
+                val episodeChip = displayedItem.episodeLabel?.takeIf { it.isNotBlank() }
+                if (episodeChip != null || displayedItem.meta.genres.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
                     ) {
-                        focusedItem.meta.genres.take(3).forEach { genre ->
+                        episodeChip?.let { label ->
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.9f),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(NuvioTheme.radii.xs))
+                                    .background(Color.White.copy(alpha = 0.18f))
+                                    .padding(horizontal = NuvioTheme.spacing.sm, vertical = NuvioTheme.spacing.xs)
+                            )
+                        }
+                        displayedItem.meta.genres.take(3).forEach { genre ->
                             Text(
                                 text = genre,
                                 style = MaterialTheme.typography.labelMedium,
@@ -436,13 +468,15 @@ private fun CalendarHeroSection(
                     }
                 }
 
-                focusedItem.meta.description?.let { desc ->
+                val synopsis = displayedItem.meta.description
+                    ?.takeIf { it.isNotBlank() && it != displayedItem.episodeLabel }
+                synopsis?.let { desc ->
                     Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
                     Text(
                         text = desc,
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White.copy(alpha = 0.7f),
-                        maxLines = 2,
+                        maxLines = 3,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
@@ -454,7 +488,7 @@ private fun CalendarHeroSection(
             contentPadding = PaddingValues(start = SECTION_PADDING_HORIZONTAL, end = 48.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             modifier = Modifier
-                .padding(top = 8.dp)
+                .padding(top = 20.dp)
                 .focusGroup()
                 .focusRestorer { firstWideCardRequester }
         ) {
@@ -477,7 +511,9 @@ private fun CalendarHeroSection(
                     },
                     onFocusChange = { focused ->
                         if (focused) {
-                            focusedIndex = index
+                            if (index in heroCandidateIndexes) {
+                                displayedIndex = index
+                            }
                             userInteracting = true
                         }
                     },
