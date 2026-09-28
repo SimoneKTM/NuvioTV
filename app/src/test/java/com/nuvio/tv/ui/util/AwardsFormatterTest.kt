@@ -106,4 +106,30 @@ class AwardsFormatterTest {
         val out = formatAwards("Won 1 Oscar. Another 64 wins & 62 nominations total", labels)
         assertEquals("Vinto 1 Oscar. 64 vittorie aggiuntive. Candidature: 62.", out)
     }
+
+    @Test
+    fun `single win total line translates`() {
+        assertEquals("1 vittoria.", formatAwards("1 Win Total.", labels))
+    }
+
+    @Test
+    fun `plural wins total line translates`() {
+        assertEquals("10 vittorie.", formatAwards("10 Wins Total.", labels))
+    }
+
+    @Test
+    fun `wins and nominations total pair stays parseable`() {
+        assertEquals("Vittorie: 2. Candidature: 7.", formatAwards("2 Wins & 7 Nominations Total.", labels))
+    }
+
+    @Test
+    fun `fully parseable detection recognizes structured lines`() {
+        assertEquals(true, awardsFullyParseable("1 Win Total."))
+        assertEquals(true, awardsFullyParseable("2 Wins & 7 Nominations Total."))
+        assertEquals(true, awardsFullyParseable("Won 1 Oscar. 4 nominations."))
+        assertEquals(false, awardsFullyParseable("Some festival mention."))
+        assertEquals(false, awardsFullyParseable("N/A"))
+        assertEquals(false, awardsFullyParseable(null))
+        assertEquals(false, awardsFullyParseable("  "))
+    }
 }

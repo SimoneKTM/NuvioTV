@@ -38,7 +38,7 @@ private val WINS_AND_NOMS_REGEX =
     Regex("""^(\d+)\s+wins?\s+&\s+(\d+)\s+nominations?(?:\s+total)?\.?$""", RegexOption.IGNORE_CASE)
 private val ANOTHER_WIN_AND_NOMS_REGEX =
     Regex("""^another\s+(?:(\d+)\s+)?wins?\s+&\s+(\d+)\s+nominations?(?:\s+total)?\.?$""", RegexOption.IGNORE_CASE)
-private val WINS_REGEX = Regex("""^(\d+)\s+wins?\.?$""", RegexOption.IGNORE_CASE)
+private val WINS_REGEX = Regex("""^(\d+)\s+wins?(?:\s+total)?\.?$""", RegexOption.IGNORE_CASE)
 private val NOMINATIONS_REGEX = Regex("""^(\d+)\s+nominations?\.?$""", RegexOption.IGNORE_CASE)
 private val WINNER_REGEX = Regex("""^winner\.?$""", RegexOption.IGNORE_CASE)
 private val NOMINATED_BARE_REGEX = Regex("""^nominated\.?$""", RegexOption.IGNORE_CASE)
@@ -70,6 +70,20 @@ internal fun parseAwardClause(segment: String): AwardClause {
     if (WINNER_REGEX.matches(text)) return AwardClause.Winner
     if (NOMINATED_BARE_REGEX.matches(text)) return AwardClause.NominatedBare
     return AwardClause.Unknown(text)
+}
+
+/**
+ * True when every segment of the raw OMDb awards text is recognized by the
+ * structured parser, i.e. [formatAwards] can localize the whole line from
+ * templates and no machine translation is needed.
+ */
+internal fun awardsFullyParseable(raw: String?): Boolean {
+    if (raw.isNullOrBlank()) return false
+    if (raw.trim().equals("N/A", ignoreCase = true)) return false
+    val clauses = raw.split(AWARD_SEGMENT_SPLIT)
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && !it.trimEnd('.').equals("N/A", ignoreCase = true) }
+    return clauses.isNotEmpty() && clauses.all { parseAwardClause(it) !is AwardClause.Unknown }
 }
 
 /**

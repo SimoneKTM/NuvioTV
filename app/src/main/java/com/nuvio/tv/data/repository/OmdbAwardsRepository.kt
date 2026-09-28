@@ -9,6 +9,7 @@ import com.nuvio.tv.data.remote.dto.omdb.OmdbResponseDto
 import com.nuvio.tv.data.translation.MetadataTextTranslator
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.systemMetadataLanguage
+import com.nuvio.tv.ui.util.awardsFullyParseable
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -173,12 +174,16 @@ class OmdbAwardsRepository @Inject constructor(
     }
 
     /**
-     * Returns the device-language OMDb awards text (translated on-device via
-     * ML Kit the first time per string; the persistent translation cache makes
-     * every later read instant). Falls back to the raw English text.
+     * Returns the device-language OMDb awards text. Structurally parseable
+     * lines are returned untouched so the display-side formatter localizes
+     * them from plural templates (machine translation would only corrupt
+     * them); anything unrecognized is translated on-device via ML Kit the
+     * first time per string, with the persistent translation cache making
+     * every later read instant. Falls back to the raw English text.
      */
     private suspend fun localizeAwards(raw: String): String {
         if (raw.isBlank()) return raw
+        if (awardsFullyParseable(raw)) return raw
         return try {
             metadataTextTranslator.translateAwardText(raw, systemMetadataLanguage()) ?: raw
         } catch (e: CancellationException) {

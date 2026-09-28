@@ -33,7 +33,10 @@ class MetadataTextTranslator @Inject constructor(
 ) {
     companion object {
         private const val TAG = "MetaTextTranslator"
-        private const val CACHE_FILE = "metadata_translation_cache.json"
+        private const val CACHE_FILE = "metadata_translation_cache_v2.json"
+
+        /** Older caches could hold poisoned translations and sticky negatives. */
+        private val LEGACY_CACHE_FILES = listOf("metadata_translation_cache.json")
         private const val MAX_CACHE_ENTRIES = 1_000
         private const val DETECT_TIMEOUT_MS = 3_000L
         private const val MODEL_TIMEOUT_MS = 10_000L
@@ -167,13 +170,16 @@ class MetadataTextTranslator @Inject constructor(
 
     private suspend fun rememberValue(key: String, value: String?) = mutex.withLock {
         ensureLoadedLocked()[key] = value ?: ""
-        dirty = true
+        // Only successful translations are worth persisting: a negative entry
+        // (e.g. language detection returned "und" for a short digit-heavy
+        // string) must stay session-only so a later retry can succeed.
+        if (value != null) dirty = true
     }
 
     private suspend fun persistCacheIfDirty() {
         mutex.withLock {
             if (!dirty) return
-            val snapshot = cache ?: return
+            val snapshot = cache?.filterValues { it.isNotBlank() } ?: return
             try {
                 File(context.filesDir, CACHE_FILE).writeText(gson.toJson(snapshot))
                 dirty = false
@@ -192,6 +198,9 @@ class MetadataTextTranslator @Inject constructor(
 
     private fun readCacheFromDisk(): MutableMap<String, String> {
         val target: MutableMap<String, String> = newCache()
+        LEGACY_CACHE_FILES.forEach { legacy ->
+            runCatching { File(context.filesDir, legacy).delete() }
+        }
         return try {
             val file = File(context.filesDir, CACHE_FILE)
             if (file.exists()) {
