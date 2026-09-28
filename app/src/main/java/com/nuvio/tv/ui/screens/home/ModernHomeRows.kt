@@ -54,6 +54,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
@@ -81,7 +82,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
@@ -148,10 +148,13 @@ private const val MODERN_HORIZONTAL_FOCUS_DEBOUNCE_MS = 140L
 private const val POSTER_PREFETCH_DISTANCE = 2
 private const val NESTED_PREFETCH_COUNT = 2
 
-// Top 10 row metrics: the left gutter that hosts the big outlined rank number
-// and how far its right edge slips under the poster (as a card-width fraction).
+// Top 10 row metrics: the left gutter that hosts the big outlined rank number,
+// how far its right edge slips under the poster (as a card-width fraction) and
+// the horizontal condensation of the digits (applied with a left-origin layer
+// scale so the right edge lands deterministically under the card).
 private const val TOP10_RANK_SLOT_FRACTION = 1.6f
-private const val TOP10_RANK_UNDERLAP_FRACTION = 0.25f
+private const val TOP10_RANK_TUCK_FRACTION = 0.1f
+private const val TOP10_RANK_CONDENSE_FACTOR = 0.72f
 
 private fun top10RankSlotWidth(cardWidth: Dp): Dp = cardWidth * TOP10_RANK_SLOT_FRACTION
 
@@ -440,9 +443,10 @@ private fun ModernCatalogRowItem(
 /**
  * The large hollow rank number sitting left of a Top 10 poster (Netflix
  * style): right-aligned inside a fixed gutter so its right edge always tucks
- * the same amount under the card, horizontally condensed so "10" fits, and
- * stroked (outline only, no fill) — the outline brightens while its card
- * holds focus.
+ * under the card, horizontally condensed with a left-origin layer scale so
+ * the tuck is exact, and stroked (outline only, no fill) with a thick
+ * card-proportional stroke — the outline brightens while its card holds
+ * focus.
  */
 @Composable
 private fun ModernTop10RankNumber(
@@ -459,7 +463,12 @@ private fun ModernTop10RankNumber(
     )
     Text(
         text = rank.toString(),
-        modifier = modifier.width(numberWidth),
+        modifier = modifier
+            .width(numberWidth)
+            .graphicsLayer(
+                scaleX = TOP10_RANK_CONDENSE_FACTOR,
+                transformOrigin = TransformOrigin(0f, 0.5f)
+            ),
         maxLines = 1,
         softWrap = false,
         style = TextStyle(
@@ -468,9 +477,8 @@ private fun ModernTop10RankNumber(
             lineHeight = (cardHeight * 1.3f).value.sp,
             fontWeight = FontWeight.Black,
             textAlign = TextAlign.End,
-            textGeometricTransform = TextGeometricTransform(scaleX = 0.72f),
             drawStyle = Stroke(
-                width = with(LocalDensity.current) { 3.5.dp.toPx() }
+                width = with(LocalDensity.current) { (cardHeight * 0.05f).toPx() }
             )
         )
     )
@@ -1050,7 +1058,7 @@ internal fun ModernRowSection(
                                     rank = index + 1,
                                     isTargetItem = isTargetItem,
                                     cardHeight = top10CardHeight,
-                                    numberWidth = top10SlotWidth + top10CardWidth * TOP10_RANK_UNDERLAP_FRACTION,
+                                    numberWidth = (top10SlotWidth + top10CardWidth * TOP10_RANK_TUCK_FRACTION) / TOP10_RANK_CONDENSE_FACTOR,
                                     modifier = Modifier.align(Alignment.CenterStart)
                                 )
                             }
