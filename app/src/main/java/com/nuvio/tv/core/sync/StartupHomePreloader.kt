@@ -4,6 +4,7 @@ import android.util.Log
 import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 import com.nuvio.tv.data.local.ExperienceModeDataStore
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
+import com.nuvio.tv.data.repository.TraktTop10Repository
 import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.domain.repository.CalendarRepository
 import com.nuvio.tv.domain.repository.CatalogRepository
@@ -33,6 +34,7 @@ class StartupHomePreloader @Inject constructor(
     private val addonRepository: AddonRepository,
     private val catalogRepository: CatalogRepository,
     private val calendarRepository: CalendarRepository,
+    private val traktTop10Repository: TraktTop10Repository,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val experienceModeDataStore: ExperienceModeDataStore,
     private val cwEnrichmentCache: ContinueWatchingEnrichmentCache
@@ -76,6 +78,7 @@ class StartupHomePreloader @Inject constructor(
                 // Kick warm-ups early (no-ops if already running).
                 catalogRepository.warmUp()
                 calendarRepository.warmUp()
+                traktTop10Repository.warmUp()
 
                 withTimeoutOrNull(PHASE_TIMEOUT_MS) {
                     profileManager.activeProfileReady.first { it }

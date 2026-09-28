@@ -394,4 +394,11 @@ interface TraktApi {
         @Query("start_date") startDate: String? = null,
         @Query("days") days: Int = 30
     ): Response<List<TraktCalendarMediaItemDto>>
+
+    @GET("shows/watched/monthly")
+    suspend fun getMostWatchedShowsMonthly(
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10,
+        @Query("extended") extended: String = "full,images"
+    ): Response<List<TraktWatchedShowItemDto>>
 }

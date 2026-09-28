@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyListPrefetchStrategy
@@ -53,6 +54,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -78,7 +80,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextGeometricTransform
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -142,6 +147,13 @@ import kotlinx.coroutines.flow.debounce
 private const val MODERN_HORIZONTAL_FOCUS_DEBOUNCE_MS = 140L
 private const val POSTER_PREFETCH_DISTANCE = 2
 private const val NESTED_PREFETCH_COUNT = 2
+
+// Top 10 row metrics: the left gutter that hosts the big outlined rank number
+// and how far its right edge slips under the poster (as a card-width fraction).
+private const val TOP10_RANK_SLOT_FRACTION = 1.6f
+private const val TOP10_RANK_UNDERLAP_FRACTION = 0.25f
+
+private fun top10RankSlotWidth(cardWidth: Dp): Dp = cardWidth * TOP10_RANK_SLOT_FRACTION
 
 internal val LocalVerticalRowsScrolling = compositionLocalOf<State<Boolean>> { mutableStateOf(false) }
 
@@ -425,6 +437,45 @@ private fun ModernCatalogRowItem(
     )
 }
 
+/**
+ * The large hollow rank number sitting left of a Top 10 poster (Netflix
+ * style): right-aligned inside a fixed gutter so its right edge always tucks
+ * the same amount under the card, horizontally condensed so "10" fits, and
+ * stroked (outline only, no fill) — the outline brightens while its card
+ * holds focus.
+ */
+@Composable
+private fun ModernTop10RankNumber(
+    rank: Int,
+    isTargetItem: Boolean,
+    cardHeight: Dp,
+    numberWidth: Dp,
+    modifier: Modifier = Modifier
+) {
+    val alpha by animateFloatAsState(
+        targetValue = if (isTargetItem) 0.72f else 0.4f,
+        animationSpec = tween(durationMillis = 240),
+        label = "top10RankAlpha"
+    )
+    Text(
+        text = rank.toString(),
+        modifier = modifier.width(numberWidth),
+        maxLines = 1,
+        softWrap = false,
+        style = TextStyle(
+            color = NuvioTheme.colors.TextPrimary.copy(alpha = alpha),
+            fontSize = (cardHeight * 1.15f).value.sp,
+            lineHeight = (cardHeight * 1.3f).value.sp,
+            fontWeight = FontWeight.Black,
+            textAlign = TextAlign.End,
+            textGeometricTransform = TextGeometricTransform(scaleX = 0.72f),
+            drawStyle = Stroke(
+                width = with(LocalDensity.current) { 3.5.dp.toPx() }
+            )
+        )
+    )
+}
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun ModernRowSection(
@@ -485,6 +536,7 @@ internal fun ModernRowSection(
     @Suppress("NAME_SHADOWING") val loadMoreRequestedTotals = loadMoreRequestedTotals.value
     @Suppress("NAME_SHADOWING") val itemFocusRequesters = itemFocusRequesters.value
     val rowKey = row.key
+    val isTop10Row = row.addonId == TOP10_ADDON_ID && row.catalogId == TOP10_CATALOG_ID
 
     // Per-row derived state: only invalidates when THIS row's focused index
     // changes, not when any other row's index changes in the shared map.
@@ -827,7 +879,10 @@ internal fun ModernRowSection(
             }
         }
         LaunchedEffect(row.key, effectiveExpandEnabled, rowItemCount) {
-            if (!effectiveExpandEnabled) return@LaunchedEffect
+            // Top 10 cards keep the plain poster size (see itemExpandEnabled),
+            // so the expansion overshoot nudge would shift the row for a card
+            // that never grows.
+            if (!effectiveExpandEnabled || isTop10Row) return@LaunchedEffect
             snapshotFlow { expandedCatalogFocusKey.value }
                 .collect { expandedKey ->
                     if (expandedKey == null) return@collect
@@ -897,6 +952,20 @@ internal fun ModernRowSection(
                 ) { index, item ->
                     val requester = itemFocusRequesters.getOrPut(index) { FocusRequester() }
                     val isContinueWatchingRow = row.key == MODERN_CONTINUE_WATCHING_ROW_KEY || row.key == MODERN_UPCOMING_ROW_KEY
+                    // Backdrop expansion would fight the rank-number layout (the
+                    // card no longer starts at the item offset), so Top 10 cards
+                    // keep their plain poster size like Netflix.
+                    val itemExpandEnabled = effectiveExpandEnabled && !isTop10Row
+                    val top10CardWidth = if (useLandscapePosters) {
+                        landscapeCatalogCardWidth
+                    } else {
+                        portraitCatalogCardWidth
+                    }
+                    val top10CardHeight = if (useLandscapePosters) {
+                        landscapeCatalogCardHeight
+                    } else {
+                        portraitCatalogCardHeight
+                    }
                     val onFocused = remember(row.key, index, isContinueWatchingRow) {
                         {
                             onRowItemFocused(row.key, index, isContinueWatchingRow)
@@ -957,32 +1026,52 @@ internal fun ModernRowSection(
                                 is ModernPayload.CollectionFolder -> payload.focusKey
                             }
                             val isBackdropExpandedLambda = remember(
-                                effectiveExpandEnabled,
+                                itemExpandEnabled,
                                 isRowScrollingState,
                                 expandedCatalogFocusKey,
                                 expandedFocusKey
                             ) {
                                 {
-                                    effectiveExpandEnabled &&
+                                    itemExpandEnabled &&
                                         (!isRowScrollingState.value || isExpansionScrollActive) &&
                                         expandedCatalogFocusKey.value == expandedFocusKey
                                 }
                             }
                             val placeholderFocusBlock = isPlaceholder && index > 0
-                            Box(modifier = if (placeholderFocusBlock) {
+                            val top10SlotWidth = top10RankSlotWidth(top10CardWidth)
+                            Box(modifier = (if (placeholderFocusBlock) {
                                 Modifier.focusProperties { canFocus = false }
-                            } else Modifier) {
+                            } else Modifier).then(
+                                if (isTop10Row) Modifier.width(top10SlotWidth + top10CardWidth)
+                                else Modifier
+                            )) {
+                            if (isTop10Row) {
+                                ModernTop10RankNumber(
+                                    rank = index + 1,
+                                    isTargetItem = isTargetItem,
+                                    cardHeight = top10CardHeight,
+                                    numberWidth = top10SlotWidth + top10CardWidth * TOP10_RANK_UNDERLAP_FRACTION,
+                                    modifier = Modifier.align(Alignment.CenterStart)
+                                )
+                            }
                             ModernCatalogRowItem(
                                 item = item,
                                 payload = payload,
                                 requester = requester,
                                 isTargetItem = isTargetItem,
+                                modifier = if (isTop10Row) {
+                                    Modifier
+                                        .align(Alignment.CenterStart)
+                                        .offset(x = top10SlotWidth)
+                                } else {
+                                    Modifier
+                                },
                                 useLandscapePosters = useLandscapePosters,
                                 showLabels = showLabels,
                                 placeholderShimmerOffsetState = placeholderShimmerOffsetState,
                                 posterCardCornerRadius = posterCardCornerRadius,
                                 focusedPosterBackdropTrailerMuted = focusedPosterBackdropTrailerMuted,
-                                effectiveExpandEnabled = effectiveExpandEnabled,
+                                effectiveExpandEnabled = itemExpandEnabled,
                                 effectiveAutoplayEnabled = effectiveAutoplayEnabled,
                                 trailerPlaybackTarget = trailerPlaybackTarget,
                                 isBackdropExpanded = isBackdropExpandedLambda,

@@ -20,6 +20,7 @@ data class HomeUiState(
     val continueWatchingItems: List<ContinueWatchingItem> = emptyList(),
     val upcomingItems: List<ContinueWatchingItem> = emptyList(),
     val latestReleaseItems: List<CalendarItem> = emptyList(),
+    val top10Items: List<MetaPreview> = emptyList(),
     val isLoading: Boolean = true,
     val layoutPreferencesReady: Boolean = false,
     val error: String? = null,

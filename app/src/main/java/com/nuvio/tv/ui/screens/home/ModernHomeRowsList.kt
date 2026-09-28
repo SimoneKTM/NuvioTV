@@ -291,16 +291,24 @@ internal fun ModernHomeRowsList(
                 .onPreviewKeyEvent { event ->
                     val firstRowKey = carouselRows.list.firstOrNull()?.key
                     val lastRowKey = carouselRows.list.lastOrNull()?.key
+                    // Top 10 cards never expand, so the expanded-state key
+                    // swallowing must not engage for them even though the key
+                    // is armed (it also drives the hero trailer).
+                    val expandedKey = expandedCatalogFocusKey.value
+                    val expandedOnTop10Row = expandedKey != null &&
+                        expandedKey.substringBefore("::") == TOP10_MODERN_ROW_KEY
                     if (event.type == KeyEventType.KeyDown &&
                         event.key == Key.DirectionUp &&
                         effectiveExpandEnabled &&
-                        expandedCatalogFocusKey.value != null &&
+                        expandedKey != null &&
+                        !expandedOnTop10Row &&
                         activeRowKey.value == firstRowKey
                     ) return@onPreviewKeyEvent true
                     if (event.type == KeyEventType.KeyDown &&
                         event.key == Key.DirectionDown &&
                         effectiveExpandEnabled &&
-                        expandedCatalogFocusKey.value != null &&
+                        expandedKey != null &&
+                        !expandedOnTop10Row &&
                         activeRowKey.value == lastRowKey
                     ) return@onPreviewKeyEvent true
                     val blockKey = if (layoutDirection == LayoutDirection.Rtl)
@@ -309,7 +317,8 @@ internal fun ModernHomeRowsList(
                         event.type == KeyEventType.KeyDown &&
                         event.key == blockKey &&
                         effectiveExpandEnabled &&
-                        expandedCatalogFocusKey.value != null &&
+                        expandedKey != null &&
+                        !expandedOnTop10Row &&
                         activeItemIndex.value == 0
                     ) return@onPreviewKeyEvent true
                     false

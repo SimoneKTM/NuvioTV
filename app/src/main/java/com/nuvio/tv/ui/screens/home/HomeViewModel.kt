@@ -35,6 +35,7 @@ import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.data.repository.MDBListRepository
 import com.nuvio.tv.data.repository.OmdbAwardsRepository
+import com.nuvio.tv.data.repository.TraktTop10Repository
 import com.nuvio.tv.domain.model.MDBListSettings
 import com.nuvio.tv.domain.model.TmdbSettings
 import com.nuvio.tv.domain.model.TvdbSettings
@@ -60,6 +61,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
@@ -80,6 +82,7 @@ class HomeViewModel @Inject constructor(
     internal val metaRepository: MetaRepository,
     internal val omdbAwardsRepository: OmdbAwardsRepository,
     internal val calendarRepository: CalendarRepository,
+    internal val traktTop10Repository: TraktTop10Repository,
     internal val collectionsDataStore: CollectionsDataStore,
     internal val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     internal val playerSettingsDataStore: PlayerSettingsDataStore,
@@ -353,6 +356,7 @@ class HomeViewModel @Inject constructor(
             observeModernHomePresentation()
             loadContinueWatching()
             observeLatestReleases()
+            observeTop10()
             watchedSeriesStateHolder.loadFromDisk()
             observeExternalMetaPrefetchPreference()
             observeContinueWatchingSortMode()
@@ -868,6 +872,29 @@ class HomeViewModel @Inject constructor(
     }
 
     internal var posterStatusReconcileJob: Job? = null
+
+    private fun observeTop10() {
+        viewModelScope.launch {
+            flow { emit(traktTop10Repository.getTopShows()) }
+                .retryWhen { _, attempt ->
+                    if (attempt >= 3L) {
+                        false
+                    } else {
+                        delay(10_000L * (attempt + 1))
+                        true
+                    }
+                }
+                .catch { e ->
+                    Log.w(TAG, "top10 failed: ${e.message}")
+                }
+                .collect { items ->
+                    if (_uiState.value.top10Items != items) {
+                        _uiState.update { it.copy(top10Items = items) }
+                        scheduleUpdateCatalogRows()
+                    }
+                }
+        }
+    }
 
     private fun schedulePosterStatusReconcile(rows: List<CatalogRow>) =
         schedulePosterStatusReconcilePipeline(rows)
