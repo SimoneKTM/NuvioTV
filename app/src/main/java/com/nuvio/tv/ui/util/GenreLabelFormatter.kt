@@ -11,7 +11,36 @@ fun localizedGenreLabel(genre: String): String {
     return localizedGenreLabel(context, genre)
 }
 
-fun localizedGenreLabel(context: Context, genre: String): String = when (genre.lowercase().trim()) {
+/**
+ * Addon and Trakt catalogs hand over English genre labels in arbitrary
+ * shapes ("Documentaries", "Reality TV"); canonicalize the common variants
+ * before the exact-match lookup so they still resolve to a localized label.
+ */
+private val GENRE_LABEL_ALIASES = mapOf(
+    "documentaries" to "documentary",
+    "documentary series" to "documentary",
+    "documentaries series" to "documentary",
+    "docuseries" to "documentary",
+    "docudrama" to "documentary",
+    "non fiction" to "documentary",
+    "reality tv" to "reality",
+    "reality show" to "reality",
+    "reality shows" to "reality",
+    "reality-tv" to "reality",
+    "science-fiction" to "science fiction",
+    "scifi" to "science fiction",
+    "sci fi" to "science fiction",
+    "sci-fi" to "science fiction",
+    "sci fi & fantasy" to "sci-fi & fantasy",
+    "kids tv" to "kids",
+    "children" to "kids"
+)
+private fun canonicalGenreKey(genre: String): String {
+    val key = genre.lowercase().trim()
+    return GENRE_LABEL_ALIASES[key] ?: key
+}
+
+fun localizedGenreLabel(context: Context, genre: String): String = when (canonicalGenreKey(genre)) {
     "action" -> context.getString(R.string.genre_action)
     "adventure" -> context.getString(R.string.genre_adventure)
     "animation" -> context.getString(R.string.genre_animation)

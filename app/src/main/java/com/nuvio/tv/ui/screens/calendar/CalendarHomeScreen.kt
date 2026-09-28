@@ -1,6 +1,8 @@
 package com.nuvio.tv.ui.screens.calendar
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -65,14 +67,17 @@ import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
 import com.nuvio.tv.ui.screens.home.HeroBackdropState
 import com.nuvio.tv.ui.theme.NuvioTheme
+import com.nuvio.tv.ui.util.localizedContentType
+import com.nuvio.tv.ui.util.localizedGenreLabel
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.delay
 
 private val HERO_HEIGHT = 380.dp
-private val WIDE_CARD_WIDTH = 300.dp
-private val WIDE_CARD_HEIGHT = 170.dp
 private val SECTION_PADDING_HORIZONTAL = 48.dp
+
+/** The hero rotates through at most this many backdrops. */
+private const val HERO_MAX_SLIDES = 10
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -92,13 +97,6 @@ fun CalendarHomeScreen(
     val showSpinner = uiState.isLoading && !showContent
     val showError = !showSpinner && !showContent && uiState.error != null
     val showEmpty = !showSpinner && !showError && !showContent && uiState.hasLoaded
-
-    LaunchedEffect(showContent, uiState.sections.size) {
-        if (showContent && uiState.sections.all { true }) {
-            delay(50)
-            runCatching { firstCardFocusRequester.requestFocusAfterFrames(2) }
-        }
-    }
 
     Box(
         modifier = Modifier
@@ -129,7 +127,6 @@ fun CalendarHomeScreen(
             }
             else -> {
                 val firstSection = uiState.sections.firstOrNull()
-                val restSections = uiState.sections.drop(1)
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
@@ -139,19 +136,19 @@ fun CalendarHomeScreen(
                         item(key = "hero_header") {
                             CalendarHeroSection(
                                 section = firstSection,
-                                onNavigateToDetail = onNavigateToDetail,
-                                initialFocusRequester = firstCardFocusRequester
+                                onNavigateToDetail = onNavigateToDetail
                             )
                         }
                     }
 
                     itemsIndexed(
-                        items = restSections,
+                        items = uiState.sections,
                         key = { _, section -> section.label }
-                    ) { _, section ->
+                    ) { index, section ->
                         CalendarSection(
                             section = section,
-                            onNavigateToDetail = onNavigateToDetail
+                            onNavigateToDetail = onNavigateToDetail,
+                            initialFocusRequester = if (index == 0) firstCardFocusRequester else null
                         )
                     }
                 }
@@ -217,24 +214,20 @@ private fun CalendarMessageState(
 @Composable
 private fun CalendarHeroSection(
     section: CalendarSection,
-    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit,
-    initialFocusRequester: FocusRequester
+    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit
 ) {
     val firstItem = section.items.firstOrNull() ?: return
     var displayedIndex by rememberSaveable(section.label) { mutableIntStateOf(0) }
-    var userInteracting by remember { mutableStateOf(false) }
-    // Use the full row for candidate detection so hero indices always map
-    // to valid row positions (previous take(10) desynced with >10 items).
+    // Only titles with logo + backdrop + synopsis rotate in the hero; the
+    // rest stay exclusively in the poster cards below.
     val heroItems = section.items
-    // Vetrina solo per i titoli con logo + sfondo + testo descrittivo: gli
-    // altri restano esclusivamente nelle card orizzontali sotto la hero.
     val heroCandidateIndexes = remember(section) {
         heroItems.indices.filter { index ->
             val item = heroItems[index]
             item.meta.logo != null &&
                 item.meta.backdropUrl != null &&
                 !item.meta.description.isNullOrBlank()
-        }
+        }.take(HERO_MAX_SLIDES)
     }
     LaunchedEffect(section.label, heroItems.size, heroCandidateIndexes.size) {
         if (displayedIndex !in heroItems.indices) {
@@ -245,8 +238,6 @@ private fun CalendarHeroSection(
         }
     }
     val displayedItem = heroItems.getOrNull(displayedIndex) ?: firstItem
-    val heroRowState = rememberLazyListState()
-    val firstWideCardRequester = remember { FocusRequester() }
 
     // Keep Detail's hero backdrop in sync with the calendar hero so back/nav
     // does not inherit a stale Home backdrop.
@@ -254,23 +245,14 @@ private fun CalendarHeroSection(
         HeroBackdropState.update(displayedItem.meta.backdropUrl)
     }
 
-    LaunchedEffect(heroItems.size, userInteracting) {
+    // Autonomous slideshow: independent from any focus/scroll state.
+    LaunchedEffect(heroCandidateIndexes) {
         if (heroCandidateIndexes.size <= 1) return@LaunchedEffect
         while (true) {
             delay(10000L)
-            if (!userInteracting) {
-                val next = heroCandidateIndexes.firstOrNull { it > displayedIndex }
-                    ?: heroCandidateIndexes.first()
-                displayedIndex = next
-                runCatching { heroRowState.scrollToItem(next) }
-            }
-        }
-    }
-
-    LaunchedEffect(userInteracting) {
-        if (userInteracting) {
-            delay(8000L)
-            userInteracting = false
+            val next = heroCandidateIndexes.firstOrNull { it > displayedIndex }
+                ?: heroCandidateIndexes.first()
+            displayedIndex = next
         }
     }
 
@@ -386,13 +368,7 @@ private fun CalendarHeroSection(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                val focusedTypeLabel = remember(displayedItem) {
-                    when (displayedItem.meta.rawType.lowercase()) {
-                        "movie" -> "Film"
-                        "tv", "series" -> "Serie TV"
-                        else -> displayedItem.meta.rawType
-                    }
-                }
+                val focusedTypeLabel = localizedContentType(displayedItem.meta.rawType)
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
@@ -456,7 +432,7 @@ private fun CalendarHeroSection(
                         }
                         displayedItem.meta.genres.take(3).forEach { genre ->
                             Text(
-                                text = genre,
+                                text = localizedGenreLabel(genre),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color.White.copy(alpha = 0.7f),
                                 modifier = Modifier
@@ -481,45 +457,38 @@ private fun CalendarHeroSection(
                     )
                 }
             }
-        }
 
-        LazyRow(
-            state = heroRowState,
-            contentPadding = PaddingValues(start = SECTION_PADDING_HORIZONTAL, end = 48.dp),
-            horizontalArrangement = Arrangement.spacedBy(20.dp),
-            modifier = Modifier
-                .padding(top = 20.dp)
-                .focusGroup()
-                .focusRestorer { firstWideCardRequester }
-        ) {
-            itemsIndexed(
-                items = heroItems,
-                key = { _, it -> "${it.meta.id}:${it.releaseDate}:${it.episodeLabel ?: ""}" }
-            ) { index, calendarItem ->
-                CalendarWideCard(
-                    meta = calendarItem.meta,
-                    releaseDate = calendarItem.releaseDate,
-                    notInCatalog = calendarItem.notInCatalog,
-                    onClick = {
-                        // Same contract as Library: pass the source addon when
-                        // known, otherwise null so Detail races catalog pools.
-                        onNavigateToDetail(
-                            calendarItem.meta.id,
-                            calendarItem.meta.apiType,
-                            calendarItem.meta.sourceAddonBaseUrl?.takeIf { it.isNotBlank() }
+            // Progress dots: one per hero slide, animated on each rotation.
+            if (heroCandidateIndexes.isNotEmpty()) {
+                val activeDot = heroCandidateIndexes
+                    .indexOf(displayedIndex)
+                    .coerceAtLeast(0)
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    heroCandidateIndexes.forEachIndexed { dotIndex, _ ->
+                        val isActive = dotIndex == activeDot
+                        val dotWidth by animateDpAsState(
+                            targetValue = if (isActive) 14.dp else 6.dp,
+                            label = "heroDotWidth"
                         )
-                    },
-                    onFocusChange = { focused ->
-                        if (focused) {
-                            if (index in heroCandidateIndexes) {
-                                displayedIndex = index
-                            }
-                            userInteracting = true
-                        }
-                    },
-                    focusRequester = if (index == 0) firstWideCardRequester else null,
-                    initialFocusRequester = if (index == 0) initialFocusRequester else null
-                )
+                        val dotAlpha by animateFloatAsState(
+                            targetValue = if (isActive) 0.95f else 0.4f,
+                            label = "heroDotAlpha"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .width(dotWidth)
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(Color.White.copy(alpha = dotAlpha))
+                        )
+                    }
+                }
             }
         }
     }
@@ -529,10 +498,19 @@ private fun CalendarHeroSection(
 @Composable
 private fun CalendarSection(
     section: CalendarSection,
-    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit
+    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit,
+    initialFocusRequester: FocusRequester? = null
 ) {
     val rowState = rememberLazyListState()
     val firstPosterRequester = remember(section.label) { FocusRequester() }
+
+    // Initial screen focus lands on the first poster of the first section.
+    LaunchedEffect(initialFocusRequester) {
+        if (initialFocusRequester != null) {
+            delay(50)
+            runCatching { firstPosterRequester.requestFocusAfterFrames(2) }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -608,201 +586,6 @@ private fun SectionBadge(count: Int) {
             fontWeight = FontWeight.Bold,
             color = NuvioTheme.colors.Secondary
         )
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun CalendarWideCard(
-    meta: MetaPreview,
-    releaseDate: java.time.LocalDate?,
-    notInCatalog: Boolean = false,
-    onClick: () -> Unit,
-    onFocusChange: (Boolean) -> Unit = {},
-    focusRequester: FocusRequester? = null,
-    initialFocusRequester: FocusRequester? = null
-) {
-    var isFocused by remember { mutableStateOf(false) }
-    val dateLabel = remember(releaseDate) {
-        releaseDate?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.getDefault())) ?: ""
-    }
-    val typeLabel = remember(meta.rawType) {
-        when (meta.rawType.lowercase()) {
-            "movie" -> "Film"
-            "tv", "series" -> "Serie TV"
-            else -> meta.rawType
-        }
-    }
-    val cardShape = RoundedCornerShape(12.dp)
-
-    // Share the same FocusRequester instance for restorer + initial grab.
-    val requester = focusRequester ?: remember { FocusRequester() }
-
-    LaunchedEffect(initialFocusRequester, requester) {
-        if (initialFocusRequester != null) {
-            delay(50)
-            runCatching { requester.requestFocusAfterFrames(2) }
-        }
-    }
-
-    TvCard(
-        onClick = onClick,
-        modifier = Modifier
-            .width(WIDE_CARD_WIDTH)
-            .focusRequester(requester)
-            .onFocusChanged {
-                isFocused = it.isFocused
-                onFocusChange(it.isFocused)
-                if (it.isFocused) {
-                    HeroBackdropState.update(meta.backdropUrl)
-                }
-            },
-        shape = CardDefaults.shape(shape = cardShape),
-        colors = CardDefaults.colors(
-            containerColor = NuvioTheme.colors.BackgroundCard,
-            focusedContainerColor = NuvioTheme.colors.BackgroundCard
-        ),
-        border = CardDefaults.border(
-            focusedBorder = Border(
-                border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),
-                shape = cardShape
-            )
-        )
-    ) {
-        Column {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(WIDE_CARD_HEIGHT)
-                    .clip(cardShape)
-            ) {
-                if (meta.backdropUrl != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(meta.backdropUrl)
-                            .crossfade(true)
-                            .memoryCachePolicy(CachePolicy.ENABLED)
-                            .diskCachePolicy(CachePolicy.ENABLED)
-                            .build(),
-                        contentDescription = meta.name,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        NuvioTheme.colors.Secondary.copy(alpha = 0.4f),
-                                        NuvioTheme.colors.BackgroundCard
-                                    )
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = meta.name.take(1).uppercase(Locale.getDefault()),
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.3f)
-                        )
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.6f)
-                                )
-                            )
-                        )
-                )
-
-                if (dateLabel.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color.Black.copy(alpha = 0.8f))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = dateLabel,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White
-                        )
-                    }
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                NuvioTheme.colors.BackgroundCard.copy(alpha = 0.85f),
-                                NuvioTheme.colors.BackgroundCard
-                            )
-                        )
-                    )
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = meta.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = if (isFocused) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isFocused) Color.White else NuvioTheme.colors.TextPrimary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = typeLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = NuvioTheme.colors.TextTertiary
-                    )
-                    meta.imdbRating?.let { rating ->
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "\u2605 ${String.format(Locale.US, "%.1f", rating)}",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = NuvioTheme.colors.Secondary
-                        )
-                    }
-                }
-
-                if (notInCatalog) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = stringResource(R.string.calendar_not_in_catalog),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color.Black.copy(alpha = 0.75f))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-            }
-        }
     }
 }
 

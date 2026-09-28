@@ -56,6 +56,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.ui.util.StableList
+import com.nuvio.tv.ui.util.localizedGenreLabel
 import com.nuvio.tv.ui.util.recompositionHighlighter
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
@@ -352,7 +353,7 @@ private fun HeroCarouselSlide(
                 ) {
                     item.genres.take(3).forEach { genre ->
                         Text(
-                            text = genre,
+                            text = localizedGenreLabel(genre),
                             style = MaterialTheme.typography.labelMedium,
                             color = Color.White.copy(alpha = 0.7f),
                             modifier = Modifier
