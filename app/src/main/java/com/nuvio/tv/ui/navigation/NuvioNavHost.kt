@@ -123,6 +123,14 @@ fun NuvioNavHost(
         return from.startsWith("player/") && to.startsWith("stream/")
     }
 
+    // Next-episode date badges are rendered by GridContentCard across the
+    // whole graph (Home, Search, Discover, Library, Detail grids, TMDB
+    // browse...), so provide the calendar-derived labels once at the
+    // navigation root instead of per-route.
+    val nextEpisodeDatesViewModel: com.nuvio.tv.ui.screens.home.NextEpisodeDateBadgesViewModel =
+        androidx.hilt.navigation.compose.hiltViewModel()
+    val nextEpisodeDates by nextEpisodeDatesViewModel.labels.collectAsState()
+    CompositionLocalProvider(LocalNextEpisodeDates provides nextEpisodeDates) {
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -201,11 +209,7 @@ fun NuvioNavHost(
         }
 
         composable(Screen.Home.route) {
-            val nextEpisodeDatesViewModel: com.nuvio.tv.ui.screens.home.NextEpisodeDateBadgesViewModel =
-                androidx.hilt.navigation.compose.hiltViewModel()
-            val nextEpisodeDates by nextEpisodeDatesViewModel.labels.collectAsState()
-            CompositionLocalProvider(LocalNextEpisodeDates provides nextEpisodeDates) {
-                HomeScreen(
+            HomeScreen(
                     onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
                         val heroBackdrop = HeroBackdropState.consumeAndClear()
                         navController.navigate(
@@ -244,7 +248,6 @@ fun NuvioNavHost(
                     },
                     onOpenAddons = { navController.navigate(Screen.AddonManager.route) }
                 )
-            }
         }
 
         composable(
@@ -1160,11 +1163,7 @@ fun NuvioNavHost(
         composable(Screen.Anime.route) {
             val animeViewModel: com.nuvio.tv.ui.screens.anime.AnimeHomeViewModel =
                 androidx.hilt.navigation.compose.hiltViewModel()
-            val nextEpisodeDatesViewModel: com.nuvio.tv.ui.screens.home.NextEpisodeDateBadgesViewModel =
-                androidx.hilt.navigation.compose.hiltViewModel()
-            val nextEpisodeDates by nextEpisodeDatesViewModel.labels.collectAsState()
-            CompositionLocalProvider(LocalNextEpisodeDates provides nextEpisodeDates) {
-                com.nuvio.tv.ui.screens.anime.AnimeHomeScreen(
+            com.nuvio.tv.ui.screens.anime.AnimeHomeScreen(
                     viewModel = animeViewModel,
                     onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
                         val heroBackdrop = HeroBackdropState.consumeAndClear()
@@ -1192,7 +1191,6 @@ fun NuvioNavHost(
                     },
                     onOpenSettings = { navController.navigate(Screen.AnimeSettings.route) }
                 )
-            }
         }
 
         composable(Screen.AnimeSettings.route) {
@@ -1242,11 +1240,7 @@ fun NuvioNavHost(
         composable(Screen.Extra.route) {
             val extraViewModel: com.nuvio.tv.ui.screens.extra.ExtraHomeViewModel =
                 androidx.hilt.navigation.compose.hiltViewModel()
-            val nextEpisodeDatesViewModel: com.nuvio.tv.ui.screens.home.NextEpisodeDateBadgesViewModel =
-                androidx.hilt.navigation.compose.hiltViewModel()
-            val nextEpisodeDates by nextEpisodeDatesViewModel.labels.collectAsState()
-            CompositionLocalProvider(LocalNextEpisodeDates provides nextEpisodeDates) {
-                com.nuvio.tv.ui.screens.extra.ExtraHomeScreen(
+            com.nuvio.tv.ui.screens.extra.ExtraHomeScreen(
                     viewModel = extraViewModel,
                     onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
                         val heroBackdrop = HeroBackdropState.consumeAndClear()
@@ -1274,7 +1268,6 @@ fun NuvioNavHost(
                     },
                     onOpenSettings = { navController.navigate(Screen.ExtraSettings.route) }
                 )
-            }
         }
 
         composable(Screen.ExtraSettings.route) {
@@ -1615,5 +1608,6 @@ fun NuvioNavHost(
                 }
             )
         }
+    }
     }
 }
