@@ -22,6 +22,7 @@ import com.nuvio.tv.data.local.TvdbSettingsDataStore
 import com.nuvio.tv.data.local.TraktSettingsDataStore
 import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 import com.nuvio.tv.data.trailer.TrailerService
+import com.nuvio.tv.data.translation.MetadataTextTranslator
 import com.nuvio.tv.data.tvdb.TvdbMetadataService
 import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.domain.model.Addon
@@ -80,6 +81,7 @@ class HomeViewModel @Inject constructor(
     internal val watchProgressRepository: WatchProgressRepository,
     internal val libraryRepository: LibraryRepository,
     internal val metaRepository: MetaRepository,
+    internal val metadataTextTranslator: MetadataTextTranslator,
     internal val omdbAwardsRepository: OmdbAwardsRepository,
     internal val calendarRepository: CalendarRepository,
     internal val traktTop10Repository: TraktTop10Repository,
@@ -179,11 +181,55 @@ class HomeViewModel @Inject constructor(
     internal val _enrichedPreviews = MutableStateFlow<Map<String, MetaPreview>>(emptyMap())
     override val enrichedPreviews: StateFlow<Map<String, MetaPreview>> = _enrichedPreviews.asStateFlow()
 
+    /** Last description already handed to the translator, per item. */
+    private val previewTranslationProcessed: MutableMap<String, String> = createLruMap(MAX_ENRICHMENT_CACHE_SIZE)
+
     internal fun addEnrichedPreview(id: String, preview: MetaPreview) {
+        putEnrichedPreview(id, preview)
+        schedulePreviewDescriptionTranslation(id, preview)
+    }
+
+    private fun putEnrichedPreview(id: String, preview: MetaPreview) {
         _enrichedPreviews.update { current ->
             val updated = current + (id to preview)
             if (updated.size <= MAX_ENRICHMENT_CACHE_SIZE) updated
             else LinkedHashMap(updated).apply { while (size > MAX_ENRICHMENT_CACHE_SIZE) remove(keys.first()) }
+        }
+    }
+
+    /**
+     * Enrichment reads raw addon/TMDB text; the detail screen runs it through
+     * [MetadataTextTranslator] but the home hero had no equivalent, leaving
+     * English synopses on screen. Schedule one translation per distinct
+     * description (async, so the raw text may flash briefly) and re-publish
+     * only while the stored entry still holds the string we translated.
+     */
+    private fun schedulePreviewDescriptionTranslation(id: String, preview: MetaPreview) {
+        val description = preview.description?.takeIf { it.isNotBlank() } ?: return
+        synchronized(previewTranslationProcessed) {
+            if (previewTranslationProcessed[id] == description) return
+            previewTranslationProcessed[id] = description
+        }
+        viewModelScope.launch {
+            val translated = runCatching {
+                metadataTextTranslator.translateDescription(description, currentTmdbSettings.language)
+            }.getOrNull()
+            if (translated.isNullOrBlank() || translated == description) return@launch
+            _enrichedPreviews.update { current ->
+                val existing = current[id]
+                if (existing != null && existing.description == description) {
+                    current + (id to existing.copy(description = translated))
+                } else {
+                    current
+                }
+            }
+            _lastEnrichedPreview.update { current ->
+                if (current != null && current.id == id && current.description == description) {
+                    current.copy(description = translated)
+                } else {
+                    current
+                }
+            }
         }
     }
 

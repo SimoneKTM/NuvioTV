@@ -893,7 +893,7 @@ private fun HomeViewModel.updateCatalogItemWithTvdb(
 
     findCatalogItemById(itemId)?.let { enriched ->
         _lastEnrichedPreview.value = enriched
-        _enrichedPreviews.update { it + (itemId to enriched) }
+        addEnrichedPreview(itemId, enriched)
     }
 }
 
@@ -923,7 +923,7 @@ private fun HomeViewModel.updateCatalogItemImdbRating(itemId: String, rating: Fl
     // so keep them in sync when the MDBList rating arrives.
     findCatalogItemById(itemId)?.let { enriched ->
         _lastEnrichedPreview.value = enriched
-        _enrichedPreviews.update { it + (itemId to enriched) }
+        addEnrichedPreview(itemId, enriched)
     }
 }
 
@@ -1069,7 +1069,7 @@ private fun HomeViewModel.updateCatalogItemArtworkOnly(itemId: String, meta: Met
     }
     findCatalogItemById(itemId)?.let { enriched ->
         _lastEnrichedPreview.value = enriched
-        _enrichedPreviews.update { it + (itemId to enriched) }
+        addEnrichedPreview(itemId, enriched)
     }
 }
 

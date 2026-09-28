@@ -93,6 +93,23 @@ class MetadataTextTranslator @Inject constructor(
             }
         }
 
+    /**
+     * Translates a standalone description/overview string with the same
+     * length, detection and persistent-cache rules as [translateMeta].
+     * Returns null when nothing needs to change (too short, already in the
+     * target language, detection failed).
+     */
+    suspend fun translateDescription(text: String, targetLanguage: String): String? =
+        withContext(Dispatchers.IO) {
+            val target = normalizeLanguageCode(targetLanguage) ?: return@withContext null
+            if (target !in TRANSLATION_SUPPORTED_LANGUAGES) return@withContext null
+            try {
+                translateText(text, targetLanguage, System.currentTimeMillis())
+            } finally {
+                withContext(NonCancellable) { persistCacheIfDirty() }
+            }
+        }
+
     private suspend fun translateVideos(
         meta: Meta,
         targetLanguage: String,
