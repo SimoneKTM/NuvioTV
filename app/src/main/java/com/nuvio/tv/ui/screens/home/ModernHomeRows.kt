@@ -148,15 +148,20 @@ private const val MODERN_HORIZONTAL_FOCUS_DEBOUNCE_MS = 140L
 private const val POSTER_PREFETCH_DISTANCE = 2
 private const val NESTED_PREFETCH_COUNT = 2
 
-// Top 10 row metrics: the left gutter that hosts the big outlined rank number,
-// how far its right edge slips under the poster (as a card-width fraction) and
-// the horizontal condensation of the digits (applied with a left-origin layer
-// scale so the right edge lands deterministically under the card).
-private const val TOP10_RANK_SLOT_FRACTION = 1.6f
-private const val TOP10_RANK_TUCK_FRACTION = 0.1f
+// Top 10 row metrics: the left gutter that hosts the big outlined rank number.
+// The digits' font size derives from the card HEIGHT, so the gutter is sized
+// as a card-height fraction too (stays correct for portrait and landscape
+// posters alike): a single digit gets ~one digit of room, the two-digit rank
+// ~two, and both minus the tuck so the number's right edge slips under the
+// poster. Condensation scales the digits horizontally with a left-origin
+// layer scale so the tuck lands deterministically under the card.
+private const val TOP10_RANK_SLOT_FRACTION = 0.55f
+private const val TOP10_RANK_SLOT_WIDE_FRACTION = 1.05f
+private const val TOP10_RANK_TUCK_FRACTION = 0.12f
 private const val TOP10_RANK_CONDENSE_FACTOR = 0.72f
 
-private fun top10RankSlotWidth(cardWidth: Dp): Dp = cardWidth * TOP10_RANK_SLOT_FRACTION
+private fun top10RankSlotWidth(cardHeight: Dp, rank: Int): Dp =
+    cardHeight * (if (rank >= 10) TOP10_RANK_SLOT_WIDE_FRACTION else TOP10_RANK_SLOT_FRACTION)
 
 internal val LocalVerticalRowsScrolling = compositionLocalOf<State<Boolean>> { mutableStateOf(false) }
 
@@ -1046,7 +1051,7 @@ internal fun ModernRowSection(
                                 }
                             }
                             val placeholderFocusBlock = isPlaceholder && index > 0
-                            val top10SlotWidth = top10RankSlotWidth(top10CardWidth)
+                            val top10SlotWidth = top10RankSlotWidth(top10CardHeight, index + 1)
                             Box(modifier = (if (placeholderFocusBlock) {
                                 Modifier.focusProperties { canFocus = false }
                             } else Modifier).then(
@@ -1058,7 +1063,7 @@ internal fun ModernRowSection(
                                     rank = index + 1,
                                     isTargetItem = isTargetItem,
                                     cardHeight = top10CardHeight,
-                                    numberWidth = (top10SlotWidth + top10CardWidth * TOP10_RANK_TUCK_FRACTION) / TOP10_RANK_CONDENSE_FACTOR,
+                                    numberWidth = (top10SlotWidth + top10CardHeight * TOP10_RANK_TUCK_FRACTION) / TOP10_RANK_CONDENSE_FACTOR,
                                     modifier = Modifier.align(Alignment.CenterStart)
                                 )
                             }
