@@ -13,7 +13,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 object SentryInitializer {
     private val droppedIssueText = listOf(
@@ -27,10 +26,14 @@ object SentryInitializer {
     fun start(application: Application, settings: SentrySettingsDataStore) {
         if (started) return
         started = true
-        val initialEnabled = runBlocking(Dispatchers.IO) {
-            settings.enabled.first()
+        // Sentry's init performs disk reads and SDK setup (hundreds of ms on
+        // weak TV sticks). Keep the main thread free: the settings read and
+        // the SDK init run on the IO scope instead of blocking the caller
+        // (Application.onCreate / main looper) during cold start.
+        scope.launch {
+            val initialEnabled = settings.enabled.first()
+            applyEnabled(application, initialEnabled)
         }
-        applyEnabled(application, initialEnabled)
         scope.launch {
             settings.enabled.distinctUntilChanged().collect { enabled ->
                 applyEnabled(application, enabled)

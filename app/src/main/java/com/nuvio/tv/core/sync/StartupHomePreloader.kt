@@ -9,9 +9,9 @@ import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.domain.repository.CalendarRepository
 import com.nuvio.tv.domain.repository.CatalogRepository
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,7 +44,15 @@ class StartupHomePreloader @Inject constructor(
         private const val PHASE_TIMEOUT_MS = 12_000L
     }
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // Warm-ups run on a background-priority thread: on low-end TV sticks the
+    // preload must yield CPU to the UI (it still runs at full speed whenever
+    // the UI is idle) instead of competing with the first Home frames.
+    private val preloadDispatcher = java.util.concurrent.Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "startup-home-preload").apply {
+            priority = Thread.MIN_PRIORITY
+        }
+    }.asCoroutineDispatcher()
+    private val scope = CoroutineScope(SupervisorJob() + preloadDispatcher)
     private var preloadJob: Job? = null
     private var profileWatchJob: Job? = null
 
