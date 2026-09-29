@@ -14,7 +14,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  * These helpers cap the wait and degrade to an empty list instead of hanging or crashing the
  * caller's scope.
  */
-private const val INSTALLED_ADDONS_TIMEOUT_MS = 8_000L
+private const val INSTALLED_ADDONS_TIMEOUT_MS = 12_000L
 
 suspend fun AddonRepository.installedAddonsNow(): List<Addon> =
     runCatching {

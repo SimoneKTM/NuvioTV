@@ -1145,6 +1145,8 @@
     <string name="layout_section_anime_content_desc">Listing options for the Anime tab</string>
     <string name="layout_landscape_posters">Landscape Posters</string>
     <string name="layout_landscape_posters_sub">Switch between portrait and landscape cards for Modern view.</string>
+    <string name="layout_fluid_mode">Fluid Mode</string>
+    <string name="layout_fluid_mode_sub">Turns off blurs, poster expansion and trailer previews, and speeds up navigation. Recommended on slower devices.</string>
     <string name="layout_preview_row">Show Preview Row</string>
     <string name="layout_preview_row_sub">Show a partial preview of the row below in Modern Home layout.</string>
     <string name="layout_hero_catalogs">Hero Catalogs</string>

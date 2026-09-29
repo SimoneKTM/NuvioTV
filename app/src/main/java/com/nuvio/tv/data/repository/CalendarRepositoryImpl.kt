@@ -75,9 +75,9 @@ class CalendarRepositoryImpl @Inject constructor(
     companion object {
         private const val TAG = "CalendarRepo"
         // Anime-first race + Home/Extra backup + external TMDB/MDBList/TVDB.
-        private const val ADDON_ENRICHMENT_TIMEOUT_MS = 12_000L
+        private const val ADDON_ENRICHMENT_TIMEOUT_MS = 20_000L
         private const val ADDON_ENRICHMENT_CONCURRENCY = 4
-        private const val EXTERNAL_ENRICHMENT_TIMEOUT_MS = 6_000L
+        private const val EXTERNAL_ENRICHMENT_TIMEOUT_MS = 10_000L
         // Trakt calendars documented maximum is 33 days.
         private const val TRAKT_MAX_DAYS = 33
     }

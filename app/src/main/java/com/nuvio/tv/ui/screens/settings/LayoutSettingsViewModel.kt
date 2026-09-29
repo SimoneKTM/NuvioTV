@@ -83,6 +83,7 @@ data class LayoutSettingsUiState(
     val libraryTabVisible: Boolean = true,
     val searchIncludeExtraTab: Boolean = true,
     val searchIncludeAnimeTab: Boolean = true,
+    val fluidModeEnabled: Boolean = false,
 )
 
 data class CatalogInfo(
@@ -143,6 +144,7 @@ sealed class LayoutSettingsEvent {
     data class SetExtraTabLogoIndex(val index: Int) : LayoutSettingsEvent()
     data class SetSearchIncludeExtraTab(val enabled: Boolean) : LayoutSettingsEvent()
     data class SetSearchIncludeAnimeTab(val enabled: Boolean) : LayoutSettingsEvent()
+    data class SetFluidModeEnabled(val enabled: Boolean) : LayoutSettingsEvent()
     data object ResetPosterCardStyle : LayoutSettingsEvent()
     data object ResetCardDepthStyle : LayoutSettingsEvent()
 }
@@ -214,6 +216,11 @@ open class LayoutSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             layoutPreferenceDataStore.modernSidebarBlurEnabled.distinctUntilChanged().collectLatest { enabled ->
                 updateUiStateIfChanged { it.copy(modernSidebarBlurEnabled = enabled) }
+            }
+        }
+        viewModelScope.launch {
+            layoutPreferenceDataStore.fluidModeEnabled.distinctUntilChanged().collectLatest { enabled ->
+                updateUiStateIfChanged { it.copy(fluidModeEnabled = enabled) }
             }
         }
         viewModelScope.launch {
@@ -473,6 +480,7 @@ open class LayoutSettingsViewModel @Inject constructor(
             is LayoutSettingsEvent.SetExtraTabLogoIndex -> setExtraTabLogoIndex(event.index)
             is LayoutSettingsEvent.SetSearchIncludeExtraTab -> setSearchIncludeExtraTab(event.enabled)
             is LayoutSettingsEvent.SetSearchIncludeAnimeTab -> setSearchIncludeAnimeTab(event.enabled)
+            is LayoutSettingsEvent.SetFluidModeEnabled -> setFluidModeEnabled(event.enabled)
             LayoutSettingsEvent.ResetPosterCardStyle -> resetPosterCardStyle()
             LayoutSettingsEvent.ResetCardDepthStyle -> resetCardDepthStyle()
         }
@@ -747,6 +755,13 @@ open class LayoutSettingsViewModel @Inject constructor(
         if (_uiState.value.blurUnwatchedEpisodes == enabled) return
         viewModelScope.launch {
             layoutPreferenceDataStore.setBlurUnwatchedEpisodes(enabled)
+        }
+    }
+
+    private fun setFluidModeEnabled(enabled: Boolean) {
+        if (_uiState.value.fluidModeEnabled == enabled) return
+        viewModelScope.launch {
+            layoutPreferenceDataStore.setFluidModeEnabled(enabled)
         }
     }
 

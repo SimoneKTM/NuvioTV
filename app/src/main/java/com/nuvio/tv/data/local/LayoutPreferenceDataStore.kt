@@ -112,6 +112,8 @@ class LayoutPreferenceDataStore @Inject constructor(
     private val showFullReleaseDateKey = booleanPreferencesKey("show_full_release_date")
     private val smoothBringIntoViewEnabledKey = booleanPreferencesKey("smooth_bring_into_view_enabled")
     private val fastHorizontalNavigationEnabledKey = booleanPreferencesKey("fast_horizontal_navigation_enabled")
+
+    private val fluidModeEnabledKey = booleanPreferencesKey("fluid_mode_enabled")
     private val followAddonsOrderKey = booleanPreferencesKey("follow_addons_order")
     private val composeHighlighterEnabledKey = booleanPreferencesKey("compose_highlighter_enabled")
     private val animeTabVisibleKey = booleanPreferencesKey("anime_tab_visible")
@@ -383,6 +385,10 @@ class LayoutPreferenceDataStore @Inject constructor(
         prefs[fastHorizontalNavigationEnabledKey] ?: false
     }
 
+    val fluidModeEnabled: Flow<Boolean> = profileFlow { prefs ->
+        prefs[fluidModeEnabledKey] ?: false
+    }
+
     val followAddonsOrder: Flow<Boolean> = effectiveCatalogFlow { prefs ->
         prefs[followAddonsOrderKey] ?: false
     }
@@ -435,6 +441,23 @@ class LayoutPreferenceDataStore @Inject constructor(
 
     suspend fun setFastHorizontalNavigationEnabled(enabled: Boolean) {
         store().edit { prefs ->
+            prefs[fastHorizontalNavigationEnabledKey] = enabled
+        }
+    }
+
+    /**
+     * One-touch preset for slow devices: turns off every GPU-heavy effect
+     * (blurs, poster expansion, trailer preview) and speeds up D-pad repeat.
+     * Turning it off restores the corresponding defaults.
+     */
+    suspend fun setFluidModeEnabled(enabled: Boolean) {
+        store().edit { prefs ->
+            prefs[fluidModeEnabledKey] = enabled
+            prefs[modernSidebarBlurEnabledKey] = false
+            prefs[focusedPosterBackdropExpandEnabledKey] = !enabled
+            prefs[focusedPosterBackdropTrailerEnabledKey] = false
+            prefs[blurUnwatchedEpisodesKey] = false
+            prefs[blurContinueWatchingNextUpKey] = false
             prefs[fastHorizontalNavigationEnabledKey] = enabled
         }
     }

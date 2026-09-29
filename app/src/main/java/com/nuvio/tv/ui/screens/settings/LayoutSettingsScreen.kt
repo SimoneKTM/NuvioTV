@@ -235,6 +235,21 @@ fun LayoutSettingsContent(
             contentPadding = PaddingValues(bottom = 18.dp),
             verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
         ) {
+            item(key = "fluid_mode") {
+                SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
+                    SettingsToggleRow(
+                        title = stringResource(R.string.layout_fluid_mode),
+                        subtitle = stringResource(R.string.layout_fluid_mode_sub),
+                        checked = uiState.fluidModeEnabled,
+                        onToggle = {
+                            viewModel.onEvent(
+                                LayoutSettingsEvent.SetFluidModeEnabled(!uiState.fluidModeEnabled)
+                            )
+                        }
+                    )
+                }
+            }
+
             item(key = "home_layout_section") {
                 CollapsibleSectionCard(
                     title = stringResource(

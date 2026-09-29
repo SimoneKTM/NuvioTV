@@ -204,7 +204,7 @@ val LocalSidebarExpanded = compositionLocalOf { false }
 val LocalContentFocusRequester = compositionLocalOf { FocusRequester.Default }
 
 private const val SIDEBAR_AUTO_COLLAPSE_DELAY_MS = 4_000L
-private const val MIN_STARTUP_SPLASH_MS = 5_000L
+private const val MIN_STARTUP_SPLASH_MS = 3_000L
 private const val MIN_POST_PROFILE_LOADING_MS = 600L
 
 /**

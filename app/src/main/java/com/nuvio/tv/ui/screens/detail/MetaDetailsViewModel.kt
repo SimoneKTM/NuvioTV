@@ -1083,6 +1083,38 @@ class MetaDetailsViewModel @Inject constructor(
         loadEpisodeRatingsAsync(enriched)
         viewModelScope.launch { loadMDBListRatings(enriched) }
         viewModelScope.launch { loadAwards(enriched) }
+
+        // Translate after paint: the detail shows original texts immediately and
+        // swaps in translations when ML Kit finishes — a model download on slow
+        // sticks can otherwise block the first paint for tens of seconds.
+        viewModelScope.launch {
+            val language = activeTmdbSettingsDataStore.settings.first().language
+            val translated = translateMetaTexts(enriched, language)
+            if (translated === enriched) return@launch
+            _uiState.update { state ->
+                val current = state.meta
+                if (current?.id != enriched.id) return@update state
+                val mergedVideos = if (current.videos.size == translated.videos.size) {
+                    current.videos.mapIndexed { index, video ->
+                        val incoming = translated.videos[index]
+                        if (incoming.season == video.season && incoming.episode == video.episode) {
+                            video.copy(overview = incoming.overview)
+                        } else {
+                            video
+                        }
+                    }
+                } else {
+                    current.videos
+                }
+                state.copy(
+                    meta = current.copy(
+                        description = translated.description ?: current.description,
+                        videos = mergedVideos
+                    ),
+                    episodesForSeason = getEpisodesForSeason(mergedVideos, state.selectedSeason)
+                )
+            }
+        }
     }
 
     private fun loadComments(meta: Meta, forceRefresh: Boolean = false) {
@@ -1607,7 +1639,7 @@ class MetaDetailsViewModel @Inject constructor(
         val settings = activeTmdbSettingsDataStore.settings.first()
         if (!settings.enabled) {
             fetchTmdbRatingOnly(meta)
-            return translateMetaTexts(enrichSeriesWithTvdb(meta), settings.language)
+            return enrichSeriesWithTvdb(meta)
         }
 
         val tmdbContentType = resolveTmdbContentType(meta)
@@ -1616,7 +1648,7 @@ class MetaDetailsViewModel @Inject constructor(
             ?: tmdbService.ensureTmdbId(itemId, itemType)
         if (tmdbId == null) {
             // TMDB ID resolution failed — TVDB must still run independently.
-            return translateMetaTexts(enrichSeriesWithTvdb(meta), settings.language)
+            return enrichSeriesWithTvdb(meta)
         }
 
         val isSeries = meta.apiType in listOf("series", "tv")
@@ -1750,7 +1782,7 @@ class MetaDetailsViewModel @Inject constructor(
             loadCollectionAsync(enrichment.collectionId, enrichment.collectionName, settings)
         }
 
-        return translateMetaTexts(enrichSeriesWithTvdb(updated), settings.language)
+        return enrichSeriesWithTvdb(updated)
     }
 
     private suspend fun translateMetaTexts(meta: Meta, targetLanguage: String): Meta {

@@ -618,6 +618,8 @@
 <string name="layout_section_anime_content_desc">Opzioni di elenco per la scheda Anime</string>
 <string name="layout_landscape_posters">Locandine Orizzontali</string>
 <string name="layout_landscape_posters_sub">Passa tra schede verticali e orizzontali per la vista Moderna.</string>
+<string name="layout_fluid_mode">Modalità Fluida</string>
+<string name="layout_fluid_mode_sub">Disattiva sfocature, espansione locandine e anteprime trailer, e velocizza la navigazione. Consigliata su dispositivi più lenti.</string>
 <string name="layout_preview_row">Mostra riga di anteprima</string>
 <string name="layout_preview_row_sub">Mostra un\'anteprima parziale della riga sottostante nel layout Home Moderno.</string>
 <string name="layout_hero_catalogs">Cataloghi Hero</string>
