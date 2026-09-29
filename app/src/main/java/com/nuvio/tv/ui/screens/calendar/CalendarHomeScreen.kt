@@ -1,1 +1,751 @@
-package com.nuvio.tv.ui.screens.calendar\n\nimport androidx.activity.compose.BackHandler\nimport androidx.compose.animation.core.animateDpAsState\nimport androidx.compose.animation.core.animateFloatAsState\nimport androidx.compose.foundation.BorderStroke\nimport androidx.compose.foundation.ExperimentalFoundationApi\nimport androidx.compose.foundation.background\nimport androidx.compose.foundation.border\nimport androidx.compose.foundation.focusable\nimport androidx.compose.foundation.focusGroup\nimport androidx.compose.foundation.layout.Arrangement\nimport androidx.compose.foundation.layout.Box\nimport androidx.compose.foundation.layout.Column\nimport androidx.compose.foundation.layout.PaddingValues\nimport androidx.compose.foundation.layout.Row\nimport androidx.compose.foundation.layout.Spacer\nimport androidx.compose.foundation.layout.fillMaxSize\nimport androidx.compose.foundation.layout.fillMaxWidth\nimport androidx.compose.foundation.layout.height\nimport androidx.compose.foundation.layout.padding\nimport androidx.compose.foundation.layout.width\nimport androidx.compose.foundation.lazy.LazyColumn\nimport androidx.compose.foundation.lazy.LazyRow\nimport androidx.compose.foundation.lazy.itemsIndexed\nimport androidx.compose.foundation.lazy.rememberLazyListState\nimport androidx.compose.foundation.shape.RoundedCornerShape\nimport androidx.compose.runtime.Composable\nimport androidx.compose.runtime.LaunchedEffect\nimport androidx.compose.runtime.getValue\nimport androidx.compose.runtime.mutableIntStateOf\nimport androidx.compose.runtime.mutableStateOf\nimport androidx.compose.runtime.remember\nimport androidx.compose.runtime.saveable.rememberSaveable\nimport androidx.compose.runtime.setValue\nimport androidx.compose.ui.Alignment\nimport androidx.compose.ui.Modifier\nimport androidx.compose.ui.draw.clip\nimport androidx.compose.ui.focus.FocusRequester\nimport androidx.compose.ui.focus.focusRequester\nimport androidx.compose.ui.focus.focusRestorer\nimport androidx.compose.ui.focus.onFocusChanged\nimport androidx.compose.ui.graphics.Brush\nimport androidx.compose.ui.graphics.Color\nimport androidx.compose.ui.input.key.Key\nimport androidx.compose.ui.input.key.KeyEventType\nimport androidx.compose.ui.input.key.key\nimport androidx.compose.ui.input.key.onPreviewKeyEvent\nimport androidx.compose.ui.input.key.type\nimport androidx.compose.ui.layout.ContentScale\nimport androidx.compose.ui.platform.LocalContext\nimport androidx.compose.ui.res.stringResource\nimport androidx.compose.ui.text.font.FontWeight\nimport androidx.compose.ui.text.style.TextOverflow\nimport androidx.compose.ui.unit.dp\nimport androidx.compose.ui.zIndex\nimport androidx.hilt.navigation.compose.hiltViewModel\nimport androidx.lifecycle.compose.collectAsStateWithLifecycle\nimport androidx.tv.material3.Border\nimport androidx.tv.material3.Card as TvCard\nimport androidx.tv.material3.CardDefaults\nimport androidx.tv.material3.ExperimentalTvMaterial3Api\nimport androidx.tv.material3.MaterialTheme\nimport androidx.tv.material3.Text\nimport coil3.compose.AsyncImage\nimport coil3.request.CachePolicy\nimport coil3.request.ImageRequest\nimport coil3.request.crossfade\nimport com.nuvio.tv.R\nimport com.nuvio.tv.domain.model.CalendarSection\nimport com.nuvio.tv.domain.model.MetaPreview\nimport com.nuvio.tv.ui.components.GlassPanel\nimport com.nuvio.tv.ui.components.LoadingIndicator\nimport com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames\nimport com.nuvio.tv.ui.screens.home.HeroBackdropState\nimport com.nuvio.tv.ui.theme.NuvioTheme\nimport com.nuvio.tv.ui.util.localizedContentType\nimport com.nuvio.tv.ui.util.localizedGenreLabel\nimport java.time.format.DateTimeFormatter\nimport java.util.Locale\nimport kotlinx.coroutines.delay\n\nprivate val HERO_HEIGHT = 380.dp\nprivate val SECTION_PADDING_HORIZONTAL = 48.dp\n\n/** The hero rotates through at most this many backdrops. */\nprivate const val HERO_MAX_SLIDES = 10\n\n@OptIn(ExperimentalTvMaterial3Api::class)\n@Composable\nfun CalendarHomeScreen(\n    onBackPress: () -> Unit,\n    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit,\n    viewModel: CalendarHomeViewModel = hiltViewModel()\n) {\n    BackHandler { onBackPress() }\n\n    val uiState by viewModel.uiState.collectAsStateWithLifecycle()\n    val firstCardFocusRequester = remember { FocusRequester() }\n\n    // Error/empty must be reachable: only show the spinner while loading with\n    // nothing to display yet (previous logic hid both states forever).\n    val showContent = uiState.sections.isNotEmpty()\n    val showSpinner = uiState.isLoading && !showContent\n    val showError = !showSpinner && !showContent && uiState.error != null\n    val showEmpty = !showSpinner && !showError && !showContent && uiState.hasLoaded\n\n    Box(\n        modifier = Modifier\n            .fillMaxSize()\n            .background(NuvioTheme.colors.Background)\n    ) {\n        when {\n            showSpinner -> {\n                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {\n                    LoadingIndicator()\n                }\n            }\n            showError -> {\n                CalendarMessageState(\n                    title = stringResource(R.string.calendar_error),\n                    subtitle = uiState.error ?: "",\n                    onRetry = { viewModel.onEvent(CalendarHomeEvent.OnRetry) },\n                    focusRequester = firstCardFocusRequester\n                )\n            }\n            showEmpty -> {\n                CalendarMessageState(\n                    title = stringResource(R.string.calendar_empty_title),\n                    subtitle = stringResource(R.string.calendar_empty_subtitle),\n                    onRetry = { viewModel.onEvent(CalendarHomeEvent.OnRetry) },\n                    focusRequester = firstCardFocusRequester\n                )\n            }\n            else -> {\n                val firstSection = uiState.sections.firstOrNull()\n\n                LazyColumn(\n                    modifier = Modifier.fillMaxSize(),\n                    contentPadding = PaddingValues(bottom = 160.dp)\n                ) {\n                    if (firstSection != null) {\n                        item(key = "hero_header") {\n                            CalendarHeroSection(\n                                section = firstSection,\n                                onNavigateToDetail = onNavigateToDetail,\n                                initialFocusRequester = firstCardFocusRequester\n                            )\n                        }\n                    }\n\n                    itemsIndexed(\n                        items = uiState.sections,\n                        key = { _, section -> section.label }\n                    ) { _, section ->\n                        CalendarSection(\n                            section = section,\n                            onNavigateToDetail = onNavigateToDetail\n                        )\n                    }\n                }\n            }\n        }\n    }\n}\n\n@OptIn(ExperimentalTvMaterial3Api::class)\n@Composable\nprivate fun CalendarMessageState(\n    title: String,\n    subtitle: String,\n    onRetry: () -> Unit,\n    focusRequester: FocusRequester\n) {\n    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {\n        Column(horizontalAlignment = Alignment.CenterHorizontally) {\n            Text(\n                text = title,\n                style = MaterialTheme.typography.headlineSmall,\n                color = NuvioTheme.colors.TextPrimary\n            )\n            Spacer(modifier = Modifier.height(8.dp))\n            Text(\n                text = subtitle,\n                style = MaterialTheme.typography.bodyMedium,\n                color = NuvioTheme.colors.TextSecondary\n            )\n            Spacer(modifier = Modifier.height(16.dp))\n            TvCard(\n                onClick = onRetry,\n                modifier = Modifier.focusRequester(focusRequester),\n                shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),\n                colors = CardDefaults.colors(\n                    containerColor = NuvioTheme.colors.Secondary,\n                    focusedContainerColor = NuvioTheme.colors.Secondary\n                ),\n                border = CardDefaults.border(\n                    focusedBorder = Border(\n                        border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),\n                        shape = RoundedCornerShape(8.dp)\n                    )\n                )\n            ) {\n                Text(\n                    text = stringResource(R.string.action_retry),\n                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),\n                    style = MaterialTheme.typography.bodyMedium,\n                    fontWeight = FontWeight.Bold,\n                    color = Color.White\n                )\n            }\n            LaunchedEffect(Unit) {\n                delay(50)\n                runCatching { focusRequester.requestFocusAfterFrames(2) }\n            }\n        }\n    }\n}\n\n@OptIn(ExperimentalFoundationApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)\n@Composable\nprivate fun CalendarHeroSection(\n    section: CalendarSection,\n    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit,\n    initialFocusRequester: FocusRequester? = null\n) {\n    val firstItem = section.items.firstOrNull() ?: return\n    var displayedIndex by rememberSaveable(section.label) { mutableIntStateOf(0) }\n    var isHeroFocused by remember { mutableStateOf(false) }\n    // Only titles with logo + backdrop + synopsis rotate in the hero; the\n    // rest stay exclusively in the poster cards below.\n    val heroItems = section.items\n    val heroCandidateIndexes = remember(section) {\n        heroItems.indices.filter { index ->\n            val item = heroItems[index]\n            item.meta.logo != null &&\n                item.meta.backdropUrl != null &&\n                !item.meta.description.isNullOrBlank()\n        }.take(HERO_MAX_SLIDES)\n    }\n    LaunchedEffect(section.label, heroItems.size, heroCandidateIndexes.size) {\n        if (displayedIndex !in heroItems.indices) {\n            displayedIndex = 0\n        }\n        if (displayedIndex !in heroCandidateIndexes && heroCandidateIndexes.isNotEmpty()) {\n            displayedIndex = heroCandidateIndexes.first()\n        }\n    }\n    val displayedItem = heroItems.getOrNull(displayedIndex) ?: firstItem\n\n    // Keep Detail's hero backdrop in sync with the calendar hero so back/nav\n    // does not inherit a stale Home backdrop.\n    LaunchedEffect(displayedItem.meta.backdropUrl) {\n        HeroBackdropState.update(displayedItem.meta.backdropUrl)\n    }\n\n    // Autonomous slideshow: independent from any focus/scroll state.\n    LaunchedEffect(heroCandidateIndexes) {\n        if (heroCandidateIndexes.size <= 1) return@LaunchedEffect\n        while (true) {\n            delay(10000L)\n            val next = heroCandidateIndexes.firstOrNull { it > displayedIndex }\n                ?: heroCandidateIndexes.first()\n            displayedIndex = next\n        }\n    }\n\n    // Initial focus lands on the hero itself (top of the list): on compact or\n    // zoomed TV viewports, focusing a poster below triggered a bring-into-view\n    // scroll that pushed the whole hero off-screen (Fire Stick).\n    LaunchedEffect(initialFocusRequester) {\n        if (initialFocusRequester != null) {\n            delay(50)\n            runCatching { initialFocusRequester.requestFocusAfterFrames(2) }\n        }\n    }\n\n    Column(modifier = Modifier.fillMaxWidth()) {\n        Box(\n            modifier = Modifier\n                .fillMaxWidth()\n                .height(HERO_HEIGHT)\n                .padding(horizontal = SECTION_PADDING_HORIZONTAL)\n                .clip(RoundedCornerShape(20.dp))\n                .then(\n                    if (initialFocusRequester != null) Modifier.focusRequester(initialFocusRequester)\n                    else Modifier\n                )\n                .focusable()\n                .onFocusChanged {\n                    isHeroFocused = it.isFocused\n                    if (it.isFocused) {\n                        HeroBackdropState.update(displayedItem.meta.backdropUrl)\n                    }\n                }\n                .onPreviewKeyEvent { event ->\n                    if (event.type == KeyEventType.KeyUp &&\n                        (event.key == Key.DirectionCenter || event.key == Key.Enter)\n                    ) {\n                        onNavigateToDetail(\n                            displayedItem.meta.id,\n                            displayedItem.meta.apiType,\n                            displayedItem.meta.sourceAddonBaseUrl?.takeIf { it.isNotBlank() }\n                        )\n                        true\n                    } else {\n                        false\n                    }\n                }\n        ) {\n            if (displayedItem.meta.backdropUrl != null) {\n                AsyncImage(\n                    model = ImageRequest.Builder(LocalContext.current)\n                        .data(displayedItem.meta.backdropUrl)\n                        .crossfade(true)\n                        .memoryCachePolicy(CachePolicy.ENABLED)\n                        .diskCachePolicy(CachePolicy.ENABLED)\n                        .build(),\n                    contentDescription = displayedItem.meta.name,\n                    contentScale = ContentScale.Crop,\n                    modifier = Modifier.fillMaxSize()\n                )\n            } else {\n                Box(\n                    modifier = Modifier\n                        .fillMaxSize()\n                        .background(\n                            Brush.verticalGradient(\n                                colors = listOf(\n                                    NuvioTheme.colors.Secondary.copy(alpha = 0.3f),\n                                    NuvioTheme.colors.Background\n                                )\n                            )\n                        )\n                )\n            }\n\n            Box(\n                modifier = Modifier\n                    .fillMaxSize()\n                    .background(\n                        Brush.verticalGradient(\n                            colors = listOf(\n                                Color.Black.copy(alpha = 0.3f),\n                                Color.Transparent,\n                                NuvioTheme.colors.Background.copy(alpha = 0.6f),\n                                NuvioTheme.colors.Background\n                            )\n                        )\n                    )\n            )\n\n            Box(\n                modifier = Modifier\n                    .fillMaxSize()\n                    .background(\n                        Brush.horizontalGradient(\n                            colors = listOf(\n                                NuvioTheme.colors.Background.copy(alpha = 0.7f),\n                                Color.Transparent\n                            )\n                        )\n                    )\n            )\n\n            GlassPanel(\n                modifier = Modifier\n                    .align(Alignment.BottomStart)\n                    .padding(start = 24.dp, end = 24.dp, bottom = 16.dp)\n                    .fillMaxWidth(0.55f)\n            ) {\n                displayedItem.meta.logo?.let { logoUrl ->\n                    var logoLoadFailed by remember(logoUrl) { mutableStateOf(false) }\n                    if (!logoLoadFailed) {\n                        AsyncImage(\n                            model = ImageRequest.Builder(LocalContext.current)\n                                .data(logoUrl)\n                                .crossfade(true)\n                                .build(),\n                            contentDescription = displayedItem.meta.name,\n                            onError = { logoLoadFailed = true },\n                            modifier = Modifier\n                                .height(80.dp)\n                                .fillMaxWidth(),\n                            contentScale = ContentScale.Fit,\n                            alignment = Alignment.CenterStart\n                        )\n                    } else {\n                        Text(\n                            text = displayedItem.meta.name,\n                            style = MaterialTheme.typography.headlineLarge,\n                            color = Color.White,\n                            maxLines = 2,\n                            overflow = TextOverflow.Ellipsis\n                        )\n                    }\n                } ?: run {\n                    Row(verticalAlignment = Alignment.CenterVertically) {\n                        Text(\n                            text = displayedItem.meta.name,\n                            style = MaterialTheme.typography.headlineLarge,\n                            fontWeight = FontWeight.Bold,\n                            color = Color.White,\n                            maxLines = 2,\n                            overflow = TextOverflow.Ellipsis,\n                            modifier = Modifier.weight(1f, fill = false)\n                        )\n                        Spacer(modifier = Modifier.width(12.dp))\n                        SectionBadge(count = section.items.size)\n                    }\n                }\n\n                Spacer(modifier = Modifier.height(6.dp))\n\n                val focusedTypeLabel = localizedContentType(displayedItem.meta.rawType)\n\n                Row(\n                    horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),\n                    verticalAlignment = Alignment.CenterVertically\n                ) {\n                    displayedItem.meta.imdbRating?.let { rating ->\n                        Row(\n                            verticalAlignment = Alignment.CenterVertically,\n                            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)\n                        ) {\n                            Text(\n                                text = "\u2605",\n                                style = MaterialTheme.typography.labelLarge,\n                                color = NuvioTheme.colors.Secondary\n                            )\n                            val ratingText = remember(rating) { String.format(Locale.US, "%.1f", rating) }\n                            Text(\n                                text = ratingText,\n                                style = MaterialTheme.typography.labelLarge,\n                                color = Color.White.copy(alpha = 0.8f)\n                            )\n                        }\n                    }\n\n                    val releaseYear = remember(displayedItem.meta.releaseInfo) {\n                        displayedItem.meta.releaseInfo?.let { releaseInfo ->\n                            releaseInfo.split("-").firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }\n                        }\n                    }\n                    releaseYear?.let { year ->\n                        Text(\n                            text = year,\n                            style = MaterialTheme.typography.labelLarge,\n                            color = Color.White.copy(alpha = 0.8f)\n                        )\n                    }\n\n                    Text(\n                        text = focusedTypeLabel,\n                        style = MaterialTheme.typography.labelLarge,\n                        color = Color.White.copy(alpha = 0.8f)\n                    )\n                }\n\n                val episodeChip = displayedItem.episodeLabel?.takeIf { it.isNotBlank() }\n                if (episodeChip != null || displayedItem.meta.genres.isNotEmpty()) {\n                    Spacer(modifier = Modifier.height(6.dp))\n                    Row(\n                        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)\n                    ) {\n                        episodeChip?.let { label ->\n                            Text(\n                                text = label,\n                                style = MaterialTheme.typography.labelMedium,\n                                color = Color.White.copy(alpha = 0.9f),\n                                modifier = Modifier\n                                    .clip(RoundedCornerShape(NuvioTheme.radii.xs))\n                                    .background(Color.White.copy(alpha = 0.18f))\n                                    .padding(horizontal = NuvioTheme.spacing.sm, vertical = NuvioTheme.spacing.xs)\n                            )\n                        }\n                        displayedItem.meta.genres.take(3).forEach { genre ->\n                            Text(\n                                text = localizedGenreLabel(genre),\n                                style = MaterialTheme.typography.labelMedium,\n                                color = Color.White.copy(alpha = 0.7f),\n                                modifier = Modifier\n                                    .clip(RoundedCornerShape(NuvioTheme.radii.xs))\n                                    .background(Color.White.copy(alpha = 0.1f))\n                                    .padding(horizontal = NuvioTheme.spacing.sm, vertical = NuvioTheme.spacing.xs)\n                            )\n                        }\n                    }\n                }\n\n                val synopsis = displayedItem.meta.description\n                    ?.takeIf { it.isNotBlank() && it != displayedItem.episodeLabel }\n                synopsis?.let { desc ->\n                    Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))\n                    Text(\n                        text = desc,\n                        style = MaterialTheme.typography.bodyMedium,\n                        color = Color.White.copy(alpha = 0.7f),\n                        maxLines = 3,\n                        overflow = TextOverflow.Ellipsis\n                    )\n                }\n            }\n\n            // Progress dots: one per hero slide, animated on each rotation.\n            if (heroCandidateIndexes.isNotEmpty()) {\n                val activeDot = heroCandidateIndexes\n                    .indexOf(displayedIndex)\n                    .coerceAtLeast(0)\n                Column(\n                    modifier = Modifier\n                        .align(Alignment.CenterEnd)\n                        .padding(end = 20.dp),\n                    verticalArrangement = Arrangement.spacedBy(8.dp),\n                    horizontalAlignment = Alignment.CenterHorizontally\n                ) {\n                    heroCandidateIndexes.forEachIndexed { dotIndex, _ ->\n                        val isActive = dotIndex == activeDot\n                        val dotWidth by animateDpAsState(\n                            targetValue = if (isActive) 14.dp else 6.dp,\n                            label = "heroDotWidth"\n                        )\n                        val dotAlpha by animateFloatAsState(\n                            targetValue = if (isActive) 0.95f else 0.4f,\n                            label = "heroDotAlpha"\n                        )\n                        Box(\n                            modifier = Modifier\n                                .width(dotWidth)\n                                .height(6.dp)\n                                .clip(RoundedCornerShape(3.dp))\n                                .background(Color.White.copy(alpha = dotAlpha))\n                        )\n                    }\n                }\n            }\n\n            if (isHeroFocused) {\n                Box(\n                    modifier = Modifier\n                        .matchParentSize()\n                        .border(2.dp, NuvioTheme.colors.FocusRing, RoundedCornerShape(20.dp))\n                )\n            }\n        }\n    }\n}\n\n@OptIn(ExperimentalFoundationApi::class, ExperimentalTvMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)\n@Composable\nprivate fun CalendarSection(\n    section: CalendarSection,\n    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit\n) {\n    val rowState = rememberLazyListState()\n    val firstPosterRequester = remember(section.label) { FocusRequester() }\n\n    Column(\n        modifier = Modifier\n            .fillMaxWidth()\n            .padding(top = 40.dp)\n    ) {\n        Box(\n            modifier = Modifier\n                .fillMaxWidth()\n                .zIndex(1f)\n        ) {\n            Row(\n                modifier = Modifier\n                    .fillMaxWidth()\n                    .background(NuvioTheme.colors.Background)\n                    .padding(horizontal = SECTION_PADDING_HORIZONTAL, vertical = 4.dp),\n                verticalAlignment = Alignment.CenterVertically,\n                horizontalArrangement = Arrangement.SpaceBetween\n            ) {\n                Text(\n                    text = section.label,\n                    style = MaterialTheme.typography.titleLarge,\n                    fontWeight = FontWeight.SemiBold,\n                    color = NuvioTheme.colors.TextPrimary\n                )\n                SectionBadge(count = section.items.size)\n            }\n        }\n\n        Spacer(modifier = Modifier.height(16.dp))\n\n        LazyRow(\n            state = rowState,\n            contentPadding = PaddingValues(horizontal = SECTION_PADDING_HORIZONTAL),\n            horizontalArrangement = Arrangement.spacedBy(20.dp),\n            modifier = Modifier\n                .focusGroup()\n                .focusRestorer { firstPosterRequester }\n        ) {\n            itemsIndexed(\n                items = section.items,\n                key = { _, it -> "${it.meta.id}:${it.releaseDate}:${it.episodeLabel ?: ""}" }\n            ) { index, calendarItem ->\n                CalendarPortraitCard(\n                    meta = calendarItem.meta,\n                    releaseDate = calendarItem.releaseDate,\n                    notInCatalog = calendarItem.notInCatalog,\n                    onClick = {\n                        onNavigateToDetail(\n                            calendarItem.meta.id,\n                            calendarItem.meta.apiType,\n                            calendarItem.meta.sourceAddonBaseUrl?.takeIf { it.isNotBlank() }\n                        )\n                    },\n                    focusRequester = if (index == 0) firstPosterRequester else null\n                )\n            }\n        }\n    }\n}\n\n@Composable\nprivate fun SectionBadge(count: Int) {\n    Box(\n        modifier = Modifier\n            .clip(RoundedCornerShape(6.dp))\n            .background(NuvioTheme.colors.Secondary.copy(alpha = 0.2f))\n            .padding(horizontal = 8.dp, vertical = 2.dp)\n    ) {\n        Text(\n            text = "$count",\n            style = MaterialTheme.typography.labelSmall,\n            fontWeight = FontWeight.Bold,\n            color = NuvioTheme.colors.Secondary\n        )\n    }\n}\n\n@OptIn(ExperimentalTvMaterial3Api::class)\n@Composable\nprivate fun CalendarPortraitCard(\n    meta: MetaPreview,\n    releaseDate: java.time.LocalDate?,\n    notInCatalog: Boolean = false,\n    onClick: () -> Unit,\n    focusRequester: FocusRequester? = null\n) {\n    var isFocused by remember { mutableStateOf(false) }\n    val dateLabel = remember(releaseDate) {\n        releaseDate?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.getDefault())) ?: ""\n    }\n    val cardShape = RoundedCornerShape(12.dp)\n    val cardWidth = 140.dp\n    val cardHeight = 210.dp\n\n    TvCard(\n        onClick = onClick,\n        modifier = Modifier\n            .width(cardWidth)\n            .height(cardHeight)\n            .then(\n                if (focusRequester != null) Modifier.focusRequester(focusRequester)\n                else Modifier\n            )\n            .onFocusChanged {\n                isFocused = it.isFocused\n                if (it.isFocused) {\n                    HeroBackdropState.update(meta.backdropUrl)\n                }\n            },\n        shape = CardDefaults.shape(shape = cardShape),\n        colors = CardDefaults.colors(\n            containerColor = NuvioTheme.colors.BackgroundCard,\n            focusedContainerColor = NuvioTheme.colors.BackgroundCard\n        ),\n        border = CardDefaults.border(\n            focusedBorder = Border(\n                border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),\n                shape = cardShape\n            )\n        ),\n        scale = CardDefaults.scale(focusedScale = 1f)\n    ) {\n        Box(\n            modifier = Modifier\n                .fillMaxSize()\n                .clip(cardShape)\n        ) {\n            if (meta.poster != null) {\n                AsyncImage(\n                    model = ImageRequest.Builder(LocalContext.current)\n                        .data(meta.poster)\n                        .crossfade(true)\n                        .memoryCachePolicy(CachePolicy.ENABLED)\n                        .diskCachePolicy(CachePolicy.ENABLED)\n                        .build(),\n                    contentDescription = meta.name,\n                    contentScale = ContentScale.Crop,\n                    modifier = Modifier.fillMaxSize()\n                )\n            } else {\n                Box(\n                    modifier = Modifier\n                        .fillMaxSize()\n                        .background(NuvioTheme.colors.BackgroundCard),\n                    contentAlignment = Alignment.Center\n                ) {\n                    Text(\n                        text = meta.name.take(1).uppercase(Locale.getDefault()),\n                        style = MaterialTheme.typography.headlineMedium,\n                        fontWeight = FontWeight.Bold,\n                        color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.3f)\n                    )\n                }\n            }\n\n            if (dateLabel.isNotEmpty()) {\n                Box(\n                    modifier = Modifier\n                        .align(Alignment.TopStart)\n                        .padding(8.dp)\n                        .clip(RoundedCornerShape(4.dp))\n                        .background(Color.Black.copy(alpha = 0.8f))\n                        .padding(horizontal = 8.dp, vertical = 3.dp)\n                ) {\n                    Text(\n                        text = dateLabel,\n                        style = MaterialTheme.typography.labelSmall,\n                        color = Color.White\n                    )\n                }\n            }\n\n            if (notInCatalog) {\n                Box(\n                    modifier = Modifier\n                        .align(Alignment.BottomCenter)\n                        .padding(horizontal = 6.dp, vertical = 6.dp)\n                        .clip(RoundedCornerShape(4.dp))\n                        .background(Color.Black.copy(alpha = 0.8f))\n                        .padding(horizontal = 6.dp, vertical = 3.dp)\n                ) {\n                    Text(\n                        text = stringResource(R.string.calendar_not_in_catalog),\n                        style = MaterialTheme.typography.labelSmall,\n                        fontWeight = FontWeight.Bold,\n                        color = Color.White,\n                        maxLines = 1,\n                        overflow = TextOverflow.Ellipsis\n                    )\n                }\n            }\n        }\n    }\n}\n
+package com.nuvio.tv.ui.screens.calendar
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.tv.material3.Border
+import androidx.tv.material3.Card as TvCard
+import androidx.tv.material3.CardDefaults
+import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
+import coil3.compose.AsyncImage
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
+import coil3.request.crossfade
+import com.nuvio.tv.R
+import com.nuvio.tv.domain.model.CalendarSection
+import com.nuvio.tv.domain.model.MetaPreview
+import com.nuvio.tv.ui.components.GlassPanel
+import com.nuvio.tv.ui.components.LoadingIndicator
+import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
+import com.nuvio.tv.ui.screens.home.HeroBackdropState
+import com.nuvio.tv.ui.theme.NuvioTheme
+import com.nuvio.tv.ui.util.localizedContentType
+import com.nuvio.tv.ui.util.localizedGenreLabel
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlinx.coroutines.delay
+
+private val HERO_HEIGHT = 380.dp
+private val SECTION_PADDING_HORIZONTAL = 48.dp
+
+/** The hero rotates through at most this many backdrops. */
+private const val HERO_MAX_SLIDES = 10
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+fun CalendarHomeScreen(
+    onBackPress: () -> Unit,
+    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit,
+    viewModel: CalendarHomeViewModel = hiltViewModel()
+) {
+    BackHandler { onBackPress() }
+
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val firstCardFocusRequester = remember { FocusRequester() }
+
+    // Error/empty must be reachable: only show the spinner while loading with
+    // nothing to display yet (previous logic hid both states forever).
+    val showContent = uiState.sections.isNotEmpty()
+    val showSpinner = uiState.isLoading && !showContent
+    val showError = !showSpinner && !showContent && uiState.error != null
+    val showEmpty = !showSpinner && !showError && !showContent && uiState.hasLoaded
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(NuvioTheme.colors.Background)
+    ) {
+        when {
+            showSpinner -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    LoadingIndicator()
+                }
+            }
+            showError -> {
+                CalendarMessageState(
+                    title = stringResource(R.string.calendar_error),
+                    subtitle = uiState.error ?: "",
+                    onRetry = { viewModel.onEvent(CalendarHomeEvent.OnRetry) },
+                    focusRequester = firstCardFocusRequester
+                )
+            }
+            showEmpty -> {
+                CalendarMessageState(
+                    title = stringResource(R.string.calendar_empty_title),
+                    subtitle = stringResource(R.string.calendar_empty_subtitle),
+                    onRetry = { viewModel.onEvent(CalendarHomeEvent.OnRetry) },
+                    focusRequester = firstCardFocusRequester
+                )
+            }
+            else -> {
+                val firstSection = uiState.sections.firstOrNull()
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 160.dp)
+                ) {
+                    if (firstSection != null) {
+                        item(key = "hero_header") {
+                            CalendarHeroSection(
+                                section = firstSection,
+                                onNavigateToDetail = onNavigateToDetail,
+                                initialFocusRequester = firstCardFocusRequester
+                            )
+                        }
+                    }
+
+                    itemsIndexed(
+                        items = uiState.sections,
+                        key = { _, section -> section.label }
+                    ) { _, section ->
+                        CalendarSection(
+                            section = section,
+                            onNavigateToDetail = onNavigateToDetail
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun CalendarMessageState(
+    title: String,
+    subtitle: String,
+    onRetry: () -> Unit,
+    focusRequester: FocusRequester
+) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                color = NuvioTheme.colors.TextPrimary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = NuvioTheme.colors.TextSecondary
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            TvCard(
+                onClick = onRetry,
+                modifier = Modifier.focusRequester(focusRequester),
+                shape = CardDefaults.shape(shape = RoundedCornerShape(8.dp)),
+                colors = CardDefaults.colors(
+                    containerColor = NuvioTheme.colors.Secondary,
+                    focusedContainerColor = NuvioTheme.colors.Secondary
+                ),
+                border = CardDefaults.border(
+                    focusedBorder = Border(
+                        border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                )
+            ) {
+                Text(
+                    text = stringResource(R.string.action_retry),
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+            LaunchedEffect(Unit) {
+                delay(50)
+                runCatching { focusRequester.requestFocusAfterFrames(2) }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun CalendarHeroSection(
+    section: CalendarSection,
+    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit,
+    initialFocusRequester: FocusRequester? = null
+) {
+    val firstItem = section.items.firstOrNull() ?: return
+    var displayedIndex by rememberSaveable(section.label) { mutableIntStateOf(0) }
+    var isHeroFocused by remember { mutableStateOf(false) }
+    // Only titles with logo + backdrop + synopsis rotate in the hero; the
+    // rest stay exclusively in the poster cards below.
+    val heroItems = section.items
+    val heroCandidateIndexes = remember(section) {
+        heroItems.indices.filter { index ->
+            val item = heroItems[index]
+            item.meta.logo != null &&
+                item.meta.backdropUrl != null &&
+                !item.meta.description.isNullOrBlank()
+        }.take(HERO_MAX_SLIDES)
+    }
+    LaunchedEffect(section.label, heroItems.size, heroCandidateIndexes.size) {
+        if (displayedIndex !in heroItems.indices) {
+            displayedIndex = 0
+        }
+        if (displayedIndex !in heroCandidateIndexes && heroCandidateIndexes.isNotEmpty()) {
+            displayedIndex = heroCandidateIndexes.first()
+        }
+    }
+    val displayedItem = heroItems.getOrNull(displayedIndex) ?: firstItem
+
+    // Keep Detail's hero backdrop in sync with the calendar hero so back/nav
+    // does not inherit a stale Home backdrop.
+    LaunchedEffect(displayedItem.meta.backdropUrl) {
+        HeroBackdropState.update(displayedItem.meta.backdropUrl)
+    }
+
+    // Autonomous slideshow: independent from any focus/scroll state.
+    LaunchedEffect(heroCandidateIndexes) {
+        if (heroCandidateIndexes.size <= 1) return@LaunchedEffect
+        while (true) {
+            delay(10000L)
+            val next = heroCandidateIndexes.firstOrNull { it > displayedIndex }
+                ?: heroCandidateIndexes.first()
+            displayedIndex = next
+        }
+    }
+
+    // Initial focus lands on the hero itself (top of the list): on compact or
+    // zoomed TV viewports, focusing a poster below triggered a bring-into-view
+    // scroll that pushed the whole hero off-screen (Fire Stick).
+    LaunchedEffect(initialFocusRequester) {
+        if (initialFocusRequester != null) {
+            delay(50)
+            runCatching { initialFocusRequester.requestFocusAfterFrames(2) }
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(HERO_HEIGHT)
+                .padding(horizontal = SECTION_PADDING_HORIZONTAL)
+                .clip(RoundedCornerShape(20.dp))
+                .then(
+                    if (initialFocusRequester != null) Modifier.focusRequester(initialFocusRequester)
+                    else Modifier
+                )
+                .focusable()
+                .onFocusChanged {
+                    isHeroFocused = it.isFocused
+                    if (it.isFocused) {
+                        HeroBackdropState.update(displayedItem.meta.backdropUrl)
+                    }
+                }
+                .onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyUp &&
+                        (event.key == Key.DirectionCenter || event.key == Key.Enter)
+                    ) {
+                        onNavigateToDetail(
+                            displayedItem.meta.id,
+                            displayedItem.meta.apiType,
+                            displayedItem.meta.sourceAddonBaseUrl?.takeIf { it.isNotBlank() }
+                        )
+                        true
+                    } else {
+                        false
+                    }
+                }
+        ) {
+            if (displayedItem.meta.backdropUrl != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(displayedItem.meta.backdropUrl)
+                        .crossfade(true)
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .build(),
+                    contentDescription = displayedItem.meta.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    NuvioTheme.colors.Secondary.copy(alpha = 0.3f),
+                                    NuvioTheme.colors.Background
+                                )
+                            )
+                        )
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Black.copy(alpha = 0.3f),
+                                Color.Transparent,
+                                NuvioTheme.colors.Background.copy(alpha = 0.6f),
+                                NuvioTheme.colors.Background
+                            )
+                        )
+                    )
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                NuvioTheme.colors.Background.copy(alpha = 0.7f),
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+
+            GlassPanel(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 24.dp, end = 24.dp, bottom = 16.dp)
+                    .fillMaxWidth(0.55f)
+            ) {
+                displayedItem.meta.logo?.let { logoUrl ->
+                    var logoLoadFailed by remember(logoUrl) { mutableStateOf(false) }
+                    if (!logoLoadFailed) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(logoUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = displayedItem.meta.name,
+                            onError = { logoLoadFailed = true },
+                            modifier = Modifier
+                                .height(80.dp)
+                                .fillMaxWidth(),
+                            contentScale = ContentScale.Fit,
+                            alignment = Alignment.CenterStart
+                        )
+                    } else {
+                        Text(
+                            text = displayedItem.meta.name,
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = Color.White,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                } ?: run {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = displayedItem.meta.name,
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        SectionBadge(count = section.items.size)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                val focusedTypeLabel = localizedContentType(displayedItem.meta.rawType)
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    displayedItem.meta.imdbRating?.let { rating ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
+                        ) {
+                            Text(
+                                text = "\u2605",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = NuvioTheme.colors.Secondary
+                            )
+                            val ratingText = remember(rating) { String.format(Locale.US, "%.1f", rating) }
+                            Text(
+                                text = ratingText,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+
+                    val releaseYear = remember(displayedItem.meta.releaseInfo) {
+                        displayedItem.meta.releaseInfo?.let { releaseInfo ->
+                            releaseInfo.split("-").firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+                        }
+                    }
+                    releaseYear?.let { year ->
+                        Text(
+                            text = year,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.White.copy(alpha = 0.8f)
+                        )
+                    }
+
+                    Text(
+                        text = focusedTypeLabel,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                }
+
+                val episodeChip = displayedItem.episodeLabel?.takeIf { it.isNotBlank() }
+                if (episodeChip != null || displayedItem.meta.genres.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+                    ) {
+                        episodeChip?.let { label ->
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.9f),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(NuvioTheme.radii.xs))
+                                    .background(Color.White.copy(alpha = 0.18f))
+                                    .padding(horizontal = NuvioTheme.spacing.sm, vertical = NuvioTheme.spacing.xs)
+                            )
+                        }
+                        displayedItem.meta.genres.take(3).forEach { genre ->
+                            Text(
+                                text = localizedGenreLabel(genre),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(NuvioTheme.radii.xs))
+                                    .background(Color.White.copy(alpha = 0.1f))
+                                    .padding(horizontal = NuvioTheme.spacing.sm, vertical = NuvioTheme.spacing.xs)
+                            )
+                        }
+                    }
+                }
+
+                val synopsis = displayedItem.meta.description
+                    ?.takeIf { it.isNotBlank() && it != displayedItem.episodeLabel }
+                synopsis?.let { desc ->
+                    Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
+                    Text(
+                        text = desc,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.7f),
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Progress dots: one per hero slide, animated on each rotation.
+            if (heroCandidateIndexes.isNotEmpty()) {
+                val activeDot = heroCandidateIndexes
+                    .indexOf(displayedIndex)
+                    .coerceAtLeast(0)
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    heroCandidateIndexes.forEachIndexed { dotIndex, _ ->
+                        val isActive = dotIndex == activeDot
+                        val dotWidth by animateDpAsState(
+                            targetValue = if (isActive) 14.dp else 6.dp,
+                            label = "heroDotWidth"
+                        )
+                        val dotAlpha by animateFloatAsState(
+                            targetValue = if (isActive) 0.95f else 0.4f,
+                            label = "heroDotAlpha"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .width(dotWidth)
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(Color.White.copy(alpha = dotAlpha))
+                        )
+                    }
+                }
+            }
+
+            if (isHeroFocused) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .border(2.dp, NuvioTheme.colors.FocusRing, RoundedCornerShape(20.dp))
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalTvMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
+@Composable
+private fun CalendarSection(
+    section: CalendarSection,
+    onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit
+) {
+    val rowState = rememberLazyListState()
+    val firstPosterRequester = remember(section.label) { FocusRequester() }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 40.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .zIndex(1f)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(NuvioTheme.colors.Background)
+                    .padding(horizontal = SECTION_PADDING_HORIZONTAL, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = section.label,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = NuvioTheme.colors.TextPrimary
+                )
+                SectionBadge(count = section.items.size)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        LazyRow(
+            state = rowState,
+            contentPadding = PaddingValues(horizontal = SECTION_PADDING_HORIZONTAL),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier
+                .focusGroup()
+                .focusRestorer { firstPosterRequester }
+        ) {
+            itemsIndexed(
+                items = section.items,
+                key = { _, it -> "${it.meta.id}:${it.releaseDate}:${it.episodeLabel ?: ""}" }
+            ) { index, calendarItem ->
+                CalendarPortraitCard(
+                    meta = calendarItem.meta,
+                    releaseDate = calendarItem.releaseDate,
+                    notInCatalog = calendarItem.notInCatalog,
+                    onClick = {
+                        onNavigateToDetail(
+                            calendarItem.meta.id,
+                            calendarItem.meta.apiType,
+                            calendarItem.meta.sourceAddonBaseUrl?.takeIf { it.isNotBlank() }
+                        )
+                    },
+                    focusRequester = if (index == 0) firstPosterRequester else null
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionBadge(count: Int) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(NuvioTheme.colors.Secondary.copy(alpha = 0.2f))
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+    ) {
+        Text(
+            text = "$count",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = NuvioTheme.colors.Secondary
+        )
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun CalendarPortraitCard(
+    meta: MetaPreview,
+    releaseDate: java.time.LocalDate?,
+    notInCatalog: Boolean = false,
+    onClick: () -> Unit,
+    focusRequester: FocusRequester? = null
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    val dateLabel = remember(releaseDate) {
+        releaseDate?.format(DateTimeFormatter.ofPattern("dd MMM", Locale.getDefault())) ?: ""
+    }
+    val cardShape = RoundedCornerShape(12.dp)
+    val cardWidth = 140.dp
+    val cardHeight = 210.dp
+
+    TvCard(
+        onClick = onClick,
+        modifier = Modifier
+            .width(cardWidth)
+            .height(cardHeight)
+            .then(
+                if (focusRequester != null) Modifier.focusRequester(focusRequester)
+                else Modifier
+            )
+            .onFocusChanged {
+                isFocused = it.isFocused
+                if (it.isFocused) {
+                    HeroBackdropState.update(meta.backdropUrl)
+                }
+            },
+        shape = CardDefaults.shape(shape = cardShape),
+        colors = CardDefaults.colors(
+            containerColor = NuvioTheme.colors.BackgroundCard,
+            focusedContainerColor = NuvioTheme.colors.BackgroundCard
+        ),
+        border = CardDefaults.border(
+            focusedBorder = Border(
+                border = BorderStroke(2.dp, NuvioTheme.colors.FocusRing),
+                shape = cardShape
+            )
+        ),
+        scale = CardDefaults.scale(focusedScale = 1f)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(cardShape)
+        ) {
+            if (meta.poster != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(meta.poster)
+                        .crossfade(true)
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .build(),
+                    contentDescription = meta.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(NuvioTheme.colors.BackgroundCard),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = meta.name.take(1).uppercase(Locale.getDefault()),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.3f)
+                    )
+                }
+            }
+
+            if (dateLabel.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.8f))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = dateLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White
+                    )
+                }
+            }
+
+            if (notInCatalog) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 6.dp, vertical = 6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.8f))
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.calendar_not_in_catalog),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
