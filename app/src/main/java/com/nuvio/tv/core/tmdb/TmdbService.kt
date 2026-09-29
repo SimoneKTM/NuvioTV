@@ -152,7 +152,15 @@ class TmdbService @Inject constructor(
             val response = when (normalizedType) {
                 "movie" -> tmdbApi.getMovieExternalIds(tmdbId, TMDB_API_KEY)
                 "tv", "series" -> tmdbApi.getTvExternalIds(tmdbId, TMDB_API_KEY)
-                else -> tmdbApi.getMovieExternalIds(tmdbId, TMDB_API_KEY)
+                else -> {
+                    // Unknown type: do NOT guess the movie endpoint. TMDB movie
+                    // and TV ids are separate id spaces, so the numeric id would
+                    // resolve an unrelated movie and the detail screen would
+                    // open the wrong title. No conversion beats a wrong one.
+                    Log.w(TAG, "Skipping TMDB->IMDB conversion for unknown type '$mediaType'")
+                    requestDeferred.complete(null)
+                    return@withContext null
+                }
             }
             
             if (!response.isSuccessful) {
@@ -253,11 +261,7 @@ class TmdbService @Inject constructor(
      * Normalize media type to consistent format
      */
     private fun normalizeMediaType(mediaType: String): String {
-        return when (mediaType.lowercase()) {
-            "series", "tv", "show", "tvshow" -> "tv"
-            "movie", "film" -> "movie"
-            else -> mediaType.lowercase()
-        }
+        return normalizeTmdbMediaType(mediaType)
     }
     
     /**
@@ -312,3 +316,15 @@ class TmdbService @Inject constructor(
 }
 
 data class TmdbImages(val backdropUrl: String?, val posterUrl: String?, val runtimeMinutes: Int? = null)
+
+/**
+ * Maps any addon/UI media type onto TMDB's canonical buckets ("movie"/"tv").
+ * TV-like custom types (anime, episode, sport, live, channel...) must fold to
+ * "tv": routing them to the movie id space returned an unrelated title.
+ */
+internal fun normalizeTmdbMediaType(mediaType: String): String =
+    when (mediaType.trim().lowercase()) {
+        "movie", "film" -> "movie"
+        "series", "tv", "show", "tvshow", "anime", "episode", "sport", "live", "channel" -> "tv"
+        else -> mediaType.trim().lowercase()
+    }
