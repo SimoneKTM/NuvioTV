@@ -54,6 +54,11 @@ object PluginRuntimeHooks {
                     .cookieJar(NuvioApplication.extensionCookieJar)
                     .followRedirects(true)
                     .followSslRedirects(true)
+                    // OkHttp defaults to 10s: too tight for slow addon catalogs on
+                    // low-end sticks (Fire TV), where catalog pages often take longer.
+                    .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                    .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                    .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                     .ignoreAllSSLErrors()
                     .cache(Cache(
                         directory = File(currentApp.cacheDir, "http_cache"),

@@ -4,7 +4,9 @@ import android.util.Log
 import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 import com.nuvio.tv.data.local.ExperienceModeDataStore
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
+import com.nuvio.tv.data.local.TmdbSettingsDataStore
 import com.nuvio.tv.data.repository.TraktTop10Repository
+import com.nuvio.tv.data.translation.MetadataTextTranslator
 import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.domain.repository.CalendarRepository
 import com.nuvio.tv.domain.repository.CatalogRepository
@@ -37,11 +39,13 @@ class StartupHomePreloader @Inject constructor(
     private val traktTop10Repository: TraktTop10Repository,
     private val layoutPreferenceDataStore: LayoutPreferenceDataStore,
     private val experienceModeDataStore: ExperienceModeDataStore,
-    private val cwEnrichmentCache: ContinueWatchingEnrichmentCache
+    private val cwEnrichmentCache: ContinueWatchingEnrichmentCache,
+    private val metadataTextTranslator: MetadataTextTranslator,
+    private val tmdbSettingsDataStore: TmdbSettingsDataStore
 ) {
     companion object {
         private const val TAG = "StartupHomePreloader"
-        private const val PHASE_TIMEOUT_MS = 12_000L
+        private const val PHASE_TIMEOUT_MS = 20_000L
     }
 
     // Warm-ups run on a background-priority thread: on low-end TV sticks the
@@ -64,6 +68,10 @@ class StartupHomePreloader @Inject constructor(
     fun ensureStarted() {
         if (!_started.compareAndSet(expect = false, update = true)) return
 
+        // Fire-and-forget: pre-download the translation model once so the first
+        // detail screen doesn't stall waiting for a multi-MB ML Kit download.
+        scope.launch { warmUpTranslationModel() }
+
         profileWatchJob = scope.launch {
             var lastProfileId = profileManager.activeProfileId.value
             profileManager.activeProfileId.collect { profileId ->
@@ -75,6 +83,15 @@ class StartupHomePreloader @Inject constructor(
             }
         }
         startPreload()
+    }
+
+    private suspend fun warmUpTranslationModel() {
+        runCatching {
+            val language = tmdbSettingsDataStore.settings.first().language
+            metadataTextTranslator.warmUp(language)
+        }.onFailure { e ->
+            Log.w(TAG, "Translation model warm-up failed: ${e.message}")
+        }
     }
 
     private fun startPreload() {

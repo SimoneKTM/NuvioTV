@@ -3,6 +3,7 @@ package com.nuvio.tv
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.KeyEvent
@@ -206,6 +207,13 @@ private const val SIDEBAR_AUTO_COLLAPSE_DELAY_MS = 4_000L
 private const val MIN_STARTUP_SPLASH_MS = 5_000L
 private const val MIN_POST_PROFILE_LOADING_MS = 600L
 
+/**
+ * Density scale that lands a Fire TV stick on the standard ~960dp-wide TV
+ * profile (clamped to [0.5, 1.0]); devices already ≥960dp get 1f (no-op).
+ */
+internal fun fireTvUiDensityScale(widthDp: Int): Float =
+    if (widthDp <= 0) 1f else (widthDp / 960f).coerceIn(0.5f, 1.0f)
+
 data class DrawerItem(
     val route: String,
     val label: String,
@@ -345,18 +353,45 @@ class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
         val tag = LocaleCache.localeTag.takeIf { it != LocaleCache.UNSET }
 
-        if (!tag.isNullOrEmpty()) {
+        val localizedBase = if (!tag.isNullOrEmpty()) {
             val locale = Locale.forLanguageTag(tag)
             Locale.setDefault(locale)
             val config = Configuration(newBase.resources.configuration)
             config.setLocale(locale)
-            super.attachBaseContext(newBase.createConfigurationContext(config))
+            newBase.createConfigurationContext(config)
         } else {
             // Cache not ready yet (very early cold start) — use system locale
             // The IO coroutine in Application.onCreate will finish before any activity
             // is usually created, but if not, we just use system locale until next launch
-            super.attachBaseContext(newBase)
+            newBase
         }
+        super.attachBaseContext(applyFireTvUiScale(localizedBase))
+    }
+
+    /**
+     * Amazon Fire TV sticks (AFT*) report a density that renders the UI
+     * enlarged versus standard TVs; shrink it back to the ~960dp profile.
+     * Other devices are returned unchanged.
+     */
+    private fun applyFireTvUiScale(base: Context): Context {
+        val manufacturer = Build.MANUFACTURER ?: return base
+        val model = Build.MODEL ?: return base
+        if (!manufacturer.equals("amazon", ignoreCase = true) ||
+            !model.startsWith("AFT", ignoreCase = true)
+        ) {
+            return base
+        }
+        val config = Configuration(base.resources.configuration)
+        val scale = fireTvUiDensityScale(config.screenWidthDp)
+        if (scale >= 1f) return base
+        config.densityDpi = (config.densityDpi * scale).toInt().coerceAtLeast(1)
+        val expand = 1f / scale
+        config.screenWidthDp = (config.screenWidthDp * expand).toInt()
+        if (config.screenHeightDp > 0) config.screenHeightDp = (config.screenHeightDp * expand).toInt()
+        if (config.smallestScreenWidthDp > 0) {
+            config.smallestScreenWidthDp = (config.smallestScreenWidthDp * expand).toInt()
+        }
+        return base.createConfigurationContext(config)
     }
 
     @OptIn(ExperimentalFoundationApi::class)

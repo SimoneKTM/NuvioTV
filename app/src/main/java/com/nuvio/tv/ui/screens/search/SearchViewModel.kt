@@ -126,7 +126,7 @@ class SearchViewModel @Inject constructor(
          * OkHttp alone allows 30s connect / 60s read. One dead addon used to hold
          * isSearching (and the full-screen skeleton) until that budget expired.
          */
-        const val SEARCH_PER_CATALOG_TIMEOUT_MS = 8_000L
+        const val SEARCH_PER_CATALOG_TIMEOUT_MS = 12_000L
     }
 
     init {

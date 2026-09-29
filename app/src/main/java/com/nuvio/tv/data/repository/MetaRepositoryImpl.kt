@@ -47,7 +47,7 @@ class MetaRepositoryImpl @Inject constructor(
 ) : MetaRepository {
     companion object {
         private const val TAG = "MetaRepository"
-        private const val RACE_META_TIMEOUT_MS = 5_000L
+        private const val RACE_META_TIMEOUT_MS = 10_000L
 
         /**
          * Calendar/Library query with "tv" while Detail navigates with

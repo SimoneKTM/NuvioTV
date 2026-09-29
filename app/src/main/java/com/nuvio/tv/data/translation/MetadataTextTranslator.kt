@@ -38,10 +38,12 @@ class MetadataTextTranslator @Inject constructor(
         /** Older caches could hold poisoned translations and sticky negatives. */
         private val LEGACY_CACHE_FILES = listOf("metadata_translation_cache.json")
         private const val MAX_CACHE_ENTRIES = 1_000
-        private const val DETECT_TIMEOUT_MS = 3_000L
-        private const val MODEL_TIMEOUT_MS = 10_000L
-        private const val TRANSLATE_TIMEOUT_MS = 8_000L
-        private const val BATCH_DEADLINE_MS = 15_000L
+        // Generous budgets: on low-end sticks (e.g. Fire TV) model downloads and
+        // local inference are slow; failing fast here meant translations never landed.
+        private const val DETECT_TIMEOUT_MS = 6_000L
+        private const val MODEL_TIMEOUT_MS = 90_000L
+        private const val TRANSLATE_TIMEOUT_MS = 15_000L
+        private const val BATCH_DEADLINE_MS = 45_000L
         private const val PARALLELISM = 4
     }
 
@@ -50,6 +52,29 @@ class MetadataTextTranslator @Inject constructor(
     private val languageIdentifier = LanguageIdentification.getClient()
     @Volatile private var cache: MutableMap<String, String>? = null
     @Volatile private var dirty = false
+
+    /**
+     * Pre-downloads the English→target ML Kit model in the background so the
+     * first metadata translation doesn't stall on a multi-MB download.
+     * No-op when the target language is unsupported or already English.
+     */
+    suspend fun warmUp(targetLanguage: String) = withContext(Dispatchers.IO) {
+        val target = normalizeLanguageCode(targetLanguage) ?: return@withContext
+        if (target !in TRANSLATION_SUPPORTED_LANGUAGES || target == "en") return@withContext
+        val translator = Translation.getClient(
+            TranslatorOptions.Builder()
+                .setSourceLanguage("en")
+                .setTargetLanguage(target)
+                .build()
+        )
+        try {
+            if (translator.downloadModelIfNeeded().awaitOk()) {
+                Log.d(TAG, "Translation model warm-up completed for $target")
+            }
+        } finally {
+            translator.close()
+        }
+    }
 
     suspend fun translateMeta(meta: Meta, targetLanguage: String): Meta = withContext(Dispatchers.IO) {
         if (normalizeLanguageCode(targetLanguage) !in TRANSLATION_SUPPORTED_LANGUAGES) {

@@ -108,6 +108,11 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                                 .dns(IPv4FirstDns())
                                 .followRedirects(true)
                                 .followSslRedirects(true)
+                                // OkHttp defaults to 10s: poster/backdrop fetches on
+                                // slow sticks frequently exceed it, leaving blank cards.
+                                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                                .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                                .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                                 .build()
                         },
                         cacheStrategy = { CacheControlCacheStrategy() },
