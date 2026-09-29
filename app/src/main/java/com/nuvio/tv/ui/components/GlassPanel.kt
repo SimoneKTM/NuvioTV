@@ -1,13 +1,9 @@
 package com.nuvio.tv.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -20,12 +16,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
-import com.nuvio.tv.ui.theme.NuvioTheme
 
 /**
  * Translucent "liquid glass" panel: soft dark scrim whose right/bottom edges
- * dissolve into the artwork (no hard frame), luminous top edge and hairline
- * gradient border. Shared by the detail hero and the calendar hero.
+ * dissolve into the artwork (no hard frame, no white accents). Shared by the
+ * detail hero and the calendar hero.
  */
 @Composable
 fun GlassPanel(
@@ -70,35 +65,7 @@ fun GlassPanel(
                     )
                 )
             )
-            .border(
-                border = BorderStroke(
-                    NuvioTheme.spacing.hairline,
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.35f),
-                            Color.White.copy(alpha = 0.12f),
-                            Color.White.copy(alpha = 0.06f)
-                        )
-                    )
-                ),
-                shape = shape
-            )
     ) {
-        // Subtle specular line along the top edge: reads as glass, not plastic.
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.5.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(
-                            Color.White.copy(alpha = 0.28f),
-                            Color.White.copy(alpha = 0.10f),
-                            Color.White.copy(alpha = 0.03f)
-                        )
-                    )
-                )
-        )
         // Right/bottom padding keeps text inside the solid zone so the
         // feathered edges only eat empty space, never the glyphs.
         Column(
