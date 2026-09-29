@@ -395,8 +395,19 @@ fun SearchScreen(
         entries.forEach { entry ->
             val key = entry.key()
             val current = entryByKey[key]
-            if (current == null || entry.isRicherThan(current)) {
-                entryByKey[key] = entry
+            when (current) {
+                null -> entryByKey[key] = entry
+                else -> {
+                    val winner = if (entry.isRicherThan(current)) entry else current
+                    val loser = if (entry.isRicherThan(current)) current else entry
+                    // Poster copy wins the card, but never drop the other copy's
+                    // rating: popularity drives the ranking of the merged grid.
+                    entryByKey[key] = if (winner.item.imdbRating == null && loser.item.imdbRating != null) {
+                        winner.copy(item = winner.item.copy(imdbRating = loser.item.imdbRating))
+                    } else {
+                        winner
+                    }
+                }
             }
         }
         rankSearchResults(trimmedQuery, entryByKey.values.map { it.item })

@@ -115,6 +115,62 @@ class SearchResultsRankingTest {
         assertEquals(4, searchSeasonNumber(preview(id = "y", name = "Some Show S04")))
     }
 
+    @Test
+    fun `popular spin-off group outranks older deep cuts under the same root word`() {
+        // A result titled exactly "Tokyo" flattens every "Tokyo *" title into one
+        // family: popularity of the branch must still decide, not the release year.
+        val ranked = rankSearchResults(
+            "tokyo",
+            listOf(
+                preview(id = "tokyo", name = "Tokyo", year = 2023, rating = 6.9f),
+                preview(id = "mewmew", name = "Tokyo Mew Mew", year = 2002, rating = 6.4f),
+                preview(id = "godfathers", name = "Tokyo Godfathers", year = 2003, rating = 8.0f),
+                preview(id = "ghoul", name = "Tokyo Ghoul", year = 2014, rating = 8.6f),
+                preview(id = "ghoul-re", name = "Tokyo Ghoul:re", year = 2018, rating = 7.4f),
+                preview(id = "tr", name = "Tokyo Revengers", year = 2021, rating = 7.9f),
+                preview(id = "tr-xmas", name = "Tokyo Revengers: Christmas Showdown", year = 2022, rating = 7.9f),
+                preview(id = "tr-tenjiku", name = "Tokyo Revengers: Tenjiku-hen", year = 2023, rating = 8.0f),
+                preview(id = "hotel", name = "Tokyo Hotel", year = 2020, rating = 4.8f),
+                preview(id = "paradise", name = "Tokyo Paradise", year = 2019, rating = 5.2f)
+            )
+        ).map { it.id }
+        val trPosition = ranked.indexOf("tr")
+        assertTrue("Tokyo Revengers should rank near the top but was at $trPosition: $ranked", trPosition in 0..4)
+        assertTrue("Tokyo Ghoul branch should lead: $ranked", ranked.indexOf("ghoul") < trPosition)
+        assertTrue("deep cuts stay behind Tokyo Revengers: $ranked", ranked.indexOf("hotel") > trPosition)
+        assertTrue("deep cuts stay behind Tokyo Revengers: $ranked", ranked.indexOf("paradise") > trPosition)
+    }
+
+    @Test
+    fun `spin-offs keep release order inside their own franchise`() {
+        // The bare root word "Tokyo" anchors the branch: every Tokyo Revengers
+        // spin-off then groups under it and follows release order.
+        val ranked = rankSearchResults(
+            "tokyo revengers",
+            listOf(
+                preview(id = "tokyo", name = "Tokyo", year = 2023, rating = 6.9f),
+                preview(id = "tr-tenjiku", name = "Tokyo Revengers: Tenjiku-hen", year = 2023, rating = 8.4f),
+                preview(id = "tr-xmas", name = "Tokyo Revengers: Christmas Showdown", year = 2022, rating = 7.9f),
+                preview(id = "tr", name = "Tokyo Revengers", year = 2021, rating = 7.9f)
+            )
+        ).map { it.id }
+        assertEquals(listOf("tr", "tr-xmas", "tr-tenjiku"), ranked.take(3))
+    }
+
+    @Test
+    fun `popular franchise outranks an older unrelated title with a worse rating`() {
+        val ranked = rankSearchResults(
+            "breaking",
+            listOf(
+                preview(id = "classic", name = "Breaking Classic", year = 1990, rating = 6.2f),
+                preview(id = "bad", name = "Breaking Bad", year = 2008, rating = 9.5f),
+                preview(id = "spinoff", name = "Better Call Saul", year = 2015, rating = 9.0f)
+            )
+        ).map { it.id }
+        assertEquals("bad", ranked.first())
+        assertTrue("deep cut stays behind: $ranked", ranked.indexOf("classic") > ranked.indexOf("bad"))
+    }
+
     private fun preview(
         id: String,
         name: String,

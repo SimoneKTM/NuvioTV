@@ -98,21 +98,27 @@ internal fun searchNormalizeText(value: String): String =
         .trim()
         .replace(Regex("""\s+"""), " ")
 
+/** Popularity of one franchise branch: best rating in the branch + its root title. */
+internal data class SearchFranchiseRank(val bestRating: Float, val franchise: String)
+
 /**
  * Relevance first (closer title match), then more popular franchises, and
  * within one franchise oldest release first (Dexter before Dexter: New Blood).
  * [familyRankByTitle] maps normalized title -> family popularity rank and is
  * computed once per result set by [rankSearchResults] (no shared mutable state).
+ * [franchiseRankByTitle] ranks the branch each title belongs to (e.g. every
+ * "Tokyo Ghoul*" spin-off under the "Tokyo Ghoul" branch) by its best rating,
+ * so popular spin-off groups stay together and rank by popularity while deep
+ * cuts of the same root word fall behind even when they are older releases.
  * When [requiredSeason] is set (query ended with "season N"), items matching
  * that season win among equally relevant title matches.
  */
 internal fun searchResultsComparator(
     query: String,
     familyRankByTitle: Map<String, Int> = emptyMap(),
-    requiredSeason: Int? = null
+    requiredSeason: Int? = null,
+    franchiseRankByTitle: Map<String, SearchFranchiseRank> = emptyMap()
 ): Comparator<MetaPreview> {
-    val normalizedTitles = listOf(searchNormalizeTitle(query))
-
     return Comparator { left, right ->
         compareValuesBy(
             left,
@@ -120,7 +126,8 @@ internal fun searchResultsComparator(
             { searchMatchQuality(query, it.name) },
             { if (requiredSeason == null || searchSeasonNumber(it) == requiredSeason) 0 else 1 },
             { familyRankByTitle[searchNormalizeTitle(it.name)] ?: 0 },
-            { searchTitleFamily(it.name, normalizedTitles) },
+            { -(franchiseRankByTitle[searchNormalizeTitle(it.name)]?.bestRating ?: -1f) },
+            { franchiseRankByTitle[searchNormalizeTitle(it.name)]?.franchise ?: searchNormalizeTitle(it.name) },
             { searchReleaseYear(it) ?: Int.MAX_VALUE },
             { searchSeasonNumber(it) ?: Int.MAX_VALUE },
             { it.imdbRating ?: -1f },
@@ -175,5 +182,63 @@ internal fun rankSearchResults(query: String, items: List<MetaPreview>): List<Me
         .map { (normalized, family) -> normalized to (familyRank[family] ?: Int.MAX_VALUE) }
         .toMap()
 
-    return items.sortedWith(searchResultsComparator(baseQuery, familyRankByTitle, requiredSeason))
+    // Branch structure: each title's parent is the longest shorter result title
+    // that prefixes it ("tokyo ghoul re" -> "tokyo ghoul" -> "tokyo").
+    val parentOf = HashMap<String, String>(normalizedTitles.size)
+    normalizedTitles.forEach { title ->
+        var longest: String? = null
+        normalizedTitles.forEach { candidate ->
+            if (candidate.length < title.length &&
+                title.startsWith(candidate) &&
+                !title[candidate.length].isLetter() &&
+                (longest == null || candidate.length > longest!!.length)
+            ) {
+                longest = candidate
+            }
+        }
+        longest?.let { parentOf[title] = it }
+    }
+    val branchHeads = HashSet<String>()
+    parentOf.values.forEach { branchHeads.add(it) }
+
+    // Franchise branch: a title that has spin-offs heads its own branch; a
+    // childless title keeps its own branch instead of collapsing into the bare
+    // root word ("Tokyo Godfathers" stays its own franchise even when a result
+    // titled exactly "Tokyo" exists), otherwise it climbs to the branch head.
+    val franchiseOf = HashMap<String, String>(normalizedTitles.size)
+    normalizedTitles.forEach { title ->
+        var current = title
+        var guard = 0
+        while (guard++ <= normalizedTitles.size) {
+            val parent = parentOf[current] ?: break
+            if (current in branchHeads) break
+            if (parentOf[parent] == null) break
+            current = parent
+        }
+        franchiseOf[title] = current
+    }
+
+    val bestRatingByFranchise = HashMap<String, Float>()
+    items.forEach { item ->
+        val normalized = searchNormalizeTitle(item.name)
+        val franchise = franchiseOf[normalized] ?: normalized
+        val rating = item.imdbRating ?: -1f
+        if (rating > (bestRatingByFranchise[franchise] ?: Float.NEGATIVE_INFINITY)) {
+            bestRatingByFranchise[franchise] = rating
+        }
+    }
+
+    val franchiseRankByTitle = normalizedTitles
+        .map { normalized ->
+            val franchise = franchiseOf[normalized] ?: normalized
+            normalized to SearchFranchiseRank(
+                bestRating = bestRatingByFranchise[franchise] ?: -1f,
+                franchise = franchise
+            )
+        }
+        .toMap()
+
+    return items.sortedWith(
+        searchResultsComparator(baseQuery, familyRankByTitle, requiredSeason, franchiseRankByTitle)
+    )
 }
