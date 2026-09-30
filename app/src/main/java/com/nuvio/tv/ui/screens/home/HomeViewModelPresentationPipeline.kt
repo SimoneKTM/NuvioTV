@@ -928,6 +928,9 @@ private fun HomeViewModel.updateCatalogItemImdbRating(itemId: String, rating: Fl
 }
 
 private fun HomeViewModel.prefetchBackgroundMetaForItem(item: MetaPreview) {
+    // Awards must not wait on the addon meta round trip: publish them as soon
+    // as OMDb answers, independently of the once-per-session meta gate below.
+    prefetchItemAwards(item)
     if (item.id in backgroundMetaPrefetchedIds) return
     backgroundMetaPrefetchedIds.add(item.id)
     viewModelScope.launch(Dispatchers.IO) {
@@ -958,6 +961,34 @@ private fun HomeViewModel.prefetchBackgroundMetaForItem(item: MetaPreview) {
     }
 }
 
+/**
+ * Publishes OMDb awards for the hero as soon as they resolve, independently
+ * of the addon meta round trip: on slow devices that trip can take a minute
+ * and the hero awards line would otherwise never appear in the meantime.
+ * Re-runs on every focus while awards are still blank — the repository
+ * memory/disk caches answer every repeat instantly, and negative results are
+ * cached too, so a failed first attempt is retried without extra traffic.
+ */
+private fun HomeViewModel.prefetchItemAwards(item: MetaPreview) {
+    if (!findCatalogItemById(item.id).let { it == null || it.awards.isNullOrBlank() }) return
+    viewModelScope.launch(Dispatchers.IO) {
+        val awards = runCatching {
+            omdbAwardsRepository.getAwards(
+                imdbId = item.imdbId,
+                primaryId = item.id,
+                apiType = item.apiType,
+                fallbackItemId = item.id,
+                fallbackItemType = item.apiType
+            )
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: return@launch
+        // Re-check right before publishing: the meta path may have landed
+        // addon awards while OMDb was in flight (addon awards win).
+        if (findCatalogItemById(item.id)?.awards.isNullOrBlank()) {
+            publishItemAwards(item.id, awards)
+        }
+    }
+}
+
 private suspend fun HomeViewModel.resolveAndPublishItemAwards(
     item: MetaPreview,
     result: NetworkResult<Meta>,
@@ -984,9 +1015,17 @@ private fun HomeViewModel.publishItemAwards(itemId: String, awards: String) {
 
     updateIndexedCatalogItem(itemId, ::mergeItem)
     applyEnrichmentToDisplayedRows(itemId, ::mergeItem)
-    findCatalogItemById(itemId)?.let { enriched ->
+    val enriched = findCatalogItemById(itemId)
+    if (enriched != null) {
         _lastEnrichedPreview.value = enriched
         addEnrichedPreview(itemId, enriched)
+    } else {
+        // Items outside the catalog index (e.g. continue-watching entries)
+        // still reach the modern hero through enrichedPreviews — publish into
+        // the existing overlay instead of dropping the awards.
+        _enrichedPreviews.value[itemId]?.let { existing ->
+            addEnrichedPreview(itemId, mergeItem(existing))
+        }
     }
 }
 

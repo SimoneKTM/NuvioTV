@@ -208,11 +208,13 @@ private const val MIN_STARTUP_SPLASH_MS = 3_000L
 private const val MIN_POST_PROFILE_LOADING_MS = 600L
 
 /**
- * Density scale that lands a Fire TV stick on the standard ~960dp-wide TV
- * profile (clamped to [0.5, 1.0]); devices already ≥960dp get 1f (no-op).
+ * Density scale that shrinks a Fire TV stick's UI toward the ~1280dp-wide
+ * layout (clamped to [0.5, 1.0]); devices already ≥1280dp get 1f (no-op).
+ * The stock 960dp TV profile renders enlarged on sticks, so normalizing to
+ * 960dp itself was a no-op there.
  */
 internal fun fireTvUiDensityScale(widthDp: Int): Float =
-    if (widthDp <= 0) 1f else (widthDp / 960f).coerceIn(0.5f, 1.0f)
+    if (widthDp <= 0) 1f else (widthDp / 1280f).coerceIn(0.5f, 1.0f)
 
 data class DrawerItem(
     val route: String,
@@ -370,7 +372,7 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Amazon Fire TV sticks (AFT*) report a density that renders the UI
-     * enlarged versus standard TVs; shrink it back to the ~960dp profile.
+     * enlarged versus standard TVs; shrink it toward the ~1280dp profile.
      * Other devices are returned unchanged.
      */
     private fun applyFireTvUiScale(base: Context): Context {
@@ -382,6 +384,16 @@ class MainActivity : ComponentActivity() {
             return base
         }
         val config = Configuration(base.resources.configuration)
+        if (config.screenWidthDp <= 0 || config.screenHeightDp <= 0) {
+            // Very early cold start can report an empty screen size — fall
+            // back to the raw display metrics so the scale still applies.
+            val metrics = base.resources.displayMetrics
+            if (metrics.widthPixels > 0 && metrics.heightPixels > 0 && metrics.densityDpi > 0) {
+                val dpPerPx = 160f / metrics.densityDpi
+                if (config.screenWidthDp <= 0) config.screenWidthDp = (metrics.widthPixels * dpPerPx).toInt()
+                if (config.screenHeightDp <= 0) config.screenHeightDp = (metrics.heightPixels * dpPerPx).toInt()
+            }
+        }
         val scale = fireTvUiDensityScale(config.screenWidthDp)
         if (scale >= 1f) return base
         config.densityDpi = (config.densityDpi * scale).toInt().coerceAtLeast(1)
