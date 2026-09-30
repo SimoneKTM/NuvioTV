@@ -59,6 +59,15 @@ class MetadataTextTranslator @Inject constructor(
      * No-op when the target language is unsupported or already English.
      */
     suspend fun warmUp(targetLanguage: String) = withContext(Dispatchers.IO) {
+        // Language identification downloads its own model on first use and has
+        // its own short per-string timeout — probe it with a sample so the first
+        // home-hero translation doesn't stall (or silently fail) on that download,
+        // even when no translation model is needed for the target language.
+        runCatching {
+            languageIdentifier
+                .identifyLanguage("Language identification warm-up sample text.")
+                .awaitText()
+        }
         val target = normalizeLanguageCode(targetLanguage) ?: return@withContext
         if (target !in TRANSLATION_SUPPORTED_LANGUAGES || target == "en") return@withContext
         val translator = Translation.getClient(

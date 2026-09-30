@@ -116,6 +116,8 @@ class HomeViewModel @Inject constructor(
         internal const val EXTERNAL_META_PREFETCH_ADJACENT_DEBOUNCE_MS = 120L
         private const val MAX_ENRICHMENT_CACHE_SIZE = 64
         private const val MAX_PREFETCH_CACHE_SIZE = 64
+        private const val PREVIEW_TRANSLATION_MAX_ATTEMPTS = 3
+        private const val PREVIEW_TRANSLATION_RETRY_DELAY_MS = 4_000L
 
         private fun <K, V> createLruMap(maxSize: Int): MutableMap<K, V> {
             val lru = object : LinkedHashMap<K, V>(maxSize + 4, 0.75f, true) {
@@ -211,21 +213,40 @@ class HomeViewModel @Inject constructor(
             previewTranslationProcessed[id] = description
         }
         viewModelScope.launch {
-            val translated = runCatching {
-                metadataTextTranslator.translateDescription(description, currentTmdbSettings.language)
-            }.getOrNull()
-            if (translated.isNullOrBlank() || translated == description) return@launch
+            var translated: String? = null
+            for (attempt in 0 until PREVIEW_TRANSLATION_MAX_ATTEMPTS) {
+                if (attempt > 0) delay(PREVIEW_TRANSLATION_RETRY_DELAY_MS)
+                val candidate = runCatching {
+                    metadataTextTranslator.translateDescription(description, currentTmdbSettings.language)
+                }.getOrNull()
+                if (!candidate.isNullOrBlank() && candidate != description) {
+                    translated = candidate
+                    break
+                }
+            }
+            val result = translated
+            if (result == null) {
+                // The ML Kit models may still have been downloading — release the
+                // claim so the next publish/focus for this item retries instead
+                // of leaving the raw English text on screen forever.
+                synchronized(previewTranslationProcessed) {
+                    if (previewTranslationProcessed[id] == description) {
+                        previewTranslationProcessed.remove(id)
+                    }
+                }
+                return@launch
+            }
             _enrichedPreviews.update { current ->
                 val existing = current[id]
                 if (existing != null && existing.description == description) {
-                    current + (id to existing.copy(description = translated))
+                    current + (id to existing.copy(description = result))
                 } else {
                     current
                 }
             }
             _lastEnrichedPreview.update { current ->
                 if (current != null && current.id == id && current.description == description) {
-                    current.copy(description = translated)
+                    current.copy(description = result)
                 } else {
                     current
                 }

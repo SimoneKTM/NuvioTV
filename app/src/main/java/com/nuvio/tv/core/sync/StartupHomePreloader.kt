@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +27,12 @@ import javax.inject.Singleton
 /**
  * Preloads Home-critical data during the startup splash and profile selection
  * so the first Home frame is already warm.
+ *
+ * Readiness is dynamic: phases are re-attempted until every one of them has
+ * actually satisfied (no timeout), so the post-profile loading screen holds
+ * for exactly as long as the data needs. A hard [TOTAL_DEADLINE_MS] cap
+ * force-releases the gate so a slow or unreachable source can never block
+ * Home for more than a minute.
  *
  * Waits for: active profile, installed addons, layout/experience prefs,
  * catalog first-page warm-up, calendar warm-up, and a CW disk-cache touch.
@@ -46,6 +53,8 @@ class StartupHomePreloader @Inject constructor(
     companion object {
         private const val TAG = "StartupHomePreloader"
         private const val PHASE_TIMEOUT_MS = 20_000L
+        private const val TOTAL_DEADLINE_MS = 60_000L
+        private const val RETRY_DELAY_MS = 2_000L
     }
 
     // Warm-ups run on a background-priority thread: on low-end TV sticks the
@@ -99,45 +108,62 @@ class StartupHomePreloader @Inject constructor(
         preloadJob = scope.launch {
             _ready.value = false
             val startedAt = android.os.SystemClock.elapsedRealtime()
-            try {
-                // Kick warm-ups early (no-ops if already running).
-                catalogRepository.warmUp()
-                calendarRepository.warmUp()
-                traktTop10Repository.warmUp()
-
-                withTimeoutOrNull(PHASE_TIMEOUT_MS) {
-                    profileManager.activeProfileReady.first { it }
+            // Keep re-attempting until every phase has genuinely completed, so
+            // the black loading screen waits exactly as long as the data needs;
+            // the hard deadline below guarantees Home after one minute max.
+            var complete = false
+            while (!complete) {
+                val elapsed = android.os.SystemClock.elapsedRealtime() - startedAt
+                val remaining = TOTAL_DEADLINE_MS - elapsed
+                if (remaining <= 0L) break
+                complete = try {
+                    withTimeoutOrNull(remaining) { runPreloadPhases() } == true
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(TAG, "Preload attempt failed: ${e.message}")
+                    false
                 }
-                withTimeoutOrNull(PHASE_TIMEOUT_MS) {
-                    addonRepository.getInstalledAddons().first()
+                if (!complete) {
+                    val left = TOTAL_DEADLINE_MS - (android.os.SystemClock.elapsedRealtime() - startedAt)
+                    if (left <= RETRY_DELAY_MS) break
+                    delay(RETRY_DELAY_MS)
                 }
-                withTimeoutOrNull(PHASE_TIMEOUT_MS) {
-                    layoutPreferenceDataStore.hasChosenLayout.first()
-                }
-                withTimeoutOrNull(PHASE_TIMEOUT_MS) {
-                    experienceModeDataStore.mode.first()
-                }
-                withTimeoutOrNull(PHASE_TIMEOUT_MS) {
-                    layoutPreferenceDataStore.homeCatalogOrderKeys.first()
-                }
-                withTimeoutOrNull(PHASE_TIMEOUT_MS) {
-                    catalogRepository.warmComplete.first { it }
-                }
-                // Touch CW disk cache so first Home render hits warm FS state.
-                withTimeoutOrNull(PHASE_TIMEOUT_MS) {
-                    runCatching {
-                        cwEnrichmentCache.getInProgressSnapshot()
-                        cwEnrichmentCache.getNextUpSnapshot()
-                    }
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Preload interrupted: ${e.message}")
             }
             _ready.value = true
             Log.d(
                 TAG,
-                "Home preload ready in ${android.os.SystemClock.elapsedRealtime() - startedAt}ms profile=${profileManager.activeProfileId.value}"
+                "Home preload ready in ${android.os.SystemClock.elapsedRealtime() - startedAt}ms " +
+                    "(complete=$complete) profile=${profileManager.activeProfileId.value}"
             )
         }
+    }
+
+    /** Runs every warm-up phase once; returns true only when all of them satisfied. */
+    private suspend fun runPreloadPhases(): Boolean {
+        var complete = true
+
+        // Kick warm-ups early (no-ops if already running).
+        catalogRepository.warmUp()
+        calendarRepository.warmUp()
+        traktTop10Repository.warmUp()
+
+        suspend fun phase(block: suspend () -> Unit) {
+            if (withTimeoutOrNull(PHASE_TIMEOUT_MS) { block() } == null) complete = false
+        }
+
+        phase { profileManager.activeProfileReady.first { it } }
+        phase { addonRepository.getInstalledAddons().first() }
+        phase { layoutPreferenceDataStore.hasChosenLayout.first() }
+        phase { experienceModeDataStore.mode.first() }
+        phase { layoutPreferenceDataStore.homeCatalogOrderKeys.first() }
+        phase { catalogRepository.warmComplete.first { it } }
+        // Touch CW disk cache so first Home render hits warm FS state.
+        phase {
+            cwEnrichmentCache.getInProgressSnapshot()
+            cwEnrichmentCache.getNextUpSnapshot()
+        }
+
+        return complete
     }
 }

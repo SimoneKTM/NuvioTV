@@ -739,8 +739,10 @@ class MainActivity : ComponentActivity() {
                             installedAddons.orEmpty().isEmpty() &&
                             !mainUiPrefs.addonSetupSkipped
 
-                    // After profile select, hold a black loading screen until Home data is warm
-                    // (or timeout in the preloader). Skip for onboarding flows that don't open Home.
+                    // After profile select, hold a black loading screen until Home data is
+                    // actually ready — the preloader keeps re-attempting phases and only
+                    // force-releases after its hard 60s deadline. Skip for onboarding flows
+                    // that don't open Home.
                     val willEnterMainApp = !needsExperienceSelection && !needsEssentialAddonSetup && layoutChosen
                     val homePreloadReady by startupHomePreloader.ready.collectAsState()
                     if (willEnterMainApp && (!homePreloadReady || !postProfileMinElapsed)) {
