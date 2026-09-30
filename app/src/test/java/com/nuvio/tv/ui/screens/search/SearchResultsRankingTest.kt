@@ -171,11 +171,56 @@ class SearchResultsRankingTest {
         assertTrue("deep cut stays behind: $ranked", ranked.indexOf("classic") > ranked.indexOf("bad"))
     }
 
+    @Test
+    fun `release stamp parses iso day-first and year-only dates`() {
+        assertEquals(20210907L, searchReleaseStamp(preview(id = "iso", name = "Iso", released = "2021-09-07")))
+        assertEquals(20210709L, searchReleaseStamp(preview(id = "df", name = "DayFirst", releaseInfo = "09/07/2021")))
+        assertEquals(20190101L, searchReleaseStamp(preview(id = "y", name = "YearOnly", releaseInfo = "2019")))
+        assertEquals(null, searchReleaseStamp(preview(id = "n", name = "None")))
+    }
+
+    @Test
+    fun `release sort puts newest first and unknown dates last`() {
+        val items = listOf(
+            preview(id = "old", name = "Old", year = 1999),
+            preview(id = "new", name = "New", released = "2024-12-25"),
+            preview(id = "mid", name = "Mid", year = 2010),
+            preview(id = "none", name = "None")
+        )
+        val ordered = orderSearchResults(SearchSortMode.RELEASE, items).map { it.id }
+        assertEquals(listOf("new", "mid", "old", "none"), ordered)
+    }
+
+    @Test
+    fun `rating sort puts highest rating first and unrated last`() {
+        val items = listOf(
+            preview(id = "low", name = "Low", rating = 5f),
+            preview(id = "high", name = "High", rating = 8.5f),
+            preview(id = "none", name = "None"),
+            preview(id = "mid", name = "Mid", rating = 7f)
+        )
+        val ordered = orderSearchResults(SearchSortMode.RATING, items).map { it.id }
+        assertEquals(listOf("high", "mid", "low", "none"), ordered)
+    }
+
+    @Test
+    fun `popularity sort keeps the relevance ranking untouched`() {
+        val exact = preview(id = "exact", name = "Dexter", rating = 6f)
+        val partial = preview(id = "partial", name = "Dexter Discussion", rating = 9f)
+        val ranked = rankSearchResults("dexter", listOf(partial, exact))
+        assertEquals(
+            ranked.map { it.id },
+            orderSearchResults(SearchSortMode.POPULARITY, ranked).map { it.id }
+        )
+    }
+
     private fun preview(
         id: String,
         name: String,
         rating: Float? = null,
-        year: Int? = null
+        year: Int? = null,
+        released: String? = null,
+        releaseInfo: String? = null
     ): MetaPreview = MetaPreview(
         id = id,
         type = ContentType.SERIES,
@@ -185,9 +230,9 @@ class SearchResultsRankingTest {
         background = null,
         logo = null,
         description = null,
-        releaseInfo = year?.toString(),
+        releaseInfo = releaseInfo ?: year?.toString(),
         imdbRating = rating,
         genres = emptyList(),
-        released = year?.let { "$it-01-01" }
+        released = released ?: year?.let { "$it-01-01" }
     )
 }

@@ -6,7 +6,6 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.nuvio.tv.core.profile.ProfileManager
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -37,22 +36,24 @@ class SearchHistoryDataStore @Inject constructor(
     suspend fun saveRecentSearch(query: String, maxItems: Int = DEFAULT_MAX_RECENT_SEARCHES) {
         val normalized = query.trim()
         if (normalized.isEmpty()) return
+        val limit = maxItems.coerceAtLeast(1)
 
-        val current = recentSearches.first()
-        val updated = buildList {
-            add(normalized)
-            addAll(
-                current.filterNot { existing ->
-                    existing.equals(normalized, ignoreCase = true) ||
-                        // Live search saves each query the user pauses on, and on a remote every
-                        // prefix of a word is one of those. Collapse them into the query actually
-                        // landed on instead of listing "f", "fr", "fri" alongside "frieren".
-                        normalized.startsWith(existing, ignoreCase = true)
-                }
-            )
-        }.take(maxItems.coerceAtLeast(1))
-
+        // Read-modify-write inside edit(): DataStore serializes concurrent edits, so
+        // two finished runs can no longer interleave and clone entries. The prefix
+        // collapse runs in both directions — shortening the query ("tokyo re" -> "tokyo")
+        // used to leave both variants listed, which looked like duplicated searches.
         store().edit { prefs ->
+            val current = parseRecentSearches(prefs[recentSearchesKey])
+            val updated = buildList {
+                add(normalized)
+                addAll(
+                    current.filterNot { existing ->
+                        existing.equals(normalized, ignoreCase = true) ||
+                            normalized.startsWith(existing, ignoreCase = true) ||
+                            existing.startsWith(normalized, ignoreCase = true)
+                    }
+                )
+            }.take(limit)
             prefs[recentSearchesKey] = gson.toJson(updated)
         }
     }

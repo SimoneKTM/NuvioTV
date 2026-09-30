@@ -2085,6 +2085,9 @@
     <string name="search_no_results_title">No Results</string>
     <string name="search_no_results_subtitle">Try searching with different keywords</string>
     <string name="search_error_no_catalogs">No searchable catalogs found in installed addons</string>
+    <string name="search_sort_popularity">Popularity</string>
+    <string name="search_sort_release">Release</string>
+    <string name="search_sort_rating">Rating</string>
 
     <string name="library_syncing">Syncing Trakt library\u2026</string>
     <string name="library_title">Library</string>

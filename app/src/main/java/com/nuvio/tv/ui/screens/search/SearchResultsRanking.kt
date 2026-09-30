@@ -242,3 +242,43 @@ internal fun rankSearchResults(query: String, items: List<MetaPreview>): List<Me
         searchResultsComparator(baseQuery, familyRankByTitle, requiredSeason, franchiseRankByTitle)
     )
 }
+
+/** Sort orderings offered for the merged search results grid. */
+internal enum class SearchSortMode { POPULARITY, RELEASE, RATING }
+
+private val ISO_DATE_REGEX = Regex("""(\d{4})-(\d{2})-(\d{2})""")
+private val DAY_FIRST_DATE_REGEX = Regex("""(\d{1,2})/(\d{1,2})/(\d{4})""")
+
+/**
+ * Comparable release stamp (yyyyMMdd) for the RELEASE sort: full dates keep day
+ * precision, year-only values land on Jan 1 of that year, unknown dates return
+ * null so they sink to the end of a descending sort.
+ */
+internal fun searchReleaseStamp(item: MetaPreview): Long? {
+    listOfNotNull(item.released, item.releaseInfo).forEach { raw ->
+        ISO_DATE_REGEX.find(raw)?.let { match ->
+            val (year, month, day) = match.destructured
+            return year.toLong() * 10000L + month.toLong() * 100L + day.toLong()
+        }
+        DAY_FIRST_DATE_REGEX.find(raw)?.let { match ->
+            val (day, month, year) = match.destructured
+            return year.toLong() * 10000L + month.toLong() * 100L + day.toLong()
+        }
+        YEAR_REGEX.find(raw)?.value?.toIntOrNull()?.let { return it * 10000L + 101L }
+    }
+    return null
+}
+
+/**
+ * Re-orders already-ranked results for the selected mode. POPULARITY keeps the
+ * relevance ranking untouched; RELEASE and RATING are stable sorts, so items
+ * without a date/rating keep their relevance order at the tail.
+ */
+internal fun orderSearchResults(mode: SearchSortMode, items: List<MetaPreview>): List<MetaPreview> =
+    when (mode) {
+        SearchSortMode.POPULARITY -> items
+        SearchSortMode.RELEASE ->
+            items.sortedByDescending { searchReleaseStamp(it) ?: Long.MIN_VALUE }
+        SearchSortMode.RATING ->
+            items.sortedByDescending { it.imdbRating ?: Float.NEGATIVE_INFINITY }
+    }

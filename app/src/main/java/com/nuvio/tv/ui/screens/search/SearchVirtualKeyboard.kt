@@ -41,6 +41,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
@@ -62,8 +63,7 @@ private val KEYBOARD_ROWS: List<List<String>> = listOf(
     listOf("5", "6", "7", "8", "9", "0")
 )
 
-internal val SearchVirtualKeyboardKeySize = 34.dp
-internal val SearchVirtualKeyboardKeyGap = 4.dp
+internal val SearchVirtualKeyboardKeySize = 38.dp
 
 /**
  * On-screen 6x6 side keyboard used while the search field is focused.
@@ -96,7 +96,7 @@ internal fun SearchVirtualKeyboard(
                 onFocusChanged?.invoke(state.hasFocus || state.isFocused)
             }
             .recompositionHighlighter(),
-        verticalArrangement = Arrangement.spacedBy(SearchVirtualKeyboardKeyGap)
+        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
     ) {
         LazyVerticalGrid(
             columns = GridCells.Fixed(6),
@@ -105,8 +105,8 @@ internal fun SearchVirtualKeyboard(
                 .focusGroup()
                 .dpadRepeatThrottle(),
             contentPadding = PaddingValues(0.dp),
-            horizontalArrangement = Arrangement.spacedBy(SearchVirtualKeyboardKeyGap),
-            verticalArrangement = Arrangement.spacedBy(SearchVirtualKeyboardKeyGap),
+            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs),
+            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs),
             userScrollEnabled = false
         ) {
             items(items = keys, key = { it }) { label ->
@@ -163,7 +163,7 @@ internal fun SearchVirtualKeyboard(
             }
         }
 
-        Spacer(modifier = Modifier.height(SearchVirtualKeyboardKeyGap))
+        Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
 
         // Action row: space + backspace, mirroring the reference layout's bottom strip.
         Row(
@@ -186,7 +186,7 @@ internal fun SearchVirtualKeyboard(
                         false
                     }
                 },
-            horizontalArrangement = Arrangement.spacedBy(SearchVirtualKeyboardKeyGap)
+            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
         ) {
             KeyCell(
                 label = "",
@@ -208,7 +208,7 @@ internal fun SearchVirtualKeyboard(
                 label = "",
                 icon = Icons.Default.Backspace,
                 modifier = Modifier
-                    .width(SearchVirtualKeyboardKeySize * 2f + SearchVirtualKeyboardKeyGap)
+                    .width(SearchVirtualKeyboardKeySize * 2 + NuvioTheme.spacing.xs)
                     .height(SearchVirtualKeyboardKeySize)
                     .then(
                         if (resultsFocusRequester != null) {
@@ -287,12 +287,12 @@ private fun KeyCell(
                 imageVector = icon,
                 contentDescription = label.ifBlank { "action" },
                 tint = contentColor,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(22.dp)
             )
         } else {
             Text(
                 text = label,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
                 color = contentColor
             )
         }

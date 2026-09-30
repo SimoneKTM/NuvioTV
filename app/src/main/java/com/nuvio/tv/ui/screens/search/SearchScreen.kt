@@ -26,6 +26,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -119,9 +121,10 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/** Width of the WuPlay-style left panel: a 6-key row (6 * 34dp) plus key gaps and
+/** Width of the WuPlay-style left panel: a 6-key row (6 * key size) plus key gaps and
  * screen padding, so keys keep the reference app's proportions. */
-private val SEARCH_LEFT_PANEL_WIDTH = SearchVirtualKeyboardKeySize * 6 + SearchVirtualKeyboardKeyGap * 5 + 16.dp * 2
+private val SEARCH_LEFT_PANEL_WIDTH =
+    SearchVirtualKeyboardKeySize * 6 + NuvioTheme.spacing.xs * 5 + NuvioTheme.spacing.lg * 2
 
 /** How many retries (50ms apart) for the initial focus grab before giving up. */
 private const val MAX_INITIAL_FOCUS_ATTEMPTS = 20
@@ -331,6 +334,8 @@ fun SearchScreen(
     val resultsFirstItemFocusRequester = remember { FocusRequester() }
     var isKeyboardFocusActive by remember { mutableStateOf(false) }
     val keyboardSpaceKeyFocusRequester = remember { FocusRequester() }
+    // How the merged grid is ordered: relevance/popularity (default), newest release, or rating.
+    var sortMode by rememberSaveable { mutableStateOf(SearchSortMode.POPULARITY) }
 
     // The left input panel (search bar + virtual keyboard + recents) collapses while focus is
     // on the results grid, giving the posters the full width (4 -> 6 columns transition).
@@ -376,8 +381,9 @@ fun SearchScreen(
     }
 
     // Single mixed grid of every result (movies + series): best title match first,
-    // popular franchises ahead of deep cuts, sequels after their original in release order.
-    val mergedResults = remember(uiState.catalogRows, trimmedQuery) {
+    // popular franchises ahead of deep cuts, sequels after their original in release
+    // order — then re-ordered by the selected sort mode (release / rating) when chosen.
+    val mergedResults = remember(uiState.catalogRows, trimmedQuery, sortMode) {
         val entries = uiState.catalogRows
             .flatMap { row -> row.items.map { SearchGridEntry(it, row.addonBaseUrl) } }
             .filter { !it.item.id.startsWith("__placeholder_") }
@@ -410,8 +416,10 @@ fun SearchScreen(
                 }
             }
         }
-        rankSearchResults(trimmedQuery, entryByKey.values.map { it.item })
-            .mapNotNull { item -> entryByKey["${item.apiType}:${item.id}"] }
+        orderSearchResults(
+            sortMode,
+            rankSearchResults(trimmedQuery, entryByKey.values.map { it.item })
+        ).mapNotNull { item -> entryByKey["${item.apiType}:${item.id}"] }
     }
 
     val hasPendingUnsubmittedQuery = remember(trimmedQuery, trimmedSubmittedQuery) {
@@ -622,6 +630,9 @@ fun SearchScreen(
                     .width(SEARCH_LEFT_PANEL_WIDTH)
                     .fillMaxHeight()
                     .padding(start = NuvioTheme.spacing.xxxl, top = NuvioTheme.spacing.lg)
+                    // Bigger keys + up to four recents can exceed the panel height on
+                    // 540dp-tall Fire TVs: scroll instead of clipping, focus auto-scrolls.
+                    .verticalScroll(rememberScrollState())
             ) {
                 SearchVirtualKeyboard(
                     onKey = { key -> handleQueryChanged(uiState.query + key) },
@@ -632,7 +643,13 @@ fun SearchScreen(
                         focusResults = true
                     },
                     firstKeyFocusRequester = keyboardFirstKeyFocusRequester,
-                    resultsFocusRequester = resultsFirstItemFocusRequester,
+                    // Only bind the right-arrow target while the grid is actually composed:
+                    // an unattached FocusRequester fails the move silently (or worse).
+                    resultsFocusRequester = if (mergedResults.isNotEmpty()) {
+                        resultsFirstItemFocusRequester
+                    } else {
+                        null
+                    },
                     spaceKeyFocusRequester = keyboardSpaceKeyFocusRequester,
                     onFocusChanged = { focused ->
                         isKeyboardFocusActive = focused
@@ -660,6 +677,11 @@ fun SearchScreen(
                             if (focused) inputAreaActive = true
                         },
                         firstItemFocusRequester = recentFirstItemFocusRequester,
+                        resultsFocusRequester = if (mergedResults.isNotEmpty()) {
+                            resultsFirstItemFocusRequester
+                        } else {
+                            null
+                        },
                         onSubmit = {
                             submitCurrentQuery(uiState.query.trim())
                             focusResults = true
@@ -707,61 +729,67 @@ fun SearchScreen(
                 }
 
                 mergedResults.isNotEmpty() -> {
-                    SingleSearchResultsGrid(
-                        entries = mergedResults,
-                        gridState = resultsGridState,
-                        posterCardStyle = posterCardStyle,
-                        showPosterLabels = uiState.posterLabelsEnabled,
-                        isItemWatched = { item ->
-                            val isSeries = item.apiType.equals("series", ignoreCase = true) ||
-                                item.apiType.equals("tv", ignoreCase = true)
-                            if (isSeries) item.id in watchedSeriesIds else item.id in watchedMovieIds
-                        },
-                        entryFocusRequester = resultsFirstItemFocusRequester,
-                        restorerFocusedIndex = if (restoringSearchFocus.value) viewModel.savedFocusItemIndex else -1,
-                        focusedItemIndex = when {
-                            restoringSearchFocus.value -> viewModel.savedFocusItemIndex
-                            focusResults -> 0
-                            else -> -1
-                        },
-                        onItemFocused = { itemIndex ->
-                            if (focusResults) {
-                                focusResults = false
-                            }
-                            if (restoringSearchFocus.value) {
-                                restoringSearchFocus.value = false
-                                didRestoreSearchFocus.value = true
-                                viewModel.hasSavedSearchFocus = false
-                            }
-                            // User manually navigated to a result — cancel any
-                            // pending auto-focus so it doesn't steal focus later.
-                            pendingFocusMoveToResultsQuery = null
-                            lastFocusedGridItemIndex = itemIndex
-                            // The keyboard slides away while the results hold focus.
-                            inputAreaActive = false
-                        },
-                        onItemClick = { id, type, addonBaseUrl ->
-                            // Save focus state to ViewModel before navigating
-                            viewModel.savedFocusItemIndex = lastFocusedGridItemIndex.coerceAtLeast(0)
-                            viewModel.savedResultsScrollPosition =
-                                resultsGridState.firstVisibleItemIndex to resultsGridState.firstVisibleItemScrollOffset
-                            viewModel.hasSavedSearchFocus = true
-                            val clickedItem = uiState.catalogRows
-                                .flatMap { it.items }
-                                .firstOrNull { it.id == id }
-                            HeroBackdropState.update(clickedItem?.backdropUrl)
-                            onNavigateToDetail(id, type, addonBaseUrl)
-                        },
-                        onItemLongPress = { item, addonBaseUrl ->
-                            viewModel.posterOptions.show(item, addonBaseUrl)
-                        },
-                        onFirstColumnLeftPress = {
-                            inputAreaActive = true
-                            pendingKeyboardFocus = true
-                        },
-                        showLoadingFooter = uiState.isSearching || hasPendingUnsubmittedQuery,
-                        modifier = Modifier
-                    )
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        SearchSortChipsRow(
+                            selected = sortMode,
+                            onSelected = { sortMode = it }
+                        )
+                        SingleSearchResultsGrid(
+                            entries = mergedResults,
+                            gridState = resultsGridState,
+                            posterCardStyle = posterCardStyle,
+                            showPosterLabels = uiState.posterLabelsEnabled,
+                            isItemWatched = { item ->
+                                val isSeries = item.apiType.equals("series", ignoreCase = true) ||
+                                    item.apiType.equals("tv", ignoreCase = true)
+                                if (isSeries) item.id in watchedSeriesIds else item.id in watchedMovieIds
+                            },
+                            entryFocusRequester = resultsFirstItemFocusRequester,
+                            restorerFocusedIndex = if (restoringSearchFocus.value) viewModel.savedFocusItemIndex else -1,
+                            focusedItemIndex = when {
+                                restoringSearchFocus.value -> viewModel.savedFocusItemIndex
+                                focusResults -> 0
+                                else -> -1
+                            },
+                            onItemFocused = { itemIndex ->
+                                if (focusResults) {
+                                    focusResults = false
+                                }
+                                if (restoringSearchFocus.value) {
+                                    restoringSearchFocus.value = false
+                                    didRestoreSearchFocus.value = true
+                                    viewModel.hasSavedSearchFocus = false
+                                }
+                                // User manually navigated to a result — cancel any
+                                // pending auto-focus so it doesn't steal focus later.
+                                pendingFocusMoveToResultsQuery = null
+                                lastFocusedGridItemIndex = itemIndex
+                                // The keyboard slides away while the results hold focus.
+                                inputAreaActive = false
+                            },
+                            onItemClick = { id, type, addonBaseUrl ->
+                                // Save focus state to ViewModel before navigating
+                                viewModel.savedFocusItemIndex = lastFocusedGridItemIndex.coerceAtLeast(0)
+                                viewModel.savedResultsScrollPosition =
+                                    resultsGridState.firstVisibleItemIndex to resultsGridState.firstVisibleItemScrollOffset
+                                viewModel.hasSavedSearchFocus = true
+                                val clickedItem = uiState.catalogRows
+                                    .flatMap { it.items }
+                                    .firstOrNull { it.id == id }
+                                HeroBackdropState.update(clickedItem?.backdropUrl)
+                                onNavigateToDetail(id, type, addonBaseUrl)
+                            },
+                            onItemLongPress = { item, addonBaseUrl ->
+                                viewModel.posterOptions.show(item, addonBaseUrl)
+                            },
+                            onFirstColumnLeftPress = {
+                                inputAreaActive = true
+                                pendingKeyboardFocus = true
+                            },
+                            showLoadingFooter = uiState.isSearching || hasPendingUnsubmittedQuery,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
 
                 (hasPendingUnsubmittedQuery || uiState.isSearching) -> {
@@ -1022,6 +1050,53 @@ private fun SearchInputField(
     }
 }
 
+private val SearchSortMode.labelRes: Int
+    get() = when (this) {
+        SearchSortMode.POPULARITY -> R.string.search_sort_popularity
+        SearchSortMode.RELEASE -> R.string.search_sort_release
+        SearchSortMode.RATING -> R.string.search_sort_rating
+    }
+
+/** Focusable Popularity / Release / Rating selector shown above the results grid. */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SearchSortChipsRow(
+    selected: SearchSortMode,
+    onSelected: (SearchSortMode) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = NuvioTheme.spacing.xxxl,
+                end = NuvioTheme.spacing.xxxl,
+                top = NuvioTheme.spacing.xs
+            )
+            .focusGroup(),
+        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+    ) {
+        SearchSortMode.entries.forEach { mode ->
+            val isSelected = mode == selected
+            Button(
+                onClick = { onSelected(mode) },
+                colors = ButtonDefaults.colors(
+                    containerColor = NuvioTheme.colors.BackgroundCard,
+                    contentColor = NuvioTheme.colors.TextSecondary,
+                    focusedContainerColor = NuvioTheme.colors.FocusBackground,
+                    focusedContentColor = NuvioTheme.colors.Primary
+                ),
+                shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
+            ) {
+                Text(
+                    text = stringResource(mode.labelRes),
+                    style = androidx.tv.material3.MaterialTheme.typography.labelMedium,
+                    color = if (isSelected) NuvioTheme.colors.Primary else NuvioTheme.colors.TextSecondary
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun RecentSearchesPanel(
@@ -1029,6 +1104,7 @@ private fun RecentSearchesPanel(
     onSearchSelected: (String) -> Unit,
     onSectionFocusChanged: (Boolean) -> Unit,
     firstItemFocusRequester: FocusRequester,
+    resultsFocusRequester: FocusRequester? = null,
     onSubmit: () -> Unit
 ) {
     Column(
@@ -1056,6 +1132,15 @@ private fun RecentSearchesPanel(
                     .then(
                         if (index == 0) {
                             Modifier.focusRequester(firstItemFocusRequester)
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .then(
+                        // Right from a recent search jumps straight into the results grid,
+                        // same as the virtual keyboard's last column.
+                        if (resultsFocusRequester != null) {
+                            Modifier.focusProperties { right = resultsFocusRequester }
                         } else {
                             Modifier
                         }
@@ -1157,7 +1242,8 @@ private fun SingleSearchResultsGrid(
                 (posterCardStyle.width + horizontalSpacing)
             cols.toInt().coerceAtLeast(1)
         }
-        val entryTargetIndex = if (lastFocusedItemIndex >= 0) lastFocusedItemIndex else 0
+        val entryTargetIndex = (if (lastFocusedItemIndex >= 0) lastFocusedItemIndex else 0)
+            .coerceIn(0, (entries.size - 1).coerceAtLeast(0))
 
         LazyVerticalGrid(
             state = gridState,
@@ -1206,6 +1292,12 @@ private fun SingleSearchResultsGrid(
                     showLabel = showPosterLabels,
                     isWatched = latestIsItemWatched(entry.item),
                     focusRequester = cardFocusRequester,
+                    // The keyboard/recents right-arrow target must live on the focusable
+                    // Card: attaching it to the outer Column never receives focus.
+                    extraFocusRequester = if (isEntryTarget) entryFocusRequester else null,
+                    // Posters streaming in during live search: no fade-in animation, the
+                    // per-frame invalidations jank the Fire TV while the grid fills up.
+                    imageCrossfade = false,
                     onLongPress = {
                         if (interactive) latestOnItemLongPress(entry.item, entry.addonBaseUrl)
                     },
@@ -1217,26 +1309,22 @@ private fun SingleSearchResultsGrid(
                             }
                         }
                     },
-                    modifier = Modifier
-                        .then(
-                            if (isEntryTarget) Modifier.focusRequester(entryFocusRequester!!) else Modifier
-                        )
-                        .then(
-                            if (isFirstColumn && interactive) {
-                                Modifier.onPreviewKeyEvent { keyEvent ->
-                                    if (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_LEFT &&
-                                        keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN
-                                    ) {
-                                        latestOnFirstColumnLeftPress()
-                                        true
-                                    } else {
-                                        false
-                                    }
+                    modifier = Modifier.then(
+                        if (isFirstColumn && interactive) {
+                            Modifier.onPreviewKeyEvent { keyEvent ->
+                                if (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_LEFT &&
+                                    keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN
+                                ) {
+                                    latestOnFirstColumnLeftPress()
+                                    true
+                                } else {
+                                    false
                                 }
-                            } else {
-                                Modifier
                             }
-                        )
+                        } else {
+                            Modifier
+                        }
+                    )
                 )
             }
 

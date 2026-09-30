@@ -1213,6 +1213,9 @@
 <string name="search_start_subtitle_no_discover">Scopri disabilitato. Inserisci almeno 2 caratteri</string>
 <string name="search_recent_title">Ricerche recenti</string>
 <string name="search_recent_clear">Cancella cronologia</string>
+<string name="search_sort_popularity">Popolarità</string>
+<string name="search_sort_release">Uscita</string>
+<string name="search_sort_rating">Voto</string>
 <string name="search_voice_no_speech">Nessun suono rilevato. Riprova.</string>
 <string name="search_voice_mic_permission">I permessi per il microfono sono richiesti per la ricerca vocale.</string>
 <string name="search_voice_failed">Riconoscimento vocale fallito. Riprova.</string>

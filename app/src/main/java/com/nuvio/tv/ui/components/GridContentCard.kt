@@ -76,6 +76,7 @@ fun GridContentCard(
     imageCrossfade: Boolean = true,
     isWatched: Boolean = false,
     focusRequester: FocusRequester? = null,
+    extraFocusRequester: FocusRequester? = null,
     upFocusRequester: FocusRequester? = null,
     downFocusRequester: FocusRequester? = null,
     depthSurface: CardDepthSurface = CardDepthSurface.POSTERS,
@@ -111,6 +112,13 @@ fun GridContentCard(
                 .height(posterCardStyle.height)
                 .then(
                     if (focusRequester != null) Modifier.focusRequester(focusRequester)
+                    else Modifier
+                )
+                .then(
+                    // Second requester on the same focusable Card: entry points like the
+                    // virtual keyboard's right-arrow must land on the Card itself, never
+                    // on the non-focusable outer Column.
+                    if (extraFocusRequester != null) Modifier.focusRequester(extraFocusRequester)
                     else Modifier
                 )
                 .then(
