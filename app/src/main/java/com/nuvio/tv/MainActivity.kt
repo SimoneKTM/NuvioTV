@@ -194,9 +194,11 @@ import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.haze
 import java.util.Locale
 import javax.inject.Inject
+import javax.inject.Named
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
@@ -281,6 +283,14 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var layoutPreferenceDataStore: LayoutPreferenceDataStore
+
+    @Inject
+    @field:Named("anime_layout")
+    lateinit var animeLayoutPreferenceDataStore: LayoutPreferenceDataStore
+
+    @Inject
+    @field:Named("extra_layout")
+    lateinit var extraLayoutPreferenceDataStore: LayoutPreferenceDataStore
 
     @Inject
     lateinit var experienceModeDataStore: ExperienceModeDataStore
@@ -370,19 +380,23 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(applyFireTvUiScale(localizedBase))
     }
 
+    /** Amazon Fire TV sticks (AFT*) are the only devices the UI density scale applies to. */
+    private fun isFireTvDensityScaleDevice(): Boolean {
+        val manufacturer = Build.MANUFACTURER ?: return false
+        val model = Build.MODEL ?: return false
+        return manufacturer.equals("amazon", ignoreCase = true) &&
+            model.startsWith("AFT", ignoreCase = true)
+    }
+
     /**
      * Amazon Fire TV sticks (AFT*) report a density that renders the UI
      * enlarged versus standard TVs; shrink it toward the ~1280dp profile.
+     * Only active while Layout > Fluid Mode is on (mirrored for attachBaseContext).
      * Other devices are returned unchanged.
      */
     private fun applyFireTvUiScale(base: Context): Context {
-        val manufacturer = Build.MANUFACTURER ?: return base
-        val model = Build.MODEL ?: return base
-        if (!manufacturer.equals("amazon", ignoreCase = true) ||
-            !model.startsWith("AFT", ignoreCase = true)
-        ) {
-            return base
-        }
+        if (!isFireTvDensityScaleDevice()) return base
+        if (!LayoutPreferenceDataStore.readFluidZoomMirror(base)) return base
         val config = Configuration(base.resources.configuration)
         if (config.screenWidthDp <= 0 || config.screenHeightDp <= 0) {
             // Very early cold start can report an empty screen size — fall
@@ -432,12 +446,34 @@ class MainActivity : ComponentActivity() {
         // Warm Home data during the 5s splash + profile selection.
         startupHomePreloader.ensureStarted()
 
+        // The Fire TV density scale is fixed at attachBaseContext: mirror Fluid Mode
+        // (OR of every layout store, so any Layout screen can toggle it) and restart
+        // the activity when it changes so the new scale applies.
+        if (isFireTvDensityScaleDevice()) {
+            lifecycleScope.launch {
+                combine(
+                    layoutPreferenceDataStore.fluidModeEnabled,
+                    animeLayoutPreferenceDataStore.fluidModeEnabled,
+                    extraLayoutPreferenceDataStore.fluidModeEnabled
+                ) { base, anime, extra -> base || anime || extra }
+                    .distinctUntilChanged()
+                    .collect { enabled ->
+                        if (LayoutPreferenceDataStore.writeFluidZoomMirror(
+                                this@MainActivity, enabled
+                            ) && !isFinishing && !isDestroyed
+                        ) {
+                            recreate()
+                        }
+                    }
+            }
+        }
+
         setContent {
             var hasSelectedProfileThisSession by rememberSaveable { mutableStateOf(false) }
             var onboardingCompletedThisSession by remember { mutableStateOf(false) }
             var onboardingProfileSyncInProgress by remember { mutableStateOf(false) }
-            var splashMinElapsed by remember { mutableStateOf(false) }
-            var postProfileMinElapsed by remember { mutableStateOf(false) }
+            var splashMinElapsed by rememberSaveable { mutableStateOf(false) }
+            var postProfileMinElapsed by rememberSaveable { mutableStateOf(false) }
             val hasSeenAuthQrFlow = remember(appOnboardingDataStore) {
                 appOnboardingDataStore.hasSeenAuthQrOnFirstLaunch.map<Boolean, Boolean?> { it }
             }

@@ -22,6 +22,7 @@ import com.nuvio.tv.core.runtime.PluginRuntimeHooks
 import com.nuvio.tv.core.sync.StartupSyncService
 import com.nuvio.tv.core.sync.androidtv.AndroidTvChannelSyncService
 import com.nuvio.tv.core.network.IPv4FirstDns
+import com.nuvio.tv.data.local.LayoutPreferenceDataStore
 import com.nuvio.tv.data.local.SentrySettingsDataStore
 import com.nuvio.tv.data.simkl.SimklAnimeIdPreferenceHolder
 import coil3.network.cachecontrol.CacheControlCacheStrategy
@@ -79,6 +80,10 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         val tag = getSharedPreferences("app_locale", Context.MODE_PRIVATE)
             .getString("locale_tag", null)
         LocaleCache.localeTag = tag ?: ""
+
+        // Warm the Fluid Mode zoom mirror for the same reason as the locale above:
+        // MainActivity reads it in attachBaseContext to decide the density scale.
+        LayoutPreferenceDataStore.readFluidZoomMirror(this)
 
         // Defer heavy initialization to after first frame renders
         android.os.Handler(android.os.Looper.getMainLooper()).post {

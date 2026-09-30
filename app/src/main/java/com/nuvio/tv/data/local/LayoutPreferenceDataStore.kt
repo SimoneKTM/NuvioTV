@@ -1,5 +1,6 @@
 package com.nuvio.tv.data.local
 
+import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -46,6 +47,25 @@ class LayoutPreferenceDataStore @Inject constructor(
         private const val DEFAULT_POSTER_CARD_CORNER_RADIUS_DP = 12
         private const val DEFAULT_FOCUSED_POSTER_BACKDROP_EXPAND_DELAY_SECONDS = 3
         private const val MIN_FOCUSED_POSTER_BACKDROP_EXPAND_DELAY_SECONDS = 0
+        private const val ZOOM_MIRROR_PREFS = "nuvio_display_scale"
+        private const val ZOOM_MIRROR_KEY = "fluid_mode_zoom"
+
+        /**
+         * Fluid Mode mirrored into SharedPreferences: `Activity.attachBaseContext`
+         * runs too early to read the DataStore, but the Fire TV density scale must
+         * be decided there. Warmed in `NuvioApplication.onCreate`.
+         */
+        internal fun readFluidZoomMirror(context: Context): Boolean =
+            context.getSharedPreferences(ZOOM_MIRROR_PREFS, Context.MODE_PRIVATE)
+                .getBoolean(ZOOM_MIRROR_KEY, false)
+
+        /** @return true when the mirror changed and the activity must restart. */
+        internal fun writeFluidZoomMirror(context: Context, enabled: Boolean): Boolean {
+            val prefs = context.getSharedPreferences(ZOOM_MIRROR_PREFS, Context.MODE_PRIVATE)
+            if (prefs.getBoolean(ZOOM_MIRROR_KEY, false) == enabled) return false
+            prefs.edit().putBoolean(ZOOM_MIRROR_KEY, enabled).apply()
+            return true
+        }
     }
 
     private var featureName: String = FEATURE
