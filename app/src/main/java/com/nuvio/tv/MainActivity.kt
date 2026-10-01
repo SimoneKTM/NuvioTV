@@ -776,7 +776,7 @@ class MainActivity : ComponentActivity() {
 
                     // After profile select, hold the logo splash until Home data is
                     // actually ready — the preloader keeps re-attempting phases and only
-                    // force-releases after its hard 60s deadline. Opening Home earlier
+                    // force-releases after its hard 90s deadline. Opening Home earlier
                     // just swaps this for Home's own heavy row loaders. Skip for
                     // onboarding flows that don't open Home.
                     val willEnterMainApp = !needsExperienceSelection && !needsEssentialAddonSetup && layoutChosen
