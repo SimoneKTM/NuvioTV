@@ -250,10 +250,18 @@ private fun FolderCard(
         fallbackSeed = "${collection.title}:${folder.title}:${folder.coverEmoji.orEmpty()}",
         enabled = collection.focusGlowEnabled
     )
+    val legacyCardGlow = rememberLegacyCardGlowHalo(
+        imageUrl = folder.coverImageUrl,
+        fallbackSeed = "${collection.title}:${folder.title}:${folder.coverEmoji.orEmpty()}",
+        enabled = collection.focusGlowEnabled,
+        focused = isFocused,
+        shape = shape
+    )
 
     Card(
         onClick = onClick,
-        modifier = modifier
+        modifier = legacyCardGlow
+            .then(modifier)
             .width(tileWidth)
             .height(tileHeight)
             .focusRequester(focusRequester)

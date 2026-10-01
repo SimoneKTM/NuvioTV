@@ -176,7 +176,6 @@ import com.nuvio.tv.ui.screens.account.AuthQrSignInScreen
 import com.nuvio.tv.ui.screens.addon.EssentialAddonSetupScreen
 import com.nuvio.tv.ui.screens.profile.ProfileSelectionScreen
 import com.nuvio.tv.ui.screens.splash.NuvioSplashScreen
-import com.nuvio.tv.ui.screens.splash.StartupLoadingScreen
 import com.nuvio.tv.ui.theme.NuvioComponents
 import com.nuvio.tv.ui.theme.NuvioLayout
 import com.nuvio.tv.ui.theme.NuvioMotion
@@ -206,8 +205,8 @@ val LocalSidebarExpanded = compositionLocalOf { false }
 val LocalContentFocusRequester = compositionLocalOf { FocusRequester.Default }
 
 private const val SIDEBAR_AUTO_COLLAPSE_DELAY_MS = 4_000L
-private const val MIN_STARTUP_SPLASH_MS = 3_000L
-private const val MIN_POST_PROFILE_LOADING_MS = 600L
+private const val MIN_STARTUP_SPLASH_MS = 1_500L
+private const val MIN_POST_PROFILE_LOADING_MS = 300L
 
 /**
  * Density scale that shrinks a Fire TV stick's UI toward the ~1280dp-wide
@@ -443,7 +442,7 @@ class MainActivity : ComponentActivity() {
         val launchContentType = intent?.getStringExtra("contentType")
         captureDeepLinkIntent(intent)
 
-        // Warm Home data during the 5s splash + profile selection.
+        // Warm Home data during the splash + profile selection.
         startupHomePreloader.ensureStarted()
 
         // The Fire TV density scale is fixed at attachBaseContext: mirror Fluid Mode
@@ -775,14 +774,15 @@ class MainActivity : ComponentActivity() {
                             installedAddons.orEmpty().isEmpty() &&
                             !mainUiPrefs.addonSetupSkipped
 
-                    // After profile select, hold a black loading screen until Home data is
+                    // After profile select, hold the logo splash until Home data is
                     // actually ready — the preloader keeps re-attempting phases and only
-                    // force-releases after its hard 60s deadline. Skip for onboarding flows
-                    // that don't open Home.
+                    // force-releases after its hard 60s deadline. Opening Home earlier
+                    // just swaps this for Home's own heavy row loaders. Skip for
+                    // onboarding flows that don't open Home.
                     val willEnterMainApp = !needsExperienceSelection && !needsEssentialAddonSetup && layoutChosen
                     val homePreloadReady by startupHomePreloader.ready.collectAsState()
                     if (willEnterMainApp && (!homePreloadReady || !postProfileMinElapsed)) {
-                        StartupLoadingScreen()
+                        NuvioSplashScreen()
                         return@Surface
                     }
 

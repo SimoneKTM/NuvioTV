@@ -85,6 +85,7 @@ import com.nuvio.tv.ui.components.PosterCardStyle
 import com.nuvio.tv.ui.components.collectionFolderCardImageUrl
 import com.nuvio.tv.ui.components.nuvioCardDepth
 import com.nuvio.tv.ui.components.rememberArtworkBackedCardGlow
+import com.nuvio.tv.ui.components.rememberLegacyCardGlowHalo
 
 @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -854,6 +855,13 @@ private fun GridCollectionFolderCard(
         fallbackSeed = "$collectionTitle:${folder.title}:${folder.coverEmoji.orEmpty()}",
         enabled = focusGlowEnabled
     )
+    val legacyCardGlow = rememberLegacyCardGlowHalo(
+        imageUrl = folder.coverImageUrl,
+        fallbackSeed = "$collectionTitle:${folder.title}:${folder.coverEmoji.orEmpty()}",
+        enabled = focusGlowEnabled,
+        focused = isFocused,
+        shape = cardShape
+    )
     val folderAspectRatio = when (folder.tileShape) {
         PosterShape.LANDSCAPE -> 16f / 9f
         PosterShape.SQUARE -> 1f
@@ -861,7 +869,8 @@ private fun GridCollectionFolderCard(
     }
     Card(
         onClick = onClick,
-        modifier = modifier
+        modifier = legacyCardGlow
+            .then(modifier)
             .fillMaxWidth()
             .aspectRatio(folderAspectRatio)
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)

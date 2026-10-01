@@ -14,7 +14,6 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,9 +21,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Backspace
@@ -98,67 +94,76 @@ internal fun SearchVirtualKeyboard(
             .recompositionHighlighter(),
         verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
     ) {
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(6),
+        // Plain rows, not a LazyVerticalGrid: the panel that hosts this keyboard is
+        // itself vertically scrollable (540dp Fire TVs), and a lazy grid measured with
+        // infinite height throws "Vertically scrollable component was measured with an
+        // infinity maximum height constraints" even with userScrollEnabled = false.
+        // The keyboard is a fixed 6x6 set of keys, so laziness bought nothing anyway.
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .focusGroup()
                 .dpadRepeatThrottle(),
-            contentPadding = PaddingValues(0.dp),
-            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs),
-            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs),
-            userScrollEnabled = false
+            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
         ) {
-            items(items = keys, key = { it }) { label ->
-                val isLastColumn = KEYBOARD_ROWS.any { it.last() == label }
-                KeyCell(
-                    label = label,
-                    modifier = Modifier
-                        .height(SearchVirtualKeyboardKeySize)
-                        .then(
-                            if (label == firstKey) {
-                                Modifier.focusRequester(firstKeyFocusRequester)
-                            } else {
-                                Modifier
-                            }
-                        )
-                        .then(
-                            if (isLastColumn && resultsFocusRequester != null) {
-                                Modifier.focusProperties { right = resultsFocusRequester }
-                            } else {
-                                Modifier
-                            }
-                        )
-                        .onPreviewKeyEvent { event ->
-                            if (event.nativeKeyEvent.keyCode == AndroidKeyEvent.KEYCODE_DPAD_DOWN &&
-                                event.nativeKeyEvent.action == AndroidKeyEvent.ACTION_DOWN &&
-                                KEYBOARD_ROWS.last().contains(label)
-                            ) {
-                                // Move focus into the action row (space/backspace) first, so those
-                                // keys are reachable; the action row's own DPAD_DOWN handler then
-                                // continues to recents/results.
-                                val focused = if (spaceKeyFocusRequester != null) {
-                                    runCatching { spaceKeyFocusRequester.requestFocus() }.getOrDefault(false)
-                                } else {
-                                    false
-                                }
-                                if (focused) {
-                                    return@onPreviewKeyEvent true
-                                }
-                                if (onMoveToRecents != null) {
-                                    onMoveToRecents()
-                                } else if (onMoveToResults != null) {
-                                    onMoveToResults()
-                                } else {
-                                    return@onPreviewKeyEvent false
-                                }
-                                true
-                            } else {
-                                false
-                            }
-                        }
+            KEYBOARD_ROWS.forEach { rowKeys ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
                 ) {
-                    onKey(label)
+                    rowKeys.forEach { label ->
+                        val isLastColumn = KEYBOARD_ROWS.any { it.last() == label }
+                        KeyCell(
+                            label = label,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(SearchVirtualKeyboardKeySize)
+                                .then(
+                                    if (label == firstKey) {
+                                        Modifier.focusRequester(firstKeyFocusRequester)
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                                .then(
+                                    if (isLastColumn && resultsFocusRequester != null) {
+                                        Modifier.focusProperties { right = resultsFocusRequester }
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                                .onPreviewKeyEvent { event ->
+                                    if (event.nativeKeyEvent.keyCode == AndroidKeyEvent.KEYCODE_DPAD_DOWN &&
+                                        event.nativeKeyEvent.action == AndroidKeyEvent.ACTION_DOWN &&
+                                        KEYBOARD_ROWS.last().contains(label)
+                                    ) {
+                                        // Move focus into the action row (space/backspace) first, so those
+                                        // keys are reachable; the action row's own DPAD_DOWN handler then
+                                        // continues to recents/results.
+                                        val focused = if (spaceKeyFocusRequester != null) {
+                                            runCatching { spaceKeyFocusRequester.requestFocus() }.getOrDefault(false)
+                                        } else {
+                                            false
+                                        }
+                                        if (focused) {
+                                            return@onPreviewKeyEvent true
+                                        }
+                                        if (onMoveToRecents != null) {
+                                            onMoveToRecents()
+                                        } else if (onMoveToResults != null) {
+                                            onMoveToResults()
+                                        } else {
+                                            return@onPreviewKeyEvent false
+                                        }
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                }
+                        ) {
+                            onKey(label)
+                        }
+                    }
                 }
             }
         }

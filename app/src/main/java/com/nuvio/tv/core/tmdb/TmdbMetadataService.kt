@@ -43,6 +43,14 @@ private const val TAG = "TmdbMetadataService"
 private val TMDB_API_KEY = BuildConfig.TMDB_API_KEY
 private const val TMDB_TRAILER_FALLBACK_LANGUAGE = "en-US"
 private const val TMDB_SEASON_REQUEST_CONCURRENCY = 4
+
+// The metadata caches below live for the whole process. On a 1-2GB stick an
+// unbounded episode cache (every season of every title opened) turns into GC
+// jank mid-scroll, so entries past the cap are evicted — a dropped one simply
+// costs a refetch.
+private const val MAX_ENRICHMENT_CACHE_ENTRIES = 256
+private const val MAX_EPISODE_CACHE_ENTRIES = 64
+private const val MAX_LIST_CACHE_ENTRIES = 128
 private val YOUTUBE_VIDEO_ID_REGEX = Regex("^[a-zA-Z0-9_-]{11}$")
 
 @Singleton
@@ -63,6 +71,24 @@ class TmdbMetadataService(
     private val entityHeaderCache = ConcurrentHashMap<String, TmdbEntityHeader>()
     private val entityRailCache = ConcurrentHashMap<String, List<MetaPreview>>()
     private val entityBrowseCache = ConcurrentHashMap<String, TmdbEntityBrowseData>()
+
+    /**
+     * Stores [value] and, once the cache passes [maxEntries], drops its oldest
+     * quarter. Eviction is arbitrary rather than LRU — cheaper, and a miss only
+     * costs one refetch; ConcurrentHashMap iteration is weakly consistent, so
+     * trimming under concurrency is best-effort and never throws.
+     */
+    private fun <K, V> putBounded(cache: MutableMap<K, V>, key: K, value: V, maxEntries: Int) {
+        cache[key] = value
+        if (cache.size <= maxEntries) return
+        val iterator = cache.entries.iterator()
+        var toDrop = cache.size / 4
+        while (toDrop > 0 && iterator.hasNext()) {
+            iterator.next()
+            iterator.remove()
+            toDrop--
+        }
+    }
 
     suspend fun fetchEnrichment(
         tmdbId: String,
@@ -487,7 +513,7 @@ class TmdbMetadataService(
                     alternativeTitles = altTitles,
                     trailers = trailers
                 )
-                enrichmentCache[cacheKey] = enrichment
+                putBounded(enrichmentCache, cacheKey, enrichment, MAX_ENRICHMENT_CACHE_ENTRIES)
                 requestDeferred.complete(enrichment)
                 enrichment
             } catch (e: CancellationException) {
@@ -636,7 +662,7 @@ class TmdbMetadataService(
                 seasonResults.forEach(::putAll)
             }
             if (finalResult.isNotEmpty()) {
-                episodeCache[cacheKey] = finalResult
+                putBounded(episodeCache, cacheKey, finalResult, MAX_EPISODE_CACHE_ENTRIES)
             }
             requestDeferred.complete(finalResult)
             finalResult
@@ -768,7 +794,7 @@ class TmdbMetadataService(
                 }.awaitAll().filterNotNull()
             }
 
-            moreLikeThisCache[cacheKey] = items
+            putBounded(moreLikeThisCache, cacheKey, items, MAX_LIST_CACHE_ENTRIES)
             items
         } catch (e: Exception) {
             Log.w(TAG, "Failed to fetch recommendations for $tmdbId: ${e.message}")
@@ -869,7 +895,7 @@ class TmdbMetadataService(
                 name = resolvedCollectionName,
                 items = items
             )
-            collectionCache[cacheKey] = collection
+            putBounded(collectionCache, cacheKey, collection, MAX_LIST_CACHE_ENTRIES)
             collection
         } catch (e: Exception) {
             Log.w(TAG, "Failed to fetch collection for $collectionId: ${e.message}")
@@ -937,7 +963,7 @@ class TmdbMetadataService(
             ),
             rails = rails
         )
-        entityBrowseCache[cacheKey] = data
+        putBounded(entityBrowseCache, cacheKey, data, MAX_LIST_CACHE_ENTRIES)
         data
     }
 
@@ -1006,7 +1032,7 @@ class TmdbMetadataService(
         }
 
         if (header != null) {
-            entityHeaderCache[cacheKey] = header
+            putBounded(entityHeaderCache, cacheKey, header, MAX_LIST_CACHE_ENTRIES)
         }
         return header
     }
@@ -1104,7 +1130,7 @@ class TmdbMetadataService(
         }
 
         if (result.items.isNotEmpty()) {
-            entityRailCache[cacheKey] = result.items
+            putBounded(entityRailCache, cacheKey, result.items, MAX_LIST_CACHE_ENTRIES)
         }
         return result
     }
@@ -1399,7 +1425,7 @@ class TmdbMetadataService(
                     movieCredits = movieCredits,
                     tvCredits = tvCredits
                 )
-                personCache[cacheKey] = detail
+                putBounded(personCache, cacheKey, detail, MAX_ENRICHMENT_CACHE_ENTRIES)
                 detail
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to fetch person detail: ${e.message}", e)

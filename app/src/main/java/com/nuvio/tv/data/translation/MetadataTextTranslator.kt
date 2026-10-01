@@ -10,11 +10,15 @@ import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.TranslatorOptions
 import com.nuvio.tv.domain.model.Meta
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
@@ -23,6 +27,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -45,11 +50,20 @@ class MetadataTextTranslator @Inject constructor(
         private const val TRANSLATE_TIMEOUT_MS = 15_000L
         private const val BATCH_DEADLINE_MS = 45_000L
         private const val PARALLELISM = 4
+
+        /**
+         * Coalesces disk writes: a Home row hands the translator a handful of
+         * descriptions at once and rewriting the whole JSON under the cache
+         * mutex for every one of them serialized all of them behind disk I/O.
+         */
+        private const val PERSIST_DEBOUNCE_MS = 1_500L
     }
 
     private val gson = Gson()
     private val mutex = Mutex()
     private val languageIdentifier = LanguageIdentification.getClient()
+    private val persistScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val persistScheduled = AtomicBoolean(false)
     @Volatile private var cache: MutableMap<String, String>? = null
     @Volatile private var dirty = false
 
@@ -85,13 +99,26 @@ class MetadataTextTranslator @Inject constructor(
         }
     }
 
-    suspend fun translateMeta(meta: Meta, targetLanguage: String): Meta = withContext(Dispatchers.IO) {
+    /**
+     * Translates a [Meta], handing the synopsis back through [onDescriptionReady]
+     * as soon as it is ready instead of waiting for every episode overview: on a
+     * series the detail screen would otherwise keep showing the original
+     * description for as long as the whole batch takes.
+     */
+    suspend fun translateMeta(
+        meta: Meta,
+        targetLanguage: String,
+        onDescriptionReady: (suspend (String) -> Unit)? = null
+    ): Meta = withContext(Dispatchers.IO) {
         if (normalizeLanguageCode(targetLanguage) !in TRANSLATION_SUPPORTED_LANGUAGES) {
             return@withContext meta
         }
         val startedAtMs = System.currentTimeMillis()
         try {
             val newDescription = meta.description?.let { translateText(it, targetLanguage, startedAtMs) }
+            if (newDescription != null && newDescription != meta.description) {
+                onDescriptionReady?.invoke(newDescription)
+            }
             val newVideos = translateVideos(meta, targetLanguage, startedAtMs)
             if (newDescription == null && newVideos == meta.videos) {
                 meta
@@ -99,7 +126,7 @@ class MetadataTextTranslator @Inject constructor(
                 meta.copy(description = newDescription ?: meta.description, videos = newVideos)
             }
         } finally {
-            withContext(NonCancellable) { persistCacheIfDirty() }
+            withContext(NonCancellable) { schedulePersistCache() }
         }
     }
 
@@ -123,7 +150,7 @@ class MetadataTextTranslator @Inject constructor(
                     minLength = TRANSLATION_SHORT_MIN_TEXT_LENGTH
                 )
             } finally {
-                withContext(NonCancellable) { persistCacheIfDirty() }
+                withContext(NonCancellable) { schedulePersistCache() }
             }
         }
 
@@ -140,7 +167,7 @@ class MetadataTextTranslator @Inject constructor(
             try {
                 translateText(text, targetLanguage, System.currentTimeMillis())
             } finally {
-                withContext(NonCancellable) { persistCacheIfDirty() }
+                withContext(NonCancellable) { schedulePersistCache() }
             }
         }
 
@@ -225,6 +252,19 @@ class MetadataTextTranslator @Inject constructor(
         // (e.g. language detection returned "und" for a short digit-heavy
         // string) must stay session-only so a later retry can succeed.
         if (value != null) dirty = true
+    }
+
+    /** Coalesces [persistCacheIfDirty] writes; never blocks the caller. */
+    private fun schedulePersistCache() {
+        if (!dirty || !persistScheduled.compareAndSet(false, true)) return
+        persistScope.launch {
+            try {
+                delay(PERSIST_DEBOUNCE_MS)
+                persistCacheIfDirty()
+            } finally {
+                persistScheduled.set(false)
+            }
+        }
     }
 
     private suspend fun persistCacheIfDirty() {

@@ -1089,7 +1089,9 @@ class MetaDetailsViewModel @Inject constructor(
         // sticks can otherwise block the first paint for tens of seconds.
         viewModelScope.launch {
             val language = activeTmdbSettingsDataStore.settings.first().language
-            val translated = translateMetaTexts(enriched, language)
+            val translated = translateMetaTexts(enriched, language) { description ->
+                publishTranslatedDescription(enriched, description)
+            }
             if (translated === enriched) return@launch
             _uiState.update { state ->
                 val current = state.meta
@@ -1785,9 +1787,28 @@ class MetaDetailsViewModel @Inject constructor(
         return enrichSeriesWithTvdb(updated)
     }
 
-    private suspend fun translateMetaTexts(meta: Meta, targetLanguage: String): Meta {
+    /**
+     * Swaps the synopsis in as soon as the translator has it — the episode
+     * overviews of the same batch can take tens of seconds longer and used to
+     * hold the description back with them.
+     */
+    private fun publishTranslatedDescription(enriched: Meta, translatedDescription: String) {
+        _uiState.update { state ->
+            val current = state.meta
+            if (current?.id != enriched.id) return@update state
+            // Never clobber text the screen has moved on to since the batch started.
+            if (current.description != enriched.description) return@update state
+            state.copy(meta = current.copy(description = translatedDescription))
+        }
+    }
+
+    private suspend fun translateMetaTexts(
+        meta: Meta,
+        targetLanguage: String,
+        onDescriptionReady: (suspend (String) -> Unit)? = null
+    ): Meta {
         return try {
-            metadataTextTranslator.translateMeta(meta, targetLanguage)
+            metadataTextTranslator.translateMeta(meta, targetLanguage, onDescriptionReady)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

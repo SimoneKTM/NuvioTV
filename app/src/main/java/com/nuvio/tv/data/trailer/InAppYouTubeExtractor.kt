@@ -29,7 +29,8 @@ private const val EXTRACTOR_TIMEOUT_MS = 30_000L
 private const val DEFAULT_USER_AGENT =
     "Mozilla/5.0 (Linux; Android 12; Android TV) AppleWebKit/537.36 " +
         "(KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
-private const val PREFERRED_SEPARATE_CLIENT = "android_vr"
+private const val PREFERRED_SEPARATE_CLIENT = "visionos"
+private const val FALLBACK_API_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
 
 private val VIDEO_ID_REGEX = Regex("^[a-zA-Z0-9_-]{11}$")
 private val API_KEY_REGEX = Regex("\"INNERTUBE_API_KEY\":\"([^\"]+)\"")
@@ -85,20 +86,18 @@ private val DEFAULT_HEADERS = mapOf(
 
 private val CLIENTS = listOf(
     YouTubeClient(
-        key = "android_vr",
-        id = "28",
-        version = "1.56.21",
-        userAgent = "com.google.android.apps.youtube.vr.oculus/1.56.21 " +
-            "(Linux; U; Android 12; en_US; Quest 3; Build/SQ3A.220605.009.A1) gzip",
+        key = "visionos",
+        id = "101",
+        version = "1.02",
+        userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 " +
+            "(KHTML, like Gecko) Version/26.0 Safari/605.1.15",
         context = mapOf(
-            "clientName" to "ANDROID_VR",
-            "clientVersion" to "1.56.21",
-            "deviceMake" to "Oculus",
-            "deviceModel" to "Quest 3",
-            "osName" to "Android",
-            "osVersion" to "12",
-            "platform" to "MOBILE",
-            "androidSdkVersion" to 32,
+            "clientName" to "VISIONOS",
+            "clientVersion" to "1.02",
+            "deviceMake" to "Apple",
+            "deviceModel" to "RealityDevice17,1",
+            "osName" to "visionOS",
+            "osVersion" to "26.5.23O471",
             "hl" to "en",
             "gl" to "US"
         ),
@@ -209,11 +208,15 @@ class InAppYouTubeExtractor @Inject constructor() {
                     Log.w(TAG, "Watch page failed (${watchResponse.status}), using stale config")
                     return@withLock stale
                 }
-                throw IllegalStateException("Failed to fetch watch page (${watchResponse.status})")
+                // The watch page can be replaced by a consent or bot-check page while the player
+                // API still answers, so continue with the fallback key. It isn't cached, so the
+                // next extraction tries the watch page again.
+                Log.w(TAG, "Watch page failed (${watchResponse.status}), using the fallback key")
+                return@withLock CachedConfig(apiKey = FALLBACK_API_KEY, visitorData = null)
             }
 
             val parsed = getWatchConfig(watchResponse.body)
-            val apiKey = parsed.apiKey ?: "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8" // fallback key
+            val apiKey = parsed.apiKey ?: FALLBACK_API_KEY
             val newConfig = CachedConfig(
                 apiKey = apiKey,
                 visitorData = parsed.visitorData
@@ -243,6 +246,9 @@ class InAppYouTubeExtractor @Inject constructor() {
             source = withTimeout(EXTRACTOR_TIMEOUT_MS) {
                 extractPlaybackSourceInternal(youtubeUrl, forceRefreshConfig = false)
             }
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            // A timeout is a failed attempt, not a cancellation of the caller.
+            Log.w(TAG, "Kotlin extractor timed out for $youtubeUrl")
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (error: Exception) {
@@ -256,6 +262,8 @@ class InAppYouTubeExtractor @Inject constructor() {
                 source = withTimeout(EXTRACTOR_TIMEOUT_MS) {
                     extractPlaybackSourceInternal(youtubeUrl, forceRefreshConfig = true)
                 }
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                Log.w(TAG, "Kotlin extractor retry timed out for $youtubeUrl")
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (error: Exception) {

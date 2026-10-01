@@ -66,6 +66,17 @@ class StartupHomePreloader @Inject constructor(
         }
     }.asCoroutineDispatcher()
     private val scope = CoroutineScope(SupervisorJob() + preloadDispatcher)
+
+    // The ML Kit warm-up is mostly network (model download) and used to share the
+    // background-priority thread above, so it queued behind every preload phase and
+    // routinely finished after the first Home row had already asked for a
+    // translation — leaving that row to wait on the download itself.
+    private val warmUpDispatcher = java.util.concurrent.Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "translation-warm-up").apply {
+            priority = Thread.NORM_PRIORITY
+        }
+    }.asCoroutineDispatcher()
+    private val warmUpScope = CoroutineScope(SupervisorJob() + warmUpDispatcher)
     private var preloadJob: Job? = null
     private var profileWatchJob: Job? = null
 
@@ -79,7 +90,7 @@ class StartupHomePreloader @Inject constructor(
 
         // Fire-and-forget: pre-download the translation model once so the first
         // detail screen doesn't stall waiting for a multi-MB ML Kit download.
-        scope.launch { warmUpTranslationModel() }
+        warmUpScope.launch { warmUpTranslationModel() }
 
         profileWatchJob = scope.launch {
             var lastProfileId = profileManager.activeProfileId.value
@@ -157,6 +168,9 @@ class StartupHomePreloader @Inject constructor(
         phase { layoutPreferenceDataStore.hasChosenLayout.first() }
         phase { experienceModeDataStore.mode.first() }
         phase { layoutPreferenceDataStore.homeCatalogOrderKeys.first() }
+        // Held on purpose: Home's own row loaders are heavy on a stick, so the
+        // splash stays up until every catalog answered its first page (still
+        // capped by PHASE_TIMEOUT_MS and the TOTAL_DEADLINE_MS force-release).
         phase { catalogRepository.warmComplete.first { it } }
         // Touch CW disk cache so first Home render hits warm FS state.
         phase {

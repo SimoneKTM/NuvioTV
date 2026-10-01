@@ -127,6 +127,7 @@ import com.nuvio.tv.ui.components.TrailerPlayer
 import com.nuvio.tv.ui.components.placeholderCardShimmer
 import com.nuvio.tv.ui.components.nuvioCardDepth
 import com.nuvio.tv.ui.components.rememberArtworkBackedCardGlow
+import com.nuvio.tv.ui.components.rememberLegacyCardGlowHalo
 import com.nuvio.tv.ui.components.rememberPlaceholderShimmerOffsetState
 import com.nuvio.tv.LocalSidebarExpanded
 import com.nuvio.tv.ui.theme.ThemeColors
@@ -1320,6 +1321,15 @@ private fun ModernCarouselCard(
         else -> noFocusGlow
     }
     val effectiveCardGlow = if (isFastScrolling) noFocusGlow else cardGlow
+    // API levels where tv-material's shadow-layer glow can't render rebuild the halo
+    // from strokes (see rememberLegacyCardGlowHalo); a no-op modifier elsewhere.
+    val legacyCardGlow = rememberLegacyCardGlowHalo(
+        imageUrl = imageUrl,
+        fallbackSeed = "${item.title}:${payload?.collectionTitle.orEmpty()}",
+        enabled = payload?.focusGlowEnabled == true,
+        focused = isFocused && !isFastScrolling,
+        shape = cardShape
+    )
     val titleStyle = remember(titleMedium) {
         titleMedium.copy(fontWeight = FontWeight.Medium)
     }
@@ -1338,7 +1348,7 @@ private fun ModernCarouselCard(
                     onClick()
                 }
             },
-            modifier = Modifier
+            modifier = legacyCardGlow
                 .fillMaxWidth()
                 .height(cardHeight)
                 .focusRequester(focusRequester)
