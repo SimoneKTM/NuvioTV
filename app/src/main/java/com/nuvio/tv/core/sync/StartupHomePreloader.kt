@@ -52,8 +52,8 @@ class StartupHomePreloader @Inject constructor(
 ) {
     companion object {
         private const val TAG = "StartupHomePreloader"
-        private const val PHASE_TIMEOUT_MS = 20_000L
-        private const val TOTAL_DEADLINE_MS = 60_000L
+        private const val PHASE_TIMEOUT_MS = 30_000L
+        private const val TOTAL_DEADLINE_MS = 90_000L
         private const val RETRY_DELAY_MS = 2_000L
     }
 
