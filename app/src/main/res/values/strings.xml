@@ -163,6 +163,9 @@
     <string name="cw_new_episode">New Episode</string>
     <string name="cw_new_episode_short">New</string>
     <string name="cw_new_season">New Season</string>
+    <string name="new_episode_notice_subtitle">New episode available in your library</string>
+    <string name="new_episode_notice_more">+%1$d more</string>
+    <string name="new_episode_notice_close">Dismiss notification</string>
     <string name="cw_resume">Resume</string>
     <string name="cw_percent_watched">%1$d%% Watched</string>
     <string name="cw_hours_min_left">%1$dh %2$dm left</string>

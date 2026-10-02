@@ -173,6 +173,8 @@ import com.nuvio.tv.ui.components.ProfileAvatarCircle
 import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
 import com.nuvio.tv.ui.navigation.NuvioNavHost
 import com.nuvio.tv.ui.navigation.Screen
+import com.nuvio.tv.ui.notifications.NewEpisodeNoticeHost
+import com.nuvio.tv.ui.notifications.NewEpisodeNoticeViewModel
 import com.nuvio.tv.ui.screens.account.AuthQrSignInScreen
 import com.nuvio.tv.ui.screens.addon.EssentialAddonSetupScreen
 import com.nuvio.tv.ui.screens.profile.ProfileSelectionScreen
@@ -1053,6 +1055,10 @@ class MainActivity : ComponentActivity() {
                     val updateViewModel: UpdateViewModel = hiltViewModel(this@MainActivity)
                     val updateState by updateViewModel.uiState.collectAsState()
 
+                    val newEpisodeViewModel: NewEpisodeNoticeViewModel =
+                        hiltViewModel(this@MainActivity)
+                    val newEpisodeState by newEpisodeViewModel.uiState.collectAsState()
+
                     UpdateBannerHost(
                         state = updateState,
                         onDismissBanner = updateViewModel::dismissBanner,
@@ -1062,64 +1068,70 @@ class MainActivity : ComponentActivity() {
                         onOpenUnknownSources = updateViewModel::openUnknownSourcesSettings,
                         onFeedbackShown = updateViewModel::consumeFeedbackMessage
                     ) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            if (modernSidebarEnabled) {
-                                ModernSidebarScaffold(
-                                    navController = navController,
-                                    startDestination = startDestination,
-                                    currentRoute = currentRoute,
-                                    rootRoutes = rootRoutes,
-                                    drawerItems = drawerItems,
-                                    selectedDrawerRoute = selectedDrawerRoute,
-                                    selectedDrawerItem = selectedDrawerItem,
-                                    sidebarCollapsed = sidebarCollapsed,
-                                    modernSidebarBlurEnabled = modernSidebarBlurEnabled,
-                                    hideBuiltInHeaders = hideBuiltInHeadersForFloatingPill,
-                                    activeProfileName = activeProfile?.name ?: "",
-                                    activeProfileColorHex = activeProfile?.avatarColorHex ?: "#1E88E5",
-                                    activeProfileAvatarImageUrl = activeProfileAvatarImageUrl,
-                                    showProfileSelector = profiles.size > 1,
-                                    onSwitchProfile = { hasSelectedProfileThisSession = false },
-                                    onNavigate = { optimisticRoute = it },
-                                    onExitApp = {
-                                        finishAffinity()
-                                        finishAndRemoveTask()
-                                    }
-                                )
-                            } else {
-                                LegacySidebarScaffold(
-                                    navController = navController,
-                                    startDestination = startDestination,
-                                    currentRoute = currentRoute,
-                                    rootRoutes = rootRoutes,
-                                    drawerItems = drawerItems,
-                                    selectedDrawerRoute = selectedDrawerRoute,
-                                    sidebarCollapsed = sidebarCollapsed,
-                                    hideBuiltInHeaders = false,
-                                    activeProfileName = activeProfile?.name ?: "",
-                                    activeProfileColorHex = activeProfile?.avatarColorHex ?: "#1E88E5",
-                                    activeProfileAvatarImageUrl = activeProfileAvatarImageUrl,
-                                    showProfileSelector = profiles.size > 1,
-                                    onSwitchProfile = { hasSelectedProfileThisSession = false },
-                                    onNavigate = { optimisticRoute = it },
-                                    onExitApp = {
-                                        finishAffinity()
-                                        finishAndRemoveTask()
-                                    }
-                                )
-                            }
+                        NewEpisodeNoticeHost(
+                            state = newEpisodeState,
+                            onCheck = newEpisodeViewModel::onAppOpen,
+                            onDismiss = newEpisodeViewModel::dismiss
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                if (modernSidebarEnabled) {
+                                    ModernSidebarScaffold(
+                                        navController = navController,
+                                        startDestination = startDestination,
+                                        currentRoute = currentRoute,
+                                        rootRoutes = rootRoutes,
+                                        drawerItems = drawerItems,
+                                        selectedDrawerRoute = selectedDrawerRoute,
+                                        selectedDrawerItem = selectedDrawerItem,
+                                        sidebarCollapsed = sidebarCollapsed,
+                                        modernSidebarBlurEnabled = modernSidebarBlurEnabled,
+                                        hideBuiltInHeaders = hideBuiltInHeadersForFloatingPill,
+                                        activeProfileName = activeProfile?.name ?: "",
+                                        activeProfileColorHex = activeProfile?.avatarColorHex ?: "#1E88E5",
+                                        activeProfileAvatarImageUrl = activeProfileAvatarImageUrl,
+                                        showProfileSelector = profiles.size > 1,
+                                        onSwitchProfile = { hasSelectedProfileThisSession = false },
+                                        onNavigate = { optimisticRoute = it },
+                                        onExitApp = {
+                                            finishAffinity()
+                                            finishAndRemoveTask()
+                                        }
+                                    )
+                                } else {
+                                    LegacySidebarScaffold(
+                                        navController = navController,
+                                        startDestination = startDestination,
+                                        currentRoute = currentRoute,
+                                        rootRoutes = rootRoutes,
+                                        drawerItems = drawerItems,
+                                        selectedDrawerRoute = selectedDrawerRoute,
+                                        sidebarCollapsed = sidebarCollapsed,
+                                        hideBuiltInHeaders = false,
+                                        activeProfileName = activeProfile?.name ?: "",
+                                        activeProfileColorHex = activeProfile?.avatarColorHex ?: "#1E88E5",
+                                        activeProfileAvatarImageUrl = activeProfileAvatarImageUrl,
+                                        showProfileSelector = profiles.size > 1,
+                                        onSwitchProfile = { hasSelectedProfileThisSession = false },
+                                        onNavigate = { optimisticRoute = it },
+                                        onExitApp = {
+                                            finishAffinity()
+                                            finishAndRemoveTask()
+                                        }
+                                    )
+                                }
 
-                            val autoNextOverlay by externalPlaybackTracker.autoNextOverlay.collectAsState()
-                            autoNextOverlay?.let { ov ->
-                                com.nuvio.tv.ui.screens.player.LoadingOverlay(
-                                    visible = true,
-                                    backdropUrl = ov.backdrop,
-                                    logoUrl = ov.logo,
-                                    title = ov.title,
-                                    message = ov.message ?: stringResource(R.string.external_auto_next_loading),
-                                    progress = ov.progress,
-                                    modifier = Modifier.fillMaxSize()
-                                )
+                                val autoNextOverlay by externalPlaybackTracker.autoNextOverlay.collectAsState()
+                                autoNextOverlay?.let { ov ->
+                                    com.nuvio.tv.ui.screens.player.LoadingOverlay(
+                                        visible = true,
+                                        backdropUrl = ov.backdrop,
+                                        logoUrl = ov.logo,
+                                        title = ov.title,
+                                        message = ov.message ?: stringResource(R.string.external_auto_next_loading),
+                                        progress = ov.progress,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
                             }
                         }
                     }

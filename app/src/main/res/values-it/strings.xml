@@ -132,6 +132,9 @@
 <string name="cw_new_episode">Nuovo episodio</string>
 <string name="cw_new_episode_short">Nuovo</string>
 <string name="cw_new_season">Nuova stagione</string>
+<string name="new_episode_notice_subtitle">Nuovo episodio disponibile nella tua libreria</string>
+<string name="new_episode_notice_more">+%1$d altri</string>
+<string name="new_episode_notice_close">Chiudi notifica</string>
 <string name="cw_resume">Riprendi</string>
 <string name="cw_percent_watched">%1$d%% visto</string>
 <string name="cw_hours_min_left">%1$dh %2$dm rimanenti</string>
