@@ -114,6 +114,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import com.nuvio.tv.core.perf.FluidModeState
 import com.nuvio.tv.core.runtime.PluginRuntimeHooks
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -176,6 +177,7 @@ import com.nuvio.tv.ui.screens.account.AuthQrSignInScreen
 import com.nuvio.tv.ui.screens.addon.EssentialAddonSetupScreen
 import com.nuvio.tv.ui.screens.profile.ProfileSelectionScreen
 import com.nuvio.tv.ui.screens.splash.NuvioSplashScreen
+import com.nuvio.tv.ui.screens.splash.StartupLoadingScreen
 import com.nuvio.tv.ui.theme.NuvioComponents
 import com.nuvio.tv.ui.theme.NuvioLayout
 import com.nuvio.tv.ui.theme.NuvioMotion
@@ -205,8 +207,14 @@ val LocalSidebarExpanded = compositionLocalOf { false }
 val LocalContentFocusRequester = compositionLocalOf { FocusRequester.Default }
 
 private const val SIDEBAR_AUTO_COLLAPSE_DELAY_MS = 4_000L
-private const val MIN_STARTUP_SPLASH_MS = 1_500L
-private const val MIN_POST_PROFILE_LOADING_MS = 300L
+
+// Fluid Mode: the short holds tuned for a Fire TV stick.
+private const val MIN_STARTUP_SPLASH_FLUID_MS = 1_500L
+private const val MIN_POST_PROFILE_LOADING_FLUID_MS = 300L
+
+// Classic (Fluid Mode off): the holds of the build before the speed-ups.
+private const val MIN_STARTUP_SPLASH_MS = 5_000L
+private const val MIN_POST_PROFILE_LOADING_MS = 600L
 
 /**
  * Density scale that shrinks a Fire TV stick's UI toward the ~1280dp-wide
@@ -276,6 +284,9 @@ private data class MainUiPrefs(
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var fluidModeState: FluidModeState
 
     @Inject
     lateinit var themeDataStore: ThemeDataStore
@@ -485,13 +496,19 @@ class MainActivity : ComponentActivity() {
                 systemSplashReady.set(true)
             }
             LaunchedEffect(Unit) {
-                delay(MIN_STARTUP_SPLASH_MS)
+                delay(
+                    if (fluidModeState.isEnabled()) MIN_STARTUP_SPLASH_FLUID_MS
+                    else MIN_STARTUP_SPLASH_MS
+                )
                 splashMinElapsed = true
             }
             LaunchedEffect(hasSelectedProfileThisSession) {
                 if (hasSelectedProfileThisSession) {
                     postProfileMinElapsed = false
-                    delay(MIN_POST_PROFILE_LOADING_MS)
+                    delay(
+                        if (fluidModeState.isEnabled()) MIN_POST_PROFILE_LOADING_FLUID_MS
+                        else MIN_POST_PROFILE_LOADING_MS
+                    )
                     postProfileMinElapsed = true
                 } else {
                     postProfileMinElapsed = false
@@ -774,15 +791,14 @@ class MainActivity : ComponentActivity() {
                             installedAddons.orEmpty().isEmpty() &&
                             !mainUiPrefs.addonSetupSkipped
 
-                    // After profile select, hold the logo splash until Home data is
+                    // After profile select, hold a black loading screen until Home data is
                     // actually ready — the preloader keeps re-attempting phases and only
-                    // force-releases after its hard 90s deadline. Opening Home earlier
-                    // just swaps this for Home's own heavy row loaders. Skip for
-                    // onboarding flows that don't open Home.
+                    // force-releases after its hard 120s deadline. Skip for onboarding flows
+                    // that don't open Home.
                     val willEnterMainApp = !needsExperienceSelection && !needsEssentialAddonSetup && layoutChosen
                     val homePreloadReady by startupHomePreloader.ready.collectAsState()
                     if (willEnterMainApp && (!homePreloadReady || !postProfileMinElapsed)) {
-                        NuvioSplashScreen()
+                        StartupLoadingScreen()
                         return@Surface
                     }
 

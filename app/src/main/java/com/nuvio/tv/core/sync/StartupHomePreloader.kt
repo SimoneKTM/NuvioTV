@@ -1,6 +1,7 @@
 package com.nuvio.tv.core.sync
 
 import android.util.Log
+import com.nuvio.tv.core.perf.FluidModeState
 import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 import com.nuvio.tv.data.local.ExperienceModeDataStore
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
@@ -48,13 +49,20 @@ class StartupHomePreloader @Inject constructor(
     private val experienceModeDataStore: ExperienceModeDataStore,
     private val cwEnrichmentCache: ContinueWatchingEnrichmentCache,
     private val metadataTextTranslator: MetadataTextTranslator,
-    private val tmdbSettingsDataStore: TmdbSettingsDataStore
+    private val tmdbSettingsDataStore: TmdbSettingsDataStore,
+    private val fluidModeState: FluidModeState
 ) {
     companion object {
         private const val TAG = "StartupHomePreloader"
-        private const val PHASE_TIMEOUT_MS = 30_000L
-        private const val TOTAL_DEADLINE_MS = 90_000L
+
+        // Fluid Mode: longer phases plus a retry loop with a hard deadline, so the
+        // loading screen stays up until the catalogs are actually warm.
+        private const val PHASE_TIMEOUT_MS = 40_000L
+        private const val TOTAL_DEADLINE_MS = 120_000L
         private const val RETRY_DELAY_MS = 2_000L
+
+        // Classic (Fluid Mode off): the single pass of the build before the speed-ups.
+        private const val CLASSIC_PHASE_TIMEOUT_MS = 20_000L
     }
 
     // Warm-ups run on a background-priority thread: on low-end TV sticks the
@@ -113,45 +121,58 @@ class StartupHomePreloader @Inject constructor(
             Log.w(TAG, "Translation model warm-up failed: ${e.message}")
         }
     }
-
     private fun startPreload() {
         preloadJob?.cancel()
         preloadJob = scope.launch {
             _ready.value = false
             val startedAt = android.os.SystemClock.elapsedRealtime()
-            // Keep re-attempting until every phase has genuinely completed, so
-            // the black loading screen waits exactly as long as the data needs;
-            // the hard deadline below guarantees Home after one minute max.
+            val fluidPerformance = fluidModeState.isEnabled()
             var complete = false
-            while (!complete) {
-                val elapsed = android.os.SystemClock.elapsedRealtime() - startedAt
-                val remaining = TOTAL_DEADLINE_MS - elapsed
-                if (remaining <= 0L) break
+            if (fluidPerformance) {
+                // Keep re-attempting until every phase has genuinely completed, so
+                // the black loading screen waits exactly as long as the data needs;
+                // the hard deadline guarantees Home after two minutes max.
+                while (!complete) {
+                    val elapsed = android.os.SystemClock.elapsedRealtime() - startedAt
+                    val remaining = TOTAL_DEADLINE_MS - elapsed
+                    if (remaining <= 0L) break
+                    complete = try {
+                        withTimeoutOrNull(remaining) { runPreloadPhases(PHASE_TIMEOUT_MS) } == true
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Preload attempt failed: ${e.message}")
+                        false
+                    }
+                    if (!complete) {
+                        val left = TOTAL_DEADLINE_MS - (android.os.SystemClock.elapsedRealtime() - startedAt)
+                        if (left <= RETRY_DELAY_MS) break
+                        delay(RETRY_DELAY_MS)
+                    }
+                }
+            } else {
+                // Classic: a single pass with the classic per-phase timeout, then
+                // Home either way — the structure of the build before the speed-ups.
                 complete = try {
-                    withTimeoutOrNull(remaining) { runPreloadPhases() } == true
+                    runPreloadPhases(CLASSIC_PHASE_TIMEOUT_MS)
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    Log.w(TAG, "Preload attempt failed: ${e.message}")
+                    Log.w(TAG, "Preload interrupted: ${e.message}")
                     false
-                }
-                if (!complete) {
-                    val left = TOTAL_DEADLINE_MS - (android.os.SystemClock.elapsedRealtime() - startedAt)
-                    if (left <= RETRY_DELAY_MS) break
-                    delay(RETRY_DELAY_MS)
                 }
             }
             _ready.value = true
             Log.d(
                 TAG,
                 "Home preload ready in ${android.os.SystemClock.elapsedRealtime() - startedAt}ms " +
-                    "(complete=$complete) profile=${profileManager.activeProfileId.value}"
+                    "(fluid=$fluidPerformance complete=$complete) profile=${profileManager.activeProfileId.value}"
             )
         }
     }
 
     /** Runs every warm-up phase once; returns true only when all of them satisfied. */
-    private suspend fun runPreloadPhases(): Boolean {
+    private suspend fun runPreloadPhases(phaseTimeoutMs: Long): Boolean {
         var complete = true
 
         // Kick warm-ups early (no-ops if already running).
@@ -160,7 +181,7 @@ class StartupHomePreloader @Inject constructor(
         traktTop10Repository.warmUp()
 
         suspend fun phase(block: suspend () -> Unit) {
-            if (withTimeoutOrNull(PHASE_TIMEOUT_MS) { block() } == null) complete = false
+            if (withTimeoutOrNull(phaseTimeoutMs) { block() } == null) complete = false
         }
 
         phase { profileManager.activeProfileReady.first { it } }
@@ -169,8 +190,8 @@ class StartupHomePreloader @Inject constructor(
         phase { experienceModeDataStore.mode.first() }
         phase { layoutPreferenceDataStore.homeCatalogOrderKeys.first() }
         // Held on purpose: Home's own row loaders are heavy on a stick, so the
-        // splash stays up until every catalog answered its first page (still
-        // capped by PHASE_TIMEOUT_MS and the TOTAL_DEADLINE_MS force-release).
+        // loading screen stays up until every catalog answered its first page
+        // (still capped by the phase timeout and the total deadline force-release).
         phase { catalogRepository.warmComplete.first { it } }
         // Touch CW disk cache so first Home render hits warm FS state.
         phase {

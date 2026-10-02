@@ -61,7 +61,10 @@ object PluginRuntimeHooks {
                     .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
                     .ignoreAllSSLErrors()
                     .cache(Cache(
-                        directory = File(currentApp.cacheDir, "http_cache"),
+                        // Separate directory: NetworkModule's client already owns
+                        // cacheDir/http_cache, and two okhttp3.Cache instances on
+                        // the same directory fight over the same files.
+                        directory = File(currentApp.cacheDir, "http_cache_ext"),
                         maxSize = 50L * 1024L * 1024L
                     ))
                     .build()

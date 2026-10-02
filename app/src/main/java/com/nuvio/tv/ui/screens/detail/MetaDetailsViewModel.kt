@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nuvio.tv.core.perf.FluidModeState
 import com.nuvio.tv.core.player.StreamAutoPlayPolicy
 import com.nuvio.tv.core.network.NetworkResult
 import com.nuvio.tv.core.tmdb.TmdbMetadataService
@@ -84,6 +85,7 @@ private const val TAG = "MetaDetailsViewModel"
 
 @HiltViewModel
 class MetaDetailsViewModel @Inject constructor(
+    private val fluidModeState: FluidModeState,
     @ApplicationContext private val context: Context,
     private val metaRepository: MetaRepository,
     private val tmdbSettingsDataStore: TmdbSettingsDataStore,
@@ -183,6 +185,14 @@ class MetaDetailsViewModel @Inject constructor(
             extraLayoutActive.value -> extraLayoutPreferenceDataStore
             else -> layoutPreferenceDataStore
         }
+
+    /**
+     * Set at the start of every load: gates the performance behaviours (paint-first,
+     * parallel layout probes, early spinner) on Fluid Mode, so with it off the detail
+     * follows the structural order of the build before the speed-ups.
+     */
+    @Volatile
+    private var fluidPerformance = false
 
     /** TMDB language/region settings for the tab this detail page belongs to. */
     private val activeTmdbSettingsDataStore: TmdbSettingsDataStore
@@ -298,11 +308,24 @@ class MetaDetailsViewModel @Inject constructor(
      * query the HOME (or ALL) pool instead of their own tab.
      */
     private suspend fun resolveLayoutSource() {
-        animeLayoutActive.value = readLayoutFlag(resolveAnimeLayoutSource())
-        extraLayoutActive.value = if (animeLayoutActive.value) {
-            false
+        if (fluidPerformance) {
+            // Both probes read disk-gated addon flows (up to 8s each) — run them
+            // together so a cold start costs one timeout window, not two in sequence.
+            val (animeActive, extraActive) = kotlinx.coroutines.coroutineScope {
+                val anime = async { readLayoutFlag(resolveAnimeLayoutSource()) }
+                val extra = async { readLayoutFlag(resolveExtraLayoutSource()) }
+                anime.await() to extra.await()
+            }
+            animeLayoutActive.value = animeActive
+            extraLayoutActive.value = !animeActive && extraActive
         } else {
-            readLayoutFlag(resolveExtraLayoutSource())
+            // Classic: one probe after the other.
+            animeLayoutActive.value = readLayoutFlag(resolveAnimeLayoutSource())
+            extraLayoutActive.value = if (animeLayoutActive.value) {
+                false
+            } else {
+                readLayoutFlag(resolveExtraLayoutSource())
+            }
         }
     }
 
@@ -780,44 +803,55 @@ class MetaDetailsViewModel @Inject constructor(
         }
     }
 
+    /** Resets the detail state and shows the spinner; classic order calls this last. */
+    private fun beginLoadingState() {
+        _uiState.update {
+            it.copy(
+                isLoading = true,
+                error = null,
+                episodeImdbRatings = emptyMap(),
+                isEpisodeRatingsLoading = false,
+                episodeRatingsError = null,
+                mdbListRatings = null,
+                showMdbListImdb = false,
+                awards = null,
+                tmdbRating = null,
+                tvdbRating = null,
+                moreLikeThis = emptyList(),
+                moreLikeThisSource = null,
+                collection = emptyList(),
+                collectionName = null,
+                comments = emptyList(),
+                commentsCurrentPage = 0,
+                commentsPageCount = 0,
+                isCommentsLoading = false,
+                isCommentsLoadingMore = false,
+                commentsError = null,
+                shouldShowCommentsSection = false,
+                commentsMode = CommentsMode.TITLE,
+                commentsEpisodeTarget = null,
+                selectedComment = null,
+                isSharedTrailerOverlayVisible = false,
+                isSharedTrailerLoading = false,
+                sharedTrailerUrl = null,
+                sharedTrailerAudioUrl = null,
+                sharedTrailerErrorMessage = null,
+                selectedSharedTrailer = null
+            )
+        }
+    }
+
     private fun loadMeta() {
         viewModelScope.launch {
+            fluidPerformance = fluidModeState.isEnabled()
+            // Fluid Mode: flip the spinner before resolveLayoutSource() probes the two
+            // disk-gated addon flows (they can suspend for seconds).
+            if (fluidPerformance) beginLoadingState()
             resolveLayoutSource()
             cancelCommentsRequests()
-            _uiState.update {
-                it.copy(
-                    isLoading = true,
-                    error = null,
-                    episodeImdbRatings = emptyMap(),
-                    isEpisodeRatingsLoading = false,
-                    episodeRatingsError = null,
-                    mdbListRatings = null,
-                    showMdbListImdb = false,
-                    awards = null,
-                    tmdbRating = null,
-                    tvdbRating = null,
-                    moreLikeThis = emptyList(),
-                    moreLikeThisSource = null,
-                    collection = emptyList(),
-                    collectionName = null,
-                    comments = emptyList(),
-                    commentsCurrentPage = 0,
-                    commentsPageCount = 0,
-                    isCommentsLoading = false,
-                    isCommentsLoadingMore = false,
-                    commentsError = null,
-                    shouldShowCommentsSection = false,
-                    commentsMode = CommentsMode.TITLE,
-                    commentsEpisodeTarget = null,
-                    selectedComment = null,
-                    isSharedTrailerOverlayVisible = false,
-                    isSharedTrailerLoading = false,
-                    sharedTrailerUrl = null,
-                    sharedTrailerAudioUrl = null,
-                    sharedTrailerErrorMessage = null,
-                    selectedSharedTrailer = null
-                )
-            }
+            // Classic: the spinner appears only after the layout probes, like the
+            // build before the speed-ups.
+            if (!fluidPerformance) beginLoadingState()
 
             val metaLookupId = resolveMetaLookupId(itemId = itemId, itemType = itemType)
             // Update effective content ID as early as possible so watch-progress
@@ -991,7 +1025,11 @@ class MetaDetailsViewModel @Inject constructor(
         return "$catalogHint\n\n$base\n\nID: $lookupId"
     }
 
-    private fun applyMeta(meta: Meta) {
+    /**
+     * @param startSideEffects when false the trailer/comment kick-off is skipped;
+     * used by the enriched re-apply so a paint-first pass already started them.
+     */
+    private fun applyMeta(meta: Meta, startSideEffects: Boolean = true) {
         // Update the effective content ID so watch-progress observers pick up
         // the canonical ID (e.g. IMDB "tt0396375") instead of the navigation ID
         // (which may be "tmdb:13836").  Don't downgrade from an IMDB ID to a
@@ -1050,11 +1088,13 @@ class MetaDetailsViewModel @Inject constructor(
         reevaluateSeriesWatchedBadge()
         calculateNextToWatch()
 
-        // Start fetching trailer after meta is loaded
-        fetchTrailerUrl()
+        if (startSideEffects) {
+            // Start fetching trailer after meta is loaded
+            fetchTrailerUrl()
 
-        if (traktCommentsEnabled && traktAuthenticated && supportsComments(meta)) {
-            loadComments(meta)
+            if (traktCommentsEnabled && traktAuthenticated && supportsComments(meta)) {
+                loadComments(meta)
+            }
         }
     }
 
@@ -1062,6 +1102,11 @@ class MetaDetailsViewModel @Inject constructor(
         resolveProvenanceFallback(meta)
         // Fire all independent async jobs immediately — they run in parallel.
         loadMoreLikeThisAsync(meta)
+        if (fluidPerformance) {
+            // Paint the base meta right away: enrichMeta() below can burn seconds on
+            // a stick, and the detail renders fine without it.
+            applyMeta(meta)
+        }
         val enriched = enrichMeta(meta)
 
         // Pre-compute nextToWatch before applyMeta so the PlayButton text is stable
@@ -1078,7 +1123,13 @@ class MetaDetailsViewModel @Inject constructor(
         val precomputedNextToWatch = computeNextToWatch(enriched, progressMap, watchedEpisodes)
         updateNextToWatch(precomputedNextToWatch)
 
-        applyMeta(enriched)
+        if (fluidPerformance) {
+            if (enriched !== meta) {
+                applyMeta(enriched, startSideEffects = false)
+            }
+        } else {
+            applyMeta(enriched)
+        }
         // Episode ratings and MDBList are independent — launch both without waiting.
         loadEpisodeRatingsAsync(enriched)
         viewModelScope.launch { loadMDBListRatings(enriched) }
@@ -1089,8 +1140,13 @@ class MetaDetailsViewModel @Inject constructor(
         // sticks can otherwise block the first paint for tens of seconds.
         viewModelScope.launch {
             val language = activeTmdbSettingsDataStore.settings.first().language
-            val translated = translateMetaTexts(enriched, language) { description ->
-                publishTranslatedDescription(enriched, description)
+            val translated = if (fluidPerformance) {
+                translateMetaTexts(enriched, language) { description ->
+                    publishTranslatedDescription(enriched, description)
+                }
+            } else {
+                // Classic: the description lands only together with the full translation.
+                translateMetaTexts(enriched, language)
             }
             if (translated === enriched) return@launch
             _uiState.update { state ->

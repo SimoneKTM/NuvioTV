@@ -1,6 +1,7 @@
 package com.nuvio.tv.data.repository
 
 import android.util.Log
+import com.nuvio.tv.core.perf.FluidModeState
 import com.nuvio.tv.core.tmdb.TmdbEnrichment
 import com.nuvio.tv.core.tmdb.TmdbMetadataService
 import com.nuvio.tv.core.tmdb.TmdbService
@@ -26,6 +27,7 @@ import com.nuvio.tv.core.trakt.traktBestLogoUrl
 import com.nuvio.tv.core.trakt.traktBestPosterUrl
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -40,7 +42,9 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -56,6 +60,7 @@ import javax.inject.Singleton
 @Singleton
 class CalendarRepositoryImpl @Inject constructor(
     private val traktApi: TraktApi,
+    private val fluidModeState: FluidModeState,
     private val metaRepository: MetaRepository,
     private val tmdbService: TmdbService,
     private val tmdbMetadataService: TmdbMetadataService,
@@ -80,6 +85,10 @@ class CalendarRepositoryImpl @Inject constructor(
         private const val EXTERNAL_ENRICHMENT_TIMEOUT_MS = 10_000L
         // Trakt calendars documented maximum is 33 days.
         private const val TRAKT_MAX_DAYS = 33
+
+        // How long a successful shared calendar fetch may be reused by another
+        // caller that starts right after it finished (warmUp vs Home's observer).
+        private const val CALENDAR_FETCH_REUSE_MS = 15_000L
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -89,6 +98,21 @@ class CalendarRepositoryImpl @Inject constructor(
     // don't re-query addons for items that already succeeded or failed.
     private val enrichedAddonIds = ConcurrentHashMap.newKeySet<String>()
     private var warmUpJob: Job? = null
+
+    // Startup fires warmUp() and Home's observeLatestReleases() together, and both
+    // used to run the identical 33-day Trakt calendar request back to back (up to
+    // four per cold start). Single-flight the request and reuse a fresh success.
+    private val calendarFetchMutex = Mutex()
+    private var calendarFetch: Deferred<CalendarFetchResult>? = null
+    private var calendarFetchCompletedAtMs = 0L
+
+    @Volatile
+    private var lastCalendarResult: CalendarFetchResult? = null
+
+    private data class CalendarFetchResult(
+        val success: Boolean,
+        val items: List<TraktCalendarMediaItemDto>
+    )
 
     override fun warmUp() {
         if (warmUpJob?.isActive == true) return
@@ -103,6 +127,74 @@ class CalendarRepositoryImpl @Inject constructor(
             }
         }
     }
+
+    /**
+     * Single-flight wrapper around the identical "last N days" calendar request:
+     * concurrent callers join the in-flight call and a fresh success is reused for
+     * [CALENDAR_FETCH_REUSE_MS], so a cold start issues one request, not four.
+     */
+    private suspend fun fetchCalendarShared(startDate: String, days: Int): CalendarFetchResult {
+        if (!fluidModeState.isEnabled()) {
+            // Classic: every caller issues its own request, like the build before
+            // the speed-ups (Fluid Mode is what deduplicates them).
+            return performCalendarFetch(startDate, days)
+        }
+
+        // Fast path: join the in-flight request, or reuse a very recent success
+        // (startup fires warmUp() and Home's observer back to back).
+        val inFlight = calendarFetch
+        if (inFlight != null && inFlight.isActive) return inFlight.await()
+        lastCalendarResult?.let { result ->
+            if (result.success && System.currentTimeMillis() - calendarFetchCompletedAtMs < CALENDAR_FETCH_REUSE_MS) {
+                return result
+            }
+        }
+
+        val deferred = calendarFetchMutex.withLock {
+            val current = calendarFetch
+            if (current != null && current.isActive) {
+                current
+            } else {
+                lastCalendarResult?.let { result ->
+                    if (result.success &&
+                        System.currentTimeMillis() - calendarFetchCompletedAtMs < CALENDAR_FETCH_REUSE_MS
+                    ) {
+                        return result
+                    }
+                }
+                scope.async {
+                    performCalendarFetch(startDate, days).also { result ->
+                        if (result.success) {
+                            lastCalendarResult = result
+                            calendarFetchCompletedAtMs = System.currentTimeMillis()
+                        }
+                    }
+                }.also { calendarFetch = it }
+            }
+        }
+        return deferred.await()
+    }
+
+    private suspend fun performCalendarFetch(startDate: String, days: Int): CalendarFetchResult =
+        try {
+            val response = traktApi.getCalendarMedia(
+                target = "all",
+                startDate = startDate,
+                days = days,
+                extended = "full"
+            )
+            if (response.isSuccessful) {
+                CalendarFetchResult(success = true, items = response.body().orEmpty())
+            } else {
+                Log.w(TAG, "Trakt calendar media failed: ${response.code()} ${response.message()}")
+                CalendarFetchResult(success = false, items = emptyList())
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch Trakt calendar media", e)
+            CalendarFetchResult(success = false, items = emptyList())
+        }
 
     override fun getCalendarItems(): Flow<List<CalendarItem>> = flow {
         val cached = cachedItems.value
@@ -120,24 +212,16 @@ class CalendarRepositoryImpl @Inject constructor(
             // extended=full returns images on /calendars/*/media (fullimages
             // returns none). Trakt image URLs are scheme-less media.trakt.tv
             // paths — traktBest* helpers normalize them to https.
-            val response = traktApi.getCalendarMedia(
-                target = "all",
-                startDate = todayStr,
-                days = TRAKT_MAX_DAYS,
-                extended = "full"
-            )
+            val fetch = fetchCalendarShared(startDate = todayStr, days = TRAKT_MAX_DAYS)
+            if (fetch.success) {
+                Log.d(TAG, "Trakt calendar media: ${fetch.items.size} items")
 
-            if (response.isSuccessful) {
-                val body = response.body() ?: emptyList()
-                Log.d(TAG, "Trakt calendar media: ${body.size} items")
-
-                for (item in body) {
+                for (item in fetch.items) {
                     val calendarItem = item.toCalendarItem() ?: continue
                     allItems.add(calendarItem)
                 }
             } else {
                 fetchFailed = true
-                Log.w(TAG, "Trakt calendar media failed: ${response.code()} ${response.message()}")
             }
         } catch (e: CancellationException) {
             throw e
