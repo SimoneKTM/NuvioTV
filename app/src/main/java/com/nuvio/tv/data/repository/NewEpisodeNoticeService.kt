@@ -22,6 +22,9 @@ import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -33,6 +36,11 @@ import kotlinx.coroutines.withTimeoutOrNull
  * the candidate set comes from the local/remote library and "already watched"
  * is resolved against the Trakt watched-episodes snapshot with a local
  * watch-progress fallback.
+ *
+ * Display numbers are remapped to the addon catalog's season/episode
+ * numbering (via [TraktEpisodeMappingService]) so the banner shows exactly
+ * what the detail screen shows. The watched check above always uses the
+ * Trakt numbers, which is what the watched snapshot is keyed on.
  */
 @Singleton
 class NewEpisodeNoticeService @Inject constructor(
@@ -40,7 +48,8 @@ class NewEpisodeNoticeService @Inject constructor(
     private val libraryPreferences: LibraryPreferences,
     private val watchProgressRepository: WatchProgressRepository,
     private val traktAuthDataStore: TraktAuthDataStore,
-    private val traktApi: TraktApi
+    private val traktApi: TraktApi,
+    private val episodeMappingService: TraktEpisodeMappingService
 ) {
 
     companion object {
@@ -50,6 +59,7 @@ class NewEpisodeNoticeService @Inject constructor(
         private const val MAX_NOTICES = 6
         private const val LIBRARY_TIMEOUT_MS = 10_000L
         private const val PROGRESS_TIMEOUT_MS = 6_000L
+        private const val MAPPING_TIMEOUT_MS = 10_000L
 
         private val SERIES_TYPES = setOf("series", "tv", "show", "anime")
     }
@@ -72,7 +82,7 @@ class NewEpisodeNoticeService @Inject constructor(
         val progressIndex = resolveProgressIndex()
 
         val now = System.currentTimeMillis()
-        val notices = mutableListOf<NewEpisodeNotice>()
+        val pending = mutableListOf<Pair<NewEpisodeNotice, List<String>>>()
         val seenContentIds = mutableSetOf<String>()
 
         for (item in calendar) {
@@ -103,7 +113,7 @@ class NewEpisodeNoticeService @Inject constructor(
                 continue
             }
 
-            notices += NewEpisodeNotice(
+            val notice = NewEpisodeNotice(
                 contentId = entry.id,
                 title = entry.name,
                 season = season,
@@ -114,10 +124,67 @@ class NewEpisodeNoticeService @Inject constructor(
                 airedLabel = formatAiredLabel(airMillis),
                 airedAtMs = airMillis
             )
-            if (notices.size >= MAX_NOTICES) break
+            val idCandidates = linkedSetOf<String>()
+            showIdKeys(show.ids).forEach { idCandidates.add(it) }
+            entryKeys.forEach { idCandidates.add(it) }
+            pending += notice to idCandidates.toList()
+            if (pending.size >= MAX_NOTICES) break
         }
 
-        notices.sortedByDescending { it.airedAtMs }
+        pending.sortByDescending { it.first.airedAtMs }
+        remapNoticesToAddonNumbering(pending)
+    }
+
+    /**
+     * Rewrites [NewEpisodeNotice.season]/[NewEpisodeNotice.episode] from the Trakt
+     * calendar numbers to the numbering used by the addon catalog meta, in parallel.
+     * Several id candidates are tried (calendar ids first, then library entry ids)
+     * because a bare `tmdb_tv_xxx` entry id cannot be resolved against the Trakt
+     * seasons endpoint. Any failure (no Trakt auth, addon without episode list,
+     * timeout) leaves the original Trakt numbers untouched.
+     */
+    private suspend fun remapNoticesToAddonNumbering(
+        pending: List<Pair<NewEpisodeNotice, List<String>>>
+    ): List<NewEpisodeNotice> {
+        if (pending.isEmpty()) return emptyList()
+        return coroutineScope {
+            pending.map { (notice, idCandidates) ->
+                async {
+                    var mapped: EpisodeMappingEntry? = null
+                    for (contentId in idCandidates) {
+                        mapped = try {
+                            withTimeoutOrNull(MAPPING_TIMEOUT_MS) {
+                                episodeMappingService.resolveAddonEpisodeMapping(
+                                    contentId = contentId,
+                                    contentType = "series",
+                                    season = notice.season,
+                                    episode = notice.episode,
+                                    episodeTitle = notice.episodeTitle
+                                )
+                            }
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Log.w(TAG, "remap failed for $contentId: ${e.message}")
+                            null
+                        }
+                        if (mapped != null) break
+                    }
+                    if (mapped != null && mapped.season > 0 && mapped.episode > 0) {
+                        if (mapped.season != notice.season || mapped.episode != notice.episode) {
+                            Log.d(
+                                TAG,
+                                "remap ${notice.contentId} s${notice.season}e${notice.episode}" +
+                                    " -> s${mapped.season}e${mapped.episode}"
+                            )
+                        }
+                        notice.copy(season = mapped.season, episode = mapped.episode)
+                    } else {
+                        notice
+                    }
+                }
+            }.awaitAll()
+        }
     }
 
     private suspend fun loadLibraryShows(): List<LibraryEntry> {
