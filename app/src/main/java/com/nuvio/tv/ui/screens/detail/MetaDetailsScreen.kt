@@ -1710,10 +1710,11 @@ private fun MetaDetailsContent(
                 }
             }
 
-            // Season tabs and episodes for series
+            // While the trailer plays only the hero stays on screen: season
+            // tabs, episodes, people tabs and the rows below are hidden.
             val showSeasonTabs = isSeries && seasons.isNotEmpty() && !(seasons.size == 1 && meta.apiType.equals("other", ignoreCase = true))
             val showEpisodesRow = isSeries && seasons.isNotEmpty()
-            if (showSeasonTabs) {
+            if (!isTrailerPlaying && showSeasonTabs) {
                 item(key = "season_tabs", contentType = "season_tabs") {
                     Box(modifier = Modifier.bringIntoViewResponder(detailRowBringIntoViewResponder)) {
                         SeasonTabs(
@@ -1729,7 +1730,7 @@ private fun MetaDetailsContent(
                     }
                 }
             }
-            if (showEpisodesRow) {
+            if (!isTrailerPlaying && showEpisodesRow) {
                 item(key = "episodes_$selectedSeason", contentType = "episodes") {
                     Box(modifier = Modifier.bringIntoViewResponder(detailRowBringIntoViewResponder)) {
                         EpisodesRow(
@@ -1793,7 +1794,7 @@ private fun MetaDetailsContent(
         }
 
         // Cast / More like this section
-        if (hasVisiblePeopleSection) {
+        if (!isTrailerPlaying && hasVisiblePeopleSection) {
                 if (hasVisiblePeopleTabs) {
                     item(key = "cast_more_like_tabs", contentType = "horizontal_row") {
                         PeopleSectionTabs(
@@ -1935,7 +1936,7 @@ private fun MetaDetailsContent(
             }
             
             // Collection as separate section when there are too many tabs
-            if (shouldSplitCollection && collection.isNotEmpty()) {
+            if (!isTrailerPlaying && shouldSplitCollection && collection.isNotEmpty()) {
                 item(key = "collection_section", contentType = "horizontal_row") {
                     CollectionSection(
                         items = collection,
@@ -1968,7 +1969,7 @@ private fun MetaDetailsContent(
                 }
             }
 
-            if (shouldShowCommentsSection) {
+            if (!isTrailerPlaying && shouldShowCommentsSection) {
                 item(key = "trakt_comments", contentType = "horizontal_row") {
                     CommentsSection(
                         comments = comments,
@@ -1999,6 +2000,7 @@ private fun MetaDetailsContent(
                 }
             }
 
+            if (!isTrailerPlaying) {
             if (isTvShow) {
                 if (meta.networks.isNotEmpty()) {
                     item(key = "networks", contentType = "horizontal_row") {
@@ -2071,6 +2073,7 @@ private fun MetaDetailsContent(
                         )
                     }
                 }
+            }
             }
         }
 
