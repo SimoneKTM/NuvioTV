@@ -74,7 +74,8 @@ class CalendarRepositoryImpl @Inject constructor(
     private val animeTvdbSettingsDataStore: AnimeTvdbSettingsDataStore,
     @param:Named("extra_tmdb") private val extraTmdbSettingsDataStore: TmdbSettingsDataStore,
     @param:Named("extra_mdblist") private val extraMdbListSettingsDataStore: MDBListSettingsDataStore,
-    private val extraTvdbSettingsDataStore: com.nuvio.tv.data.local.ExtraTvdbSettingsDataStore
+    private val extraTvdbSettingsDataStore: com.nuvio.tv.data.local.ExtraTvdbSettingsDataStore,
+    private val itemSourcePreferences: com.nuvio.tv.data.local.ItemSourcePreferences
 ) : CalendarRepository {
 
     companion object {
@@ -385,6 +386,19 @@ class CalendarRepositoryImpl @Inject constructor(
         if (candidates.isEmpty()) return applyExternalEnrichment(item, MetaRepository.META_NAMESPACE_HOME)
         val rawNumericId = extractRawNumericId(item.meta.id)
 
+        // Library-style per-item memory: if this title was already opened from
+        // Home/Anime, enrich it with the very same addon first (4 seasons, not
+        // the generic 1 from an unrelated pool hit).
+        val rememberedSource = runCatching {
+            itemSourcePreferences.get(
+                candidates.flatMap { (candidateType, candidateId) ->
+                    com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(candidateType, candidateId)
+                } + com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(
+                    item.meta.rawType, item.meta.id
+                )
+            )
+        }.getOrNull()
+
         // Anime first (same as the Anime tab), then Home/Extra. A hit with
         // artwork or a source URL wins immediately so Detail opens with the
         // Anime layout for anime-sourced titles (4 seasons, not the generic 1).
@@ -393,6 +407,7 @@ class CalendarRepositoryImpl @Inject constructor(
             candidates = candidates,
             item = item,
             rawNumericId = rawNumericId,
+            preferredSource = rememberedSource,
             requireStrongFields = true
         )
         if (animeWinner != null) {
@@ -416,6 +431,7 @@ class CalendarRepositoryImpl @Inject constructor(
                 candidates = candidates,
                 item = item,
                 rawNumericId = rawNumericId,
+                preferredSource = rememberedSource,
                 requireStrongFields = false
             ) ?: continue
             val score = metaRichnessScore(result)
@@ -441,6 +457,7 @@ class CalendarRepositoryImpl @Inject constructor(
         candidates: List<Pair<String, String>>,
         item: CalendarItem,
         rawNumericId: String?,
+        preferredSource: String?,
         requireStrongFields: Boolean
     ): Meta? {
         for ((candidateType, candidateId) in candidates) {
@@ -448,7 +465,7 @@ class CalendarRepositoryImpl @Inject constructor(
                 metaRepository.getMetaFromAllAddons(
                     type = candidateType,
                     id = candidateId,
-                    sourceAddonBaseUrl = item.meta.sourceAddonBaseUrl,
+                    sourceAddonBaseUrl = preferredSource ?: item.meta.sourceAddonBaseUrl,
                     rawId = rawNumericId,
                     namespace = namespace,
                     preferAnimeAddons = namespace == MetaRepository.META_NAMESPACE_ANIME

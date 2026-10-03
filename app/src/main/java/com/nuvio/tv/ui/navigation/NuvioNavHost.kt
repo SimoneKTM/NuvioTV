@@ -279,6 +279,11 @@ fun NuvioNavHost(
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
+                },
+                navArgument("origin") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 }
             )
         ) { backStackEntry ->
@@ -1055,7 +1060,8 @@ fun NuvioNavHost(
                             itemId = itemId,
                             itemType = itemType,
                             addonBaseUrl = addonBaseUrl,
-                            heroBackdropUrl = heroBackdrop
+                            heroBackdropUrl = heroBackdrop,
+                            origin = "search"
                         )
                     )
                 },
@@ -1078,7 +1084,8 @@ fun NuvioNavHost(
                             itemId = itemId,
                             itemType = itemType,
                             addonBaseUrl = addonBaseUrl,
-                            heroBackdropUrl = heroBackdrop
+                            heroBackdropUrl = heroBackdrop,
+                            origin = "search"
                         )
                     )
                 }
@@ -1324,7 +1331,8 @@ fun NuvioNavHost(
                             itemId = itemId,
                             itemType = itemType,
                             addonBaseUrl = addonBaseUrl,
-                            heroBackdropUrl = heroBackdrop
+                            heroBackdropUrl = heroBackdrop,
+                            origin = "calendar"
                         )
                     )
                 }
@@ -1556,7 +1564,14 @@ fun NuvioNavHost(
                 extraViewModel = extraViewModel,
                 viewModel = homeViewModel,
                 onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
-                    navController.navigate(Screen.Detail.createRoute(itemId, itemType, addonBaseUrl))
+                    navController.navigate(
+                        Screen.Detail.createRoute(
+                            itemId = itemId,
+                            itemType = itemType,
+                            addonBaseUrl = addonBaseUrl,
+                            origin = if (fromSearch) "search" else ""
+                        )
+                    )
                 },
                 onBackPress = { navController.popBackStack() }
             )

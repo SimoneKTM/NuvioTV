@@ -120,13 +120,35 @@ class MetaDetailsViewModel @Inject constructor(
     private val extraAddonRepository: ExtraAddonRepository,
     private val playerSettingsDataStore: PlayerSettingsDataStore,
     private val watchedSeriesStateHolder: com.nuvio.tv.data.local.WatchedSeriesStateHolder,
+    private val itemSourcePreferences: com.nuvio.tv.data.local.ItemSourcePreferences,
     val posterOptions: com.nuvio.tv.ui.components.posteroptions.PosterOptionsController,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val itemId: String = savedStateHandle["itemId"] ?: ""
     private val itemType: String = savedStateHandle["itemType"] ?: ""
-    val preferredAddonBaseUrl: String? =
+    private val routeAddonBaseUrl: String? =
         savedStateHandle.get<String>("addonBaseUrl")?.takeIf { it.isNotBlank() }
+    private val detailOrigin: String =
+        savedStateHandle.get<String>("origin")?.takeIf { it.isNotBlank() }.orEmpty()
+    private var rememberedSource: String? = null
+    private var metaAliasKeys: List<String> = emptyList()
+
+    /**
+     * Addon tried first for the meta lookup. Search/Discover/Calendar opens
+     * honour the per-item memory (library-style addonBaseUrl) before the card's
+     * source, so a title seen in Home/Anime resolves with the same addon and
+     * the same season count everywhere. Any other screen keeps the card source
+     * first and only falls back to the memory when the card carries none.
+     */
+    val preferredAddonBaseUrl: String?
+        get() {
+            val remembered = rememberedSource
+            return if (detailOrigin == "search" || detailOrigin == "calendar") {
+                remembered ?: routeAddonBaseUrl
+            } else {
+                routeAddonBaseUrl ?: remembered
+            }
+        }
 
     private val _uiState = MutableStateFlow(MetaDetailsUiState())
     val uiState: StateFlow<MetaDetailsUiState> = _uiState.asStateFlow()
@@ -862,6 +884,15 @@ class MetaDetailsViewModel @Inject constructor(
             // Extract raw TMDB numeric ID from the original itemId so addons that can't
             // resolve IMDB (e.g. anime/TVDB addons) can still find the content.
             val rawTmdbNumericId = extractRawNumericId(itemId)
+            // Resolve the per-item addon memory (library-style) before any lookup
+            // so preferredAddonBaseUrl already answers with the remembered source.
+            metaAliasKeys = com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(
+                itemType, itemId, metaLookupId, rawTmdbNumericId
+            )
+            rememberedSource = runCatching { itemSourcePreferences.get(metaAliasKeys) }.getOrNull()
+            if (rememberedSource != null) {
+                Log.d(TAG, "remembered source origin=$detailOrigin -> $rememberedSource")
+            }
             val preferExternal = activeLayoutDataStore.preferExternalMetaAddonDetail.first()
 
             if (preferExternal) {
@@ -1098,8 +1129,21 @@ class MetaDetailsViewModel @Inject constructor(
         }
     }
 
+    /** Persists the winning addon under every id alias of this title. */
+    private suspend fun rememberResolvedSource(meta: Meta) {
+        val source = meta.sourceAddonBaseUrl?.trim()?.trimEnd('/').orEmpty()
+        if (source.isEmpty()) return
+        val keys = (metaAliasKeys +
+            com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(itemType, itemId, meta.id))
+            .distinct()
+        if (keys.isEmpty()) return
+        runCatching { itemSourcePreferences.remember(keys, source) }
+            .onFailure { Log.w(TAG, "remember source failed: ${it.message}") }
+    }
+
     private suspend fun applyMetaWithEnrichment(meta: Meta) {
         resolveProvenanceFallback(meta)
+        rememberResolvedSource(meta)
         // Fire all independent async jobs immediately — they run in parallel.
         loadMoreLikeThisAsync(meta)
         if (fluidPerformance) {
