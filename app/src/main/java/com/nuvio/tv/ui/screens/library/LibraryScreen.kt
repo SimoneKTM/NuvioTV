@@ -1,4 +1,4 @@
-﻿package com.nuvio.tv.ui.screens.library
+package com.nuvio.tv.ui.screens.library
 
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.BorderStroke
@@ -80,6 +80,8 @@ import com.nuvio.tv.domain.model.LibrarySourceMode
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.model.TraktListPrivacy
 import com.nuvio.tv.ui.components.EmptyScreenState
+import com.nuvio.tv.ui.components.DropdownOption
+import com.nuvio.tv.ui.components.DropdownPicker
 import com.nuvio.tv.ui.components.GridContentCard
 import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
 import kotlinx.coroutines.delay
@@ -650,14 +652,14 @@ private fun CloudLibrarySelectorsRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
     ) {
-        LibraryDropdownPicker(
+        DropdownPicker(
             modifier = Modifier.weight(1f),
             title = stringResource(R.string.cloud_library_select_provider),
             value = selectedProviderLabel,
             selectedValue = selectedProviderId ?: "__all__",
             expanded = expandedPicker == "cloud_provider",
-            options = listOf(LibraryOption(allLabel, "__all__")) + providerOptions.map {
-                LibraryOption("${it.label} (${it.count})", it.key)
+            options = listOf(DropdownOption(allLabel, "__all__")) + providerOptions.map {
+                DropdownOption("${it.label} (${it.count})", it.key)
             },
             onExpandedChange = { onExpandedChange("cloud_provider", it) },
             onSelect = { option ->
@@ -665,14 +667,14 @@ private fun CloudLibrarySelectorsRow(
             }
         )
 
-        LibraryDropdownPicker(
+        DropdownPicker(
             modifier = Modifier.weight(1f),
             title = stringResource(R.string.cloud_library_select_type),
             value = selectedTypeLabel,
             selectedValue = selectedType?.name ?: "__all__",
             expanded = expandedPicker == "cloud_type",
-            options = listOf(LibraryOption(typeAllLabel, "__all__")) + typeOptions.map {
-                LibraryOption("${it.label} (${it.count})", it.key)
+            options = listOf(DropdownOption(typeAllLabel, "__all__")) + typeOptions.map {
+                DropdownOption("${it.label} (${it.count})", it.key)
             },
             onExpandedChange = { onExpandedChange("cloud_type", it) },
             onSelect = { option ->
@@ -1004,7 +1006,7 @@ private fun LibrarySelectorsRow(
             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
         ) {
             if (sourceMode != LibrarySourceMode.LOCAL) {
-                LibraryDropdownPicker(
+                DropdownPicker(
                     modifier = Modifier
                         .weight(1f)
                         .focusRequester(primaryFocusRequester),
@@ -1012,13 +1014,13 @@ private fun LibrarySelectorsRow(
                     value = selectedListLabel,
                     selectedValue = selectedListKey,
                     expanded = expandedPicker == "list",
-                    options = listTabs.map { LibraryOption(it.localizedTitle(), it.key) },
+                    options = listTabs.map { DropdownOption(it.localizedTitle(), it.key) },
                     onExpandedChange = { onExpandedChange("list", it) },
                     onSelect = { onSelectList(it.value) }
                 )
             }
 
-            LibraryDropdownPicker(
+            DropdownPicker(
                 modifier = if (sourceMode != LibrarySourceMode.LOCAL) {
                     Modifier.weight(1f)
                 } else {
@@ -1036,7 +1038,7 @@ private fun LibrarySelectorsRow(
                         val localizedName = localizedTypeLabel(it.key)
                         if (countPart.isNotBlank()) "$localizedName ($countPart)" else localizedName
                     }
-                    LibraryOption(label, it.key)
+                    DropdownOption(label, it.key)
                 },
                 onExpandedChange = { onExpandedChange("type", it) },
                 onSelect = { option ->
@@ -1045,13 +1047,13 @@ private fun LibrarySelectorsRow(
             )
 
             if (sortOptions.isNotEmpty()) {
-                LibraryDropdownPicker(
+                DropdownPicker(
                     modifier = Modifier.weight(1f),
                     title = stringResource(R.string.library_filter_sort),
                     value = selectedSortLabel,
                     selectedValue = selectedSortOption.key,
                     expanded = expandedPicker == "sort",
-                    options = sortOptions.map { LibraryOption(stringResource(it.labelResId), it.key) },
+                    options = sortOptions.map { DropdownOption(stringResource(it.labelResId), it.key) },
                     onExpandedChange = { onExpandedChange("sort", it) },
                     onSelect = { option ->
                         sortOptions.firstOrNull { it.key == option.value }?.let(onSelectSort)
@@ -1066,15 +1068,15 @@ private fun LibrarySelectorsRow(
                 horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
             ) {
                 if (genres.isNotEmpty()) {
-                    val genreAllOption = LibraryOption(allLabel, "__all__")
-                    LibraryDropdownPicker(
+                    val genreAllOption = DropdownOption(allLabel, "__all__")
+                    DropdownPicker(
                         modifier = Modifier.weight(1f),
                         title = stringResource(R.string.library_filter_genre),
                         value = selectedGenreLabel,
                         selectedValue = selectedGenre ?: "__all__",
                         expanded = expandedPicker == "genre",
                         options = listOf(genreAllOption) + genres.map {
-                            LibraryOption("${localizedGenreLabel(it.label)} (${it.count})", it.key)
+                            DropdownOption("${localizedGenreLabel(it.label)} (${it.count})", it.key)
                         },
                         onExpandedChange = { onExpandedChange("genre", it) },
                         onSelect = { option ->
@@ -1084,15 +1086,15 @@ private fun LibrarySelectorsRow(
                 }
 
                 if (years.isNotEmpty()) {
-                    val yearAllOption = LibraryOption(allLabel, "__all__")
-                    LibraryDropdownPicker(
+                    val yearAllOption = DropdownOption(allLabel, "__all__")
+                    DropdownPicker(
                         modifier = Modifier.weight(1f),
                         title = stringResource(R.string.library_filter_year),
                         value = selectedYearLabel,
                         selectedValue = selectedYear ?: "__all__",
                         expanded = expandedPicker == "year",
                         options = listOf(yearAllOption) + years.map {
-                            LibraryOption("${it.label} (${it.count})", it.key)
+                            DropdownOption("${it.label} (${it.count})", it.key)
                         },
                         onExpandedChange = { onExpandedChange("year", it) },
                         onSelect = { option ->
@@ -1104,185 +1106,6 @@ private fun LibrarySelectorsRow(
         }
     }
 }
-
-@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
-@Composable
-private fun LibraryDropdownPicker(
-    modifier: Modifier = Modifier,
-    title: String,
-    value: String,
-    selectedValue: String?,
-    expanded: Boolean,
-    options: List<LibraryOption>,
-    onExpandedChange: (Boolean) -> Unit,
-    onSelect: (LibraryOption) -> Unit
-) {
-    var isFocused by remember { mutableStateOf(false) }
-    var anchorSize by remember { mutableStateOf(IntSize.Zero) }
-    // Seed focused option with the current selection so reopen highlights the right row
-    // even before focus lands (fixes #2848 / incomplete #2507 race on TV).
-    var focusedOptionValue by remember(expanded) {
-        mutableStateOf(if (expanded) selectedValue else null)
-    }
-    val selectedItemFocusRequester = remember { FocusRequester() }
-    val selectedBringIntoViewRequester = remember { BringIntoViewRequester() }
-
-    // Popup content attaches focus targets a few frames after expand. A fixed 50ms
-    // delay was flaky on TV and left focus on the first item for non-top selections.
-    LaunchedEffect(expanded, selectedValue) {
-        if (!expanded || selectedValue == null) return@LaunchedEffect
-        var focused = selectedItemFocusRequester.requestFocusAfterFrames(frames = 3)
-        var attempt = 0
-        while (!focused && attempt < 6) {
-            delay(32)
-            focused = runCatching { selectedItemFocusRequester.requestFocus() }.getOrDefault(false)
-            attempt++
-        }
-        if (!focused) return@LaunchedEffect
-        runCatching { selectedBringIntoViewRequester.bringIntoView() }
-        // Material DropdownMenu may still move initial focus to the first item after
-        // the popup settles; re-assert once so long lists keep the real selection.
-        delay(48)
-        if (runCatching { selectedItemFocusRequester.requestFocus() }.getOrDefault(false)) {
-            runCatching { selectedBringIntoViewRequester.bringIntoView() }
-        }
-    }
-
-    Box(modifier = modifier) {
-        Card(
-            onClick = { onExpandedChange(!expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .onSizeChanged { anchorSize = it }
-                .onFocusChanged { isFocused = it.isFocused },
-            shape = CardDefaults.shape(shape = RoundedCornerShape(14.dp)),
-            colors = CardDefaults.colors(
-                containerColor = NuvioTheme.colors.BackgroundCard,
-                focusedContainerColor = NuvioTheme.colors.FocusBackground
-            ),
-            border = CardDefaults.border(
-                border = androidx.tv.material3.Border(
-                    border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border),
-                    shape = RoundedCornerShape(14.dp)
-                ),
-                focusedBorder = androidx.tv.material3.Border(
-                    border = BorderStroke(NuvioTheme.spacing.xxs, NuvioTheme.colors.FocusRing),
-                    shape = RoundedCornerShape(14.dp)
-                )
-            ),
-            scale = CardDefaults.scale(
-                focusedScale = 1.0f,
-                pressedScale = 1.0f
-            )
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xxs)
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = NuvioTheme.colors.TextTertiary
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = value,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = NuvioTheme.colors.TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Icon(
-                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = if (expanded) stringResource(R.string.cd_collapse, title) else stringResource(R.string.cd_expand, title),
-                        tint = if (isFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.TextSecondary
-                    )
-                }
-            }
-        }
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = {
-                focusedOptionValue = null
-                onExpandedChange(false)
-            },
-            modifier = Modifier
-                .width(with(LocalDensity.current) { anchorSize.width.toDp() })
-                .heightIn(max = 320.dp),
-            shape = RoundedCornerShape(14.dp),
-            containerColor = NuvioTheme.colors.BackgroundCard,
-            tonalElevation = NuvioTheme.spacing.none,
-            shadowElevation = NuvioTheme.spacing.sm,
-            border = BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.Border)
-        ) {
-            options.forEach { option ->
-                val isSelected = option.value == selectedValue
-                val isOptionFocused = option.value == focusedOptionValue
-                val itemTextColor = when {
-                    isOptionFocused -> NuvioTheme.colors.OnSecondary
-                    isSelected -> NuvioTheme.colors.TextPrimary
-                    else -> NuvioTheme.colors.TextPrimary
-                }
-                val itemBackgroundColor = when {
-                    isOptionFocused -> NuvioTheme.colors.Secondary
-                    isSelected -> NuvioTheme.colors.FocusBackground
-                    else -> Color.Transparent
-                }
-
-                DropdownMenuItem(
-                    modifier = Modifier
-                        .then(
-                            if (isSelected) {
-                                Modifier
-                                    .focusRequester(selectedItemFocusRequester)
-                                    .bringIntoViewRequester(selectedBringIntoViewRequester)
-                            } else {
-                                Modifier
-                            }
-                        )
-                        .padding(horizontal = 6.dp, vertical = NuvioTheme.spacing.xxs)
-                        .background(
-                            color = itemBackgroundColor,
-                            shape = RoundedCornerShape(10.dp)
-                        )
-                        .onFocusChanged { state ->
-                            val hasFocus = state.isFocused || state.hasFocus
-                            focusedOptionValue = when {
-                                hasFocus -> option.value
-                                focusedOptionValue == option.value -> null
-                                else -> focusedOptionValue
-                            }
-                        },
-                    text = {
-                        Text(
-                            text = option.label,
-                            color = itemTextColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    },
-                    onClick = { onSelect(option) },
-                    colors = MenuDefaults.itemColors(
-                        textColor = itemTextColor,
-                        disabledTextColor = NuvioTheme.colors.TextDisabled
-                    )
-                )
-            }
-        }
-    }
-}
-
-private data class LibraryOption(
-    val label: String,
-    val value: String
-)
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable

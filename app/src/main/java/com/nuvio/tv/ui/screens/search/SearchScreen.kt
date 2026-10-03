@@ -107,6 +107,8 @@ import com.nuvio.tv.domain.model.DiscoverLocation
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.domain.model.ContentType
+import com.nuvio.tv.ui.components.DropdownOption
+import com.nuvio.tv.ui.components.DropdownPicker
 import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.ErrorState
 import com.nuvio.tv.ui.components.GridContentCard
@@ -336,6 +338,7 @@ fun SearchScreen(
     val keyboardSpaceKeyFocusRequester = remember { FocusRequester() }
     // How the merged grid is ordered: relevance/popularity (default), newest release, or rating.
     var sortMode by rememberSaveable { mutableStateOf(SearchSortMode.POPULARITY) }
+    var sortExpanded by remember { mutableStateOf(false) }
 
     // The left input panel (search bar + virtual keyboard + recents) collapses while focus is
     // on the results grid, giving the posters the full width (4 -> 6 columns transition).
@@ -609,6 +612,10 @@ fun SearchScreen(
                 onMoveToKeyboard = requestKeyboardFocus,
                 onOpenDiscover = onOpenDiscover,
                 showDiscoverButton = uiState.discoverLocation == DiscoverLocation.IN_SEARCH,
+                sortMode = sortMode,
+                sortExpanded = sortExpanded,
+                onSortExpandedChange = { sortExpanded = it },
+                onSelectSort = { sortMode = it },
                 isScreenActive = isScreenActive
             )
         }
@@ -730,10 +737,6 @@ fun SearchScreen(
 
                 mergedResults.isNotEmpty() -> {
                     Column(modifier = Modifier.fillMaxSize()) {
-                        SearchSortChipsRow(
-                            selected = sortMode,
-                            onSelected = { sortMode = it }
-                        )
                         SingleSearchResultsGrid(
                             entries = mergedResults,
                             gridState = resultsGridState,
@@ -851,6 +854,10 @@ private fun SearchInputField(
     onMoveToKeyboard: (() -> Unit)?,
     onOpenDiscover: () -> Unit,
     showDiscoverButton: Boolean,
+    sortMode: SearchSortMode,
+    sortExpanded: Boolean,
+    onSortExpandedChange: (Boolean) -> Unit,
+    onSelectSort: (SearchSortMode) -> Unit,
     isScreenActive: Boolean = true
 ) {
     var isDiscoverButtonFocused by remember { mutableStateOf(false) }
@@ -1047,6 +1054,25 @@ private fun SearchInputField(
                 )
             }
         }
+
+        // Sort menu: same dropdown the Library uses, parked at the end of the bar so it
+        // never sits on top of the results grid (the old chip row did).
+        DropdownPicker(
+            modifier = Modifier.width(180.dp),
+            title = stringResource(R.string.search_sort_title),
+            value = stringResource(sortMode.labelRes),
+            selectedValue = sortMode.name,
+            expanded = sortExpanded,
+            options = SearchSortMode.entries.map {
+                DropdownOption(stringResource(it.labelRes), it.name)
+            },
+            onExpandedChange = onSortExpandedChange,
+            onSelect = { option ->
+                SearchSortMode.entries.firstOrNull { it.name == option.value }
+                    ?.let(onSelectSort)
+                onSortExpandedChange(false)
+            }
+        )
     }
 }
 
@@ -1056,46 +1082,6 @@ private val SearchSortMode.labelRes: Int
         SearchSortMode.RELEASE -> R.string.search_sort_release
         SearchSortMode.RATING -> R.string.search_sort_rating
     }
-
-/** Focusable Popularity / Release / Rating selector shown above the results grid. */
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun SearchSortChipsRow(
-    selected: SearchSortMode,
-    onSelected: (SearchSortMode) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                start = NuvioTheme.spacing.xxxl,
-                end = NuvioTheme.spacing.xxxl,
-                top = NuvioTheme.spacing.xs
-            )
-            .focusGroup(),
-        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
-    ) {
-        SearchSortMode.entries.forEach { mode ->
-            val isSelected = mode == selected
-            Button(
-                onClick = { onSelected(mode) },
-                colors = ButtonDefaults.colors(
-                    containerColor = NuvioTheme.colors.BackgroundCard,
-                    contentColor = NuvioTheme.colors.TextSecondary,
-                    focusedContainerColor = NuvioTheme.colors.FocusBackground,
-                    focusedContentColor = NuvioTheme.colors.Primary
-                ),
-                shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
-            ) {
-                Text(
-                    text = stringResource(mode.labelRes),
-                    style = androidx.tv.material3.MaterialTheme.typography.labelMedium,
-                    color = if (isSelected) NuvioTheme.colors.Primary else NuvioTheme.colors.TextSecondary
-                )
-            }
-        }
-    }
-}
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
