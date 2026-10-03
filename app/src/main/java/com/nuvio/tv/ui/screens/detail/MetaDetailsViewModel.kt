@@ -136,18 +136,15 @@ class MetaDetailsViewModel @Inject constructor(
     /**
      * Addon tried first for the meta lookup. Search/Discover/Calendar opens
      * honour the per-item memory (library-style addonBaseUrl) before the card's
-     * source, so a title seen in Home/Anime resolves with the same addon and
-     * the same season count everywhere. Any other screen keeps the card source
-     * first and only falls back to the memory when the card carries none.
+     * source, so a title recorded from Home/Anime resolves with the same addon
+     * and the same season count everywhere. Every other screen behaves exactly
+     * like before: the card's source only, never the memory.
      */
     val preferredAddonBaseUrl: String?
-        get() {
-            val remembered = rememberedSource
-            return if (detailOrigin == "search" || detailOrigin == "calendar") {
-                remembered ?: routeAddonBaseUrl
-            } else {
-                routeAddonBaseUrl ?: remembered
-            }
+        get() = if (detailOrigin == "search" || detailOrigin == "calendar") {
+            rememberedSource ?: routeAddonBaseUrl
+        } else {
+            routeAddonBaseUrl
         }
 
     private val _uiState = MutableStateFlow(MetaDetailsUiState())
@@ -890,9 +887,11 @@ class MetaDetailsViewModel @Inject constructor(
                 itemType, itemId, metaLookupId, rawTmdbNumericId
             )
             rememberedSource = runCatching { itemSourcePreferences.get(metaAliasKeys) }.getOrNull()
-            if (rememberedSource != null) {
-                Log.d(TAG, "remembered source origin=$detailOrigin -> $rememberedSource")
-            }
+            Log.d(
+                TAG,
+                "remembered source origin=$detailOrigin " +
+                    "result=${rememberedSource ?: "miss"} keys=$metaAliasKeys"
+            )
             val preferExternal = activeLayoutDataStore.preferExternalMetaAddonDetail.first()
 
             if (preferExternal) {
@@ -1129,10 +1128,27 @@ class MetaDetailsViewModel @Inject constructor(
         }
     }
 
-    /** Persists the winning addon under every id alias of this title. */
+    /**
+     * Persists the winning addon under every id alias of this title.
+     *
+     * Read-only from Search/Discover/Calendar: their (possibly wrong) card
+     * source must never overwrite what Home/Anime recorded. Only a resolution
+     * that actually came from the card's own addon counts — a pool-race winner
+     * is not a user choice and would pin the title to a random addon.
+     */
     private suspend fun rememberResolvedSource(meta: Meta) {
+        if (detailOrigin == "search" || detailOrigin == "calendar") return
+        val route = routeAddonBaseUrl?.trim()?.trimEnd('/').orEmpty()
+        if (route.isEmpty()) return
         val source = meta.sourceAddonBaseUrl?.trim()?.trimEnd('/').orEmpty()
         if (source.isEmpty()) return
+        val sameAddon = source.equals(route, ignoreCase = true) ||
+            source.startsWith("$route/", ignoreCase = true) ||
+            route.startsWith("$source/", ignoreCase = true)
+        if (!sameAddon) {
+            Log.d(TAG, "skip remember: race winner '$source' != card '$route'")
+            return
+        }
         val keys = (metaAliasKeys +
             com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(itemType, itemId, meta.id))
             .distinct()

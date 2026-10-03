@@ -31,7 +31,9 @@ class ItemSourcePreferences @Inject constructor(
 ) {
     companion object {
         private const val TAG = "ItemSource"
-        private const val FEATURE = "item_source_memory"
+        // v2: v1 recorded every resolution (including pool-race winners from
+        // Search itself), which poisoned the memory — start from a clean slate.
+        private const val FEATURE = "item_source_memory_v2"
         internal const val MAX_ENTRIES = 500
         private val sourcesKey = stringPreferencesKey("remembered_item_sources")
         private val gson = Gson()
