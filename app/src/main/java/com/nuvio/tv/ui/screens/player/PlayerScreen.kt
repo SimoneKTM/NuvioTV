@@ -2030,6 +2030,15 @@ private fun PlayerControlsProgressBarHost(
     onFocused: (() -> Unit)? = null
 ) {
     val playbackTimeline by viewModel.playbackTimeline.collectAsState()
+    val playerUiState by viewModel.uiState.collectAsState()
+
+    SeekFilmstrip(
+        streamUrl = playerUiState.currentStreamUrl,
+        headers = remember(playerUiState.currentStreamUrl) { viewModel.getCurrentHeaders() },
+        currentPosition = playbackTimeline.currentPosition,
+        duration = playbackTimeline.duration,
+        visible = playerUiState.pendingPreviewSeekPosition != null
+    )
 
     ProgressBar(
         currentPosition = playbackTimeline.currentPosition,
@@ -2335,7 +2344,9 @@ private fun ProgressBar(
 private fun SeekOverlay(
     currentPosition: Long,
     duration: Long,
-    bufferedPosition: Long = 0L
+    bufferedPosition: Long = 0L,
+    streamUrl: String? = null,
+    streamHeaders: Map<String, String> = emptyMap()
 ) {
     Column(
         modifier = Modifier
@@ -2343,6 +2354,14 @@ private fun SeekOverlay(
             .padding(horizontal = NuvioTheme.spacing.xxl, vertical = NuvioTheme.spacing.xl)
     ) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            SeekFilmstrip(
+                streamUrl = streamUrl,
+                headers = streamHeaders,
+                currentPosition = currentPosition,
+                duration = duration,
+                visible = true
+            )
+
             ProgressBar(
                 currentPosition = currentPosition,
                 duration = duration,
@@ -2371,11 +2390,14 @@ private fun SeekOverlay(
 @Composable
 private fun SeekOverlayHost(viewModel: PlayerViewModel) {
     val playbackTimeline by viewModel.playbackTimeline.collectAsState()
+    val playerUiState by viewModel.uiState.collectAsState()
 
     SeekOverlay(
         currentPosition = playbackTimeline.currentPosition,
         duration = playbackTimeline.duration,
-        bufferedPosition = playbackTimeline.bufferedPosition
+        bufferedPosition = playbackTimeline.bufferedPosition,
+        streamUrl = playerUiState.currentStreamUrl,
+        streamHeaders = remember(playerUiState.currentStreamUrl) { viewModel.getCurrentHeaders() }
     )
 }
 
