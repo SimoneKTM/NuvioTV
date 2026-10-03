@@ -73,11 +73,19 @@ private fun remapEpisodeBetweenLists(
     // entries), this avoids ~236,000 redundant regex operations.
     val normalizedTitle = normalizeEpisodeTitle(requestedTitle ?: currentSourceEpisode.title, normalizedTitleCache)
     if (isUsefulEpisodeTitle(normalizedTitle)) {
-        val titleMatches = orderedTargetEpisodes.filter {
+        // A title only identifies the episode when it is unique in the source list.
+        // Tokyo Revengers has "Break up" (S1E14) and "Break Up" (S1E51): matching
+        // on it alone would map E51 to the addon's S1E14 instead of S4E1.
+        val sourceTitleCount = orderedSourceEpisodes.count {
             normalizeEpisodeTitle(it.title, normalizedTitleCache) == normalizedTitle
         }
-        if (titleMatches.size == 1) {
-            return titleMatches.first()
+        if (sourceTitleCount == 1) {
+            val titleMatches = orderedTargetEpisodes.filter {
+                normalizeEpisodeTitle(it.title, normalizedTitleCache) == normalizedTitle
+            }
+            if (titleMatches.size == 1) {
+                return titleMatches.first()
+            }
         }
     }
 

@@ -63,6 +63,24 @@ class TraktEpisodeMappingTest {
     }
 
     @Test
+    fun `duplicate source titles fall back to index mapping`() {
+        val addon = episodes(1, 24) + episodes(2, 13) + episodes(3, 13) + episodes(4, 2)
+        val trakt = (1..55).map { n ->
+            EpisodeMappingEntry(1, n, if (n == 14) "Break up" else if (n == 51) "Break Up" else "Ep $n")
+        }
+
+        val mapped = reverseRemapEpisodeByTitleOrIndex(
+            requestedSeason = 1,
+            requestedEpisode = 51,
+            requestedTitle = "Break Up",
+            addonEpisodes = addon,
+            traktEpisodes = trakt
+        )
+
+        assertEquals(EpisodeMappingEntry(4, 1, "1"), mapped)
+    }
+
+    @Test
     fun `reverse remap returns null when source list is empty`() {
         val mapped = reverseRemapEpisodeByTitleOrIndex(
             requestedSeason = 1,

@@ -164,7 +164,7 @@ interface TraktApi {
 
     @GET("shows/{id}/seasons")
     suspend fun getShowSeasons(
-        @Header("Authorization") authorization: String,
+        @Header("Authorization") authorization: String? = null,
         @Path("id") id: String,
         @Query("extended") extended: String? = null
     ): Response<List<TraktSeasonDto>>

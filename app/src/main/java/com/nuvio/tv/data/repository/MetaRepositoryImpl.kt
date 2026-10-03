@@ -447,7 +447,9 @@ class MetaRepositoryImpl @Inject constructor(
 
                             val allMissing = !anyRequestFailed.get()
                             // First success in catalog/install order — not max episodes.
-                            val firstSuccess = results.firstOrNull()
+                            // results holds one slot per addon (null = failed), so pick the
+                            // first NON-null entry; firstOrNull() would stop at a leading null.
+                            val firstSuccess = results.firstNotNullOfOrNull { it }
                             if (firstSuccess == null) {
                                 return Triple(null, raceFailures.toList(), allMissing)
                             }

@@ -25,7 +25,8 @@ import javax.inject.Singleton
 class TraktEpisodeMappingService @Inject constructor(
     private val traktApi: TraktApi,
     private val traktAuthService: TraktAuthService,
-    private val metaRepository: MetaRepository
+    private val metaRepository: MetaRepository,
+    private val itemSourcePreferences: com.nuvio.tv.data.local.ItemSourcePreferences
 ) {
     companion object {
         private const val TAG = "TraktEpMapSvc"
@@ -86,9 +87,11 @@ class TraktEpisodeMappingService @Inject constructor(
         contentType: String?,
         season: Int?,
         episode: Int?,
-        episodeTitle: String? = null
+        episodeTitle: String? = null,
+        preferredSourceBaseUrl: String? = null
     ): EpisodeMappingEntry? {
-        if (!traktAuthService.getCurrentAuthState().isAuthenticated) return null
+        // No auth gate here: /shows/{id}/seasons is a public endpoint, so the
+        // Trakt -> addon numbering remap works even when Trakt is not linked.
 
         val requestedSeason = season ?: return null
         val requestedEpisode = episode ?: return null
@@ -105,10 +108,15 @@ class TraktEpisodeMappingService @Inject constructor(
             reverseMappingCache[reverseKey]?.let { return it }
         }
 
-        val addonEpisodes = getAddonEpisodes(resolvedContentId, resolvedContentType)
+        val addonEpisodes = getAddonEpisodes(
+            contentId = resolvedContentId,
+            contentType = resolvedContentType,
+            preferredSourceBaseUrl = preferredSourceBaseUrl
+        )
         if (addonEpisodes.isEmpty()) return null
 
-        val showLookupId = resolveShowLookupId(contentId = resolvedContentId, videoId = null) ?: return null
+        val showLookupId = resolveShowLookupId(contentId = resolvedContentId, videoId = null)
+            ?: return null
         val traktEpisodes = getTraktEpisodes(showLookupId)
         if (traktEpisodes.isEmpty()) return null
 
@@ -117,6 +125,7 @@ class TraktEpisodeMappingService @Inject constructor(
         }
         val sameStructure = hasSameSeasonStructure(addonEpisodes, traktEpisodes)
         if (addonHasEpisode && sameStructure) {
+            Log.d(TAG, "resolveAddon id=$resolvedContentId $requestedSeason:$requestedEpisode same structure")
             return null
         }
 
@@ -126,7 +135,16 @@ class TraktEpisodeMappingService @Inject constructor(
             requestedTitle = episodeTitle,
             addonEpisodes = addonEpisodes,
             traktEpisodes = traktEpisodes
-        ) ?: return null
+        )
+        if (mapped == null) {
+            Log.d(
+                TAG,
+                "resolveAddon id=$resolvedContentId reverseRemap null" +
+                    " src=$requestedSeason:$requestedEpisode addonSizes=" +
+                    addonEpisodes.groupBy { it.season }.mapValues { it.value.size }
+            )
+            return null
+        }
 
         cacheMutex.withLock {
             reverseMappingCache[reverseKey] = mapped
@@ -205,9 +223,10 @@ class TraktEpisodeMappingService @Inject constructor(
 
     private suspend fun getAddonEpisodes(
         contentId: String,
-        contentType: String
+        contentType: String,
+        preferredSourceBaseUrl: String? = null
     ): List<EpisodeMappingEntry> {
-        val cacheKey = addonEpisodesCacheKey(contentId, contentType)
+        val cacheKey = addonEpisodesCacheKey(contentId, contentType, preferredSourceBaseUrl)
 
         // Fast path: cache hit
         cacheMutex.withLock {
@@ -238,7 +257,7 @@ class TraktEpisodeMappingService @Inject constructor(
         }
 
         return try {
-            val meta = fetchSeriesMeta(contentId, contentType)
+            val meta = fetchSeriesMeta(contentId, contentType, preferredSourceBaseUrl)
             val addonEpisodes = meta?.videos?.toEpisodeMappingEntries() ?: emptyList()
             if (addonEpisodes.isNotEmpty()) {
                 cacheMutex.withLock { addonEpisodesCache[cacheKey] = addonEpisodes }
@@ -278,9 +297,21 @@ class TraktEpisodeMappingService @Inject constructor(
             return try { other?.await() ?: emptyList() } catch (_: Exception) { emptyList() }
         }
 
-        val seasonsResponse = traktAuthService.executeAuthorizedRequest { authHeader ->
+        val authenticated = traktAuthService.getCurrentAuthState().isAuthenticated
+        val seasonsResponse = if (authenticated) {
+            traktAuthService.executeAuthorizedRequest { authHeader ->
+                traktApi.getShowSeasons(
+                    authorization = authHeader,
+                    id = showLookupId,
+                    extended = "episodes"
+                )
+            }
+        } else {
+            // /shows/{id}/seasons is a public endpoint: only the trakt-api-key
+            // interceptor header is needed, so the mapping still works when the
+            // user never linked Trakt.
             traktApi.getShowSeasons(
-                authorization = authHeader,
+                authorization = null,
                 id = showLookupId,
                 extended = "episodes"
             )
@@ -356,8 +387,13 @@ class TraktEpisodeMappingService @Inject constructor(
         return "reverse|${contentType.trim().lowercase()}|${contentId.trim()}|$season|$episode|$normalizedTitle"
     }
 
-    private fun addonEpisodesCacheKey(contentId: String, contentType: String): String {
-        return "${contentType.trim().lowercase()}|${contentId.trim()}"
+    private fun addonEpisodesCacheKey(
+        contentId: String,
+        contentType: String,
+        sourceBaseUrl: String? = null
+    ): String {
+        val source = sourceBaseUrl?.trim()?.trimEnd('/').orEmpty()
+        return "${contentType.trim().lowercase()}|${contentId.trim()}|$source"
     }
 
     private fun resolveShowLookupId(contentId: String?, videoId: String?): String? {
@@ -380,30 +416,92 @@ class TraktEpisodeMappingService @Inject constructor(
         }
     }
 
-    private suspend fun fetchSeriesMeta(contentId: String, contentType: String): Meta? {
+    private suspend fun fetchSeriesMeta(
+        contentId: String,
+        contentType: String,
+        preferredSourceBaseUrl: String? = null
+    ): Meta? {
         val idCandidates = buildAddonIdCandidates(contentId, contentType)
         if (idCandidates.isEmpty()) return null
 
-        for ((candidateType, candidateId) in idCandidates) {
-                val result = try {
-                    withTimeoutOrNull(8000) {
-                        metaRepository.getMetaFromAllAddons(
-                            type = candidateType,
-                            id = candidateId,
-                            namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
-                        )
-                            .dropWhile { it is NetworkResult.Loading }
-                            .firstOrNull()
-                    }
-                } catch (_: Exception) {
-                    null
-                } ?: continue
-                val meta = (result as? NetworkResult.Success)?.data ?: continue
-                if (meta.videos.any { it.season != null && it.episode != null }) {
-                    return meta
+        // The detail screen resolves a title through the addon remembered in
+        // ItemSourcePreferences (or the library card's own source). Remapping
+        // against a different addon's episode list would produce numbers the
+        // user never sees, so ask for exactly that source first.
+        val rememberedSource = runCatching {
+            val keys = buildList {
+                addAll(com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(contentType, contentId))
+                idCandidates.forEach { (type, id) ->
+                    addAll(com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(type, id))
                 }
+            }.distinct()
+            itemSourcePreferences.get(keys)
+        }.getOrNull()
+        val preferredSources = listOfNotNull(
+            preferredSourceBaseUrl?.trim()?.trimEnd('/'),
+            rememberedSource?.trim()?.trimEnd('/')
+        ).distinct()
+
+        // 1) Same addon the user opens in Detail (remembered / library source).
+        //    Fetch directly from that addon — a pool race would let another addon
+        //    win and its numbering would not match the detail screen.
+        for (source in preferredSources) {
+            for ((candidateType, candidateId) in idCandidates) {
+                fetchMetaFromSource(source, candidateType, candidateId)?.let { return it }
+            }
+        }
+        // 2) No source known: pool race over every installed addon.
+        if (preferredSources.isEmpty()) {
+            for ((candidateType, candidateId) in idCandidates) {
+                fetchSeriesMetaFromPool(candidateType, candidateId)?.let { return it }
+            }
         }
         return null
+    }
+
+    private suspend fun fetchMetaFromSource(
+        sourceAddonBaseUrl: String,
+        candidateType: String,
+        candidateId: String
+    ): Meta? {
+        val meta = try {
+            withTimeoutOrNull(8000) {
+                metaRepository.getMeta(
+                    addonBaseUrl = sourceAddonBaseUrl,
+                    type = candidateType,
+                    id = candidateId,
+                    namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
+                )
+                    .dropWhile { it is NetworkResult.Loading }
+                    .firstOrNull()
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "fetchMetaFromSource $candidateType/$candidateId failed: ${e.message}")
+            null
+        }?.let { (it as? NetworkResult.Success)?.data } ?: return null
+        return meta.takeIf { meta.videos.any { it.season != null && it.episode != null } }
+    }
+
+    private suspend fun fetchSeriesMetaFromPool(
+        candidateType: String,
+        candidateId: String
+    ): Meta? {
+        val result = try {
+            withTimeoutOrNull(8000) {
+                metaRepository.getMetaFromAllAddons(
+                    type = candidateType,
+                    id = candidateId,
+                    namespace = com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
+                )
+                    .dropWhile { it is NetworkResult.Loading }
+                    .firstOrNull()
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "fetchSeriesMetaFromPool $candidateType/$candidateId failed: ${e.message}")
+            null
+        } ?: return null
+        val meta = (result as? NetworkResult.Success)?.data ?: return null
+        return meta.takeIf { meta.videos.any { it.season != null && it.episode != null } }
     }
 
     private fun List<Video>.toEpisodeMappingEntries(): List<EpisodeMappingEntry> {

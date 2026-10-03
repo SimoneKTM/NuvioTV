@@ -82,7 +82,7 @@ class NewEpisodeNoticeService @Inject constructor(
         val progressIndex = resolveProgressIndex()
 
         val now = System.currentTimeMillis()
-        val pending = mutableListOf<Pair<NewEpisodeNotice, List<String>>>()
+        val pending = mutableListOf<NoticeWorkItem>()
         val seenContentIds = mutableSetOf<String>()
 
         for (item in calendar) {
@@ -127,31 +127,41 @@ class NewEpisodeNoticeService @Inject constructor(
             val idCandidates = linkedSetOf<String>()
             showIdKeys(show.ids).forEach { idCandidates.add(it) }
             entryKeys.forEach { idCandidates.add(it) }
-            pending += notice to idCandidates.toList()
+            pending += NoticeWorkItem(notice, idCandidates.toList(), entry.addonBaseUrl)
             if (pending.size >= MAX_NOTICES) break
         }
 
-        pending.sortByDescending { it.first.airedAtMs }
+        pending.sortByDescending { it.notice.airedAtMs }
         remapNoticesToAddonNumbering(pending)
     }
+
+    /** One notice plus the ids and library source used to remap its numbering. */
+    private data class NoticeWorkItem(
+        val notice: NewEpisodeNotice,
+        val idCandidates: List<String>,
+        val sourceAddonBaseUrl: String?
+    )
 
     /**
      * Rewrites [NewEpisodeNotice.season]/[NewEpisodeNotice.episode] from the Trakt
      * calendar numbers to the numbering used by the addon catalog meta, in parallel.
      * Several id candidates are tried (calendar ids first, then library entry ids)
      * because a bare `tmdb_tv_xxx` entry id cannot be resolved against the Trakt
-     * seasons endpoint. Any failure (no Trakt auth, addon without episode list,
+     * seasons endpoint. The library card's own addon source is passed along so the
+     * remap targets the same addon the detail screen opens with.
+     * Any failure (no Trakt auth, addon without episode list,
      * timeout) leaves the original Trakt numbers untouched.
      */
     private suspend fun remapNoticesToAddonNumbering(
-        pending: List<Pair<NewEpisodeNotice, List<String>>>
+        pending: List<NoticeWorkItem>
     ): List<NewEpisodeNotice> {
         if (pending.isEmpty()) return emptyList()
         return coroutineScope {
-            pending.map { (notice, idCandidates) ->
+            pending.map { item ->
                 async {
+                    val notice = item.notice
                     var mapped: EpisodeMappingEntry? = null
-                    for (contentId in idCandidates) {
+                    for (contentId in item.idCandidates) {
                         mapped = try {
                             withTimeoutOrNull(MAPPING_TIMEOUT_MS) {
                                 episodeMappingService.resolveAddonEpisodeMapping(
@@ -159,7 +169,8 @@ class NewEpisodeNoticeService @Inject constructor(
                                     contentType = "series",
                                     season = notice.season,
                                     episode = notice.episode,
-                                    episodeTitle = notice.episodeTitle
+                                    episodeTitle = notice.episodeTitle,
+                                    preferredSourceBaseUrl = item.sourceAddonBaseUrl
                                 )
                             }
                         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -171,15 +182,14 @@ class NewEpisodeNoticeService @Inject constructor(
                         if (mapped != null) break
                     }
                     if (mapped != null && mapped.season > 0 && mapped.episode > 0) {
-                        if (mapped.season != notice.season || mapped.episode != notice.episode) {
-                            Log.d(
-                                TAG,
-                                "remap ${notice.contentId} s${notice.season}e${notice.episode}" +
-                                    " -> s${mapped.season}e${mapped.episode}"
-                            )
-                        }
+                        Log.d(
+                            TAG,
+                            "remap ${notice.contentId} s${notice.season}e${notice.episode}" +
+                                " -> s${mapped.season}e${mapped.episode}"
+                        )
                         notice.copy(season = mapped.season, episode = mapped.episode)
                     } else {
+                        Log.d(TAG, "remap ${notice.contentId} keep s${notice.season}e${notice.episode} ids=${item.idCandidates}")
                         notice
                     }
                 }
