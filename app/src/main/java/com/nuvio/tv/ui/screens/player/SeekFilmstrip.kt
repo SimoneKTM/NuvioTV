@@ -1,6 +1,8 @@
 package com.nuvio.tv.ui.screens.player
 
 import android.graphics.Bitmap
+import android.net.Uri
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -9,16 +11,17 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -37,17 +40,24 @@ import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
-private const val SEEK_FILMSTRIP_DEBOUNCE_MS = 220L
-private val SEEK_FILMSTRIP_TILE_WIDTH = 116.dp
-private val SEEK_FILMSTRIP_TILE_HEIGHT = 66.dp
+private const val SEEK_FILMSTRIP_DEBOUNCE_MS = 120L
+private const val SEEK_FILMSTRIP_TARGET_TILE_WIDTH_DP = 170f
+private const val SEEK_FILMSTRIP_MIN_TILES = 3
+private const val SEEK_FILMSTRIP_MAX_TILES = 9
+private val SEEK_FILMSTRIP_MAX_TILE_HEIGHT = 78.dp
 
 /**
  * Netflix-style filmstrip of frame previews shown above the seek bar while the
- * user scrubs. Frames come from [SeekThumbnailGenerator] and are cached per
- * timeline bucket, so holding a direction key only decodes a new frame when the
- * scrub crosses a bucket boundary.
+ * user scrubs. It spans the full width of the progress bar: the number of tiles
+ * adapts to the available width and every tile keeps a 16:9 shape.
  *
- * Renders nothing when the stream cannot provide frames.
+ * The row appears immediately as empty placeholders and fills in as frames
+ * arrive from [SeekThumbnailGenerator], so there is no blank wait while the
+ * first frame is being extracted. Nothing is rendered when the stream cannot
+ * provide frames at all.
+ *
+ * @param prefetch when true, extraction starts as soon as the controls open
+ * (before the user actually scrubs) so the first tiles are already warm.
  */
 @Composable
 fun SeekFilmstrip(
@@ -56,7 +66,8 @@ fun SeekFilmstrip(
     currentPosition: Long,
     duration: Long,
     visible: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    prefetch: Boolean = false
 ) {
     val context = LocalContext.current
     val generator = remember(context) {
@@ -67,70 +78,93 @@ fun SeekFilmstrip(
     }
 
     DisposableEffect(streamUrl) {
-        onDispose { generator.release() }
+        onDispose { generator.scheduleRelease() }
     }
 
-    val slots = remember(duration, currentPosition) {
-        SeekThumbnailSlots.slots(duration, currentPosition)
-    }
-    val bucketKey = remember(slots) { slots.map { it.bucketMs } }
-    val stepMs = remember(duration) { SeekThumbnailSlots.stepMs(duration) }
-    val supported = visible && !streamUrl.isNullOrBlank() && generator.isSupported(streamUrl)
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = NuvioTheme.spacing.sm),
+        contentAlignment = Alignment.Center
+    ) {
+        val tileCount = (maxWidth.value / SEEK_FILMSTRIP_TARGET_TILE_WIDTH_DP)
+            .toInt()
+            .coerceIn(SEEK_FILMSTRIP_MIN_TILES, SEEK_FILMSTRIP_MAX_TILES)
+        val tileWidth = maxWidth / tileCount
+        val tileHeight = minOf(
+            tileWidth * 9f / 16f,
+            SEEK_FILMSTRIP_MAX_TILE_HEIGHT
+        )
 
-    val frames = remember(streamUrl) { mutableStateMapOf<Long, Bitmap?>() }
-    val failedBuckets = remember(streamUrl) { mutableSetOf<Long>() }
-
-    LaunchedEffect(streamUrl, bucketKey, supported) {
-        if (!supported || streamUrl == null || stepMs <= 0L) return@LaunchedEffect
-        delay(SEEK_FILMSTRIP_DEBOUNCE_MS)
-        // Center tile first so the strip anchors visually before its edges fill in.
-        val ordered = slots.sortedBy { slot ->
-            abs((slot.bucketMs + stepMs / 2) - currentPosition)
+        val slots = remember(duration, currentPosition, tileCount) {
+            SeekThumbnailSlots.slots(duration, currentPosition, tileCount)
         }
-        for (slot in ordered) {
-            if (frames.containsKey(slot.bucketMs) || slot.bucketMs in failedBuckets) continue
-            val frame = generator.getFrame(
-                url = streamUrl,
-                headers = headers,
-                positionMs = slot.bucketMs + stepMs / 2
+        val bucketKey = remember(slots) { slots.map { it.bucketMs } }
+        val stepMs = remember(duration) { SeekThumbnailSlots.stepMs(duration) }
+        val active = visible || prefetch
+        val supported = active && !streamUrl.isNullOrBlank() && generator.isSupported(streamUrl)
+
+        val frames = remember(streamUrl) { mutableStateMapOf<Long, Bitmap?>() }
+        val failedBuckets = remember(streamUrl) { mutableStateListOf<Long>() }
+
+        LaunchedEffect(visible, supported, streamUrl) {
+            Log.d(
+                "SeekThumbs",
+                "gate visible=$visible prefetch=$prefetch supported=$supported slots=${slots.size} " +
+                    "stepMs=$stepMs duration=$duration host=${streamUrl?.let { runCatching { Uri.parse(it).host }.getOrNull() }}"
             )
-            if (frame != null) {
-                frames[slot.bucketMs] = frame
-            } else {
-                failedBuckets += slot.bucketMs
+        }
+
+        LaunchedEffect(streamUrl, bucketKey, supported, active) {
+            if (!active || !supported || streamUrl == null || stepMs <= 0L) {
+                return@LaunchedEffect
+            }
+            // First paint must be instant; only debounced while the strip is
+            // already showing and the scrub keeps hopping between buckets.
+            if (frames.isNotEmpty()) delay(SEEK_FILMSTRIP_DEBOUNCE_MS)
+            // Center tile first so the strip anchors visually before its edges fill in.
+            val ordered = slots.sortedBy { slot ->
+                abs((slot.bucketMs + stepMs / 2) - currentPosition)
+            }
+            for (slot in ordered) {
+                if (frames.containsKey(slot.bucketMs) || slot.bucketMs in failedBuckets) continue
+                val frame = generator.getFrame(
+                    url = streamUrl,
+                    headers = headers,
+                    positionMs = slot.bucketMs + stepMs / 2
+                )
+                if (frame != null) {
+                    frames[slot.bucketMs] = frame
+                } else {
+                    failedBuckets += slot.bucketMs
+                }
             }
         }
-    }
 
-    AnimatedVisibility(
-        visible = supported && frames.isNotEmpty(),
-        enter = fadeIn(animationSpec = tween(160)),
-        exit = fadeOut(animationSpec = tween(140)),
-        modifier = modifier
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = NuvioTheme.spacing.sm),
-            contentAlignment = Alignment.Center
+        val allFailed = slots.isNotEmpty() && slots.all { it.bucketMs in failedBuckets }
+
+        AnimatedVisibility(
+            visible = visible && supported && (frames.isNotEmpty() || !allFailed),
+            enter = fadeIn(animationSpec = tween(120)),
+            exit = fadeOut(animationSpec = tween(140)),
+            modifier = Modifier.fillMaxWidth()
         ) {
             Row(
                 modifier = Modifier
+                    .fillMaxWidth()
                     .clip(RoundedCornerShape(NuvioTheme.radii.sm))
-                    .background(Color.Black.copy(alpha = 0.45f))
+                    .background(Color.Black.copy(alpha = 0.5f))
                     .padding(6.dp),
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 slots.forEach { slot ->
                     val frame = frames[slot.bucketMs]
                     val tileShape = RoundedCornerShape(4.dp)
-                    Box(
+                    androidx.compose.foundation.layout.Box(
                         modifier = Modifier
-                            .size(
-                                width = SEEK_FILMSTRIP_TILE_WIDTH,
-                                height = SEEK_FILMSTRIP_TILE_HEIGHT
-                            )
+                            .weight(1f)
+                            .height(tileHeight)
                             .clip(tileShape)
                             .background(Color.Black.copy(alpha = 0.55f))
                             .then(

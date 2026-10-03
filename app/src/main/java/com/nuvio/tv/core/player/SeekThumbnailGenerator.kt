@@ -9,8 +9,11 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
@@ -20,31 +23,40 @@ import javax.inject.Singleton
  * Extracts video frames from the stream currently being played so the player
  * can render a Netflix-style filmstrip while the user scrubs the seek bar.
  *
- * Frames are read with [MediaMetadataRetriever] against the playback URL (no
- * DRM is used by the app) and cached in memory. Streams that cannot provide
- * frames (HLS/DASH manifests, servers without range support) are marked as
- * unsupported after a few failures and the filmstrip simply stays hidden.
+ * Progressive streams are read with [MediaMetadataRetriever] against the
+ * playback URL (no DRM is used by the app). Adaptive streams (HLS/DASH) are
+ * handled by [HlsFrameExtractor]. Results are cached in memory; streams that
+ * consistently fail are marked unsupported and the filmstrip stays hidden.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
-class SeekThumbnailGenerator @Inject constructor() {
+class SeekThumbnailGenerator @Inject constructor(
+    private val hlsExtractor: HlsFrameExtractor
+) {
 
     companion object {
         private const val TAG = "SeekThumbs"
         private const val MAX_CACHE_KB = 8 * 1024
         private const val MAX_CONSECUTIVE_FAILURES = 3
-        private val UNSUPPORTED_SUFFIXES = listOf(".m3u8", ".mpd")
+        private const val KEEP_WARM_MS = 30_000L
+        private val UNSUPPORTED_SCHEMES = listOf("blob:", "rtmp://", "rtsp://", "file://")
     }
 
     private val scope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO.limitedParallelism(2)
     )
     private val requestsMutex = Mutex()
+    private val hlsMutex = Mutex()
     private val inFlight = mutableMapOf<String, Deferred<Bitmap?>>()
+    private var releaseJob: Job? = null
 
     private val retrieverLock = Any()
     private var retriever: MediaMetadataRetriever? = null
     private var retrieverUrl: String? = null
+
+    /** URLs the classic retriever cannot read; the adaptive extractor may still handle them. */
+    private val retrieverFailedUrls: MutableSet<String> =
+        java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
     @Volatile
     private var failedUrl: String? = null
@@ -59,7 +71,7 @@ class SeekThumbnailGenerator @Inject constructor() {
     fun isSupported(url: String?): Boolean {
         if (url.isNullOrBlank()) return false
         val clean = url.substringBefore('?').lowercase()
-        if (UNSUPPORTED_SUFFIXES.any { clean.endsWith(it) }) return false
+        if (UNSUPPORTED_SCHEMES.any { clean.startsWith(it) }) return false
         return failedUrl != url
     }
 
@@ -74,6 +86,8 @@ class SeekThumbnailGenerator @Inject constructor() {
         positionMs: Long
     ): Bitmap? {
         if (!isSupported(url)) return null
+        releaseJob?.cancel()
+        releaseJob = null
 
         val key = "$url#${positionMs.coerceAtLeast(0L)}"
         cache.get(key)?.let { return it }
@@ -82,6 +96,7 @@ class SeekThumbnailGenerator @Inject constructor() {
             inFlight[key] ?: run {
                 val created = scope.async(start = CoroutineStart.LAZY) {
                     val frame = extractFrame(url, headers, positionMs)
+                    Log.d(TAG, "extract pos=$positionMs ok=${frame != null} host=${url.safeHostForLog()}")
                     frame?.let { cache.put(key, it) }
                     requestsMutex.withLock { inFlight.remove(key) }
                     frame
@@ -97,9 +112,56 @@ class SeekThumbnailGenerator @Inject constructor() {
     /** Frees the underlying retriever (and its connection to the stream). */
     fun release() {
         synchronized(retrieverLock) { releaseRetrieverLocked() }
+        hlsExtractor.release()
     }
 
-    private fun extractFrame(
+    /**
+     * Releases the extractors after [delayMs] of inactivity. Keeping them warm
+     * briefly avoids re-preparing the hidden player every time the controls are
+     * hidden and shown again during a scrub session.
+     */
+    fun scheduleRelease(delayMs: Long = KEEP_WARM_MS) {
+        releaseJob?.cancel()
+        releaseJob = scope.launch {
+            delay(delayMs)
+            release()
+        }
+    }
+
+    private suspend fun extractFrame(
+        url: String,
+        headers: Map<String, String>,
+        positionMs: Long
+    ): Bitmap? {
+        if (failedUrl == url) return null
+        if (isManifestUrl(url)) {
+            val frame = extractAdaptiveFrame(url, headers, positionMs, manifestMimeType(url))
+            Log.d(TAG, "extract adaptive pos=$positionMs ok=${frame != null}")
+            if (frame != null) {
+                consecutiveFailures = 0
+            } else {
+                noteFailure(url)
+            }
+            return frame
+        }
+        val retrieverFrame = if (url in retrieverFailedUrls) {
+            null
+        } else {
+            extractRetrieverFrame(url, headers, positionMs)
+        }
+        if (retrieverFrame != null) return retrieverFrame
+
+        val adaptiveFrame = extractAdaptiveFrame(url, headers, positionMs, null)
+        if (adaptiveFrame != null) {
+            Log.d(TAG, "extract fallback ok=true pos=$positionMs")
+            consecutiveFailures = 0
+            return adaptiveFrame
+        }
+        noteFailure(url)
+        return null
+    }
+
+    private fun extractRetrieverFrame(
         url: String,
         headers: Map<String, String>,
         positionMs: Long
@@ -116,14 +178,44 @@ class SeekThumbnailGenerator @Inject constructor() {
                     consecutiveFailures = 0
                     frame
                 } else {
-                    noteFailure(url)
+                    // Keep the URL alive: the adaptive extractor may still read it.
+                    retrieverFailedUrls.add(url)
                     null
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "getFrameAtTime failed: ${e.message}")
-                noteFailure(url)
+                retrieverFailedUrls.add(url)
                 null
             }
+        }
+    }
+
+    private suspend fun extractAdaptiveFrame(
+        url: String,
+        headers: Map<String, String>,
+        positionMs: Long,
+        mimeType: String?
+    ): Bitmap? = hlsMutex.withLock {
+        if (failedUrl == url) return@withLock null
+        runCatching {
+            hlsExtractor.getFrame(url, headers, positionMs, mimeType)
+        }.onFailure { error ->
+            Log.w(TAG, "adaptive extract failed: ${error.message}")
+        }.getOrNull()
+    }
+
+    private fun isManifestUrl(url: String): Boolean {
+        val clean = url.substringBefore('?').lowercase()
+        return clean.endsWith(".m3u8") || clean.endsWith(".m3u") ||
+            clean.endsWith(".mpd") || clean.endsWith(".ism")
+    }
+
+    private fun manifestMimeType(url: String): String? {
+        val clean = url.substringBefore('?').lowercase()
+        return when {
+            clean.endsWith(".m3u8") || clean.endsWith(".m3u") -> "application/vnd.apple.mpegurl"
+            clean.endsWith(".mpd") -> "application/dash+xml"
+            else -> null
         }
     }
 
@@ -143,7 +235,7 @@ class SeekThumbnailGenerator @Inject constructor() {
             created
         } catch (e: Exception) {
             Log.w(TAG, "retriever init failed: ${e.message}")
-            failedUrl = url
+            retrieverFailedUrls.add(url)
             null
         }
     }
@@ -161,4 +253,7 @@ class SeekThumbnailGenerator @Inject constructor() {
         retrieverUrl = null
         consecutiveFailures = 0
     }
+
+    private fun String.safeHostForLog(): String =
+        runCatching { android.net.Uri.parse(this).host ?: take(60) }.getOrDefault("parse-error")
 }

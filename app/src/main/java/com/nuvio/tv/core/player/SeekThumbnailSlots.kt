@@ -34,19 +34,24 @@ object SeekThumbnailSlots {
         return (durationMs / BUCKETS_PER_DURATION).coerceAtLeast(MIN_STEP_MS)
     }
 
-    /** The [VISIBLE_SLOTS] tiles to display for the given scrub position. */
-    fun slots(durationMs: Long, positionMs: Long): List<SeekThumbnailSlot> {
+    /** The [visibleSlots] tiles to display for the given scrub position. */
+    fun slots(
+        durationMs: Long,
+        positionMs: Long,
+        visibleSlots: Int = VISIBLE_SLOTS
+    ): List<SeekThumbnailSlot> {
         if (durationMs <= 0) return emptyList()
 
+        val count = visibleSlots.coerceAtLeast(1)
         val step = stepMs(durationMs)
         val position = positionMs.coerceIn(0L, durationMs)
         val centerBucket = position / step
         val lastBucket = durationMs / step
-        val half = (VISIBLE_SLOTS - 1) / 2
-        val maxFirstBucket = (lastBucket - (VISIBLE_SLOTS - 1)).coerceAtLeast(0L)
+        val half = (count - 1) / 2
+        val maxFirstBucket = (lastBucket - (count - 1)).coerceAtLeast(0L)
         val firstBucket = (centerBucket - half).coerceIn(0L, maxFirstBucket)
 
-        return (0 until VISIBLE_SLOTS).map { index ->
+        return (0 until count).map { index ->
             val bucket = (firstBucket + index).coerceAtMost(lastBucket)
             val bucketStart = bucket * step
             SeekThumbnailSlot(

@@ -2037,7 +2037,8 @@ private fun PlayerControlsProgressBarHost(
         headers = remember(playerUiState.currentStreamUrl) { viewModel.getCurrentHeaders() },
         currentPosition = playbackTimeline.currentPosition,
         duration = playbackTimeline.duration,
-        visible = playerUiState.pendingPreviewSeekPosition != null
+        visible = playerUiState.pendingPreviewSeekPosition != null,
+        prefetch = playerUiState.showControls
     )
 
     ProgressBar(
