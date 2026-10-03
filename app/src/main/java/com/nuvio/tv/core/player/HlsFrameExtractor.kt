@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.Surface
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
@@ -17,6 +18,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.dash.DashMediaSource
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -55,6 +57,14 @@ class HlsFrameExtractor @Inject constructor(
         private const val SURFACE_HEIGHT = 360
         private const val MAX_IMAGES = 3
         private const val FRAME_FALLBACK_DELAY_MS = 500L
+
+        // Thumbnails need a single frame, not a smooth playback buffer: keep
+        // the window tiny so a seek downloads one segment instead of ~10.
+        private const val MIN_BUFFER_MS = 4_000
+        private const val MAX_BUFFER_MS = 4_000
+        private const val BUFFER_FOR_PLAYBACK_MS = 2_000
+        private const val BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS = 2_000
+        private const val TARGET_BUFFER_BYTES = 1_500_000
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -245,9 +255,27 @@ class HlsFrameExtractor @Inject constructor(
             else -> DefaultMediaSourceFactory(dataSourceFactory).createMediaSource(mediaItem)
         }
         player = ExoPlayer.Builder(context)
+            .setLoadControl(
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                        MIN_BUFFER_MS,
+                        MAX_BUFFER_MS,
+                        BUFFER_FOR_PLAYBACK_MS,
+                        BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
+                    )
+                    .setTargetBufferBytes(TARGET_BUFFER_BYTES)
+                    .setPrioritizeTimeOverSizeThresholds(true)
+                    .build()
+            )
             .build()
             .apply {
                 setPlayWhenReady(false)
+                // A thumbnail only needs the smallest video rendition and no
+                // audio: far fewer bytes per seek and a faster first frame.
+                trackSelectionParameters = trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+                    .setForceLowestBitrate(true)
+                    .build()
                 addListener(listener)
                 setVideoSurface(surface)
                 setMediaSource(mediaSource)

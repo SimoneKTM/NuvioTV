@@ -36,9 +36,12 @@ class SeekThumbnailGenerator @Inject constructor(
 
     companion object {
         private const val TAG = "SeekThumbs"
-        private const val MAX_CACHE_KB = 8 * 1024
+        // Frames are ~0.5 MB each: the cache must hold several full strips so
+        // reopening the controls shows them again without re-extracting.
+        private const val MAX_CACHE_KB = 24 * 1024
+        private const val CACHE_FRAME_WIDTH = 480
         private const val MAX_CONSECUTIVE_FAILURES = 3
-        private const val KEEP_WARM_MS = 30_000L
+        private const val KEEP_WARM_MS = 60_000L
         private val UNSUPPORTED_SCHEMES = listOf("blob:", "rtmp://", "rtsp://", "file://")
     }
 
@@ -97,7 +100,7 @@ class SeekThumbnailGenerator @Inject constructor(
                 val created = scope.async(start = CoroutineStart.LAZY) {
                     val frame = extractFrame(url, headers, positionMs)
                     Log.d(TAG, "extract pos=$positionMs ok=${frame != null} host=${url.safeHostForLog()}")
-                    frame?.let { cache.put(key, it) }
+                    frame?.let { cache.put(key, it.fitForCache()) }
                     requestsMutex.withLock { inFlight.remove(key) }
                     frame
                 }
@@ -252,6 +255,15 @@ class SeekThumbnailGenerator @Inject constructor(
         retriever = null
         retrieverUrl = null
         consecutiveFailures = 0
+    }
+
+    /** Shrinks a frame before caching: the tile is at most ~480 px wide. */
+    private fun Bitmap.fitForCache(): Bitmap {
+        if (width <= CACHE_FRAME_WIDTH) return this
+        val target = (height.toLong() * CACHE_FRAME_WIDTH / width).toInt().coerceAtLeast(1)
+        return runCatching {
+            Bitmap.createScaledBitmap(this, CACHE_FRAME_WIDTH, target, true)
+        }.getOrDefault(this)
     }
 
     private fun String.safeHostForLog(): String =
