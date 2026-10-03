@@ -1124,6 +1124,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
         }
         is PlayerEvent.OnSeekBy -> {
             pendingPreviewSeekPosition = null
+            _uiState.update { it.copy(pendingPreviewSeekPosition = null) }
             val current = currentPlaybackPositionMs() ?: 0L
             val maxDuration = currentPlaybackDurationMs().takeIf { it >= 0 } ?: Long.MAX_VALUE
             val target = (current + event.deltaMs)
@@ -1150,6 +1151,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
                 .coerceAtLeast(0L)
                 .coerceAtMost(maxDuration)
             pendingPreviewSeekPosition = target
+            _uiState.update { it.copy(pendingPreviewSeekPosition = target) }
             updatePlaybackTimeline(currentPosition = target)
             if (_uiState.value.showControls) {
                 showControlsTemporarily()
@@ -1163,6 +1165,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
                 seekPlaybackTo(target, SeekParameters.CLOSEST_SYNC)
                 updatePlaybackTimeline(currentPosition = target)
                 pendingPreviewSeekPosition = null
+                _uiState.update { it.copy(pendingPreviewSeekPosition = null) }
                 scheduleProgressSyncAfterSeek()
                 if (_uiState.value.showControls) {
                     showControlsTemporarily()
@@ -1173,6 +1176,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
         }
         is PlayerEvent.OnSeekTo -> {
             pendingPreviewSeekPosition = null
+            _uiState.update { it.copy(pendingPreviewSeekPosition = null) }
             seekPlaybackTo(event.position, SeekParameters.CLOSEST_SYNC)
             updatePlaybackTimeline(currentPosition = event.position)
             scheduleProgressSyncAfterSeek()
