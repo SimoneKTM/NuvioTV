@@ -65,6 +65,8 @@ class HlsFrameExtractor @Inject constructor(
         private const val BUFFER_FOR_PLAYBACK_MS = 2_000
         private const val BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS = 2_000
         private const val TARGET_BUFFER_BYTES = 1_500_000
+        private const val HLS_MIME_VND = "application/vnd.apple.mpegurl"
+        private const val MPD_MIME_XML = "application/dash+xml"
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -226,6 +228,22 @@ class HlsFrameExtractor @Inject constructor(
         surface = reader.surface
     }
 
+    /**
+     * Maps every known spelling of a container onto the constants ExoPlayer
+     * switches on. `application/vnd.apple.mpegurl` is a common alias for HLS:
+     * without this the stream would fall into the progressive branch and fail.
+     */
+    private fun normalizeMimeType(mimeType: String?): String? {
+        if (mimeType.isNullOrBlank()) return null
+        return when {
+            mimeType.equals(MimeTypes.APPLICATION_M3U8, ignoreCase = true) ||
+                mimeType.equals(HLS_MIME_VND, ignoreCase = true) -> MimeTypes.APPLICATION_M3U8
+            mimeType.equals(MimeTypes.APPLICATION_MPD, ignoreCase = true) ||
+                mimeType.equals(MPD_MIME_XML, ignoreCase = true) -> MimeTypes.APPLICATION_MPD
+            else -> mimeType
+        }
+    }
+
     private fun ensurePlayer(url: String, headers: Map<String, String>, mimeType: String?) {
         val key = buildString {
             append(url)
@@ -238,7 +256,9 @@ class HlsFrameExtractor @Inject constructor(
 
         releasePlayer()
         val sanitizedHeaders = PlayerMediaSourceFactory.sanitizeHeaders(headers)
-        val resolvedMimeType = mimeType ?: PlayerMediaSourceFactory.inferMimeType(url, null)
+        val resolvedMimeType = normalizeMimeType(
+            mimeType ?: PlayerMediaSourceFactory.inferMimeType(url, null)
+        )
         val dataSourceFactory = LoggingDataSourceFactory(
             PlayerPlaybackNetworking.createDataSourceFactory(context, sanitizedHeaders)
         )

@@ -2,6 +2,7 @@ package com.nuvio.tv.core.player
 
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
+import android.os.SystemClock
 import android.util.Log
 import android.util.LruCache
 import kotlinx.coroutines.CoroutineScope
@@ -41,6 +42,7 @@ class SeekThumbnailGenerator @Inject constructor(
         private const val MAX_CACHE_KB = 24 * 1024
         private const val CACHE_FRAME_WIDTH = 480
         private const val MAX_CONSECUTIVE_FAILURES = 3
+        private const val FAILED_RETRY_MS = 30_000L
         private const val KEEP_WARM_MS = 60_000L
         private val UNSUPPORTED_SCHEMES = listOf("blob:", "rtmp://", "rtsp://", "file://")
     }
@@ -63,6 +65,9 @@ class SeekThumbnailGenerator @Inject constructor(
 
     @Volatile
     private var failedUrl: String? = null
+    @Volatile
+    private var failedAtMs: Long = 0L
+    private var failureUrl: String? = null
     private var consecutiveFailures = 0
 
     private val cache = object : LruCache<String, Bitmap>(MAX_CACHE_KB) {
@@ -75,8 +80,13 @@ class SeekThumbnailGenerator @Inject constructor(
         if (url.isNullOrBlank()) return false
         val clean = url.substringBefore('?').lowercase()
         if (UNSUPPORTED_SCHEMES.any { clean.startsWith(it) }) return false
-        return failedUrl != url
+        return !isBlocked(url)
     }
+
+    /** A failing stream is skipped only briefly, then extraction is retried. */
+    private fun isBlocked(url: String): Boolean =
+        failedUrl == url &&
+            SystemClock.elapsedRealtime() - failedAtMs < FAILED_RETRY_MS
 
     /**
      * Returns the frame closest to [positionMs] for [url], or null when the
@@ -136,12 +146,12 @@ class SeekThumbnailGenerator @Inject constructor(
         headers: Map<String, String>,
         positionMs: Long
     ): Bitmap? {
-        if (failedUrl == url) return null
+        if (isBlocked(url)) return null
         if (isManifestUrl(url)) {
             val frame = extractAdaptiveFrame(url, headers, positionMs, manifestMimeType(url))
             Log.d(TAG, "extract adaptive pos=$positionMs ok=${frame != null}")
             if (frame != null) {
-                consecutiveFailures = 0
+                noteSuccess()
             } else {
                 noteFailure(url)
             }
@@ -157,7 +167,7 @@ class SeekThumbnailGenerator @Inject constructor(
         val adaptiveFrame = extractAdaptiveFrame(url, headers, positionMs, null)
         if (adaptiveFrame != null) {
             Log.d(TAG, "extract fallback ok=true pos=$positionMs")
-            consecutiveFailures = 0
+            noteSuccess()
             return adaptiveFrame
         }
         noteFailure(url)
@@ -170,7 +180,7 @@ class SeekThumbnailGenerator @Inject constructor(
         positionMs: Long
     ): Bitmap? {
         synchronized(retrieverLock) {
-            if (failedUrl == url) return null
+            if (isBlocked(url)) return null
             val active = ensureRetriever(url, headers) ?: return null
             return try {
                 val frame = active.getFrameAtTime(
@@ -178,7 +188,7 @@ class SeekThumbnailGenerator @Inject constructor(
                     MediaMetadataRetriever.OPTION_CLOSEST
                 )
                 if (frame != null) {
-                    consecutiveFailures = 0
+                    noteSuccess()
                     frame
                 } else {
                     // Keep the URL alive: the adaptive extractor may still read it.
@@ -198,8 +208,8 @@ class SeekThumbnailGenerator @Inject constructor(
         headers: Map<String, String>,
         positionMs: Long,
         mimeType: String?
-    ): Bitmap? = hlsMutex.withLock {
-        if (failedUrl == url) return@withLock null
+        ): Bitmap? = hlsMutex.withLock {
+            if (isBlocked(url)) return@withLock null
         runCatching {
             hlsExtractor.getFrame(url, headers, positionMs, mimeType)
         }.onFailure { error ->
@@ -234,7 +244,7 @@ class SeekThumbnailGenerator @Inject constructor(
             created.setDataSource(url, headers)
             retriever = created
             retrieverUrl = url
-            consecutiveFailures = 0
+            noteSuccess()
             created
         } catch (e: Exception) {
             Log.w(TAG, "retriever init failed: ${e.message}")
@@ -244,10 +254,26 @@ class SeekThumbnailGenerator @Inject constructor(
     }
 
     private fun noteFailure(url: String) {
+        if (failureUrl != url) {
+            failureUrl = url
+            consecutiveFailures = 0
+        }
         consecutiveFailures++
+        Log.w(
+            TAG,
+            "frame failure $consecutiveFailures/$MAX_CONSECUTIVE_FAILURES " +
+                "pos-host=${url.safeHostForLog()}"
+        )
         if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
             failedUrl = url
+            failedAtMs = SystemClock.elapsedRealtime()
+            Log.w(TAG, "stream unsupported for ${FAILED_RETRY_MS / 1000}s: ${url.safeHostForLog()}")
         }
+    }
+
+    private fun noteSuccess() {
+        consecutiveFailures = 0
+        failureUrl = null
     }
 
     private fun releaseRetrieverLocked() {
