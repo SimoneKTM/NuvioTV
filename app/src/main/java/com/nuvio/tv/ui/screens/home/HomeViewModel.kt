@@ -26,6 +26,7 @@ import com.nuvio.tv.data.translation.MetadataTextTranslator
 import com.nuvio.tv.data.tvdb.TvdbMetadataService
 import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.domain.model.Addon
+import com.nuvio.tv.domain.model.CalendarItem
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.Collection
@@ -51,6 +52,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.nuvio.tv.core.util.installedExtraAddonsNow
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -67,6 +71,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -915,6 +920,10 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun updateCatalogRows() = updateCatalogRowsPipeline()
 
+    // Titoli di "Ultime Uscite" già arricchiti (o già provati): così ogni
+    // titolo viene interrogato su TMDB al massimo una volta per sessione.
+    private val latestReleaseArtworkIds = ConcurrentHashMap.newKeySet<String>()
+
     private fun observeLatestReleases() {
         viewModelScope.launch {
             calendarRepository.getMonthReleaseItems()
@@ -930,12 +939,85 @@ class HomeViewModel @Inject constructor(
                     Log.w(TAG, "latest releases failed: ${e.message}")
                 }
                 .collect { items ->
-                    if (_uiState.value.latestReleaseItems != items) {
-                        _uiState.update { it.copy(latestReleaseItems = items) }
-                        scheduleUpdateCatalogRows()
-                    }
+                    publishLatestReleaseItems(items)
+                    // La riga parte subito col poster di TMDB discover; logo,
+                    // sfondo e poster mancanti arrivano subito dopo in background
+                    // così la hero della riga è identica alle altre.
+                    val filled = fillLatestReleaseArtwork(items)
+                    if (filled !== items) publishLatestReleaseItems(filled)
                 }
         }
+    }
+
+    private fun publishLatestReleaseItems(items: List<CalendarItem>) {
+        if (_uiState.value.latestReleaseItems == items) return
+        _uiState.update { it.copy(latestReleaseItems = items) }
+        scheduleUpdateCatalogRows()
+    }
+
+    /**
+     * Riempe artwork/descrizione dei titoli di "Ultime Uscite": TMDB discover
+     * restituisce poster e sfondo ma non il logo, per cui la hero mostrava il
+     * titolo in testo al posto del logo usato dalle altre righe. Ogni titolo
+     * mancante viene arricchito una volta sola (3 richieste in parallelo) e la
+     * riga viene ripubblicata solo se qualcosa è cambiato.
+     */
+    private suspend fun fillLatestReleaseArtwork(items: List<CalendarItem>): List<CalendarItem> {
+        if (items.isEmpty()) return items
+        val settings = currentTmdbSettings
+        if (!settings.enabled) return items
+        val pending = items.filter { item ->
+            item.meta.id !in latestReleaseArtworkIds &&
+                (item.meta.logo.isNullOrBlank() ||
+                    item.meta.background.isNullOrBlank() ||
+                    item.meta.poster.isNullOrBlank() ||
+                    item.meta.description.isNullOrBlank())
+        }
+        if (pending.isEmpty()) return items
+
+        val semaphore = Semaphore(3)
+        val results = coroutineScope {
+            pending.map { item ->
+                async {
+                    semaphore.withPermit {
+                        item to runCatching {
+                            val tmdbId = tmdbService.ensureTmdbId(item.meta.id, item.meta.apiType)
+                                ?: return@runCatching null
+                            tmdbMetadataService.fetchEnrichment(
+                                tmdbId = tmdbId,
+                                contentType = item.meta.type,
+                                language = settings.language
+                            )
+                        }.getOrNull()
+                    }
+                }
+            }.awaitAll()
+        }
+
+        val byId = LinkedHashMap<String, CalendarItem>(items.size)
+        items.forEach { byId[it.meta.id] = it }
+        var changed = false
+        results.forEach { (item, enrichment) ->
+            latestReleaseArtworkIds.add(item.meta.id)
+            if (enrichment == null) return@forEach
+            var meta = item.meta
+            if (settings.useArtwork) {
+                meta = meta.copy(
+                    logo = enrichment.logo ?: meta.logo,
+                    background = enrichment.backdrop ?: meta.background,
+                    poster = enrichment.poster ?: meta.poster
+                )
+            }
+            if (settings.useBasicInfo) {
+                meta = meta.copy(description = enrichment.description ?: meta.description)
+            }
+            if (meta != item.meta) {
+                changed = true
+                byId[item.meta.id] = item.copy(meta = meta)
+            }
+        }
+        if (!changed) return items
+        return items.map { byId[it.meta.id] ?: it }
     }
 
     internal var posterStatusReconcileJob: Job? = null
