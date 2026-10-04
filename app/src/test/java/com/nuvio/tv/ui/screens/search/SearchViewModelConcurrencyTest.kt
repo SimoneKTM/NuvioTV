@@ -178,6 +178,8 @@ class SearchViewModelConcurrencyTest {
 
         override fun warmUp() = Unit
 
+        override fun firstPageRows(): List<CatalogRow> = emptyList()
+
         override val warmComplete: kotlinx.coroutines.flow.StateFlow<Boolean> =
             kotlinx.coroutines.flow.MutableStateFlow(true)
 

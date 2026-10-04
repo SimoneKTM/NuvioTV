@@ -5,9 +5,13 @@ import android.util.Log
 import com.nuvio.tv.core.network.NetworkResult
 import com.nuvio.tv.core.network.safeApiCall
 import com.nuvio.tv.core.profile.ProfileManager
+import com.nuvio.tv.data.local.CatalogSnapshotEntry
+import com.nuvio.tv.data.local.CatalogSnapshotStore
 import com.nuvio.tv.data.mapper.toDomain
 import com.nuvio.tv.data.remote.api.AddonApi
+import com.nuvio.tv.data.remote.dto.CatalogResponseDto
 import com.nuvio.tv.domain.model.Addon
+import com.squareup.moshi.Moshi
 import com.nuvio.tv.domain.model.CatalogDescriptor
 import com.nuvio.tv.domain.model.CatalogRow
 import com.nuvio.tv.domain.model.ContentType
@@ -47,7 +51,9 @@ class CatalogRepositoryImpl @Inject constructor(
     private val addonRepository: AddonRepository,
     private val animeAddonRepository: AnimeAddonRepository,
     private val extraAddonRepository: ExtraAddonRepository,
-    private val profileManager: ProfileManager
+    private val profileManager: ProfileManager,
+    private val snapshotStore: CatalogSnapshotStore,
+    private val moshi: Moshi
 ) : CatalogRepository {
     companion object {
         private const val TAG = "CatalogRepository"
@@ -65,6 +71,10 @@ class CatalogRepositoryImpl @Inject constructor(
     private var profileWatchJob: Job? = null
     private var addonWatchJob: Job? = null
     private val catalogCache = ConcurrentHashMap<String, CacheEntry>()
+    // Url serviti dallo snapshot su disco: vanno comunque aggiornati dalla rete.
+    private val diskSeededUrls = ConcurrentHashMap.newKeySet<String>()
+    private var diskSnapshot: Map<String, CatalogSnapshotEntry> = emptyMap()
+    private val dtoAdapter by lazy { moshi.adapter(CatalogResponseDto::class.java) }
     private val _warmComplete = kotlinx.coroutines.flow.MutableStateFlow(false)
     override val warmComplete: kotlinx.coroutines.flow.StateFlow<Boolean> = _warmComplete
 
@@ -122,7 +132,18 @@ class CatalogRepositoryImpl @Inject constructor(
                     _warmComplete.value = true
                     return@launch
                 }
-                Log.d(TAG, "Catalog warm-up: ${targets.size} first-page catalogs (home=${regular.size} anime=${anime.size} extra=${extra.size})")
+
+                // Disco prima di rete: se tutte le prime pagine ci sono già, la Home
+                // parte subito (stile Netflix) e il refresh gira in sottofondo.
+                val seeded = seedFromDisk(targets)
+                if (seeded == targets.size) {
+                    Log.d(TAG, "Catalog warm-up: $seeded first pages served from disk snapshot")
+                    _warmComplete.value = true
+                    refreshTargets(targets)
+                    return@launch
+                }
+
+                Log.d(TAG, "Catalog warm-up: ${targets.size} first-page catalogs (home=${regular.size} anime=${anime.size} extra=${extra.size}, fromDisk=$seeded)")
 
                 val semaphore = Semaphore(WARM_CONCURRENCY)
                 kotlinx.coroutines.coroutineScope {
@@ -146,6 +167,105 @@ class CatalogRepositoryImpl @Inject constructor(
         catalogCache.clear()
     }
 
+    /** Copia sul cache in memoria tutte le prime pagine presenti nello snapshot su disco. */
+    private suspend fun seedFromDisk(targets: List<Pair<Addon, CatalogDescriptor>>): Int {
+        ensureDiskSnapshot()
+        var seeded = 0
+        targets.forEach { (addon, catalog) ->
+            val url = targetUrl(addon, catalog)
+            if (catalogCache.containsKey(url)) return@forEach
+            val entry = diskSnapshot[url] ?: return@forEach
+            decodeSnapshot(entry)?.let {
+                catalogCache[url] = it
+                diskSeededUrls.add(url)
+                seeded++
+            }
+        }
+        return seeded
+    }
+
+    /** Aggiorna dalla rete le prime pagine già presenti a disco (senza bloccare la Home). */
+    private suspend fun refreshTargets(targets: List<Pair<Addon, CatalogDescriptor>>) {
+        val semaphore = Semaphore(WARM_CONCURRENCY)
+        kotlinx.coroutines.coroutineScope {
+            targets.forEach { (addon, catalog) ->
+                launch {
+                    semaphore.withPermit { warmCatalogPage(addon, catalog, forceRefresh = true) }
+                }
+            }
+        }
+    }
+
+    private fun targetUrl(addon: Addon, catalog: CatalogDescriptor): String = buildCatalogUrl(
+        baseUrl = addon.baseUrl,
+        type = catalog.apiType,
+        catalogId = catalog.id,
+        skip = 0,
+        extraArgs = emptyMap()
+    )
+
+    private suspend fun ensureDiskSnapshot() {
+        if (diskSnapshot.isEmpty()) {
+            diskSnapshot = snapshotStore.readAll()
+        }
+    }
+
+    private fun decodeSnapshot(entry: CatalogSnapshotEntry): CacheEntry? = runCatching {
+        val dto = dtoAdapter.fromJson(entry.body) ?: return null
+        val items = dto.metas
+            .map { it.toDomain(entry.rawType, entry.addonBaseUrl) }
+            .distinctBy { it.id }
+        val row = CatalogRow(
+            addonId = entry.addonId,
+            addonName = entry.addonName,
+            addonBaseUrl = entry.addonBaseUrl,
+            catalogId = entry.catalogId,
+            catalogName = entry.catalogName,
+            type = ContentType.fromString(entry.rawType),
+            rawType = entry.rawType,
+            items = items,
+            isLoading = false,
+            hasMore = entry.supportsSkip && items.isNotEmpty(),
+            currentPage = 0,
+            supportsSkip = entry.supportsSkip,
+            skipStep = entry.skipStep,
+            nextSkip = if (entry.supportsSkip && items.isNotEmpty()) items.size else 0,
+            extraArgs = emptyMap()
+        )
+        CacheEntry(row, entry.savedAtMs)
+    }.getOrNull()
+
+    private suspend fun persistSnapshot(
+        url: String,
+        dto: CatalogResponseDto,
+        addonId: String,
+        addonName: String,
+        addonBaseUrl: String,
+        catalogId: String,
+        catalogName: String,
+        rawType: String,
+        supportsSkip: Boolean,
+        skipStep: Int
+    ) {
+        runCatching {
+            snapshotStore.put(
+                url,
+                CatalogSnapshotEntry(
+                    savedAtMs = System.currentTimeMillis(),
+                    body = dtoAdapter.toJson(dto),
+                    addonId = addonId,
+                    addonName = addonName,
+                    addonBaseUrl = addonBaseUrl,
+                    catalogId = catalogId,
+                    catalogName = catalogName,
+                    rawType = rawType,
+                    supportsSkip = supportsSkip,
+                    skipStep = skipStep
+                )
+            )
+        }.onFailure { Log.w(TAG, "Snapshot persist failed url=$url ${it.message}") }
+    }
+
     private fun warmTargets(addons: List<Addon>): List<Pair<Addon, CatalogDescriptor>> =
         addons.flatMap { addon ->
             addon.catalogs
@@ -161,15 +281,13 @@ class CatalogRepositoryImpl @Inject constructor(
         return !catalog.hasExplicitShowInHome || catalog.showInHome
     }
 
-    private suspend fun warmCatalogPage(addon: Addon, catalog: CatalogDescriptor) {
-        val url = buildCatalogUrl(
-            baseUrl = addon.baseUrl,
-            type = catalog.apiType,
-            catalogId = catalog.id,
-            skip = 0,
-            extraArgs = emptyMap()
-        )
-        if (catalogCache.containsKey(url)) return
+    private suspend fun warmCatalogPage(
+        addon: Addon,
+        catalog: CatalogDescriptor,
+        forceRefresh: Boolean = false
+    ) {
+        val url = targetUrl(addon, catalog)
+        if (!forceRefresh && catalogCache.containsKey(url)) return
         when (val result = safeApiCall(context) { api.getCatalog(url) }) {
             is NetworkResult.Success -> {
                 val row = result.data.metas
@@ -195,6 +313,19 @@ class CatalogRepositoryImpl @Inject constructor(
                         )
                     }
                 catalogCache[url] = CacheEntry(row, System.currentTimeMillis())
+                diskSeededUrls.remove(url)
+                persistSnapshot(
+                    url = url,
+                    dto = result.data,
+                    addonId = addon.id,
+                    addonName = addon.displayName,
+                    addonBaseUrl = addon.baseUrl,
+                    catalogId = catalog.id,
+                    catalogName = catalog.name,
+                    rawType = catalog.apiType,
+                    supportsSkip = catalog.supportsExtra("skip"),
+                    skipStep = catalog.skipStep()
+                )
                 Log.d(TAG, "Warmed catalog addonId=${addon.id} type=${catalog.apiType} catalogId=${catalog.id} items=${row.items.size}")
             }
             is NetworkResult.Error -> {
@@ -228,6 +359,16 @@ class CatalogRepositoryImpl @Inject constructor(
                     Log.d(TAG, "Catalog cache hit addonId=$addonId type=$type catalogId=$catalogId ageMs=$age")
                     emit(NetworkResult.Success(entry.row))
                     return@flow
+                }
+            }
+            // Disco: dipinge subito l'ultima pagina nota, poi la rete la aggiorna.
+            ensureDiskSnapshot()
+            diskSnapshot[url]?.let { entry ->
+                decodeSnapshot(entry)?.let { snapshot ->
+                    catalogCache[url] = snapshot
+                    diskSeededUrls.add(url)
+                    Log.d(TAG, "Catalog disk snapshot hit addonId=$addonId catalogId=$catalogId ageMs=${System.currentTimeMillis() - entry.savedAtMs}")
+                    emit(NetworkResult.Success(snapshot.row))
                 }
             }
         }
@@ -264,6 +405,19 @@ class CatalogRepositoryImpl @Inject constructor(
                 )
                 if (cacheable) {
                     catalogCache[url] = CacheEntry(catalogRow, System.currentTimeMillis())
+                    diskSeededUrls.remove(url)
+                    persistSnapshot(
+                        url = url,
+                        dto = result.data,
+                        addonId = addonId,
+                        addonName = addonName,
+                        addonBaseUrl = addonBaseUrl,
+                        catalogId = catalogId,
+                        catalogName = catalogName,
+                        rawType = type,
+                        supportsSkip = supportsSkip,
+                        skipStep = skipStep
+                    )
                 }
                 emit(NetworkResult.Success(catalogRow))
             }
@@ -285,6 +439,8 @@ class CatalogRepositoryImpl @Inject constructor(
             NetworkResult.Loading -> { /* Already emitted */ }
         }
     }.flowOn(Dispatchers.IO)
+
+    override fun firstPageRows(): List<CatalogRow> = catalogCache.values.map { it.row }
 
 }
 

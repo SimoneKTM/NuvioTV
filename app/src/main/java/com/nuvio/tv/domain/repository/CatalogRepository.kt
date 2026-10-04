@@ -22,6 +22,9 @@ interface CatalogRepository {
     /** Preloads first-page Home/Anime/Extra catalogs into the in-memory cache. */
     fun warmUp()
 
+    /** First pages already in the in-memory cache (used by the startup image warm-up). */
+    fun firstPageRows(): List<CatalogRow>
+
     /**
      * True once the current warm-up pass has finished (or there is nothing to warm).
      * Resets to false when the active profile changes and warm-up restarts.
