@@ -60,8 +60,8 @@ fun GlassPanel(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color.Black.copy(alpha = 0.60f),
-                        Color.Black.copy(alpha = 0.72f)
+                        Color.Black.copy(alpha = 0.80f),
+                        Color.Black.copy(alpha = 0.92f)
                     )
                 )
             )
