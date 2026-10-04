@@ -19,6 +19,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 
+// La notifica della libreria sparisce da sola dopo 5 secondi.
+private const val NOTICE_AUTO_DISMISS_MS = 5_000L
+
 /**
  * Top-of-screen host for the "new episode in your library" notification.
  *
@@ -36,6 +39,15 @@ fun NewEpisodeNoticeHost(
 
     LaunchedEffect(Unit) { onCheck() }
 
+    // La notifica sparisce da sola dopo 5 secondi.
+    val visible = state.showBanner && state.notices.isNotEmpty()
+    LaunchedEffect(visible) {
+        if (visible) {
+            kotlinx.coroutines.delay(NOTICE_AUTO_DISMISS_MS)
+            onDismiss()
+        }
+    }
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_START) {
@@ -51,7 +63,7 @@ fun NewEpisodeNoticeHost(
 
     Column(modifier = Modifier.fillMaxSize()) {
         AnimatedVisibility(
-            visible = state.showBanner && state.notices.isNotEmpty(),
+            visible = visible,
             enter = expandVertically(
                 expandFrom = Alignment.Top,
                 animationSpec = tween(durationMillis = 300)

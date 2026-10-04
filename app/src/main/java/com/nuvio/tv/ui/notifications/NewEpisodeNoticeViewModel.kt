@@ -2,6 +2,7 @@ package com.nuvio.tv.ui.notifications
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nuvio.tv.data.local.NewEpisodeNoticeDataStore
 import com.nuvio.tv.data.repository.NewEpisodeNoticeService
 import com.nuvio.tv.domain.model.NewEpisodeNotice
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -10,6 +11,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -21,7 +23,8 @@ data class NewEpisodeNoticeUiState(
 
 @HiltViewModel
 class NewEpisodeNoticeViewModel @Inject constructor(
-    private val service: NewEpisodeNoticeService
+    private val service: NewEpisodeNoticeService,
+    private val noticePreferences: NewEpisodeNoticeDataStore
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NewEpisodeNoticeUiState())
@@ -29,6 +32,8 @@ class NewEpisodeNoticeViewModel @Inject constructor(
 
     private var checkJob: Job? = null
     private var lastCheckAtMs = 0L
+    // Già mostrata in questa sessione: blocca la ri-mostrazione su ON_START.
+    private var alreadyShownThisSession = false
 
     /**
      * Called every time the app comes to the foreground. Re-shows the notices
@@ -36,8 +41,12 @@ class NewEpisodeNoticeViewModel @Inject constructor(
      */
     fun onAppOpen() {
         val cached = _uiState.value.notices
-        if (cached.isNotEmpty()) {
+        if (cached.isNotEmpty() && !alreadyShownThisSession && !_uiState.value.showBanner) {
+            // Prima visualizzazione da cache in-sessione: la segna subito come
+            // vista così non tornerà più, neanche all'avvio successivo.
+            alreadyShownThisSession = true
             _uiState.update { it.copy(showBanner = true) }
+            viewModelScope.launch { noticePreferences.markShown() }
         }
         if (checkJob?.isActive == true) return
         val lastCheck = lastCheckAtMs
@@ -45,15 +54,22 @@ class NewEpisodeNoticeViewModel @Inject constructor(
 
         checkJob = viewModelScope.launch {
             _uiState.update { it.copy(isChecking = true) }
+            val alreadyNoticed = runCatching { noticePreferences.hasShown.first() }.getOrDefault(false)
+            if (alreadyNoticed) alreadyShownThisSession = true
             val result = runCatching { service.computeNotices() }
             lastCheckAtMs = System.currentTimeMillis()
             result
                 .onSuccess { notices ->
+                    val shouldShow = notices.isNotEmpty() && !alreadyShownThisSession
+                    if (shouldShow) {
+                        alreadyShownThisSession = true
+                        runCatching { noticePreferences.markShown() }
+                    }
                     _uiState.update {
                         it.copy(
                             isChecking = false,
                             notices = notices,
-                            showBanner = notices.isNotEmpty()
+                            showBanner = it.showBanner || shouldShow
                         )
                     }
                 }
