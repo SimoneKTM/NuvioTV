@@ -549,28 +549,6 @@ class StreamScreenViewModel @Inject constructor(
                 scheduleStreamBadgePresentation(mergedAddonStreams)
             }
 
-            if (shouldAttemptEmbeddedMetaStreamLookup()) {
-                getEmbeddedStreamsFromMeta()?.let { embeddedAddonStreams ->
-                    Log.d(
-                        TAG,
-                        "Using embedded video streams for videoId=$videoId count=${embeddedAddonStreams.streams.size}"
-                    )
-                    applySuccess(listOf(embeddedAddonStreams), isAllLoaded = true)
-                    updateSourceChipsForEmbedded(embeddedAddonStreams.addonName)
-                    if (directAutoPlayFlowEnabledForSession && !resolvedAutoPlayTarget) {
-                        directAutoPlayFlowEnabledForSession = false
-                        updateUiStateIfChanged {
-                            it.copy(
-                                isDirectAutoPlayFlow = false,
-                                showDirectAutoPlayOverlay = false,
-                                directAutoPlayMessage = null
-                            )
-                        }
-                    }
-                    return@launch
-                }
-            }
-
             // Grab and clear the baseline snapshot.  When non-null we are
             // resuming after a cancel and should merge incoming repository
             // emissions with these previously-fetched results.
@@ -774,6 +752,39 @@ class StreamScreenViewModel @Inject constructor(
                         )
                     }
                     externalPlaybackTracker.releaseAutoNextOverlay(forceRelease = true)
+                }
+            }
+
+            // The embedded-meta probe needs a full meta round trip (uncached: a
+            // multi-second addon race, worst case RACE_META_TIMEOUT_MS). It used
+            // to run BEFORE the repository, so every addon stream response was
+            // held behind it. The addon race above is already in flight now, so
+            // the probe only decides whether its results must win — and only when
+            // it has something the addons have not delivered yet.
+            if (shouldAttemptEmbeddedMetaStreamLookup()) {
+                getEmbeddedStreamsFromMeta()?.let { embeddedAddonStreams ->
+                    if (lastSuccessData.isNullOrEmpty()) {
+                        Log.d(
+                            TAG,
+                            "Using embedded video streams for videoId=$videoId count=${embeddedAddonStreams.streams.size}"
+                        )
+                        streamLoadInner.cancel()
+                        applySuccess(listOf(embeddedAddonStreams), isAllLoaded = true)
+                        updateSourceChipsForEmbedded(embeddedAddonStreams.addonName)
+                        if (directAutoPlayFlowEnabledForSession && !resolvedAutoPlayTarget) {
+                            directAutoPlayFlowEnabledForSession = false
+                            updateUiStateIfChanged {
+                                it.copy(
+                                    isDirectAutoPlayFlow = false,
+                                    showDirectAutoPlayOverlay = false,
+                                    directAutoPlayMessage = null
+                                )
+                            }
+                        }
+                        return@launch
+                    }
+                    // Addons already answered — their stream list is a superset of
+                    // what the meta embeds, so keep it instead of regressing.
                 }
             }
 
