@@ -9,6 +9,8 @@ import com.nuvio.tv.data.local.AnimeTvdbSettingsDataStore
 import com.nuvio.tv.data.local.MDBListSettingsDataStore
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
 import com.nuvio.tv.data.local.TvdbSettingsDataStore
+import com.nuvio.tv.data.remote.api.TmdbApi
+import com.nuvio.tv.data.remote.api.TmdbDiscoverResult
 import com.nuvio.tv.data.remote.api.TraktApi
 import com.nuvio.tv.data.remote.dto.trakt.TraktCalendarMediaItemDto
 import com.nuvio.tv.data.tvdb.TvdbMetadataService
@@ -61,6 +63,7 @@ import javax.inject.Singleton
 @Singleton
 class CalendarRepositoryImpl @Inject constructor(
     private val traktApi: TraktApi,
+    private val tmdbApi: TmdbApi,
     private val fluidModeState: FluidModeState,
     private val metaRepository: MetaRepository,
     private val tmdbService: TmdbService,
@@ -87,6 +90,14 @@ class CalendarRepositoryImpl @Inject constructor(
         private const val EXTERNAL_ENRICHMENT_TIMEOUT_MS = 10_000L
         // Trakt calendars documented maximum is 33 days.
         private const val TRAKT_MAX_DAYS = 33
+
+        // "Ultime Uscite" da TMDB discover: copertura dei titoli in arrivo.
+        private const val TMDB_LATEST_FUTURE_DAYS = 30L
+
+        // Le finestre sono già vincolate per data: ordinando per popolarità la
+        // riga prende i titoli più seguiti del mese invece di 20 uscite oscure
+        // dello stesso giorno.
+        private const val TMDB_LATEST_SORT = "popularity.desc"
 
         // How long a successful shared calendar fetch may be reused by another
         // caller that starts right after it finished (warmUp vs Home's observer).
@@ -270,19 +281,35 @@ class CalendarRepositoryImpl @Inject constructor(
         val today = LocalDate.now()
         val cached = cachedMonthItems.value
         if (cached.isNotEmpty()) {
-            emitAll(
-                getCalendarItems().map { calendarItems ->
-                    buildLatestReleaseItems(
-                        monthItems = cached,
-                        calendarItems = calendarItems,
-                        monthStart = monthStart,
-                        today = today
-                    )
-                }
-            )
+            emit(buildLatestReleaseItems(
+                monthItems = cached,
+                calendarItems = emptyList(),
+                monthStart = monthStart,
+                today = today
+            ))
             return@flow
         }
 
+        // Percorso rapido: TMDB discover (film + serie, passato e prossimi 30
+        // giorni) in 4 chiamate parallele. Le card arrivano già col poster, quindi
+        // niente Trakt e soprattutto niente enrichment addon: era quello a tenere
+        // la riga vuota per diversi secondi.
+        val tmdbItems = fetchMonthItemsFromTmdb(monthStart, today)
+        if (tmdbItems.isNotEmpty()) {
+            cachedMonthItems.value = tmdbItems
+            emit(buildLatestReleaseItems(
+                monthItems = tmdbItems,
+                calendarItems = emptyList(),
+                monthStart = monthStart,
+                today = today
+            ))
+            return@flow
+        }
+
+        // Fallback: TMDB disattivo o irraggiungibile → percorso Trakt di prima.
+        if (tmdbItems.isEmpty()) {
+            Log.w(TAG, "Latest releases: TMDB empty, using Trakt fallback")
+        }
         // The month calendar and the regular 33-day calendar used to run one after
         // the other, so the "Ultime Uscite" row only existed after two serial Trakt
         // round trips and always popped in after every catalog row. Run them in
@@ -343,6 +370,144 @@ class CalendarRepositoryImpl @Inject constructor(
             Log.w(TAG, "Month releases enrichment failed: ${e.message}")
         }
     }.flowOn(Dispatchers.IO)
+
+    /**
+     * "Ultime Uscite" da TMDB discover: 4 richieste in parallelo (film e serie,
+     * finestra passata e finestra in arrivo). Ogni titolo arriva col proprio
+     * poster e con la data di uscita, quindi non serve arricchire nulla tramite
+     * gli addon e la riga è pronta con il primo emit.
+     */
+    private suspend fun fetchMonthItemsFromTmdb(
+        monthStart: LocalDate,
+        today: LocalDate
+    ): List<CalendarItem> {
+        val settings = tmdbSettingsDataStore.settings.first()
+        if (!settings.enabled) {
+            Log.w(TAG, "Latest releases: TMDB disabled, skipping discover")
+            return emptyList()
+        }
+        val apiKey = tmdbService.apiKey()
+        if (apiKey.isBlank()) {
+            Log.w(TAG, "Latest releases: TMDB api key blank, skipping discover")
+            return emptyList()
+        }
+
+        val language = settings.language
+        val iso = DateTimeFormatter.ISO_LOCAL_DATE
+        val pastGte = monthStart.format(iso)
+        val pastLte = today.format(iso)
+        val futureGte = today.format(iso)
+        val futureLte = today.plusDays(TMDB_LATEST_FUTURE_DAYS).format(iso)
+
+        val batches = coroutineScope {
+            listOf(
+                async { tmdbMovieWindow(apiKey, language, pastGte, pastLte, TMDB_LATEST_SORT) },
+                async { tmdbMovieWindow(apiKey, language, futureGte, futureLte, TMDB_LATEST_SORT) },
+                async { tmdbSeriesWindow(apiKey, language, pastGte, pastLte, TMDB_LATEST_SORT) },
+                async { tmdbSeriesWindow(apiKey, language, futureGte, futureLte, TMDB_LATEST_SORT) }
+            ).awaitAll()
+        }
+
+        val items = distinctCalendarItems(
+            batches.flatten().filter { item ->
+                val date = item.releaseDate
+                date != null && !date.isBefore(monthStart)
+            }
+        ).sortedWith(compareBy({ it.releaseDate }, { it.meta.name.lowercase() }, { it.meta.id }))
+
+        Log.w(TAG, "TMDB latest releases: ${items.size} items ($pastGte..$futureLte)")
+        return items
+    }
+
+    private suspend fun tmdbMovieWindow(
+        apiKey: String,
+        language: String,
+        gte: String,
+        lte: String,
+        sortBy: String
+    ): List<CalendarItem> = try {
+        val response = tmdbApi.discoverMovies(
+            apiKey = apiKey,
+            language = language,
+            page = 1,
+            sortBy = sortBy,
+            releaseDateGte = gte,
+            releaseDateLte = lte
+        )
+        if (!response.isSuccessful) {
+            Log.w(TAG, "TMDB movie discover failed: ${response.code()} ${response.message()}")
+            emptyList()
+        } else {
+            response.body()?.results.orEmpty().mapNotNull { it.toCalendarItem(ContentType.MOVIE, "movie") }
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w(TAG, "TMDB movie discover error: ${e.message}")
+        emptyList()
+    }
+
+    private suspend fun tmdbSeriesWindow(
+        apiKey: String,
+        language: String,
+        gte: String,
+        lte: String,
+        sortBy: String
+    ): List<CalendarItem> = try {
+        val response = tmdbApi.discoverTv(
+            apiKey = apiKey,
+            language = language,
+            page = 1,
+            sortBy = sortBy,
+            firstAirDateGte = gte,
+            firstAirDateLte = lte
+        )
+        if (!response.isSuccessful) {
+            Log.w(TAG, "TMDB series discover failed: ${response.code()} ${response.message()}")
+            emptyList()
+        } else {
+            response.body()?.results.orEmpty().mapNotNull { it.toCalendarItem(ContentType.SERIES, "tv") }
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w(TAG, "TMDB series discover error: ${e.message}")
+        emptyList()
+    }
+
+    private fun TmdbDiscoverResult.toCalendarItem(
+        type: ContentType,
+        kind: String
+    ): CalendarItem? {
+        val label = (if (kind == "movie") title else name)?.trim().orEmpty()
+        if (label.isEmpty()) return null
+        val dateStr = if (kind == "movie") releaseDate else firstAirDate
+        val releaseDate = parseDate(dateStr) ?: return null
+        return CalendarItem(
+            meta = MetaPreview(
+                id = buildContentId(imdb = null, tmdb = id, trakt = null, kind = kind),
+                type = type,
+                rawType = kind,
+                name = label,
+                poster = tmdbImageUrl(posterPath, "w500"),
+                posterShape = PosterShape.POSTER,
+                background = tmdbImageUrl(backdropPath, "w780"),
+                logo = null,
+                description = overview,
+                releaseInfo = dateStr?.take(4),
+                imdbRating = null,
+                genres = emptyList(),
+                sourceAddonBaseUrl = null
+            ),
+            releaseDate = releaseDate,
+            addonName = "TMDB"
+        )
+    }
+
+    private fun tmdbImageUrl(path: String?, size: String): String? {
+        val clean = path?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return "https://image.tmdb.org/t/p/$size$clean"
+    }
 
     private suspend fun fetchMonthItems(monthStart: LocalDate): List<CalendarItem> {
         val response = traktApi.getCalendarMedia(

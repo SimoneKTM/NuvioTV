@@ -15,6 +15,7 @@ import javax.inject.Singleton
 
 private const val TAG = "TmdbService"
 private val TMDB_API_KEY = BuildConfig.TMDB_API_KEY
+private val TMDB_PREFIXED_ID = Regex("tmdb_(?:movie|tv|series)_(\\d+)", RegexOption.IGNORE_CASE)
 
 /**
  * Service to handle TMDB ID conversions and lookups.
@@ -241,6 +242,10 @@ class TmdbService @Inject constructor(
         if (idPart.all { it.isDigit() }) {
             return idPart
         }
+
+        // Synthetic content ids built by the calendar/Home rows:
+        // "tmdb_movie_123" / "tmdb_tv_456".
+        TMDB_PREFIXED_ID.find(idPart)?.groupValues?.getOrNull(1)?.let { return it }
 
         // Fallback: use the IMDB ID supplied by the addon's meta response
         val normalizedFallback = fallbackImdbId
