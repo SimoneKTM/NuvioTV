@@ -20,12 +20,11 @@ internal const val TRAILER_ROW_PREFETCH_COUNT = 4
 /**
  * Builds the synthetic Home row shown after Continua a guardare / In arrivo.
  *
- * The content mixes movies and series from TMDB discover (uscite del mese più
- * quelle in arrivo), so it is typed "all": localized type suffixes (" - Film"/
- * " - Serie") are skipped for that api type. hasMore is false so pagination
- * never triggers — the classic/grid "See all" card routes to the Calendar
- * screen instead of an addon catalog (see NuvioNavHost's
- * onNavigateToCatalogSeeAll).
+ * The content mixes movies and series from the Trakt calendar, so it is
+ * typed "all": localized type suffixes (" - Film"/ " - Serie") are skipped
+ * for that api type. hasMore is false so pagination never triggers — the
+ * classic/grid "See all" card routes to the Calendar screen instead of an
+ * addon catalog (see NuvioNavHost's onNavigateToCatalogSeeAll).
  *
  * Each card gets its release date as releaseInfo so past releases of the
  * current month show their date ("5 Ottobre"); upcoming titles still prefer
@@ -47,7 +46,7 @@ internal fun buildLatestReleaseHomeRow(
     return HomeRow.Catalog(
         CatalogRow(
             addonId = LATEST_RELEASE_ADDON_ID,
-            addonName = "TMDB",
+            addonName = "Trakt",
             addonBaseUrl = "",
             catalogId = LATEST_RELEASE_CATALOG_ID,
             catalogName = title,
