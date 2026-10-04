@@ -327,25 +327,16 @@ class MetaDetailsViewModel @Inject constructor(
      * query the HOME (or ALL) pool instead of their own tab.
      */
     private suspend fun resolveLayoutSource() {
-        if (fluidPerformance) {
-            // Both probes read disk-gated addon flows (up to 8s each) — run them
-            // together so a cold start costs one timeout window, not two in sequence.
-            val (animeActive, extraActive) = kotlinx.coroutines.coroutineScope {
-                val anime = async { readLayoutFlag(resolveAnimeLayoutSource()) }
-                val extra = async { readLayoutFlag(resolveExtraLayoutSource()) }
-                anime.await() to extra.await()
-            }
-            animeLayoutActive.value = animeActive
-            extraLayoutActive.value = !animeActive && extraActive
-        } else {
-            // Classic: one probe after the other.
-            animeLayoutActive.value = readLayoutFlag(resolveAnimeLayoutSource())
-            extraLayoutActive.value = if (animeLayoutActive.value) {
-                false
-            } else {
-                readLayoutFlag(resolveExtraLayoutSource())
-            }
+        // Both probes read disk-gated addon flows (up to 8s each) — run them
+        // together so a cold start costs one timeout window, not two in sequence.
+        // The anime flag still wins over extra, exactly like the serial version.
+        val (animeActive, extraActive) = kotlinx.coroutines.coroutineScope {
+            val anime = async { readLayoutFlag(resolveAnimeLayoutSource()) }
+            val extra = async { readLayoutFlag(resolveExtraLayoutSource()) }
+            anime.await() to extra.await()
         }
+        animeLayoutActive.value = animeActive
+        extraLayoutActive.value = !animeActive && extraActive
     }
 
     private suspend fun resolveProvenanceFallback(meta: Meta) {
@@ -1162,11 +1153,11 @@ class MetaDetailsViewModel @Inject constructor(
         rememberResolvedSource(meta)
         // Fire all independent async jobs immediately — they run in parallel.
         loadMoreLikeThisAsync(meta)
-        if (fluidPerformance) {
-            // Paint the base meta right away: enrichMeta() below can burn seconds on
-            // a stick, and the detail renders fine without it.
-            applyMeta(meta)
-        }
+        // Paint the base meta right away: enrichMeta() below can burn seconds on a
+        // stick (TMDB id + main + per-season episode lookups) and the detail
+        // renders fine without it. Side effects (trailer, comments) start with
+        // this first paint, so the enriched re-apply below skips them.
+        applyMeta(meta)
         val enriched = enrichMeta(meta)
 
         // Pre-compute nextToWatch before applyMeta so the PlayButton text is stable
@@ -1183,12 +1174,8 @@ class MetaDetailsViewModel @Inject constructor(
         val precomputedNextToWatch = computeNextToWatch(enriched, progressMap, watchedEpisodes)
         updateNextToWatch(precomputedNextToWatch)
 
-        if (fluidPerformance) {
-            if (enriched !== meta) {
-                applyMeta(enriched, startSideEffects = false)
-            }
-        } else {
-            applyMeta(enriched)
+        if (enriched !== meta) {
+            applyMeta(enriched, startSideEffects = false)
         }
         // Episode ratings and MDBList are independent — launch both without waiting.
         loadEpisodeRatingsAsync(enriched)
@@ -1200,13 +1187,8 @@ class MetaDetailsViewModel @Inject constructor(
         // sticks can otherwise block the first paint for tens of seconds.
         viewModelScope.launch {
             val language = activeTmdbSettingsDataStore.settings.first().language
-            val translated = if (fluidPerformance) {
-                translateMetaTexts(enriched, language) { description ->
-                    publishTranslatedDescription(enriched, description)
-                }
-            } else {
-                // Classic: the description lands only together with the full translation.
-                translateMetaTexts(enriched, language)
+            val translated = translateMetaTexts(enriched, language) { description ->
+                publishTranslatedDescription(enriched, description)
             }
             if (translated === enriched) return@launch
             _uiState.update { state ->
