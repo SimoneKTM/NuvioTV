@@ -756,8 +756,6 @@ internal suspend fun HomeViewModel.updateCatalogRowsPipeline() {
                 add(HomeRow.CollectionRow(collection))
             }
         }
-        buildLatestReleaseHomeRow(appContext, _uiState.value.latestReleaseItems)
-            ?.let { add(it) }
         buildTop10HomeRow(appContext, _uiState.value.top10Items)
             ?.let { add(it) }
         for (key in orderedKeys) {
@@ -907,16 +905,6 @@ internal suspend fun HomeViewModel.updateCatalogRowsPipeline() {
     // Clear any stale error when content is now available (e.g., hero
     // catalogs loaded after the initial startup race set an error).
     val hasContent = computedHomeRows.isNotEmpty() || baseHeroItems.isNotEmpty() || displayRows.isNotEmpty()
-
-    // "Ultime Uscite": appena la riga esiste si preparano i trailer dei primi
-    // titoli, così il focus appena entra in riga trova già l'URL pronto.
-    computedHomeRows
-        .filterIsInstance<HomeRow.Catalog>()
-        .firstOrNull { it.row.addonId == LATEST_RELEASE_ADDON_ID }
-        ?.row
-        ?.items
-        ?.take(TRAILER_ROW_PREFETCH_COUNT)
-        ?.forEach { item -> preloadTrailerPreviewPipeline(item) }
 
     _uiState.update { state ->
         state.copy(
