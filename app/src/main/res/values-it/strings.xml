@@ -3170,6 +3170,7 @@
   <string name="layout_cw_sort_split_upcoming">Riga Upcoming separata</string>
   <string name="layout_cw_sort_split_upcoming_desc">Sposta gli episodi non ancora trasmessi in una riga Upcoming separata</string>
     <string name="upcoming_section_title">In arrivo</string>
+    <string name="home_row_latest_releases">Ultime Uscite</string>
     <string name="home_row_top10_month">Top 10 Serie del Mese</string>
     <string name="hero_next_episode_today">Nuovo Episodio Oggi</string>
     <string name="hero_next_episode_tomorrow">Nuovo Episodio Domani</string>

@@ -9,8 +9,11 @@ import com.nuvio.tv.data.local.AnimeTvdbSettingsDataStore
 import com.nuvio.tv.data.local.MDBListSettingsDataStore
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
 import com.nuvio.tv.data.local.TvdbSettingsDataStore
+import com.nuvio.tv.data.remote.api.TmdbApi
+import com.nuvio.tv.data.remote.api.TmdbDiscoverResult
 import com.nuvio.tv.data.remote.api.TraktApi
 import com.nuvio.tv.data.remote.dto.trakt.TraktCalendarMediaItemDto
+import com.nuvio.tv.data.trailer.rankTmdbVideoCandidates
 import com.nuvio.tv.data.tvdb.TvdbMetadataService
 import com.nuvio.tv.domain.model.CalendarItem
 import com.nuvio.tv.domain.model.ContentType
@@ -36,9 +39,12 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
@@ -58,6 +64,7 @@ import javax.inject.Singleton
 @Singleton
 class CalendarRepositoryImpl @Inject constructor(
     private val traktApi: TraktApi,
+    private val tmdbApi: TmdbApi,
     private val fluidModeState: FluidModeState,
     private val metaRepository: MetaRepository,
     private val tmdbService: TmdbService,
@@ -85,6 +92,22 @@ class CalendarRepositoryImpl @Inject constructor(
         // Trakt calendars documented maximum is 33 days.
         private const val TRAKT_MAX_DAYS = 33
 
+        // "Ultime Uscite" da TMDB discover: copertura dei titoli in arrivo.
+        private const val TMDB_LATEST_FUTURE_DAYS = 30L
+
+        // Le finestre sono già vincolate per data: ordinando per popolarità la
+        // riga prende i titoli più seguiti del mese invece di 20 uscite oscure
+        // dello stesso giorno.
+        private const val TMDB_LATEST_SORT = "popularity.desc"
+
+        // Prefetch di /videos per togliere dalla riga i titoli senza trailer.
+        // Congegno basso: TMDB classico consente ~50 richieste ogni 10 s.
+        private const val TRAILER_PREFETCH_CONCURRENCY = 5
+        private const val TRAILER_RESERVE_BATCH = 15
+        private const val TRAILER_PREFETCH_BUDGET_MS = 6_000L
+
+        private val TMDB_ROW_ID = Regex("tmdb_(?:movie|tv|series)_(\\d+)", RegexOption.IGNORE_CASE)
+
         // How long a successful shared calendar fetch may be reused by another
         // caller that starts right after it finished (warmUp vs Home's observer).
         private const val CALENDAR_FETCH_REUSE_MS = 15_000L
@@ -92,12 +115,16 @@ class CalendarRepositoryImpl @Inject constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val cachedItems = MutableStateFlow<List<CalendarItem>>(emptyList())
+    private val cachedMonthItems = MutableStateFlow<List<CalendarItem>>(emptyList())
     // Attempted-once set (like LibraryRepositoryImpl.enrichedAddonIds) so we
     // don't re-query addons for items that already succeeded or failed.
     private val enrichedAddonIds = ConcurrentHashMap.newKeySet<String>()
+    // Titolo -> ha un trailer riproducibile (true/false). Serve a non rifare
+    // /videos a ogni ricaricamento della Home: negativo compreso.
+    private val trailerAvailabilityCache = ConcurrentHashMap<String, Boolean>()
     private var warmUpJob: Job? = null
 
-    // Startup fires warmUp() and Home's observer together, and both
+    // Startup fires warmUp() and Home's observeLatestReleases() together, and both
     // used to run the identical 33-day Trakt calendar request back to back (up to
     // four per cold start). Single-flight the request and reuse a fresh success.
     private val calendarFetchMutex = Mutex()
@@ -260,6 +287,391 @@ class CalendarRepositoryImpl @Inject constructor(
         cachedItems.value = addonEnrichedItems
         emit(addonEnrichedItems)
     }.flowOn(Dispatchers.IO)
+
+    override fun getMonthReleaseItems(): Flow<List<CalendarItem>> = flow {
+        val monthStart = LocalDate.now().withDayOfMonth(1)
+        val today = LocalDate.now()
+        val cached = cachedMonthItems.value
+        if (cached.isNotEmpty()) {
+            emit(buildLatestReleaseItems(
+                monthItems = cached,
+                calendarItems = emptyList(),
+                monthStart = monthStart,
+                today = today
+            ))
+            return@flow
+        }
+
+        // Percorso rapido: TMDB discover (film + serie, passato e prossimi 30
+        // giorni) in 4 chiamate parallele. Le card arrivano già col poster, quindi
+        // niente Trakt e soprattutto niente enrichment addon: era quello a tenere
+        // la riga vuota per diversi secondi.
+        val tmdbItems = fetchMonthItemsFromTmdb(monthStart, today)
+        if (tmdbItems.isNotEmpty()) {
+            cachedMonthItems.value = tmdbItems
+            emit(buildLatestReleaseItems(
+                monthItems = tmdbItems,
+                calendarItems = emptyList(),
+                monthStart = monthStart,
+                today = today
+            ))
+            return@flow
+        }
+
+        // Fallback: TMDB disattivo o irraggiungibile → percorso Trakt di prima.
+        if (tmdbItems.isEmpty()) {
+            Log.w(TAG, "Latest releases: TMDB empty, using Trakt fallback")
+        }
+        // The month calendar and the regular 33-day calendar used to run one after
+        // the other, so the "Ultime Uscite" row only existed after two serial Trakt
+        // round trips and always popped in after every catalog row. Run them in
+        // parallel and paint as soon as the month half is ready — that fetch alone
+        // already holds this month's releases.
+        var rawMonth: List<CalendarItem> = emptyList()
+        // Anche la parte di calendario che finisce in riga deve rispettare il
+        // filtro "solo con trailer", altrimenti il blocco in arrivo riempie la
+        // riga di titoli che in hero non hanno niente da riprodurre.
+        val cleanCalendarItems = getCalendarItems().map { calendar ->
+            val key = tmdbService.apiKey()
+            if (key.isBlank()) calendar else filterHasTrailer(calendar, key, today)
+        }
+        coroutineScope {
+            val monthItems = async {
+                try {
+                    fetchMonthItems(monthStart)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(TAG, "Month releases fetch failed: ${e.message}")
+                    emptyList()
+                }
+            }
+            merge(
+                flow {
+                    val month = monthItems.await()
+                    if (month.isNotEmpty()) emit(month)
+                }.map { month ->
+                    buildLatestReleaseItems(
+                        monthItems = month,
+                        calendarItems = emptyList(),
+                        monthStart = monthStart,
+                        today = today
+                    )
+                },
+                cleanCalendarItems.map { calendarItems ->
+                    buildLatestReleaseItems(
+                        monthItems = monthItems.await(),
+                        calendarItems = calendarItems,
+                        monthStart = monthStart,
+                        today = today
+                    )
+                }
+            ).collect { items -> if (items.isNotEmpty()) emit(items) }
+            rawMonth = monthItems.await()
+        }
+        if (rawMonth.isEmpty()) return@flow
+        try {
+            // Anche il fallback Trakt entra in riga solo coi titoli che hanno il
+            // trailer: la card infocus deve sempre poter riprodurre l'hero.
+            val tmdbKey = tmdbService.apiKey()
+            val cleanMonth = if (tmdbKey.isBlank()) rawMonth else filterHasTrailer(rawMonth, tmdbKey, today)
+            val enriched = enrichItemsWithAddonData(cleanMonth)
+            cachedMonthItems.value = enriched
+            emitAll(
+                cleanCalendarItems.map { calendarItems ->
+                    buildLatestReleaseItems(
+                        monthItems = enriched,
+                        calendarItems = calendarItems,
+                        monthStart = monthStart,
+                        today = today
+                    )
+                }
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Month releases enrichment failed: ${e.message}")
+        }
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * "Ultime Uscite" da TMDB discover: 4 richieste in parallelo (film e serie,
+     * finestra passata e finestra in arrivo). Ogni titolo arriva col proprio
+     * poster e con la data di uscita, quindi non serve arricchire nulla tramite
+     * gli addon e la riga è pronta con il primo emit.
+     */
+    private suspend fun fetchMonthItemsFromTmdb(
+        monthStart: LocalDate,
+        today: LocalDate
+    ): List<CalendarItem> {
+        val settings = tmdbSettingsDataStore.settings.first()
+        if (!settings.enabled) {
+            Log.w(TAG, "Latest releases: TMDB disabled, skipping discover")
+            return emptyList()
+        }
+        val apiKey = tmdbService.apiKey()
+        if (apiKey.isBlank()) {
+            Log.w(TAG, "Latest releases: TMDB api key blank, skipping discover")
+            return emptyList()
+        }
+
+        val language = settings.language
+        val iso = DateTimeFormatter.ISO_LOCAL_DATE
+        val pastGte = monthStart.format(iso)
+        val pastLte = today.format(iso)
+        val futureGte = today.format(iso)
+        val futureLte = today.plusDays(TMDB_LATEST_FUTURE_DAYS).format(iso)
+
+        val batches = coroutineScope {
+            listOf(
+                async { tmdbMovieWindow(apiKey, language, pastGte, pastLte, TMDB_LATEST_SORT) },
+                async { tmdbMovieWindow(apiKey, language, futureGte, futureLte, TMDB_LATEST_SORT) },
+                async { tmdbSeriesWindow(apiKey, language, pastGte, pastLte, TMDB_LATEST_SORT) },
+                async { tmdbSeriesWindow(apiKey, language, futureGte, futureLte, TMDB_LATEST_SORT) }
+            ).awaitAll()
+        }
+
+        val items = distinctCalendarItems(
+            batches.flatten().filter { item ->
+                val date = item.releaseDate
+                date != null && !date.isBefore(monthStart)
+            }
+        ).sortedWith(compareBy({ it.releaseDate }, { it.meta.name.lowercase() }, { it.meta.id }))
+
+        // La riga mostra solo i titoli che hanno davvero un trailer: senza questo
+        // passaggio il focus in hero non avrebbe niente da riprodurre.
+        val withTrailer = filterHasTrailer(items, apiKey, today)
+
+        Log.w(TAG, "TMDB latest releases: ${withTrailer.size}/${items.size} with trailer ($pastGte..$futureLte)")
+        return withTrailer
+    }
+
+    /**
+     * Toglie dalla riga i titoli senza trailer: per ognuno chiede /videos a TMDB
+     * (senza `language`, così conta anche un trailer nella lingua originale) e
+     * tiene solo chi ha uno YouTube trailer/teaser — lo stesso criterio di
+     * `rankTmdbVideoCandidates`, per cui la card che entra in riga è anche
+     * riproducibile in hero.
+     *
+     * Si parte dai candidati che entrerebbero in riga (25 passato + 30 in
+     * arrivo); se il filtro accorci il blocco, il reserve (titoli adiacenti
+     * ancora da controllare) colma il buco. Solo una risposta negativa certa
+     * esclude un titolo: errore di rete o budget esaurito lo tengono in riga.
+     */
+    private suspend fun filterHasTrailer(
+        items: List<CalendarItem>,
+        apiKey: String,
+        today: LocalDate
+    ): List<CalendarItem> {
+        if (items.isEmpty()) return items
+        val (past, future) = items.partition { (it.releaseDate ?: today).isBefore(today) }
+        val keptPast = takeWithTrailer(
+            preferred = past.takeLast(LATEST_RELEASE_PAST_LIMIT),
+            reserve = past.dropLast(LATEST_RELEASE_PAST_LIMIT).reversed(),
+            wanted = LATEST_RELEASE_PAST_LIMIT,
+            apiKey = apiKey
+        )
+        val keptFuture = takeWithTrailer(
+            preferred = future.take(LATEST_RELEASE_FUTURE_LIMIT),
+            reserve = future.drop(LATEST_RELEASE_FUTURE_LIMIT),
+            wanted = LATEST_RELEASE_FUTURE_LIMIT,
+            apiKey = apiKey
+        )
+        return (keptPast + keptFuture)
+            .sortedWith(compareBy({ it.releaseDate }, { it.meta.name.lowercase() }, { it.meta.id }))
+    }
+
+    private suspend fun takeWithTrailer(
+        preferred: List<CalendarItem>,
+        reserve: List<CalendarItem>,
+        wanted: Int,
+        apiKey: String
+    ): List<CalendarItem> {
+        val kept = checkTrailerBatch(preferred, apiKey).toMutableList()
+        var offset = 0
+        while (kept.size < wanted && offset < reserve.size) {
+            val batch = reserve.drop(offset).take(TRAILER_RESERVE_BATCH)
+            offset += batch.size
+            kept += checkTrailerBatch(batch, apiKey)
+        }
+        return kept.take(wanted)
+    }
+
+    /**
+     * Controlla i trailer in parallelo (quota limitata per TMDB) e restituisce
+     * solo i titoli ammessi. Budget esaurito o errore singolo = tenuto.
+     */
+    private suspend fun checkTrailerBatch(
+        items: List<CalendarItem>,
+        apiKey: String
+    ): List<CalendarItem> {
+        if (items.isEmpty()) return items
+        val semaphore = Semaphore(TRAILER_PREFETCH_CONCURRENCY)
+        val verdicts = withTimeoutOrNull(TRAILER_PREFETCH_BUDGET_MS) {
+            coroutineScope {
+                items.map { item ->
+                    async {
+                        semaphore.withPermit {
+                            item.meta.id to (hasPlayableTrailer(item, apiKey) != false)
+                        }
+                    }
+                }.awaitAll()
+            }
+        }?.toMap()
+        if (verdicts == null) {
+            Log.w(TAG, "Trailer prefetch budget exceeded; keeping ${items.size} items")
+            return items
+        }
+        return items.filter { verdicts[it.meta.id] != false }
+    }
+
+    /** null = non verificato (errore/timeout) → da non escludere. */
+    private suspend fun hasPlayableTrailer(item: CalendarItem, apiKey: String): Boolean? {
+        trailerAvailabilityCache[item.meta.id]?.let { return it }
+        val tmdbId = tmdbNumericIdFor(item) ?: return null
+        val isTv = item.meta.rawType.equals("tv", ignoreCase = true) ||
+            item.meta.type == ContentType.SERIES
+        val response = try {
+            if (isTv) {
+                tmdbApi.getTvVideos(tvId = tmdbId, apiKey = apiKey)
+            } else {
+                tmdbApi.getMovieVideos(movieId = tmdbId, apiKey = apiKey)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "Trailer lookup failed for ${item.meta.id}: ${e.message}")
+            return null
+        }
+        if (!response.isSuccessful) {
+            Log.w(TAG, "Trailer lookup ${response.code()} for ${item.meta.id}")
+            return null
+        }
+        val hasTrailer = rankTmdbVideoCandidates(response.body()?.results.orEmpty()).isNotEmpty()
+        trailerAvailabilityCache[item.meta.id] = hasTrailer
+        return hasTrailer
+    }
+
+    private suspend fun tmdbNumericIdFor(item: CalendarItem): Int? {
+        val raw = item.meta.id
+        TMDB_ROW_ID.matchEntire(raw)?.groupValues?.getOrNull(1)?.toIntOrNull()?.let { return it }
+        return try {
+            tmdbService.ensureTmdbId(raw, item.meta.apiType)?.toIntOrNull()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "TMDB id resolution failed for $raw: ${e.message}")
+            null
+        }
+    }
+
+    private suspend fun tmdbMovieWindow(
+        apiKey: String,
+        language: String,
+        gte: String,
+        lte: String,
+        sortBy: String
+    ): List<CalendarItem> = try {
+        val response = tmdbApi.discoverMovies(
+            apiKey = apiKey,
+            language = language,
+            page = 1,
+            sortBy = sortBy,
+            releaseDateGte = gte,
+            releaseDateLte = lte
+        )
+        if (!response.isSuccessful) {
+            Log.w(TAG, "TMDB movie discover failed: ${response.code()} ${response.message()}")
+            emptyList()
+        } else {
+            response.body()?.results.orEmpty().mapNotNull { it.toCalendarItem(ContentType.MOVIE, "movie") }
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w(TAG, "TMDB movie discover error: ${e.message}")
+        emptyList()
+    }
+
+    private suspend fun tmdbSeriesWindow(
+        apiKey: String,
+        language: String,
+        gte: String,
+        lte: String,
+        sortBy: String
+    ): List<CalendarItem> = try {
+        val response = tmdbApi.discoverTv(
+            apiKey = apiKey,
+            language = language,
+            page = 1,
+            sortBy = sortBy,
+            firstAirDateGte = gte,
+            firstAirDateLte = lte
+        )
+        if (!response.isSuccessful) {
+            Log.w(TAG, "TMDB series discover failed: ${response.code()} ${response.message()}")
+            emptyList()
+        } else {
+            response.body()?.results.orEmpty().mapNotNull { it.toCalendarItem(ContentType.SERIES, "tv") }
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Log.w(TAG, "TMDB series discover error: ${e.message}")
+        emptyList()
+    }
+
+    private fun TmdbDiscoverResult.toCalendarItem(
+        type: ContentType,
+        kind: String
+    ): CalendarItem? {
+        val label = (if (kind == "movie") title else name)?.trim().orEmpty()
+        if (label.isEmpty()) return null
+        val dateStr = if (kind == "movie") releaseDate else firstAirDate
+        val releaseDate = parseDate(dateStr) ?: return null
+        return CalendarItem(
+            meta = MetaPreview(
+                id = buildContentId(imdb = null, tmdb = id, trakt = null, kind = kind),
+                type = type,
+                rawType = kind,
+                name = label,
+                poster = tmdbImageUrl(posterPath, "w500"),
+                posterShape = PosterShape.POSTER,
+                background = tmdbImageUrl(backdropPath, "w780"),
+                logo = null,
+                description = overview,
+                releaseInfo = dateStr?.take(4),
+                imdbRating = null,
+                genres = emptyList(),
+                sourceAddonBaseUrl = null
+            ),
+            releaseDate = releaseDate,
+            addonName = "TMDB"
+        )
+    }
+
+    private fun tmdbImageUrl(path: String?, size: String): String? {
+        val clean = path?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return "https://image.tmdb.org/t/p/$size$clean"
+    }
+
+    private suspend fun fetchMonthItems(monthStart: LocalDate): List<CalendarItem> {
+        val response = traktApi.getCalendarMedia(
+            target = "all",
+            startDate = monthStart.format(DateTimeFormatter.ISO_LOCAL_DATE),
+            days = TRAKT_MAX_DAYS,
+            extended = "full"
+        )
+        if (!response.isSuccessful) {
+            Log.w(TAG, "Trakt month calendar failed: ${response.code()} ${response.message()}")
+            return emptyList()
+        }
+        val items = response.body().orEmpty().mapNotNull { it.toCalendarItem(monthStart) }
+        val filtered = distinctCalendarItems(items)
+            .sortedWith(compareBy({ it.releaseDate }, { it.meta.name.lowercase() }, { it.episodeLabel ?: "" }, { it.meta.id }))
+        Log.d(TAG, "Month calendar: ${filtered.size} items from $monthStart")
+        return filtered
+    }
 
     private suspend fun enrichItemsWithAddonData(items: List<CalendarItem>): List<CalendarItem> {
         // Attempt every item once (not gated on "missing fields") so addon

@@ -5,5 +5,6 @@ import kotlinx.coroutines.flow.Flow
 
 interface CalendarRepository {
     fun getCalendarItems(): Flow<List<CalendarItem>>
+    fun getMonthReleaseItems(): Flow<List<CalendarItem>>
     fun warmUp()
 }

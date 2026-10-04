@@ -422,6 +422,7 @@ class HomeViewModel @Inject constructor(
             observeLayoutPreferences()
             observeModernHomePresentation()
             loadContinueWatching()
+            observeLatestReleases()
             observeTop10()
             watchedSeriesStateHolder.loadFromDisk()
             observeExternalMetaPrefetchPreference()
@@ -913,6 +914,29 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun updateCatalogRows() = updateCatalogRowsPipeline()
+
+    private fun observeLatestReleases() {
+        viewModelScope.launch {
+            calendarRepository.getMonthReleaseItems()
+                .retryWhen { _, attempt ->
+                    if (attempt >= 5L) {
+                        false
+                    } else {
+                        delay(10_000L * (attempt + 1))
+                        true
+                    }
+                }
+                .catch { e ->
+                    Log.w(TAG, "latest releases failed: ${e.message}")
+                }
+                .collect { items ->
+                    if (_uiState.value.latestReleaseItems != items) {
+                        _uiState.update { it.copy(latestReleaseItems = items) }
+                        scheduleUpdateCatalogRows()
+                    }
+                }
+        }
+    }
 
     internal var posterStatusReconcileJob: Job? = null
 
