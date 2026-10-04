@@ -218,6 +218,11 @@ private const val MIN_POST_PROFILE_LOADING_FLUID_MS = 300L
 private const val MIN_STARTUP_SPLASH_MS = 5_000L
 private const val MIN_POST_PROFILE_LOADING_MS = 600L
 
+// First launch: the black splash stays up until the whole startup preload has
+// finished (rows, images, trailers saved on disk) and at least this long; every
+// later launch is the fast warm path above.
+private const val MIN_STARTUP_SPLASH_FIRST_RUN_MS = 15_000L
+
 /**
  * Density scale that shrinks a Fire TV stick's UI toward the ~1280dp-wide
  * layout (clamped to [0.5, 1.0]); devices already ≥1280dp get 1f (no-op).
@@ -318,6 +323,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var startupHomePreloader: com.nuvio.tv.core.sync.StartupHomePreloader
+
+    @Inject
+    lateinit var startupWarmupPreferences: com.nuvio.tv.data.local.StartupWarmupPreferences
 
     @Inject
     lateinit var androidTvChannelSyncService: com.nuvio.tv.core.sync.androidtv.AndroidTvChannelSyncService
@@ -497,12 +505,24 @@ class MainActivity : ComponentActivity() {
                 withFrameNanos { }
                 systemSplashReady.set(true)
             }
-            LaunchedEffect(Unit) {
-                delay(
-                    if (fluidModeState.isEnabled()) MIN_STARTUP_SPLASH_FLUID_MS
-                    else MIN_STARTUP_SPLASH_MS
-                )
-                splashMinElapsed = true
+            val firstHomeReadyDone by startupWarmupPreferences.firstHomeReadyDone.collectAsState(initial = null)
+            LaunchedEffect(firstHomeReadyDone) {
+                when {
+                    // Primo avvio: splash lungo (il precaricamento gira dietro),
+                    // poi il caricamento post-profilo resta finché non è pronto tutto.
+                    firstHomeReadyDone == false -> {
+                        delay(MIN_STARTUP_SPLASH_FIRST_RUN_MS)
+                        splashMinElapsed = true
+                    }
+                    firstHomeReadyDone == true -> {
+                        delay(
+                            if (fluidModeState.isEnabled()) MIN_STARTUP_SPLASH_FLUID_MS
+                            else MIN_STARTUP_SPLASH_MS
+                        )
+                        splashMinElapsed = true
+                    }
+                    else -> Unit // flag ancora in lettura: si rilancia appena è noto
+                }
             }
             LaunchedEffect(hasSelectedProfileThisSession) {
                 if (hasSelectedProfileThisSession) {
