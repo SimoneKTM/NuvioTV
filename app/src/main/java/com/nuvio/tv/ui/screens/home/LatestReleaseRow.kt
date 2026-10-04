@@ -13,6 +13,9 @@ import java.util.Locale
 
 internal const val LATEST_RELEASE_ADDON_ID = "trakt-calendar"
 internal const val LATEST_RELEASE_CATALOG_ID = "latest-releases"
+// Titoli di "Ultime Uscite" di cui si prepara il trailer appena la riga esiste,
+// così il primo focus in riga parte senza attendere l'estrazione YouTube.
+internal const val TRAILER_ROW_PREFETCH_COUNT = 4
 
 /**
  * Builds the synthetic Home row shown after Continua a guardare / In arrivo.

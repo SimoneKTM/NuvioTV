@@ -28,6 +28,9 @@ internal const val MODERN_HERO_TEXT_WIDTH_FRACTION = 0.42f
 internal const val MODERN_HERO_MEDIA_WIDTH_FRACTION = 0.72f
 internal const val MODERN_TRAILER_OVERSCAN_ZOOM = 1.35f
 internal const val MODERN_HERO_FOCUS_DEBOUNCE_MS = 450L
+// Attesa minima prima di aprire la hero sulla riga "Ultime Uscite": serve solo
+// a non far scattare l'apertura durante lo scroll rapido.
+internal const val MIN_TRAILER_EXPANSION_DELAY_MS = 150L
 internal val MODERN_ROW_HEADER_FOCUS_INSET = 40.dp
 internal const val MODERN_CONTINUE_WATCHING_ROW_KEY = "continue_watching"
 internal const val MODERN_UPCOMING_ROW_KEY = "upcoming_section"
@@ -78,7 +81,10 @@ sealed class ModernPayload {
         val addonBaseUrl: String,
         val trailerTitle: String,
         val trailerReleaseInfo: String?,
-        val trailerApiType: String
+        val trailerApiType: String,
+        /** True solo per la riga "Ultime Uscite": lì il trailer di focused card
+         *  deve partire in hero, nelle altre righe l'immagine resta ferma. */
+        val trailerEligible: Boolean = false
     ) : ModernPayload()
     data class CollectionFolder(
         val focusKey: String,
@@ -510,7 +516,8 @@ internal fun buildCatalogItem(
             addonBaseUrl = row.addonBaseUrl,
             trailerTitle = item.name,
             trailerReleaseInfo = item.releaseInfo,
-            trailerApiType = item.apiType
+            trailerApiType = item.apiType,
+            trailerEligible = row.addonId == LATEST_RELEASE_ADDON_ID
         ),
         metaPreview = item
     )

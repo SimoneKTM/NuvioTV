@@ -422,6 +422,79 @@ internal fun HomeViewModel.requestTrailerPreviewPipeline(
     }
 }
 
+// Attesa prima di partire con un prefetch: lascia che sia il focus reale a
+// guidare la richiesta quando l'utente sta già navigando.
+private const val TRAILER_PREFETCH_DEBOUNCE_MS = 400L
+
+/**
+ * Prefetch del trailer per la riga "Ultime Uscite": risolve l'URL mentre il focus
+ * è ancora da qualche altra parte, così quando la card diventa infocus il video
+ * parte subito invece di aspettare l'estrazione YouTube.
+ *
+ * A differenza del percorso focalizzato qui non c'è il cancello di versione: ogni
+ * voce vive per conto proprio e finisce negli stessi cache (URL / negative / in
+ * flight, quest'ultimo che impedisce i doppi lavori col percorso focalizzato).
+ * Un fallimento non finisce nella negative cache: al momento del focus decide il
+ * percorso rete, qui non si vogliono rovinare retry transitori.
+ */
+internal fun HomeViewModel.preloadTrailerPreviewPipeline(item: MetaPreview) {
+    if (!AppFeaturePolicy.inAppTrailerPlaybackEnabled) return
+    if (startupGracePeriodActive) return
+    val prefs = _uiState.value
+    if (!prefs.focusedPosterBackdropTrailerEnabled) return
+    if (prefs.focusedPosterBackdropTrailerPlaybackTarget != FocusedPosterTrailerPlaybackTarget.HERO_MEDIA) return
+    if (trailerPreviewUrlsState.containsKey(item.id)) return
+    if (trailerPreviewNegativeCache.contains(item.id)) return
+    if (!trailerPreviewLoadingIds.add(item.id)) return
+
+    viewModelScope.launch(Dispatchers.IO) {
+        try {
+            delay(TRAILER_PREFETCH_DEBOUNCE_MS)
+            val tmdbId = try {
+                tmdbService.ensureTmdbId(item.id, item.apiType)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
+            val source = trailerService.getTrailerPlaybackSource(
+                title = item.name,
+                year = extractYear(item.releaseInfo),
+                tmdbId = tmdbId,
+                type = item.apiType
+            )
+            val videoUrl = source?.videoUrl
+            if (!videoUrl.isNullOrBlank()) {
+                withContext(Dispatchers.Main) {
+                    if (trailerPreviewUrlsState[item.id] != videoUrl) {
+                        trailerPreviewUrlsState[item.id] = videoUrl
+                    }
+                    val audioUrl = source?.audioUrl
+                    if (audioUrl.isNullOrBlank()) {
+                        trailerPreviewAudioUrlsState.remove(item.id)
+                    } else if (trailerPreviewAudioUrlsState[item.id] != audioUrl) {
+                        trailerPreviewAudioUrlsState[item.id] = audioUrl
+                    }
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(HomeViewModel.TAG, "Trailer prefetch failed for ${item.id}: ${e.message}")
+        } finally {
+            trailerPreviewLoadingIds.remove(item.id)
+        }
+    }
+}
+
+/** Solo i titoli della riga "Ultime Uscite" hanno l'hero con il trailer. */
+private fun HomeViewModel.belongsToLatestReleaseRow(itemId: String): Boolean =
+    _uiState.value.homeRows.any { homeRow ->
+        homeRow is HomeRow.Catalog &&
+            homeRow.row.addonId == LATEST_RELEASE_ADDON_ID &&
+            homeRow.row.items.any { it.id == itemId }
+    }
+
 /**
  * What an external meta prefetch produced. A failed fetch must be distinguishable from an addon
  * that answered with nothing to add: the first is retried on the next focus, the second is not.
@@ -638,6 +711,10 @@ internal fun HomeViewModel.preloadAdjacentItemPipeline(item: MetaPreview) {
         (tvdbEnabled && item.id in prefetchedTvdbIds)
     ) return
     if (pendingTmdbEnrichItemId == item.id || pendingAdjacentPrefetchItemId == item.id) return
+
+    // Sulla riga "Ultime Uscite" il trailer va preparato in anticipo: passando
+    // di lì il focus trova già l'URL e il video parte senza estrazioni a schermo.
+    if (belongsToLatestReleaseRow(item.id)) preloadTrailerPreviewPipeline(item)
 
     pendingAdjacentPrefetchItemId = item.id
     adjacentItemPrefetchJob?.cancel()

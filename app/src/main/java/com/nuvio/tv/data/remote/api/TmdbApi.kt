@@ -32,14 +32,16 @@ interface TmdbApi {
     suspend fun getMovieVideos(
         @Path("movie_id") movieId: Int,
         @Query("api_key") apiKey: String,
-        @Query("language") language: String = "en-US"
+        // Omitted (null) = every language: a title whose only trailer is in the
+        // original language must not be dropped by language-filtered queries.
+        @Query("language") language: String? = null
     ): Response<TmdbVideosResponse>
 
     @GET("tv/{tv_id}/videos")
     suspend fun getTvVideos(
         @Path("tv_id") tvId: Int,
         @Query("api_key") apiKey: String,
-        @Query("language") language: String = "en-US"
+        @Query("language") language: String? = null
     ): Response<TmdbVideosResponse>
 
     @GET("movie/{movie_id}")

@@ -285,7 +285,14 @@ fun ModernHomeContent(
         if (verticalRowListState.isScrollInProgress) return@LaunchedEffect
         val selection = focusedCatalogSelection.value ?: return@LaunchedEffect
         if (selection.payload !is ModernPayload.Catalog) return@LaunchedEffect
-        val expansionDelayMs = (uiState.focusedPosterBackdropExpandDelaySeconds.coerceAtLeast(0) * 1000L).coerceAtLeast(150L)
+        // Sulla riga "Ultime Uscite" il trailer deve partire subito: si salta
+        // l'attesa di default (3 s) che serve invece alle altre righe.
+        val fastTrailerRow = (selection.payload as? ModernPayload.Catalog)?.trailerEligible == true
+        val expansionDelayMs = if (fastTrailerRow) {
+            MIN_TRAILER_EXPANSION_DELAY_MS
+        } else {
+            (uiState.focusedPosterBackdropExpandDelaySeconds.coerceAtLeast(0) * 1000L).coerceAtLeast(150L)
+        }
         delay(expansionDelayMs)
         if (!lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@LaunchedEffect
         if (shouldActivateFocusedPosterFlow &&
@@ -315,8 +322,16 @@ fun ModernHomeContent(
             lastRequestedTrailerFocusKey = null
             return@LaunchedEffect
         }
+        // Il trailer di hero parte solo per la riga "Ultime Uscite": nelle
+        // altre righe la card resta ferma sul poster/backdrop.
+        if (!payload.trailerEligible) {
+            lastRequestedTrailerFocusKey = null
+            return@LaunchedEffect
+        }
         if (selection.focusKey == lastRequestedTrailerFocusKey) return@LaunchedEffect
-        delay(150)
+        // Sulla riga "Ultime Uscite" la richiesta esce mentre la card si
+        // espande: il video parte appena pronto, non dopo l'attesa di riga.
+        if (!payload.trailerEligible) delay(150)
         if (focusedCatalogSelection.value?.focusKey != selection.focusKey) return@LaunchedEffect
         onRequestTrailerPreview(
             payload.itemId,
@@ -716,7 +731,10 @@ fun ModernHomeContent(
             val heroTrailerUrlsState = remember(trailerPreviewUrls, trailerPreviewAudioUrls) {
                 derivedStateOf {
                     val expandedFocusedSelection = expandedFocusedSelectionState.value
-                    val itemId = (expandedFocusedSelection?.payload as? ModernPayload.Catalog)?.itemId
+                    val payload = expandedFocusedSelection?.payload as? ModernPayload.Catalog
+                    // Riproducibile in hero solo dove il trailer è richiesto
+                    // (riga "Ultime Uscite"): altrove ignora anche l'URL già in cache.
+                    val itemId = payload?.takeIf { it.trailerEligible }?.itemId
                     val url = itemId?.let { trailerPreviewUrls[it] }
                     val audioUrl = itemId?.let { trailerPreviewAudioUrls[it] }
                     url to audioUrl
@@ -961,9 +979,20 @@ fun ModernHomeContent(
                 }
             }
             val contentFocusRequester = LocalContentFocusRequester.current
-            val heroMediaWidthPx = remember(screenWidth, localDensity, fullScreenBackdrop) {
+            // Trailer della riga "Ultime Uscite" già avviato: il video esce dalla
+            // fascia destra e copre tutta l'area hero, titolo compreso.
+            val heroTrailerFullWidth = remember(
+                fullScreenBackdrop,
+                shouldPlayCatalogHeroTrailerState.value,
+                heroTrailerFirstFrameRendered
+            ) {
+                !fullScreenBackdrop &&
+                    shouldPlayCatalogHeroTrailerState.value &&
+                    heroTrailerFirstFrameRendered
+            }
+            val heroMediaWidthPx = remember(screenWidth, localDensity, fullScreenBackdrop, heroTrailerFullWidth) {
                 with(localDensity) {
-                    if (fullScreenBackdrop) screenWidth.roundToPx()
+                    if (fullScreenBackdrop || heroTrailerFullWidth) screenWidth.roundToPx()
                     else (screenWidth * MODERN_HERO_MEDIA_WIDTH_FRACTION).roundToPx()
                 }.coerceAtLeast(1)
             }
@@ -974,11 +1003,11 @@ fun ModernHomeContent(
                 }.coerceAtLeast(1)
             }
 
-            val heroMediaModifier = remember(heroBackdropHeight, screenHeight, fullScreenBackdrop) {
-                if (fullScreenBackdrop) {
-                    Modifier.align(Alignment.TopStart).fillMaxWidth().height(screenHeight)
-                } else {
-                    Modifier.align(Alignment.TopEnd).offset(x = NuvioTheme.spacing.huge).fillMaxWidth(MODERN_HERO_MEDIA_WIDTH_FRACTION).height(heroBackdropHeight)
+            val heroMediaModifier = remember(heroBackdropHeight, screenHeight, fullScreenBackdrop, heroTrailerFullWidth) {
+                when {
+                    fullScreenBackdrop -> Modifier.align(Alignment.TopStart).fillMaxWidth().height(screenHeight)
+                    heroTrailerFullWidth -> Modifier.align(Alignment.TopStart).fillMaxWidth().height(heroBackdropHeight)
+                    else -> Modifier.align(Alignment.TopEnd).offset(x = NuvioTheme.spacing.huge).fillMaxWidth(MODERN_HERO_MEDIA_WIDTH_FRACTION).height(heroBackdropHeight)
                 }
             }
 
@@ -1046,7 +1075,10 @@ fun ModernHomeContent(
                     if (isRapidHorizontalNav.value) false
                     else {
                         val state = heroSceneStateLambda()
-                        state.fullScreenBackdrop && shouldPlayTrailerLambda() && heroTrailerRenderedLambda()
+                        val trailerRendered = shouldPlayTrailerLambda() && heroTrailerRenderedLambda()
+                        // Anche in fascia (non a tutto schermo) il trailer copre
+                        // l'area hero: testo e logo spariscono, resta il video.
+                        trailerRendered && (state.fullScreenBackdrop || heroTrailerFullWidth)
                     }
                 },
                 modifier = heroMetadataModifier
