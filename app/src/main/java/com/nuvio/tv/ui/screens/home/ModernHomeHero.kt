@@ -105,11 +105,6 @@ internal fun ModernHeroScene(
     ModernHeroGradientLayer(
         bgColor = bgColor,
         isFullScreen = isFullScreen,
-        // Con il trailer in hero il velo scuro sparisce del tutto: resta solo
-        // il video, senza testi né sfondi sopra.
-        trailerBehindText = {
-            state().shouldPlayTrailer && state().trailerFirstFrameRendered
-        },
         modifier = modifier
     )
 }
@@ -217,7 +212,6 @@ internal fun ModernHeroMediaLayer(
 internal fun ModernHeroGradientLayer(
     bgColor: Color,
     isFullScreen: () -> Boolean,
-    trailerBehindText: () -> Boolean,
     modifier: Modifier
 ) {
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -228,12 +222,6 @@ internal fun ModernHeroGradientLayer(
             }
             .drawWithCache {
                 val fullScreen = isFullScreen()
-                val trailerMode = !fullScreen && trailerBehindText()
-                if (trailerMode) {
-                    // Col trailer in hero non c'è più nessun testo da proteggere:
-                    // via il velo scuro, resta solo il video.
-                    return@drawWithCache onDrawBehind { }
-                }
                 val horizontalFadeEndX = size.width * if (fullScreen) 0.65f else 0.45f
                 val colorStops = if (fullScreen) {
                     arrayOf(
@@ -415,10 +403,7 @@ private fun HeroTitleContent(
                 modifier = Modifier
                     .height(100.dp)
                     .widthIn(min = 100.dp, max = 220.dp)
-                    .fillMaxWidth()
-                    // Con il trailer in hero spariscono anche logo e titolo:
-                    // l'area resta solo video.
-                    .graphicsLayer { alpha = metaAlpha },
+                    .fillMaxWidth(),
                 contentScale = ContentScale.Fit,
                 alignment = Alignment.CenterStart
             )
@@ -428,8 +413,7 @@ private fun HeroTitleContent(
                 style = scaledTitleStyle,
                 color = NuvioTheme.colors.TextPrimary,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.graphicsLayer { alpha = metaAlpha }
+                overflow = TextOverflow.Ellipsis
             )
         }
 

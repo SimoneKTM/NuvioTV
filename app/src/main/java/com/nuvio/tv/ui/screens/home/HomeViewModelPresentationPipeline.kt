@@ -427,9 +427,9 @@ internal fun HomeViewModel.requestTrailerPreviewPipeline(
 private const val TRAILER_PREFETCH_DEBOUNCE_MS = 400L
 
 /**
- * Prefetch del trailer per la riga "Ultime Uscite": risolve l'URL mentre il focus
- * è ancora da qualche altra parte, così quando la card diventa infocus il video
- * parte subito invece di aspettare l'estrazione YouTube.
+ * Prefetch del trailer per i titoli in focus o vicini al focus: risolve l'URL mentre
+ * il focus è ancora da qualche altra parte, così quando la card diventa infocus il
+ * video parte subito invece di aspettare l'estrazione YouTube.
  *
  * A differenza del percorso focalizzato qui non c'è il cancello di versione: ogni
  * voce vive per conto proprio e finisce negli stessi cache (URL / negative / in
@@ -486,14 +486,6 @@ internal fun HomeViewModel.preloadTrailerPreviewPipeline(item: MetaPreview) {
         }
     }
 }
-
-/** Solo i titoli della riga "Ultime Uscite" hanno l'hero con il trailer. */
-private fun HomeViewModel.belongsToLatestReleaseRow(itemId: String): Boolean =
-    _uiState.value.homeRows.any { homeRow ->
-        homeRow is HomeRow.Catalog &&
-            homeRow.row.addonId == LATEST_RELEASE_ADDON_ID &&
-            homeRow.row.items.any { it.id == itemId }
-    }
 
 /**
  * What an external meta prefetch produced. A failed fetch must be distinguishable from an addon
@@ -712,9 +704,9 @@ internal fun HomeViewModel.preloadAdjacentItemPipeline(item: MetaPreview) {
     ) return
     if (pendingTmdbEnrichItemId == item.id || pendingAdjacentPrefetchItemId == item.id) return
 
-    // Sulla riga "Ultime Uscite" il trailer va preparato in anticipo: passando
-    // di lì il focus trova già l'URL e il video parte senza estrazioni a schermo.
-    if (belongsToLatestReleaseRow(item.id)) preloadTrailerPreviewPipeline(item)
+    // Il trailer va preparato in anticipo: passando di lì il focus trova già
+    // l'URL e il video parte senza estrazioni a schermo.
+    preloadTrailerPreviewPipeline(item)
 
     pendingAdjacentPrefetchItemId = item.id
     adjacentItemPrefetchJob?.cancel()
