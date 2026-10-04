@@ -842,7 +842,18 @@ internal fun ModernRowSection(
 
         val layoutDirection = LocalLayoutDirection.current
         val isRtl = layoutDirection == LayoutDirection.Rtl
-        val horizontalBringIntoViewSpec = remember(density, defaultBringIntoViewSpec, rowStartPadding, isRtl) {
+        // Top 10 items reserve a rank gutter to the LEFT of the poster. The card is
+        // what asks to be brought into view, so pinning its own left edge to
+        // rowStartPadding scrolled the rank number off-screen the moment a card
+        // took focus. Compensate with the gutter of the card being focused.
+        val top10CardHeightForGutter = if (useLandscapePosters) {
+            landscapeCatalogCardHeight
+        } else {
+            portraitCatalogCardHeight
+        }
+        val horizontalBringIntoViewSpec = remember(
+            density, defaultBringIntoViewSpec, rowStartPadding, isRtl, isTop10Row
+        ) {
             val parentStartOffsetPx = with(density) { rowStartPadding.roundToPx() }
             @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
             object : BringIntoViewSpec {
@@ -855,6 +866,14 @@ internal fun ModernRowSection(
                     containerSize: Float
                 ): Float {
                     val childSize = abs(size)
+                    val top10GutterPx = if (isTop10Row) {
+                        val rank = rowFocusedIndex.value + 1
+                        with(density) {
+                            top10RankSlotWidth(top10CardHeightForGutter, rank).roundToPx()
+                        }.toFloat()
+                    } else {
+                        0f
+                    }
                     if (isRtl) {
                         val childSmallerThanParent = childSize <= containerSize
                         val initialTarget = containerSize - parentStartOffsetPx.toFloat()
@@ -867,7 +886,7 @@ internal fun ModernRowSection(
                         return (offset + size) - targetForTrailingEdge
                     } else {
                         val childSmallerThanParent = childSize <= containerSize
-                        val initialTarget = parentStartOffsetPx.toFloat()
+                        val initialTarget = parentStartOffsetPx.toFloat() + top10GutterPx
                         val spaceAvailable = containerSize - initialTarget
 
                         val targetForLeadingEdge =

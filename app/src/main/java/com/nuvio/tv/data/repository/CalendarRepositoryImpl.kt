@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
@@ -266,6 +267,7 @@ class CalendarRepositoryImpl @Inject constructor(
 
     override fun getMonthReleaseItems(): Flow<List<CalendarItem>> = flow {
         val monthStart = LocalDate.now().withDayOfMonth(1)
+        val today = LocalDate.now()
         val cached = cachedMonthItems.value
         if (cached.isNotEmpty()) {
             emitAll(
@@ -274,30 +276,53 @@ class CalendarRepositoryImpl @Inject constructor(
                         monthItems = cached,
                         calendarItems = calendarItems,
                         monthStart = monthStart,
-                        today = LocalDate.now()
+                        today = today
                     )
                 }
             )
             return@flow
         }
-        val rawMonth = try {
-            fetchMonthItems(monthStart)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.w(TAG, "Month releases fetch failed: ${e.message}")
-            emptyList()
-        }
-        emitAll(
-            getCalendarItems().map { calendarItems ->
-                buildLatestReleaseItems(
-                    monthItems = rawMonth,
-                    calendarItems = calendarItems,
-                    monthStart = monthStart,
-                    today = LocalDate.now()
-                )
+
+        // The month calendar and the regular 33-day calendar used to run one after
+        // the other, so the "Ultime Uscite" row only existed after two serial Trakt
+        // round trips and always popped in after every catalog row. Run them in
+        // parallel and paint as soon as the month half is ready — that fetch alone
+        // already holds this month's releases.
+        var rawMonth: List<CalendarItem> = emptyList()
+        coroutineScope {
+            val monthItems = async {
+                try {
+                    fetchMonthItems(monthStart)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(TAG, "Month releases fetch failed: ${e.message}")
+                    emptyList()
+                }
             }
-        )
+            merge(
+                flow {
+                    val month = monthItems.await()
+                    if (month.isNotEmpty()) emit(month)
+                }.map { month ->
+                    buildLatestReleaseItems(
+                        monthItems = month,
+                        calendarItems = emptyList(),
+                        monthStart = monthStart,
+                        today = today
+                    )
+                },
+                getCalendarItems().map { calendarItems ->
+                    buildLatestReleaseItems(
+                        monthItems = monthItems.await(),
+                        calendarItems = calendarItems,
+                        monthStart = monthStart,
+                        today = today
+                    )
+                }
+            ).collect { items -> if (items.isNotEmpty()) emit(items) }
+            rawMonth = monthItems.await()
+        }
         if (rawMonth.isEmpty()) return@flow
         try {
             val enriched = enrichItemsWithAddonData(rawMonth)
@@ -308,7 +333,7 @@ class CalendarRepositoryImpl @Inject constructor(
                         monthItems = enriched,
                         calendarItems = calendarItems,
                         monthStart = monthStart,
-                        today = LocalDate.now()
+                        today = today
                     )
                 }
             )

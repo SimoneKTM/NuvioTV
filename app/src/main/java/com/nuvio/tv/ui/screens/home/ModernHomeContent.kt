@@ -189,8 +189,14 @@ fun ModernHomeContent(
         derivedStateOf { verticalRowListState.isScrollInProgress }
     }
 
-    val rowListStates = remember { mutableStateMapOf<String, LazyListState>() }
-    val loadMoreRequestedTotals = remember { mutableStateMapOf<String, Int>() }
+    // Deliberately NOT SnapshotStateMap: every row writes here while composing
+    // (rowListStates.getOrPut), and an observable map would invalidate every
+    // already-composed row each time a new one scrolls in — a full-row
+    // recomposition cascade on every frame of a fast vertical drag. Nothing
+    // needs to observe the map itself (the LazyListState values are state),
+    // only individual entries, so a plain map keeps that write silent.
+    val rowListStates = remember { mutableMapOf<String, LazyListState>() }
+    val loadMoreRequestedTotals = remember { mutableMapOf<String, Int>() }
 
     val focusedItemByRow = remember { mutableStateMapOf<String, Int>() }
     val stableFocusedItemByRow = remember { StableRef<MutableMap<String, Int>>(focusedItemByRow) }
