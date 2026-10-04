@@ -158,6 +158,16 @@ internal fun HomeViewModel.observeLayoutPreferencesPipeline() {
         )
     }
 
+    // "Ritardo trailer": lo slider delle impostazioni decide quanto aspettare
+    // prima di far partire l'anteprima in hero.
+    viewModelScope.launch {
+        trailerSettingsDataStore.settings
+            .distinctUntilChanged()
+            .collect { settings ->
+                _uiState.update { it.copy(trailerPreviewDelaySeconds = settings.delaySeconds) }
+            }
+    }
+
     viewModelScope.launch {
         combine(
             baseLayoutUiPrefsFlow,

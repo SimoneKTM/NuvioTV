@@ -38,6 +38,8 @@ data class HomeUiState(
     val classicFocusGradientEnabled: Boolean = false,
     val focusedPosterBackdropExpandEnabled: Boolean = false,
     val focusedPosterBackdropExpandDelaySeconds: Int = 3,
+    // "Ritardo trailer": aspetta prima di avviare l'anteprima in hero.
+    val trailerPreviewDelaySeconds: Int = 7,
     val focusedPosterBackdropTrailerEnabled: Boolean = false,
     val focusedPosterBackdropTrailerMuted: Boolean = true,
     val focusedPosterBackdropTrailerPlaybackTarget: FocusedPosterTrailerPlaybackTarget =

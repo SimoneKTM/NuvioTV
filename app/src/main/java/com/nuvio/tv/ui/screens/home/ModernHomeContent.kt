@@ -273,6 +273,7 @@ fun ModernHomeContent(
         shouldActivateFocusedPosterFlow,
         trailerPlaybackTarget,
         uiState.focusedPosterBackdropExpandDelaySeconds,
+        uiState.trailerPreviewDelaySeconds,
         verticalRowListState.isScrollInProgress,
         // Re-run when the sidebar takes/returns focus so a pending expand cannot
         // complete while the user is on the Home button (#2815).
@@ -286,12 +287,14 @@ fun ModernHomeContent(
         val selection = focusedCatalogSelection.value ?: return@LaunchedEffect
         if (selection.payload !is ModernPayload.Catalog) return@LaunchedEffect
         // Con il trailer in hero (target HERO_MEDIA) l'espansione serve solo ad
-        // armare il video e le card non si aprono: l'attesa scende a 150 ms
-        // così il trailer parte subito in tutte le righe.
+        // armare il video e le card non si aprono: l'attesa è quella scelta
+        // dall'utente con lo slider "Ritardo trailer" (default 7 s), con un
+        // minimo di 150 ms.
         val heroTrailerMode = effectiveAutoplayEnabled &&
             trailerPlaybackTarget == FocusedPosterTrailerPlaybackTarget.HERO_MEDIA
         val expansionDelayMs = if (heroTrailerMode) {
-            MIN_TRAILER_EXPANSION_DELAY_MS
+            (uiState.trailerPreviewDelaySeconds.coerceAtLeast(0) * 1000L)
+                .coerceAtLeast(MIN_TRAILER_EXPANSION_DELAY_MS)
         } else {
             (uiState.focusedPosterBackdropExpandDelaySeconds.coerceAtLeast(0) * 1000L).coerceAtLeast(150L)
         }
