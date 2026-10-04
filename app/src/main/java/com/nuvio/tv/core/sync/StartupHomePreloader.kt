@@ -1,16 +1,21 @@
 package com.nuvio.tv.core.sync
 
 import android.util.Log
+import com.nuvio.tv.core.build.AppFeaturePolicy
 import com.nuvio.tv.core.perf.FluidModeState
+import com.nuvio.tv.core.tmdb.TmdbService
 import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 import com.nuvio.tv.data.local.ExperienceModeDataStore
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
+import com.nuvio.tv.data.local.StartupWarmupPreferences
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
 import com.nuvio.tv.data.repository.TraktTop10Repository
 import com.nuvio.tv.data.translation.MetadataTextTranslator
+import com.nuvio.tv.data.trailer.TrailerService
 import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.domain.repository.CalendarRepository
 import com.nuvio.tv.domain.repository.CatalogRepository
+import com.nuvio.tv.ui.screens.home.extractYear
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -36,7 +41,8 @@ import javax.inject.Singleton
  * Home for more than a minute.
  *
  * Waits for: active profile, installed addons, layout/experience prefs,
- * catalog first-page warm-up, calendar warm-up, and a CW disk-cache touch.
+ * catalog first-page warm-up, the on-disk image warm-up for every Home card,
+ * calendar warm-up, and a CW disk-cache touch.
  */
 @Singleton
 class StartupHomePreloader @Inject constructor(
@@ -50,7 +56,11 @@ class StartupHomePreloader @Inject constructor(
     private val cwEnrichmentCache: ContinueWatchingEnrichmentCache,
     private val metadataTextTranslator: MetadataTextTranslator,
     private val tmdbSettingsDataStore: TmdbSettingsDataStore,
-    private val fluidModeState: FluidModeState
+    private val fluidModeState: FluidModeState,
+    private val homeImagePreloader: HomeImagePreloader,
+    private val tmdbService: TmdbService,
+    private val trailerService: TrailerService,
+    private val startupWarmupPreferences: StartupWarmupPreferences
 ) {
     companion object {
         private const val TAG = "StartupHomePreloader"
@@ -63,6 +73,10 @@ class StartupHomePreloader @Inject constructor(
 
         // Classic (Fluid Mode off): the single pass of the build before the speed-ups.
         private const val CLASSIC_PHASE_TIMEOUT_MS = 20_000L
+
+        // Trailer warm-up: bounded so a slow extraction never holds the gate.
+        private const val TRAILER_WARM_BUDGET_MS = 30_000L
+        private const val TRAILER_WARM_COUNT = 6
     }
 
     // Warm-ups run on a background-priority thread: on low-end TV sticks the
@@ -163,6 +177,10 @@ class StartupHomePreloader @Inject constructor(
                 }
             }
             _ready.value = true
+            // Solo se tutto è andato davvero a buon fine: il prossimo avvio è caldo.
+            if (complete) {
+                runCatching { startupWarmupPreferences.markFirstHomeReady() }
+            }
             Log.d(
                 TAG,
                 "Home preload ready in ${android.os.SystemClock.elapsedRealtime() - startedAt}ms " +
@@ -193,6 +211,11 @@ class StartupHomePreloader @Inject constructor(
         // loading screen stays up until every catalog answered its first page
         // (still capped by the phase timeout and the total deadline force-release).
         phase { catalogRepository.warmComplete.first { it } }
+        // Immagini: scarica su disco poster/sfondi/loghi delle prime pagine, così
+        // Home parte già pronta e lo scroll non scarica più nulla.
+        phase { homeImagePreloader.warmImages() }
+        // Trailer: best effort con budget proprio (non blocca la partenza).
+        phase { withTimeoutOrNull(TRAILER_WARM_BUDGET_MS) { warmTrailers() } }
         // Touch CW disk cache so first Home render hits warm FS state.
         phase {
             cwEnrichmentCache.getInProgressSnapshot()
@@ -200,5 +223,27 @@ class StartupHomePreloader @Inject constructor(
         }
 
         return complete
+    }
+
+    /** Risolve gli URL dei trailer dei primi titoli per farli partire subito in Home. */
+    private suspend fun warmTrailers() {
+        if (!AppFeaturePolicy.inAppTrailerPlaybackEnabled) return
+        val items = catalogRepository.firstPageRows()
+            .flatMap { it.items }
+            .distinctBy { it.id }
+            .take(TRAILER_WARM_COUNT)
+        if (items.isEmpty()) return
+        items.forEach { item ->
+            val tmdbId = runCatching { tmdbService.ensureTmdbId(item.id, item.apiType) }.getOrNull()
+            runCatching {
+                trailerService.getTrailerPlaybackSource(
+                    title = item.name,
+                    year = extractYear(item.releaseInfo),
+                    tmdbId = tmdbId,
+                    type = item.apiType
+                )
+            }
+        }
+        Log.d(TAG, "Warmed ${items.size} trailer lookups")
     }
 }
