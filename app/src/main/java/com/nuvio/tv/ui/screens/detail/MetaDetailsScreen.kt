@@ -187,6 +187,10 @@ private fun resolveDetailReturnEpisodeFocusTarget(
 
 private const val USER_INTERACTION_DISPATCH_DEBOUNCE_MS = 120L
 
+// Scrim nero fisso sull'hero dei Details: tiene leggibili titolo, meta e
+// descrizione sopra artwork chiari senza riquadro (la liquid glass è rimossa).
+private const val HERO_SCRIM_ALPHA = 0.27f
+
 
 private fun formatDetailYearRange(releaseInfo: String?): String? {
     if (releaseInfo.isNullOrBlank()) return null
@@ -1174,11 +1178,17 @@ private fun MetaDetailsContent(
         }
     }
 
-    // Track if scrolled past hero (first item)
-    val isScrolledPastHero by remember {
+    // 0 fermo in cima, 1 quando l'hero (primo item della lazy list) è uscito per
+    // intero: guida la dissolvenza dello sfondo mentre si scorre verso il basso.
+    val heroScrollProgress by remember {
         derivedStateOf {
-            listState.firstVisibleItemIndex > 0 ||
-            (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset > 200)
+            val info = listState.layoutInfo
+            val hero = info.visibleItemsInfo.firstOrNull { it.index == 0 }
+            if (hero == null) {
+                1f
+            } else {
+                ((-hero.offset).toFloat() / hero.size.coerceAtLeast(1)).coerceIn(0f, 1f)
+            }
         }
     }
 
@@ -1556,19 +1566,19 @@ private fun MetaDetailsContent(
         val transparent = backgroundColor.copy(alpha = 0f).toArgb()
         val bmp = android.graphics.Bitmap.createBitmap(w, 2, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
-        val fadeWidth = w * 0.78f
+        val fadeWidth = w * 0.85f
         val shader = if (isRtl) {
             android.graphics.LinearGradient(
                 w.toFloat(), 0f, w - fadeWidth, 0f,
                 intArrayOf(
                     backgroundColor.copy(alpha = 1f).toArgb(),
+                    backgroundColor.copy(alpha = 0.98f).toArgb(),
                     backgroundColor.copy(alpha = 0.95f).toArgb(),
+                    backgroundColor.copy(alpha = 0.90f).toArgb(),
                     backgroundColor.copy(alpha = 0.84f).toArgb(),
-                    backgroundColor.copy(alpha = 0.70f).toArgb(),
-                    backgroundColor.copy(alpha = 0.52f).toArgb(),
-                    backgroundColor.copy(alpha = 0.34f).toArgb(),
-                    backgroundColor.copy(alpha = 0.18f).toArgb(),
-                    backgroundColor.copy(alpha = 0.07f).toArgb(),
+                    backgroundColor.copy(alpha = 0.74f).toArgb(),
+                    backgroundColor.copy(alpha = 0.60f).toArgb(),
+                    backgroundColor.copy(alpha = 0.38f).toArgb(),
                     transparent
                 ),
                 floatArrayOf(0f, 0.10f, 0.22f, 0.36f, 0.52f, 0.66f, 0.78f, 0.90f, 1f),
@@ -1579,13 +1589,13 @@ private fun MetaDetailsContent(
                 0f, 0f, fadeWidth, 0f,
                 intArrayOf(
                     backgroundColor.copy(alpha = 1f).toArgb(),
+                    backgroundColor.copy(alpha = 0.98f).toArgb(),
                     backgroundColor.copy(alpha = 0.95f).toArgb(),
+                    backgroundColor.copy(alpha = 0.90f).toArgb(),
                     backgroundColor.copy(alpha = 0.84f).toArgb(),
-                    backgroundColor.copy(alpha = 0.70f).toArgb(),
-                    backgroundColor.copy(alpha = 0.52f).toArgb(),
-                    backgroundColor.copy(alpha = 0.34f).toArgb(),
-                    backgroundColor.copy(alpha = 0.18f).toArgb(),
-                    backgroundColor.copy(alpha = 0.07f).toArgb(),
+                    backgroundColor.copy(alpha = 0.74f).toArgb(),
+                    backgroundColor.copy(alpha = 0.60f).toArgb(),
+                    backgroundColor.copy(alpha = 0.38f).toArgb(),
                     transparent
                 ),
                 floatArrayOf(0f, 0.10f, 0.22f, 0.36f, 0.52f, 0.66f, 0.78f, 0.90f, 1f),
@@ -1630,7 +1640,7 @@ private fun MetaDetailsContent(
 
     // Always-composed bottom gradient alpha (avoids add/remove during scroll)
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(backgroundColor)) {
         // Sticky background — backdrop or trailer
         BackdropLayer(
             backdropRequest = backdropRequest,
@@ -1645,7 +1655,7 @@ private fun MetaDetailsContent(
             onTrailerControlKey = onTrailerControlKey,
             onTrailerProgressChanged = onTrailerProgressChanged,
             onTrailerEnded = onTrailerEnded,
-            isScrolledPastHero = isScrolledPastHero,
+            scrollProgress = heroScrollProgress,
             leftGradient = leftGradientBitmap,
             bottomGradient = bottomGradientBitmap,
         )
@@ -2393,23 +2403,23 @@ private fun BackdropLayer(
     onTrailerControlKey: (keyCode: Int, action: Int, repeatCount: Int) -> Boolean,
     onTrailerProgressChanged: (Long, Long) -> Unit,
     onTrailerEnded: () -> Unit,
-    isScrolledPastHero: Boolean,
+    scrollProgress: Float,
     leftGradient: ImageBitmap,
     bottomGradient: ImageBitmap,
 ) {
     var showHeroBackdropUnderlay by remember(heroBackdropRequest, backdropRequest) {
         mutableStateOf(heroBackdropRequest != null)
     }
-    val backdropAlphaState = animateFloatAsState(
-        targetValue = if (isTrailerPlaying) 0f else if (isScrolledPastHero) 0.15f else 1f,
-        animationSpec = tween(durationMillis = if (isScrolledPastHero) NuvioMotion.tokens.durations.fast else NuvioMotion.tokens.durations.medium),
-        label = "backdropFade"
+    // Backdrop, gradiente e scrim hero si dissolvono insieme mentre si scorre:
+    // lo sfondo cambia davvero invece di passare a uno stato dimmato fisso.
+    val trailerFadeState = animateFloatAsState(
+        targetValue = if (isTrailerPlaying) 0f else 1f,
+        animationSpec = tween(durationMillis = NuvioMotion.tokens.durations.medium),
+        label = "trailerFade"
     )
-    val gradientAlphaState = animateFloatAsState(
-        targetValue = if (isTrailerPlaying || isScrolledPastHero) 0f else 1f,
-        animationSpec = tween(durationMillis = if (isScrolledPastHero) NuvioMotion.tokens.durations.fast else NuvioMotion.tokens.durations.medium),
-        label = "gradientFade"
-    )
+    val backdropAlphaState = trailerFadeState.value * (1f - scrollProgress)
+    val gradientAlphaState = trailerFadeState.value * (1f - scrollProgress)
+    val scrimAlphaState = HERO_SCRIM_ALPHA * trailerFadeState.value * (1f - scrollProgress)
     Box(modifier = Modifier.fillMaxSize()) {
         // Show hero backdrop from previous screen as persistent underlay
         // to prevent flash/re-render during navigation transition
@@ -2418,7 +2428,7 @@ private fun BackdropLayer(
                 model = heroBackdropRequest,
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
-                alpha = backdropAlphaState.value,
+                alpha = backdropAlphaState,
                 contentScale = ContentScale.Crop,
                 alignment = Alignment.TopEnd
             )
@@ -2427,11 +2437,20 @@ private fun BackdropLayer(
             model = backdropRequest,
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
-            alpha = backdropAlphaState.value,
+            alpha = backdropAlphaState,
             onSuccess = { showHeroBackdropUnderlay = false },
             contentScale = ContentScale.Crop,
             alignment = Alignment.TopEnd
         )
+        // Scrim fisso dell'hero: sotto il trailer resta spento, sotto lo scroll
+        // si dissolve insieme al backdrop.
+        if (scrimAlphaState > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = scrimAlphaState))
+            )
+        }
         TrailerPlayer(
             trailerUrl = trailerUrl,
             trailerAudioUrl = trailerAudioUrl,
@@ -2449,11 +2468,11 @@ private fun BackdropLayer(
                 .fillMaxSize()
                 .drawWithCache {
                     onDrawBehind {
-                        if (gradientAlphaState.value > 0f) {
+                        if (gradientAlphaState > 0f) {
                             drawImage(
                                 leftGradient,
                                 dstSize = androidx.compose.ui.unit.IntSize(size.width.toInt(), size.height.toInt()),
-                                alpha = gradientAlphaState.value,
+                                alpha = gradientAlphaState,
                                 filterQuality = androidx.compose.ui.graphics.FilterQuality.Low
                             )
                         }

@@ -70,7 +70,6 @@ import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MDBListRatings
 import com.nuvio.tv.domain.model.Video
 import com.nuvio.tv.domain.model.NextToWatch
-import com.nuvio.tv.ui.components.GlassPanel
 import com.nuvio.tv.ui.components.ImdbRatingSourceLabel
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.theme.NuvioPrimitives
@@ -329,7 +328,7 @@ fun HeroContentSection(
                     // below stays on-screen (the hero is a fixed 540dp = full height on a 1080p
                     // TV). When the synopsis is long enough to be truncated it becomes focusable;
                     // pressing OK opens the full, scrollable text overlay.
-                    GlassPanel(modifier = Modifier.fillMaxWidth(0.7f)) {
+                    Column(modifier = Modifier.fillMaxWidth(0.7f)) {
                         meta.description?.let { description ->
                             var descriptionFocused by remember { mutableStateOf(false) }
                             var descriptionTruncated by rememberSaveable(description) { mutableStateOf(false) }
