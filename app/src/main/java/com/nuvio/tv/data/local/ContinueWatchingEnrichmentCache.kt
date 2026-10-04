@@ -91,6 +91,27 @@ class ContinueWatchingEnrichmentCache @Inject constructor(
     @Volatile private var lastNextUpHash = 0
     @Volatile private var lastInProgressHash = 0
 
+    /**
+     * Gson materialises these Kotlin data classes through Unsafe, so a missing or
+     * explicit-null `contentId` in an on-disk snapshot arrives as a null held by a
+     * non-null property. Dereferencing it later dies inside a non-null parameter
+     * check (`isDroppedShow(contentId)`), taking the whole Home screen down.
+     * The nullable receiver keeps the check in place no matter what the static type says.
+     */
+    private fun present(value: String?): Boolean = value != null
+
+    private fun List<CachedInProgressItem>.dropMalformedInProgress(): List<CachedInProgressItem> =
+        filter {
+            present(it.contentId) && present(it.contentType) &&
+                present(it.name) && present(it.videoId)
+        }
+
+    private fun List<CachedNextUpItem>.dropMalformedNextUp(): List<CachedNextUpItem> =
+        filter {
+            present(it.contentId) && present(it.contentType) &&
+                present(it.name) && present(it.videoId)
+        }
+
     /** Incremented when cache is cleared; observers can collect to trigger refresh. */
     private val _cacheCleared = kotlinx.coroutines.flow.MutableStateFlow(0)
     val cacheCleared: kotlinx.coroutines.flow.StateFlow<Int> = _cacheCleared
@@ -113,7 +134,8 @@ class ContinueWatchingEnrichmentCache @Inject constructor(
             try {
                 val file = nextUpFile()
                 if (!file.exists()) return@withContext emptyList()
-                gson.fromJson(file.readText(), object : TypeToken<List<CachedNextUpItem>>() {}.type)
+                gson.fromJson<List<CachedNextUpItem>>(file.readText(), object : TypeToken<List<CachedNextUpItem>>() {}.type)
+                    ?.dropMalformedNextUp()
                     ?: emptyList()
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to read next-up cache: ${e.message}")
@@ -159,7 +181,8 @@ class ContinueWatchingEnrichmentCache @Inject constructor(
             try {
                 val file = inProgressFile()
                 if (!file.exists()) return@withContext emptyList()
-                gson.fromJson(file.readText(), object : TypeToken<List<CachedInProgressItem>>() {}.type)
+                gson.fromJson<List<CachedInProgressItem>>(file.readText(), object : TypeToken<List<CachedInProgressItem>>() {}.type)
+                    ?.dropMalformedInProgress()
                     ?: emptyList()
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to read in-progress cache: ${e.message}")

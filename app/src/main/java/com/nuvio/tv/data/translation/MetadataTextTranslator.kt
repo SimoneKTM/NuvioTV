@@ -7,6 +7,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.google.mlkit.nl.languageid.LanguageIdentification
 import com.google.mlkit.nl.translate.Translation
+import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
 import com.nuvio.tv.domain.model.Meta
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -48,7 +49,10 @@ class MetadataTextTranslator @Inject constructor(
         private const val DETECT_TIMEOUT_MS = 6_000L
         private const val MODEL_TIMEOUT_MS = 90_000L
         private const val TRANSLATE_TIMEOUT_MS = 15_000L
-        private const val BATCH_DEADLINE_MS = 45_000L
+        // Each ML Kit sentence costs ~2 s on a Fire Stick at PARALLELISM=4, so the old
+        // 45 s budget saturated the CPU for three quarters of a minute after every
+        // detail open. Budget enough for the season on screen, then keep the original.
+        private const val BATCH_DEADLINE_MS = 15_000L
         private const val PARALLELISM = 4
 
         /**
@@ -68,6 +72,36 @@ class MetadataTextTranslator @Inject constructor(
     @Volatile private var dirty = false
 
     /**
+     * One live [com.google.mlkit.nl.translate.Translator] at a time.
+     *
+     * Building a fresh client per string made ML Kit re-instantiate the wordpiece
+     * model for every synopsis (the Fire Stick logged dozens of
+     * "Model loaded from pb string" bursts per Home load), which burned CPU and
+     * kept the GC busy for seconds. Swapping on pair change keeps the loaded model
+     * warm while bounding retained memory to a single model.
+     */
+    private val translatorLock = Any()
+    private var openTranslator: Translator? = null
+    private var openTranslatorKey: String = ""
+
+    private fun translatorFor(source: String, target: String): Translator =
+        synchronized(translatorLock) {
+            val key = "$source->$target"
+            val existing = openTranslator
+            if (existing == null || openTranslatorKey != key) {
+                existing?.close()
+                openTranslator = Translation.getClient(
+                    TranslatorOptions.Builder()
+                        .setSourceLanguage(source)
+                        .setTargetLanguage(target)
+                        .build()
+                )
+                openTranslatorKey = key
+            }
+            openTranslator!!
+        }
+
+    /**
      * Pre-downloads the English→target ML Kit model in the background so the
      * first metadata translation doesn't stall on a multi-MB download.
      * No-op when the target language is unsupported or already English.
@@ -84,18 +118,11 @@ class MetadataTextTranslator @Inject constructor(
         }
         val target = normalizeLanguageCode(targetLanguage) ?: return@withContext
         if (target !in TRANSLATION_SUPPORTED_LANGUAGES || target == "en") return@withContext
-        val translator = Translation.getClient(
-            TranslatorOptions.Builder()
-                .setSourceLanguage("en")
-                .setTargetLanguage(target)
-                .build()
-        )
-        try {
-            if (translator.downloadModelIfNeeded().awaitOk()) {
-                Log.d(TAG, "Translation model warm-up completed for $target")
-            }
-        } finally {
-            translator.close()
+        // Kept open on purpose: see translatorFor. Closing it here would throw away
+        // the model the first Home row is about to need again.
+        val translator = translatorFor("en", target)
+        if (translator.downloadModelIfNeeded().awaitOk()) {
+            Log.d(TAG, "Translation model warm-up completed for $target")
         }
     }
 
@@ -219,24 +246,17 @@ class MetadataTextTranslator @Inject constructor(
             return null
         }
 
-        val options = TranslatorOptions.Builder()
-            .setSourceLanguage(detected)
-            .setTargetLanguage(target)
-            .build()
-        val translator = Translation.getClient(options)
-        try {
-            val modelReady = withTimeoutOrNull(MODEL_TIMEOUT_MS) {
-                translator.downloadModelIfNeeded().awaitOk()
-            }
-            if (modelReady != true) return null
-            val translated = withTimeoutOrNull(TRANSLATE_TIMEOUT_MS) {
-                translator.translate(body).awaitText()
-            }?.takeIf { it.isNotBlank() && it != body } ?: return null
-            rememberValue(key, translated)
-            return translated
-        } finally {
-            translator.close()
+        // Reused across calls; never closed here (see translatorFor).
+        val translator = translatorFor(detected, target)
+        val modelReady = withTimeoutOrNull(MODEL_TIMEOUT_MS) {
+            translator.downloadModelIfNeeded().awaitOk()
         }
+        if (modelReady != true) return null
+        val translated = withTimeoutOrNull(TRANSLATE_TIMEOUT_MS) {
+            translator.translate(body).awaitText()
+        }?.takeIf { it.isNotBlank() && it != body } ?: return null
+        rememberValue(key, translated)
+        return translated
     }
 
     private suspend fun identifyLanguage(text: String): String? =

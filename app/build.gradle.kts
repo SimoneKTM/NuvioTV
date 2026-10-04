@@ -233,6 +233,7 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            isDebuggable = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -279,6 +280,13 @@ android {
             buildConfigField("String", "SENTRY_ENVIRONMENT", buildConfigString("benchmark"))
             applicationIdSuffix = ".debug"
             matchingFallbacks += "release"
+        }
+        create("profile") {
+            initWith(buildTypes.getByName("release"))
+            isDebuggable = true
+            matchingFallbacks += "release"
+            buildConfigField("boolean", "IS_DEBUG_BUILD", "false")
+            buildConfigField("String", "SENTRY_ENVIRONMENT", buildConfigString("profile"))
         }
     }
 

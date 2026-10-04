@@ -36,9 +36,8 @@ class TvRecommendationManager @Inject constructor(
 
                     programBuilder.clearAllWatchNextPrograms()
                     inProgress.forEach { item ->
-                        val program = programBuilder.buildWatchNextProgram(item.progress)
                         programBuilder.upsertWatchNextProgram(
-                            program,
+                            programBuilder.watchNextValues(item.progress),
                             programBuilder.watchNextId(item.progress)
                         )
                     }

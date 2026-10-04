@@ -50,6 +50,16 @@ class MetaRepositoryImpl @Inject constructor(
         private const val RACE_META_TIMEOUT_MS = 10_000L
 
         /**
+         * A single cached [Meta] keeps every episode [com.nuvio.tv.domain.model.Video]
+         * (title, overview, thumbnail, streams) reachable: a series answers with ~500
+         * episodes, so the three unbounded caches alone pinned 60+ MB of strings on a
+         * Fire Stick and made the low-memory killer take the process down. Fourteen
+         * entries per cache cover the rows on screen; anything else is re-fetched in a
+         * single ~150 ms request.
+         */
+        private const val MAX_META_CACHE_ENTRIES = 14
+
+        /**
          * Calendar/Library query with "tv" while Detail navigates with
          * "series" — normalize so both share the same addonMetaCache entry.
          */
@@ -83,10 +93,19 @@ class MetaRepositoryImpl @Inject constructor(
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     // In-memory cache: "namespace:type:id" -> Meta (scoped per tab/addon)
-    private val metaCache = ConcurrentHashMap<String, Meta>()
+    private val metaCache = newMetaCache()
     // Separate cache for full meta fetched from addons (bypasses catalog-level cache)
-    private val addonMetaCache = ConcurrentHashMap<String, Meta>()
-    private val primaryAddonMetaCache = ConcurrentHashMap<String, Meta>()
+    private val addonMetaCache = newMetaCache()
+    private val primaryAddonMetaCache = newMetaCache()
+
+    /** LRU-bounded so long browsing sessions cannot pin an unbounded graph. */
+    private fun newMetaCache(): MutableMap<String, Meta> =
+        java.util.Collections.synchronizedMap(
+            object : LinkedHashMap<String, Meta>(16, 0.75f, true) {
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Meta>?): Boolean =
+                    size > MAX_META_CACHE_ENTRIES
+            }
+        )
 
     // In-flight deduplication: prevents concurrent coroutines from firing duplicate requests
     private val inFlightMeta = ConcurrentHashMap<String, Deferred<Meta?>>()

@@ -263,6 +263,16 @@ class AndroidTvChannelManager @Inject constructor(
             // COLUMN_LAST_ENGAGEMENT_TIME_UTC_MILLIS drives launcher ordering;
             // the Builder method was added after tvprovider 1.0.0, so set directly.
             it.put("last_engagement_time_utc_millis", progress.lastWatched)
+            // tvprovider strips the columns below on API < 26, but the Fire TV
+            // provider (Fire OS 7.1 = API 25) still requires them — without "type"
+            // every insert throws "Missing the required column: type", and without
+            // internal_provider_id/intent_uri rows can neither be reconciled nor opened.
+            it.put("type", type)
+            it.put("internal_provider_id", key)
+            it.put("intent_uri", intentUri.toString())
+            if (imageUri != null) {
+                it.put("poster_art_aspect_ratio", aspectRatio!!)
+            }
             // Explicitly clear poster art when no image is available, so UPDATE operations
             // don't leave stale artwork from previous reconcile cycles.
             if (imageUri == null) {
@@ -270,6 +280,8 @@ class AndroidTvChannelManager @Inject constructor(
             }
             if (progress.logo.isNullOrBlank()) {
                 it.putNull(TvContractCompat.PreviewPrograms.COLUMN_LOGO_URI)
+            } else {
+                it.put("logo_uri", progress.logo)
             }
             // Clear duration/position when unknown so stale values (e.g. previous 1hr fallback)
             // don't persist across UPDATE cycles.

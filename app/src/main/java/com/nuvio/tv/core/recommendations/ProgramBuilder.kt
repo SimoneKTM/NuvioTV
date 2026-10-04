@@ -1,5 +1,6 @@
 package com.nuvio.tv.core.recommendations
 
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -23,15 +24,8 @@ class ProgramBuilder @Inject constructor(
             "wn_${progress.contentId}"
 
     fun buildWatchNextProgram(progress: WatchProgress): WatchNextProgram {
-        val isMovie = progress.contentType == "movie"
-        val programType = if (isMovie) {
-            TvContractCompat.WatchNextPrograms.TYPE_MOVIE
-        } else {
-            TvContractCompat.WatchNextPrograms.TYPE_TV_EPISODE
-        }
-
         val builder = WatchNextProgram.Builder()
-            .setType(programType)
+            .setType(programType(progress))
             .setWatchNextType(TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_CONTINUE)
             .setTitle(progress.name)
             .setLastEngagementTimeUtcMillis(progress.lastWatched)
@@ -53,7 +47,7 @@ class ProgramBuilder @Inject constructor(
             builder.setDurationMillis(progress.duration.toInt())
         }
 
-        if (!isMovie) {
+        if (programType(progress) == TvContractCompat.WatchNextPrograms.TYPE_TV_EPISODE) {
             progress.season?.let { builder.setSeasonNumber(it) }
             progress.episode?.let { builder.setEpisodeNumber(it) }
             progress.episodeTitle?.let { builder.setEpisodeTitle(it) }
@@ -62,16 +56,53 @@ class ProgramBuilder @Inject constructor(
         return builder.build()
     }
 
-    fun upsertWatchNextProgram(program: WatchNextProgram, internalId: String) {
+    fun watchNextValues(progress: WatchProgress): ContentValues {
+        val values = buildWatchNextProgram(progress).toContentValues()
+        // tvprovider's toContentValues() strips these columns below API 26, but the
+        // Fire TV provider (Fire OS 7.1 = API 25) still requires them: without "type"
+        // every insert fails with "Missing the required column: type", and without
+        // internal_provider_id/intent_uri the rows can neither be found nor opened.
+        values.put("type", programType(progress))
+        values.put("internal_provider_id", watchNextId(progress))
+        values.put("intent_uri", buildPlayUri(progress).toString())
+        values.put(
+            "poster_art_aspect_ratio",
+            TvContractCompat.PreviewPrograms.ASPECT_RATIO_16_9
+        )
+        values.put(
+            "watch_next_type",
+            TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_CONTINUE
+        )
+        values.put("last_engagement_time_utc_millis", progress.lastWatched)
+        if (progress.duration > 0) {
+            values.put("duration_millis", progress.duration.toInt())
+            val positionMs = if (progress.position > 0) {
+                progress.position.toInt()
+            } else {
+                (progress.progressPercent?.let { it / 100f * progress.duration }?.toLong() ?: 0L).toInt()
+            }
+            values.put("last_playback_position_millis", positionMs)
+        }
+        return values
+    }
+
+    private fun programType(progress: WatchProgress): Int =
+        if (progress.contentType == "movie") {
+            TvContractCompat.WatchNextPrograms.TYPE_MOVIE
+        } else {
+            TvContractCompat.WatchNextPrograms.TYPE_TV_EPISODE
+        }
+
+    fun upsertWatchNextProgram(values: ContentValues, internalId: String) {
         try {
             val existingId = findWatchNextByInternalId(internalId)
             if (existingId != null) {
                 val uri = TvContractCompat.buildWatchNextProgramUri(existingId)
-                context.contentResolver.update(uri, program.toContentValues(), null, null)
+                context.contentResolver.update(uri, values, null, null)
             } else {
                 context.contentResolver.insert(
                     TvContractCompat.WatchNextPrograms.CONTENT_URI,
-                    program.toContentValues()
+                    values
                 )
             }
         } catch (_: Exception) {

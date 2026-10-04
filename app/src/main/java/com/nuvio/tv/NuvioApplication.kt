@@ -142,8 +142,11 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                 )
             }
             .memoryCache {
+                // Bitmap pixels count against the Java heap on the Fire Stick (verified
+                // with a heap dump), so the old "33% of maxMemory" budget alone pushed
+                // the app past 250 MB and triggered low-memory kills. Fixed cap instead.
                 MemoryCache.Builder()
-                    .maxSizePercent(context, 0.33)
+                    .maxSizeBytes(32L * 1024 * 1024)
                     .build()
             }
             .diskCache {
