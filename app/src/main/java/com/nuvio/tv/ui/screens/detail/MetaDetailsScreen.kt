@@ -1750,7 +1750,15 @@ private fun MetaDetailsContent(
                             onToggleEpisodeWatched = onToggleEpisodeWatched,
                             onMarkSeasonWatched = onMarkSeasonWatched,
                             onMarkSeasonUnwatched = onMarkSeasonUnwatched,
-                            isSeasonFullyWatched = isSeasonFullyWatched(selectedSeason),
+                            // Scans every episode of the season with map lookups:
+                            // memoize or each recomposition re-filters the season.
+                            isSeasonFullyWatched = remember(
+                                selectedSeason,
+                                watchedEpisodes,
+                                episodeProgressMap,
+                                episodesForSeason,
+                                meta
+                            ) { isSeasonFullyWatched(selectedSeason) },
                             selectedSeason = selectedSeason,
                             onOpenEpisodeComments = episodeCommentsClick,
                             showOpenEpisodeComments = shouldShowCommentsSection,
@@ -1978,7 +1986,9 @@ private fun MetaDetailsContent(
                         titleModeFocusRequester = commentsTitleModeFocusRequester,
                         episodeModeFocusRequester = commentsEpisodeModeFocusRequester,
                         selectedEpisode = commentsEpisodeTarget,
-                        allEpisodes = meta.videos.filter { it.season != null && it.episode != null },
+                        allEpisodes = remember(meta.videos) {
+                            meta.videos.filter { it.season != null && it.episode != null }
+                        },
                         selectedSeason = selectedSeason,
                         availableSeasons = seasons,
                         isLoading = isCommentsLoading,

@@ -34,6 +34,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -133,14 +134,19 @@ fun CommentsSection(
     } else {
         resolvedTitleModeFocusRequester
     }
-    val visibleFirstCommentId = remember(comments, listState.firstVisibleItemIndex) {
-        comments.getOrNull(max(listState.firstVisibleItemIndex, 0))?.id
-    }
-    val visibleWindowCommentIds = remember(comments, listState.layoutInfo.visibleItemsInfo) {
-        listState.layoutInfo.visibleItemsInfo
-            .mapNotNull { info -> comments.getOrNull(info.index)?.id }
-            .toSet()
-    }
+    // Derived, not plain state reads: firstVisibleItemIndex changes every
+    // scrolled frame, and keying remembers on it recomposed the whole section
+    // (title, mode buttons, season row) on every frame of horizontal scroll.
+    val visibleFirstCommentId = remember(comments, listState) {
+        derivedStateOf { comments.getOrNull(max(listState.firstVisibleItemIndex, 0))?.id }
+    }.value
+    val visibleWindowCommentIds = remember(comments, listState) {
+        derivedStateOf {
+            listState.layoutInfo.visibleItemsInfo
+                .mapNotNull { info -> comments.getOrNull(info.index)?.id }
+                .toSet()
+        }
+    }.value
     val commentsTargetFocusRequester = remember(
         comments,
         lastFocusedCommentId,

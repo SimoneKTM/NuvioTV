@@ -33,10 +33,12 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.net.URLEncoder
 import javax.inject.Inject
 
@@ -488,9 +490,13 @@ override fun getStreamsFromAllAddons(
 
         return when (val result = safeApiCall(context) { api.getStreams(streamUrl) }) {
             is NetworkResult.Success -> {
-                val streams = result.data.streams?.map { 
-                    it.toDomain(addonName, addonLogo) 
-                } ?: emptyList()
+                // DTO → domain mapping for hundreds of streams: keep it off
+                // the main thread or the stream screen stutters while groups arrive.
+                val streams = withContext(Dispatchers.IO) {
+                    result.data.streams?.map {
+                        it.toDomain(addonName, addonLogo)
+                    } ?: emptyList()
+                }
                 Log.d(TAG, "Streams success addon=$addonName count=${streams.size} url=$streamUrl")
                 NetworkResult.Success(streams)
             }

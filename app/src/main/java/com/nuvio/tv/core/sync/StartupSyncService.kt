@@ -28,6 +28,7 @@ import javax.inject.Singleton
 
 private const val TAG = "StartupSyncService"
 private const val FORCE_RESYNC_MIN_INTERVAL_MS = 30_000L
+private const val STARTUP_WARM_UP_DELAY_MS = 2_000L
 private const val FULL_STARTUP_PULL_TTL_MS = 6 * 60 * 60 * 1000L
 private const val PERIODIC_WATCH_STATE_PULL_INTERVAL_MS = 120_000L
 private const val PERIODIC_LIBRARY_PULL_INTERVAL_MS = 240_000L
@@ -73,8 +74,14 @@ class StartupSyncService @Inject constructor(
     private var pendingResyncIncludesProfileSettings: Boolean = false
 
     init {
-        calendarRepository.warmUp()
-        catalogRepository.warmUp()
+        // Defer warm-ups past the first frames: launching them at t=0 (during
+        // Hilt injection) floods the main thread with class-loading + disk I/O
+        // and makes the app skip hundreds of frames on slow sticks.
+        scope.launch {
+            delay(STARTUP_WARM_UP_DELAY_MS)
+            calendarRepository.warmUp()
+            catalogRepository.warmUp()
+        }
         scope.launch {
             authManager.authState.collect { state ->
                 when (state) {

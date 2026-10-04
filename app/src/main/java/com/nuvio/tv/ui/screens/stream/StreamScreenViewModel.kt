@@ -189,7 +189,10 @@ class StreamScreenViewModel @Inject constructor(
             var pending = newGroups
             while (pending.isNotEmpty()) {
                 val allNewStreams = pending.flatMap { it.streams }
-                val chunks = allNewStreams.chunked(5)
+                // Batches must stay large: every batch triggers a full
+                // addonStreams/filteredStreams rebuild on the main thread, and
+                // small chunks made slow devices recompose dozens of times.
+                val chunks = allNewStreams.chunked(50)
                 for (chunk in chunks) {
                     ensureActive()
                     val chunkGroup = AddonStreams(addonName = "", addonLogo = null, streams = chunk)

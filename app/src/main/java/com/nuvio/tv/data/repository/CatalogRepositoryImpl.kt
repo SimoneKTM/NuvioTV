@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -283,7 +284,7 @@ class CatalogRepositoryImpl @Inject constructor(
             }
             NetworkResult.Loading -> { /* Already emitted */ }
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
 }
 

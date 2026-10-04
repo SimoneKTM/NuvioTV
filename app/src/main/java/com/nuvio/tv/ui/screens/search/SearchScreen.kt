@@ -63,6 +63,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -120,8 +121,10 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.dpadRepeatThrottle
 import com.nuvio.tv.ui.util.recompositionHighlighter
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Width of the WuPlay-style left panel: a 6-key row (6 * key size) plus key gaps and
  * screen padding, so keys keep the reference app's proportions. */
@@ -200,12 +203,17 @@ fun SearchScreen(
             Toast.makeText(context, strVoiceNoSpeech, Toast.LENGTH_SHORT).show()
         }
     }
-    val isVoiceSearchAvailable = remember(context) { SpeechRecognizer.isRecognitionAvailable(context) }
-    val speechRecognizer = remember(context, isVoiceSearchAvailable) {
-        if (isVoiceSearchAvailable) {
-            runCatching { SpeechRecognizer.createSpeechRecognizer(context) }.getOrNull()
-        } else {
-            null
+    // SpeechRecognizer availability + creation are synchronous binder calls
+    // into system_server: doing them in the first composition froze search
+    // for over a second. Defer until the screen has painted.
+    var isVoiceSearchAvailable by remember { mutableStateOf(false) }
+    var speechRecognizer by remember { mutableStateOf<SpeechRecognizer?>(null) }
+    LaunchedEffect(context) {
+        delay(600)
+        val available = runCatching { SpeechRecognizer.isRecognitionAvailable(context) }.getOrDefault(false)
+        isVoiceSearchAvailable = available
+        if (available) {
+            speechRecognizer = runCatching { SpeechRecognizer.createSpeechRecognizer(context) }.getOrNull()
         }
     }
     val buildRecognizeIntent: () -> Intent = {
@@ -299,15 +307,16 @@ fun SearchScreen(
     }
     val topInputFocusRequester = remember { searchFocusRequester }
     val launchVoiceSearch: () -> Unit = {
-        if (!isVoiceSearchAvailable || speechRecognizer == null) {
+        val recognizer = speechRecognizer
+        if (!isVoiceSearchAvailable || recognizer == null) {
             Toast.makeText(context, strVoiceUnavailable, Toast.LENGTH_SHORT).show()
         } else if (!recordAudioPermissionGranted) {
             requestAudioPermission.launch(Manifest.permission.RECORD_AUDIO)
         } else {
             isVoiceListening = true
             runCatching {
-                speechRecognizer.cancel()
-                speechRecognizer.startListening(buildRecognizeIntent())
+                recognizer.cancel()
+                recognizer.startListening(buildRecognizeIntent())
             }.onFailure {
                 isVoiceListening = false
                 Toast.makeText(context, strVoiceUnavailable, Toast.LENGTH_SHORT).show()
@@ -386,43 +395,52 @@ fun SearchScreen(
     // Single mixed grid of every result (movies + series): best title match first,
     // popular franchises ahead of deep cuts, sequels after their original in release
     // order — then re-ordered by the selected sort mode (release / rating) when chosen.
-    val mergedResults = remember(uiState.catalogRows, trimmedQuery, sortMode) {
-        val entries = uiState.catalogRows
-            .flatMap { row -> row.items.map { SearchGridEntry(it, row.addonBaseUrl) } }
-            .filter { !it.item.id.startsWith("__placeholder_") }
-            .filter { entry ->
-                // Drop hits with no artwork at all: the card has nothing to render.
-                // Poster-only is enough (Anime/TVDB catalogs often have no backdrop).
-                val item = entry.item
-                !item.poster.isNullOrBlank() ||
-                    !item.background.isNullOrBlank() ||
-                    !item.landscapePoster.isNullOrBlank()
-            }
-        // Same title from several addons: keep the richest duplicate so ranking
-        // sees the copy with poster/rating instead of the first addon's order.
-        val entryByKey = LinkedHashMap<String, SearchGridEntry>(entries.size)
-        entries.forEach { entry ->
-            val key = entry.key()
-            val current = entryByKey[key]
-            when (current) {
-                null -> entryByKey[key] = entry
-                else -> {
-                    val winner = if (entry.isRicherThan(current)) entry else current
-                    val loser = if (entry.isRicherThan(current)) current else entry
-                    // Poster copy wins the card, but never drop the other copy's
-                    // rating: popularity drives the ranking of the merged grid.
-                    entryByKey[key] = if (winner.item.imdbRating == null && loser.item.imdbRating != null) {
-                        winner.copy(item = winner.item.copy(imdbRating = loser.item.imdbRating))
-                    } else {
-                        winner
+    // Ranking is O(n²) with several regex passes per comparison: run it off the
+    // UI thread or each addon batch freezes the search screen on slow sticks.
+    val mergedResults by produceState(
+        initialValue = emptyList<SearchGridEntry>(),
+        uiState.catalogRows,
+        trimmedQuery,
+        sortMode
+    ) {
+        value = withContext(Dispatchers.Default) {
+            val entries = uiState.catalogRows
+                .flatMap { row -> row.items.map { SearchGridEntry(it, row.addonBaseUrl) } }
+                .filter { !it.item.id.startsWith("__placeholder_") }
+                .filter { entry ->
+                    // Drop hits with no artwork at all: the card has nothing to render.
+                    // Poster-only is enough (Anime/TVDB catalogs often have no backdrop).
+                    val item = entry.item
+                    !item.poster.isNullOrBlank() ||
+                        !item.background.isNullOrBlank() ||
+                        !item.landscapePoster.isNullOrBlank()
+                }
+            // Same title from several addons: keep the richest duplicate so ranking
+            // sees the copy with poster/rating instead of the first addon's order.
+            val entryByKey = LinkedHashMap<String, SearchGridEntry>(entries.size)
+            entries.forEach { entry ->
+                val key = entry.key()
+                val current = entryByKey[key]
+                when (current) {
+                    null -> entryByKey[key] = entry
+                    else -> {
+                        val winner = if (entry.isRicherThan(current)) entry else current
+                        val loser = if (entry.isRicherThan(current)) current else entry
+                        // Poster copy wins the card, but never drop the other copy's
+                        // rating: popularity drives the ranking of the merged grid.
+                        entryByKey[key] = if (winner.item.imdbRating == null && loser.item.imdbRating != null) {
+                            winner.copy(item = winner.item.copy(imdbRating = loser.item.imdbRating))
+                        } else {
+                            winner
+                        }
                     }
                 }
             }
+            orderSearchResults(
+                sortMode,
+                rankSearchResults(trimmedQuery, entryByKey.values.map { it.item })
+            ).mapNotNull { item -> entryByKey["${item.apiType}:${item.id}"] }
         }
-        orderSearchResults(
-            sortMode,
-            rankSearchResults(trimmedQuery, entryByKey.values.map { it.item })
-        ).mapNotNull { item -> entryByKey["${item.apiType}:${item.id}"] }
     }
 
     val hasPendingUnsubmittedQuery = remember(trimmedQuery, trimmedSubmittedQuery) {
@@ -1316,6 +1334,9 @@ private fun SingleSearchResultsGrid(
 
             if (showLoadingFooter) {
                 item(key = "search_loading_more") {
+                    // One shared brush: per-item shimmer brushes create an
+                    // infinite transition each, invalidating every frame.
+                    val shimmerBrush = rememberShimmerBrush()
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1325,7 +1346,7 @@ private fun SingleSearchResultsGrid(
                         repeat(4) {
                             GhostPosterCard(
                                 posterCardStyle = posterCardStyle,
-                                shimmerBrush = rememberShimmerBrush()
+                                shimmerBrush = shimmerBrush
                             )
                         }
                     }
@@ -1364,6 +1385,10 @@ private fun SearchResultsSkeletonGrid(
             cols.toInt().coerceAtLeast(1)
         }
 
+        // One shared brush for the whole skeleton: a brush per item spins up an
+        // infinite transition each, so every ghost card invalidated every frame.
+        val shimmerBrush = rememberShimmerBrush()
+
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
             modifier = Modifier.fillMaxSize(),
@@ -1374,7 +1399,7 @@ private fun SearchResultsSkeletonGrid(
             items(columns * 2) {
                 GhostPosterCard(
                     posterCardStyle = posterCardStyle,
-                    shimmerBrush = rememberShimmerBrush()
+                    shimmerBrush = shimmerBrush
                 )
             }
         }

@@ -44,6 +44,10 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var simklAnimeIdPreferenceHolder: SimklAnimeIdPreferenceHolder
 
     companion object {
+        /** Let the splash/profile render before background startup work begins. */
+        private const val STARTUP_DEFERRED_INIT_DELAY_MS = 1_500L
+        private const val STARTUP_CHANNEL_SYNC_DELAY_MS = 3_000L
+        private const val STARTUP_HOME_PRELOAD_DELAY_MS = 4_500L
         /**
          * Shared cookie jar for CloudStream extension HTTP requests.
          * Accessible so the player's OkHttpClient can share cookies
@@ -85,14 +89,27 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         // MainActivity reads it in attachBaseContext to decide the density scale.
         LayoutPreferenceDataStore.readFluidZoomMirror(this)
 
-        // Defer heavy initialization to after first frame renders
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
-            SentryInitializer.start(this, sentrySettingsDataStore)
-            PluginRuntimeHooks.onApplicationCreate(this)
-            androidTvChannelSyncService.start()
+        // Defer heavy initialization until the first frames are on screen,
+        // and stagger it: firing Sentry I/O, the JobScheduler binder call and
+        // the home preloader (ML Kit + catalog warm-up) in one shot recreates
+        // the launch freeze we just removed, so each wave gets its own slot.
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        handler.postDelayed(
+            {
+                SentryInitializer.start(this, sentrySettingsDataStore)
+                PluginRuntimeHooks.onApplicationCreate(this)
+            },
+            STARTUP_DEFERRED_INIT_DELAY_MS
+        )
+        handler.postDelayed(
+            { androidTvChannelSyncService.start() },
+            STARTUP_CHANNEL_SYNC_DELAY_MS
+        )
+        handler.postDelayed(
             // Warm Home catalogs/CW/layout while the splash + profile UI is up.
-            startupHomePreloader.ensureStarted()
-        }
+            { startupHomePreloader.ensureStarted() },
+            STARTUP_HOME_PRELOAD_DELAY_MS
+        )
     }
 
     override fun newImageLoader(context: android.content.Context): ImageLoader {

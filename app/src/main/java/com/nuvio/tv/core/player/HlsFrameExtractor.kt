@@ -19,6 +19,7 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.dash.DashMediaSource
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -275,6 +276,15 @@ class HlsFrameExtractor @Inject constructor(
             else -> DefaultMediaSourceFactory(dataSourceFactory).createMediaSource(mediaItem)
         }
         player = ExoPlayer.Builder(context)
+            // Stock DefaultRenderersFactory gives up when the platform HW
+            // decoder fails to initialize (seen with OMX.MTK.* on Fire Stick),
+            // killing every seek thumbnail. Fallback + extension decoders let
+            // ExoPlayer switch codec instead of erroring out.
+            .setRenderersFactory(
+                DefaultRenderersFactory(context)
+                    .setEnableDecoderFallback(true)
+                    .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            )
             .setLoadControl(
                 DefaultLoadControl.Builder()
                     .setBufferDurationsMs(

@@ -8,6 +8,39 @@ import com.nuvio.tv.domain.model.Stream
 import com.nuvio.tv.domain.model.StreamDebridCacheState
 
 object StreamAutoPlaySelector {
+    // The autoplay regex is user-provided and rarely changes, but it is
+    // re-evaluated on every stream-list emission: compile once and reuse.
+    private val regexCacheLock = Any()
+    private var cachedPattern: String? = null
+    private var cachedUserRegex: Regex? = null
+    private var cachedExcludeRegex: Regex? = null
+
+    private fun regexMatchers(pattern: String): Pair<Regex?, Regex?> {
+        synchronized(regexCacheLock) {
+            if (pattern == cachedPattern) {
+                return cachedUserRegex to cachedExcludeRegex
+            }
+        }
+        // Try to compile the user regex
+        val userRegex = runCatching { Regex(pattern, RegexOption.IGNORE_CASE) }.getOrNull()
+        // Auto-extract exclusion patterns from negative lookaheads
+        val exclusionMatches = Regex("\\(\\?![^)]*?\\(([^)]+)\\)").findAll(pattern)
+        val exclusionWords = exclusionMatches
+            .flatMap { match -> match.groupValues[1].split("|") }
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .toList()
+        val excludeRegex = if (exclusionWords.isNotEmpty()) {
+            Regex("\\b(${exclusionWords.joinToString("|")})\\b", RegexOption.IGNORE_CASE)
+        } else null
+        synchronized(regexCacheLock) {
+            cachedPattern = pattern
+            cachedUserRegex = userRegex
+            cachedExcludeRegex = excludeRegex
+        }
+        return userRegex to excludeRegex
+    }
+
     fun orderAddonStreams(
         streams: List<AddonStreams>,
         installedOrder: List<String>
@@ -101,23 +134,9 @@ object StreamAutoPlaySelector {
             StreamAutoPlayMode.FIRST_STREAM -> candidateStreams.firstOrNull { isPlayable(it) }
             StreamAutoPlayMode.REGEX_MATCH -> {
                 val pattern = regexPattern.trim()
- 
-                // Try to compile the user regex
-                val userRegex = runCatching { Regex(pattern, RegexOption.IGNORE_CASE) }.getOrNull()
+
+                val (userRegex, excludeRegex) = regexMatchers(pattern)
                 if (userRegex == null) return null
-
-                // Auto-extract exclusion patterns from negative lookaheads
-                val exclusionMatches = Regex("\\(\\?![^)]*?\\(([^)]+)\\)").findAll(pattern)
-
-                val exclusionWords = exclusionMatches
-                    .flatMap { match -> match.groupValues[1].split("|") }
-                    .map { it.trim() }
-                    .filter { it.isNotBlank() }
-                    .toList()
-
-                val excludeRegex = if (exclusionWords.isNotEmpty()) {
-                    Regex("\\b(${exclusionWords.joinToString("|")})\\b", RegexOption.IGNORE_CASE)
-                } else null
 
                 // 1. Build list of ALL regex‑matching streams
                 val matchingStreams = candidateStreams.filter { stream ->

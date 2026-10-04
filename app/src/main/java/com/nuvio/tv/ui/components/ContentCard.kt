@@ -73,7 +73,6 @@ import coil3.request.crossfade
 import com.nuvio.tv.ui.util.localizedContentType
 import com.nuvio.tv.ui.screens.home.rememberNextEpisodeDateLabel
 import com.nuvio.tv.ui.util.recompositionHighlighter
-import com.nuvio.tv.ui.screens.home.LocalFastScrollActive
 import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
 import com.nuvio.tv.ui.theme.ThemeColors
 import com.nuvio.tv.ui.util.rememberLongPressKeyTracker
@@ -177,7 +176,6 @@ fun ContentCard(
 
     // Only pay the animation cost on the card that is actually focused/expanding.
     // Unfocused cards snap directly to baseCardWidth — no animation state overhead.
-    val isFastScrollActive = LocalFastScrollActive.current.value
     val animatedCardWidth = when {
         !focusedPosterBackdropExpandEnabled -> baseCardWidth
         !isFocused && !isBackdropExpanded -> baseCardWidth
