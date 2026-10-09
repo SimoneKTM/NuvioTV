@@ -1,6 +1,7 @@
 package com.nuvio.tv
 
 import android.app.Application
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.os.Build
 import android.os.StrictMode
@@ -42,6 +43,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var androidTvChannelSyncService: AndroidTvChannelSyncService
     @Inject lateinit var sentrySettingsDataStore: SentrySettingsDataStore
     @Inject lateinit var simklAnimeIdPreferenceHolder: SimklAnimeIdPreferenceHolder
+    @Inject lateinit var trailerPlayerPool: com.nuvio.tv.core.player.TrailerPlayerPool
 
     companion object {
         /** Let the splash/profile render before background startup work begins. */
@@ -110,6 +112,21 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             { startupHomePreloader.ensureStarted() },
             STARTUP_HOME_PRELOAD_DELAY_MS
         )
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (!this::trailerPlayerPool.isInitialized) return
+        when {
+            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> {
+                runCatching { trailerPlayerPool.trim() }
+                runCatching { SingletonImageLoader.get(this).memoryCache?.clear() }
+                runCatching { System.gc() }
+            }
+            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> {
+                runCatching { trailerPlayerPool.trim() }
+            }
+        }
     }
 
     override fun newImageLoader(context: android.content.Context): ImageLoader {

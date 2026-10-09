@@ -38,6 +38,9 @@ class TrailerPlayerPool @Inject constructor(
 ) {
     companion object {
         private const val TAG = "TrailerPlayerPool"
+
+        /** Hard ceiling for the shared preview buffer, independent of bitrate. */
+        private const val TRAILER_TARGET_BUFFER_BYTES = 8 * 1024 * 1024
     }
 
     private var _player: ExoPlayer? = null
@@ -99,6 +102,23 @@ class TrailerPlayerPool @Inject constructor(
     }
 
     /**
+     * Frees the trailer player (codec + preview buffer) when the system reports
+     * memory pressure. Unlike [release] this keeps the pool usable: the next
+     * [acquire] rebuilds a fresh instance.
+     */
+    fun trim() {
+        if (released.get() || _player == null) return
+        Log.d(TAG, "Trimming trailer player after memory pressure")
+        _player?.let { player ->
+            runCatching { player.stop() }
+            runCatching { player.clearMediaItems() }
+            runCatching { player.release() }
+        }
+        _player = null
+        yielded.set(true)
+    }
+
+    /**
      * Permanently releases the player. Called on process death / Application.onTerminate.
      */
     fun release() {
@@ -118,11 +138,16 @@ class TrailerPlayerPool @Inject constructor(
         }
         Log.d(TAG, "Creating shared trailer ExoPlayer instance with forceNativeAllocation = $forceNative")
         val loadControlBuilder = DefaultLoadControl.Builder()
+            // A trailer preview is a few seconds long and runs behind the home screen, so it
+            // gets a byte ceiling as well as a short time window: without targetBufferBytes
+            // the only limit is 120s of video, which at forced-highest bitrate reaches
+            // 30-150MB on a 1GB device and gets the process killed by lmkd.
+            .setTargetBufferBytes(TRAILER_TARGET_BUFFER_BYTES)
             .setBufferDurationsMs(
-                /* minBufferMs = */ 30_000,
-                /* maxBufferMs = */ 120_000,
-                /* bufferForPlaybackMs = */ 5_000,
-                /* bufferForPlaybackAfterRebufferMs = */ 10_000
+                /* minBufferMs = */ 10_000,
+                /* maxBufferMs = */ 20_000,
+                /* bufferForPlaybackMs = */ 1_500,
+                /* bufferForPlaybackAfterRebufferMs = */ 3_000
             )
         if (forceNative) {
             val allocator = DefaultAllocator(
