@@ -36,6 +36,7 @@ import com.nuvio.tv.domain.model.LibraryEntryInput
 import com.nuvio.tv.domain.model.ListMembershipChanges
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MetaPreview
+import com.nuvio.tv.domain.model.isPlaceholder
 import com.nuvio.tv.data.repository.MDBListRepository
 import com.nuvio.tv.data.repository.OmdbAwardsRepository
 import com.nuvio.tv.data.repository.TraktTop10Repository
@@ -952,8 +953,15 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun publishLatestReleaseItems(items: List<CalendarItem>) {
-        if (_uiState.value.latestReleaseItems == items) return
-        _uiState.update { it.copy(latestReleaseItems = items) }
+        // Nasconde dalla riga "Ultime Uscite" i titoli prive di logo stilizzato.
+        // Il filtro gira dopo l'arricchimento TMDB, quindi i titoli che
+        // acquistano un logo in seguito vengono mostrati senza popup.
+        val withLogo = items.filter { item ->
+            val logo = item.meta.logo
+            !logo.isNullOrBlank() && !logo.isPlaceholder()
+        }
+        if (_uiState.value.latestReleaseItems == withLogo) return
+        _uiState.update { it.copy(latestReleaseItems = withLogo) }
         scheduleUpdateCatalogRows()
     }
 
