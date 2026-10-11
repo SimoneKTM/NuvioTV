@@ -109,8 +109,8 @@ android {
         applicationId = "com.nuvio.tv"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1102
-        versionName = "1.0.58"
+        versionCode = 1103
+        versionName = "1.0.59"
 
         buildConfigField("String", "PARENTAL_GUIDE_API_URL", buildConfigString(resolveProperty(devProperties, localProperties, "PARENTAL_GUIDE_API_URL")))
         buildConfigField("String", "INTRODB_API_URL", "\"${localProperties.getProperty("INTRODB_API_URL", "")}\"")
@@ -306,6 +306,16 @@ android {
             // https://developer.android.com/guide/app-bundle/configure-base
             enableSplit = false
         }
+    }
+
+    androidResources {
+        // Fire TV Stick HD (2 GB): only ship the languages actually used.
+        // The base English `values/` is always kept; this trims ~32 other
+        // locale folders out of resources.arsc → smaller APK and less memory
+        // held by the AssetManager on low-RAM sticks.
+        // values-v31 is a *version* qualifier (themes), not a locale, so it
+        // is unaffected by this filter.
+        localeFilters += listOf("en", "it")
     }
 
     compileOptions {
