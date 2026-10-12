@@ -836,7 +836,12 @@ fun ModernHomeContent(
                 derivedStateOf {
                     val (heroBackdrop, resolvedHero, enrichmentActive) = resolvedHeroState.value
                     val (heroMediaUrl, heroMediaAudioUrl, heroMediaPlaybackKey) = heroMediaDataState.value
-                    val preview = if (enrichmentActive) null else resolvedHero
+                    // Durante l'arricchimento si mostra comunque il preview base del
+                    // titolo focalizzato: azzerrarlo lasciava l'hero senza logo né
+                    // titolo per tutto il tempo di risposta di TMDB (o per sempre se
+                    // la fetch non risolveva). I dati arricchiti lo rimpiazzano appena
+                    // arrivano, quindi il passaggio è solo un upgrade.
+                    val preview = resolvedHero
                     ModernHeroSceneState(
                         heroBackdrop = heroBackdrop,
                         preview = preview,
@@ -1039,20 +1044,20 @@ fun ModernHomeContent(
             }
 
             HeroTitleBlock(
+                // Nessun gate sull'arricchimento: il titolo/logo base resta visibile
+                // finché TMDB non risponde, così la hero non resta mai vuota mentre
+                // si scorre (il dato arricchito arriva come upgrade).
                 previewProvider = {
                     val state = heroSceneStateLambda()
-                    if (isRapidHorizontalNav.value || state.enrichmentActive) null
+                    if (isRapidHorizontalNav.value) null
                     else state.preview
                 },
                 metaPreviewProvider = {
                     val state = heroSceneStateLambda()
-                    if (isRapidHorizontalNav.value || state.enrichmentActive || isScrollInProgressUpdated) null
+                    if (isRapidHorizontalNav.value || isScrollInProgressUpdated) null
                     else activeCarouselItemState.value?.metaPreview
                 },
-                enrichmentActive = {
-                    if (isRapidHorizontalNav.value) false
-                    else heroSceneStateLambda().enrichmentActive
-                },
+                enrichmentActive = { false },
                 portraitMode = !useLandscapePosters,
                 trailerPlaying = {
                     if (isRapidHorizontalNav.value) false

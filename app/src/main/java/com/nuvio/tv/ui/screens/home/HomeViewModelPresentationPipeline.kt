@@ -563,6 +563,18 @@ internal fun HomeViewModel.onItemFocusPipeline(item: MetaPreview) {
                 addEnrichedPreview(item.id, enriched)
             }
             if (_enrichingItemId.value == item.id) setEnrichingItemId(null)
+            // Un arricchimento rimasto appeso a un altro item è ormai stale: questo
+            // focus ha preso il ramo breve, per cui il cancel del percorso normale
+            // (più sotto) non è mai partito. Rilasciarlo qui, o una fetch bloccata
+            // tiene aperto il gate della hero (e blocca il self-heal del titolo)
+            // per tutti i focus successivi.
+            if (_enrichingItemId.value != null && _enrichingItemId.value != item.id) {
+                tmdbEnrichFocusJob?.cancel()
+                setEnrichingItemId(null)
+                if (pendingTmdbEnrichItemId != null && pendingTmdbEnrichItemId != item.id) {
+                    pendingTmdbEnrichItemId = null
+                }
+            }
             // Still prefetch full meta in background for instant detail screen.
             prefetchBackgroundMetaForItem(item)
             return
