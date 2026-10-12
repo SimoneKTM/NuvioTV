@@ -41,18 +41,30 @@ class TrailerPlayerPool @Inject constructor(
 
         /** Hard ceiling for the shared preview buffer, independent of bitrate. */
         private const val TRAILER_TARGET_BUFFER_BYTES = 8 * 1024 * 1024
+
+        /**
+         * Dopo un [trim] dovuto a pressione di memoria non ricreare subito il decoder:
+         * sotto lmkd un nuovo codec appena rilasciato risomma il processo. La UI
+         * mostra lo sfondo statico finché il cooldown non scade.
+         */
+        private const val TRAILER_TRIM_COOLDOWN_MS = 60_000L
     }
 
     private var _player: ExoPlayer? = null
     private val yielded = AtomicBoolean(false)
     private val released = AtomicBoolean(false)
 
+    @Volatile
+    private var trimCooldownUntilMs = 0L
+
     /**
      * Returns the shared trailer ExoPlayer, creating it lazily if needed.
-     * Returns null only if [release] was called (process shutdown).
+     * Returns null only if [release] was called (process shutdown) or while a
+     * post-[trim] cooldown is active (system under memory pressure).
      */
     fun acquire(): ExoPlayer? {
         if (released.get()) return null
+        if (android.os.SystemClock.elapsedRealtime() < trimCooldownUntilMs) return null
         if (yielded.get()) {
             // Reclaim was not called yet but someone wants the player — rebuild.
             reclaim()
@@ -116,6 +128,7 @@ class TrailerPlayerPool @Inject constructor(
         }
         _player = null
         yielded.set(true)
+        trimCooldownUntilMs = android.os.SystemClock.elapsedRealtime() + TRAILER_TRIM_COOLDOWN_MS
     }
 
     /**
@@ -162,10 +175,15 @@ class TrailerPlayerPool @Inject constructor(
         val trackSelector = DefaultTrackSelector(context).apply {
             setParameters(
                 buildUponParameters()
-                    .setMaxVideoSizeSd()
-                    .clearVideoSizeConstraints()
+                    // Anteprima di sfondo su device low-RAM: max 720p.
+                    // La vecchia configurazione annullava ogni vincolo
+                    // (.clearVideoSizeConstraints + setMaxVideoSize(MAX,MAX)) e
+                    // forzava la variante più alta disponibile su YouTube, fino a 4K:
+                    // i buffer del decoder da ~130 MB di ION più la memoria GPU
+                    // facevano esplodere il processo a ~700 MB e lmkd lo uccideva
+                    // su queste Stick da 1 GB. A 720p l'anteprima occupa ~20 MB.
+                    .setMaxVideoSize(1280, 720)
                     .setForceHighestSupportedBitrate(true)
-                    .setMaxVideoSize(Integer.MAX_VALUE, Integer.MAX_VALUE)
             )
         }
         return ExoPlayer.Builder(context)
@@ -173,7 +191,9 @@ class TrailerPlayerPool @Inject constructor(
             .setTrackSelector(trackSelector)
             .setBandwidthMeter(
                 DefaultBandwidthMeter.Builder(context)
-                    .setInitialBitrateEstimate(50_000_000L) // 50 Mbps – force highest HLS variant from start
+                    // 8 Mbps: sufficiente per la variante 720p più alta, e impedisce
+                    // che la stima iniziale spinga subito la selezione verso 4K.
+                    .setInitialBitrateEstimate(8_000_000L)
                     .build()
             )
             .setVideoChangeFrameRateStrategy(C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS)

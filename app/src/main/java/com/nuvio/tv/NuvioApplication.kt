@@ -5,6 +5,7 @@ import android.content.ComponentCallbacks2
 import android.content.Context
 import android.os.Build
 import android.os.StrictMode
+import android.util.Log
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.disk.DiskCache
@@ -46,6 +47,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var trailerPlayerPool: com.nuvio.tv.core.player.TrailerPlayerPool
 
     companion object {
+        private const val TAG = "NuvioApplication"
         /** Let the splash/profile render before background startup work begins. */
         private const val STARTUP_DEFERRED_INIT_DELAY_MS = 1_500L
         private const val STARTUP_CHANNEL_SYNC_DELAY_MS = 3_000L
@@ -116,6 +118,9 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
 
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
+        // Log.i sopravvive nel release: senza questo non era possibile capire se il
+        // sistema aveva davvero avvisato l'app prima del kill LMK.
+        Log.i(TAG, "onTrimMemory level=$level poolInitialized=${this::trailerPlayerPool.isInitialized}")
         if (!this::trailerPlayerPool.isInitialized) return
         when {
             level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> {
