@@ -2,6 +2,7 @@ package com.nuvio.tv.data.remote.supabase
 
 import android.util.Log
 import com.nuvio.tv.BuildConfig
+import com.nuvio.tv.core.diagnostics.logError
 import io.github.jan.supabase.postgrest.Postgrest
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -41,7 +42,7 @@ class AvatarRepository @Inject constructor(
             cachedCatalog = catalog
             return catalog
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to load avatar catalog from Supabase, using fallback", e)
+            logError(TAG, "Failed to load avatar catalog from Supabase, using fallback", e)
             val fallback = fallbackAvatarCatalog()
             cachedCatalog = fallback
             return fallback

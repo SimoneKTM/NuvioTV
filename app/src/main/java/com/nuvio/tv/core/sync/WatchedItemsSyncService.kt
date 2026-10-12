@@ -2,6 +2,7 @@ package com.nuvio.tv.core.sync
 
 import android.util.Log
 import com.nuvio.tv.core.auth.AuthManager
+import com.nuvio.tv.core.diagnostics.logError
 import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.core.tracking.TrackingProgressProviderRegistry
 import com.nuvio.tv.core.tracking.providerId
@@ -123,7 +124,7 @@ class WatchedItemsSyncService @Inject constructor(
             Log.d(TAG, "pushToRemote: ${items.size} watched items to push")
             pushItemsToRemote(items, updateLastSuccessfulPush = true, profileId = profileId)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to push watched items to remote", e)
+            logError(TAG, "Failed to push watched items to remote", e)
             Result.failure(e)
         }
     }
@@ -164,7 +165,7 @@ class WatchedItemsSyncService @Inject constructor(
             }
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to push watched item batch to remote", e)
+            logError(TAG, "Failed to push watched item batch to remote", e)
             Result.failure(e)
         }
     }
@@ -212,7 +213,7 @@ class WatchedItemsSyncService @Inject constructor(
             Log.d(TAG, "pullFromRemote: fetched ${allItems.size} total watched items from Supabase for profile $profileId")
             Result.success(allItems)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to pull watched items from remote", e)
+            logError(TAG, "Failed to pull watched items from remote", e)
             Result.failure(e)
         }
     }
@@ -253,7 +254,7 @@ class WatchedItemsSyncService @Inject constructor(
             }
             Result.success(result)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to pull watched items snapshot from remote", e)
+            logError(TAG, "Failed to pull watched items snapshot from remote", e)
             Result.failure(e)
         }
     }
@@ -348,7 +349,7 @@ class WatchedItemsSyncService @Inject constructor(
                 )
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to pull watched items delta from remote", e)
+            logError(TAG, "Failed to pull watched items delta from remote", e)
             Result.failure(e)
         }
     }
@@ -402,7 +403,7 @@ class WatchedItemsSyncService @Inject constructor(
             Log.d(TAG, "Deleted watched item from remote: $contentId s=$season e=$episode for profile $profileId")
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to delete watched item from remote", e)
+            logError(TAG, "Failed to delete watched item from remote", e)
             Result.failure(e)
         }
     }
@@ -435,7 +436,7 @@ class WatchedItemsSyncService @Inject constructor(
             Log.d(TAG, "Batch deleted ${episodes.size} watched items from remote for $contentId profile $profileId")
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to batch delete watched items from remote", e)
+            logError(TAG, "Failed to batch delete watched items from remote", e)
             Result.failure(e)
         }
     }

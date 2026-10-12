@@ -2,6 +2,7 @@ package com.nuvio.tv.core.sync
 
 import android.util.Log
 import com.nuvio.tv.core.auth.AuthManager
+import com.nuvio.tv.core.diagnostics.logError
 import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.core.tracking.TrackingProgressProviderRegistry
 import com.nuvio.tv.core.tracking.providerId
@@ -147,7 +148,7 @@ class WatchProgressSyncService @Inject constructor(
             Log.d(TAG, "Deleted ${distinctKeys.size} watch progress entries from remote for profile $profileId")
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to delete watch progress from remote", e)
+            logError(TAG, "Failed to delete watch progress from remote", e)
             Result.failure(e)
         }
     }
@@ -200,7 +201,7 @@ class WatchProgressSyncService @Inject constructor(
             markPushSucceeded(profileId)
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to push watch progress to remote", e)
+            logError(TAG, "Failed to push watch progress to remote", e)
             Result.failure(e)
         }
     }
@@ -243,7 +244,7 @@ class WatchProgressSyncService @Inject constructor(
             markPushSucceeded(profileId)
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to push single watch progress to remote", e)
+            logError(TAG, "Failed to push single watch progress to remote", e)
             Result.failure(e)
         }
     }
@@ -310,7 +311,7 @@ class WatchProgressSyncService @Inject constructor(
             Log.d(TAG, "pullFromRemote: normalized ${pulled.size} -> ${normalized.size} entries")
             Result.success(normalized)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to pull watch progress from remote", e)
+            logError(TAG, "Failed to pull watch progress from remote", e)
             Result.failure(e)
         }
     }
@@ -344,7 +345,7 @@ class WatchProgressSyncService @Inject constructor(
                 }
                 Result.success(result)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to pull watch progress snapshot from remote", e)
+                logError(TAG, "Failed to pull watch progress snapshot from remote", e)
                 Result.failure(e)
             }
         }
@@ -460,7 +461,7 @@ class WatchProgressSyncService @Inject constructor(
                 )
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to pull watch progress delta from remote", e)
+            logError(TAG, "Failed to pull watch progress delta from remote", e)
             Result.failure(e)
         }
     }

@@ -58,6 +58,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.Cache
+import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -131,6 +132,16 @@ object NetworkModule {
         }
         return OkHttpClient.Builder()
             .dns(IPv4FirstDns())
+            // OkHttp defaults to 64 in-flight requests and 5 per host. On a Home load the
+            // app was issuing ~46 concurrent calls across 11 hosts (6 of them to
+            // aiometadata.elfhosted.com), which saturated the 4-core stick, produced a
+            // TLS/certificate-trust storm and drove 43-58 MB of allocation churn per GC.
+            .dispatcher(
+                Dispatcher().apply {
+                    maxRequests = 12
+                    maxRequestsPerHost = 3
+                }
+            )
             .sslSocketFactory(sslContext.socketFactory, trustAllManager)
             .hostnameVerifier { _, _ -> true }
             .cache(Cache(File(context.cacheDir, "http_cache"), 50L * 1024 * 1024)) // 50 MB disk cache

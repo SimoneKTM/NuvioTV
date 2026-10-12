@@ -35,8 +35,13 @@ class HomeImagePreloader @Inject constructor(
     companion object {
         private const val TAG = "HomeImagePreloader"
         private const val ITEMS_PER_ROW = 12
-        private const val MAX_IMAGES = 180
-        private const val CONCURRENCY = 4
+        // 180 decodes x 4 concurrent workers produced 43-58 MB of throwaway bitmap
+        // allocations per GC cycle on the Fire TV Stick (logcat: "Background concurrent
+        // copying GC freed 1009536(58MB)"). Halved both: warm-up still fills the disk
+        // cache for the first paint, but with half the peak transient memory and far
+        // less CPU contention against the UI thread.
+        private const val MAX_IMAGES = 120
+        private const val CONCURRENCY = 2
         private const val PREFETCH_WIDTH_PX = 300
         private const val PREFETCH_HEIGHT_PX = 450
         private const val WARM_MEMORY_KEY_PREFIX = "warm_"

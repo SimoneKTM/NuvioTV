@@ -78,6 +78,20 @@ class TvChannelRefreshJobService : JobService() {
         return true // reschedule on stop
     }
 
+    /**
+     * Cancels the running job scope when the service is destroyed.
+     *
+     * Without this the coroutine launched in [onStartJob] outlives the service: it
+     * keeps the JobService alive, so Android reports
+     * "executing service ... reason = destroy, delay = 20022" as an ANR (observed on
+     * the Fire TV Stick, dropbox data_app_anr 2026-10-12 11:08:42).
+     */
+    override fun onDestroy() {
+        jobScope?.cancel()
+        jobScope = null
+        super.onDestroy()
+    }
+
     companion object {
         fun schedulePeriodic(context: Context) {
             val scheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler

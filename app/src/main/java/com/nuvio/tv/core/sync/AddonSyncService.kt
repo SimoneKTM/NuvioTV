@@ -2,6 +2,7 @@ package com.nuvio.tv.core.sync
 
 import android.util.Log
 import com.nuvio.tv.core.auth.AuthManager
+import com.nuvio.tv.core.diagnostics.logError
 import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.data.local.AddonPreferences
 import com.nuvio.tv.data.remote.supabase.SupabaseAddon
@@ -87,7 +88,7 @@ class AddonSyncService @Inject constructor(
             Log.d(TAG, "Pushed ${localUrls.size} addons to remote for profile $profileId")
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to push addons to remote", e)
+            logError(TAG, "Failed to push addons to remote", e)
             Result.failure(e)
         }
     }
@@ -130,7 +131,7 @@ class AddonSyncService @Inject constructor(
                 )
             )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to pull remote addon snapshot", e)
+            logError(TAG, "Failed to pull remote addon snapshot", e)
             Result.failure(e)
         }
     }

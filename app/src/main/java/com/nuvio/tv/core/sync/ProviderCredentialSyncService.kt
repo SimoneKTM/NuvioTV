@@ -4,6 +4,7 @@ import android.os.SystemClock
 import android.util.Log
 import com.nuvio.tv.core.auth.AuthManager
 import com.nuvio.tv.core.debrid.DebridProviders
+import com.nuvio.tv.core.diagnostics.logError
 import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.data.anilist.AniListAuthStorage
 import com.nuvio.tv.data.kitsu.KitsuAuthStorage
@@ -149,7 +150,7 @@ class ProviderCredentialSyncService @Inject constructor(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                Log.e(PROVIDER_CREDENTIAL_TAG, "Failed to synchronize provider credentials", error)
+                logError(PROVIDER_CREDENTIAL_TAG, "Failed to synchronize provider credentials", error)
                 Result.failure(error)
             }
         }
@@ -475,7 +476,7 @@ class ProviderCredentialSyncService @Inject constructor(
                 synchronized(stateLock) {
                     pendingScopes.add(credentialScope)
                 }
-                Log.e(
+                logError(
                     PROVIDER_CREDENTIAL_TAG,
                     "Failed to push local provider credential changes for profile ${snapshot.profileId}",
                     error

@@ -147,6 +147,16 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                                 .dns(IPv4FirstDns())
                                 .followRedirects(true)
                                 .followSslRedirects(true)
+                                // OkHttp defaults are 64 in-flight requests and 5 per host;
+                                // a single Home load was holding 6 parallel connections to
+                                // aiometadata.elfhosted.com and 46 live OkHttp threads. Image
+                                // fetches are the bulk of that traffic, so cap them here.
+                                .dispatcher(
+                                    okhttp3.Dispatcher().apply {
+                                        maxRequests = 8
+                                        maxRequestsPerHost = 2
+                                    }
+                                )
                                 // OkHttp defaults to 10s: poster/backdrop fetches on
                                 // slow sticks frequently exceed it, leaving blank cards.
                                 .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
@@ -162,8 +172,13 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                 // Bitmap pixels count against the Java heap on the Fire Stick (verified
                 // with a heap dump), so the old "33% of maxMemory" budget alone pushed
                 // the app past 250 MB and triggered low-memory kills. Fixed cap instead.
+                // The stick only has 922 MB of RAM and the app was reaching 646 MB at the
+                // Low Memory Killer threshold, so 32 MB of resident bitmaps on top of the
+                // video/GPU buffers is more than it can afford: 16 MB keeps a full screen
+                // of posters plus the hero backdrop hot and lets the rest fall back to the
+                // 200 MB disk cache.
                 MemoryCache.Builder()
-                    .maxSizeBytes(32L * 1024 * 1024)
+                    .maxSizeBytes(16L * 1024 * 1024)
                     .build()
             }
             .diskCache {
