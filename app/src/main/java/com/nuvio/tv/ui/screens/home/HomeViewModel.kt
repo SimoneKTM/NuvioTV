@@ -117,6 +117,9 @@ class HomeViewModel @Inject constructor(
         internal const val CONTINUE_WATCHING_ENRICHMENT_GRACE_PERIOD_MS = 400L
         private const val CONTINUE_WATCHING_WINDOW_MS = 30L * 24 * 60 * 60 * 1000
         private const val MAX_RECENT_PROGRESS_ITEMS = 300
+        // Fallback locale per "Ultimi uscite" quando la cache disco è vuota:
+        // abbastanza per una riga piena, senza aspettare rete o pipeline.
+        private const val CW_LOCAL_FALLBACK_ITEMS = 20
         private const val MAX_NEXT_UP_LOOKUPS = 24
         private const val MAX_NEXT_UP_CONCURRENCY = 4
         private const val MAX_CATALOG_LOAD_CONCURRENCY = 3
@@ -751,7 +754,27 @@ class HomeViewModel @Inject constructor(
                 .filterNot { isExtraPoolAddon(it.addonBaseUrl, extraBaseUrls) }
             val cachedNextUp = runCatching { cwEnrichmentCache.getNextUpSnapshot() }.getOrDefault(emptyList())
                 .filterNot { isExtraPoolAddon(it.addonBaseUrl, extraBaseUrls) }
-            if (cachedInProgress.isEmpty() && cachedNextUp.isEmpty()) return@launch
+            if (cachedInProgress.isEmpty() && cachedNextUp.isEmpty()) {
+                // Cache disco vuota (es. sessioni interrotte da kill): costruisci
+                // la riga dai progressi di visione LOCALI così "Ultimi uscite"
+                // compare insieme alla home invece di aspettare il pipeline
+                // completo (che su una Stick satura può impiegare decine di
+                // secondi per via dell'interrogaggio addon). Stile Netflix:
+                // la riga è first-class, l'enrichment è solo un miglioramento
+                // progressivo che la sostituisce appena pronto.
+                val localProgress = runCatching { watchProgressRepository.allProgress.first() }
+                    .getOrDefault(emptyList())
+                val localItems = localProgress
+                    .filter { !watchProgressRepository.isDroppedShow(it.contentId) }
+                    .sortedByDescending { it.lastWatched }
+                    .take(CW_LOCAL_FALLBACK_ITEMS)
+                    .map { progress -> ContinueWatchingItem.InProgress(progress = progress) }
+                if (localItems.isNotEmpty()) {
+                    _uiState.update { it.copy(continueWatchingItems = localItems) }
+                    _initialCwResolved.value = true
+                }
+                return@launch
+            }
             val dismissedNextUp = traktSettingsDataStore.dismissedNextUpKeys.first()
             // Render cached items immediately — don't wait for Trakt/allProgress.
             // The pipeline will replace these with live data once it completes.

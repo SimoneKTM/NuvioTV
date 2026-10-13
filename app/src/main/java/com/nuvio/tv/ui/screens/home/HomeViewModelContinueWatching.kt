@@ -52,6 +52,9 @@ private const val CW_MAX_NEXT_UP_LOOKUPS = 32
 private const val CW_MAX_NEXT_UP_CONCURRENCY = 4
 private const val CW_MAX_ENRICHMENT_CONCURRENCY = 4
 private const val CW_PROGRESS_DEBOUNCE_MS = 500L
+// Sotto pressione di memoria l'enrichment CW attende al massimo questo
+// budget prima di arrendersi (ripronte al prossimo ciclo del pipeline).
+private const val ENRICHMENT_PRESSURE_MAX_WAIT_MS = 60_000L
 
 private data class ProgressSnapshot(
     val items: List<WatchProgress>,
@@ -1195,6 +1198,24 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                 debug.recordEnrichmentDelay(enrichmentDelayMs)
                 if (enrichmentDelayMs > 0L) {
                     delay(enrichmentDelayMs)
+                }
+
+                // Sotto pressione di memoria l'enrichment (N chiamate TMDB per
+                // titolo) è il carico che fa ammalare una Stick da 1 GB: cede
+                // il campo e riprova, la riga resta visibile con i dati già
+                // disponibili (la pura sostituzione con i metadati arriva
+                // appena il sistema respira). collectLatest annulla questo
+                // atteso non appena un'emissione più fresca arriva.
+                if (com.nuvio.tv.core.diagnostics.MemoryWatch.underPressure) {
+                    debug.markPhase("enrichment-yield-pressure")
+                    var pressureWaitedMs = 0L
+                    while (
+                        com.nuvio.tv.core.diagnostics.MemoryWatch.underPressure &&
+                        pressureWaitedMs < ENRICHMENT_PRESSURE_MAX_WAIT_MS
+                    ) {
+                        delay(10_000L)
+                        pressureWaitedMs += 10_000L
+                    }
                 }
 
                 debug.markPhase("enrich-visible-items")

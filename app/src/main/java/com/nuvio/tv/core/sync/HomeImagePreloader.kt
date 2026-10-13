@@ -69,8 +69,21 @@ class HomeImagePreloader @Inject constructor(
             }
         }
         if (urls.isEmpty()) return@withContext true
+        warmTargets(urls.toList(), "catalog")
+    }
 
-        val targets = urls.toList()
+    /**
+     * Scarica su disco un set mirato di URL. Usato in modalità graduale per la
+     * riga "Ultimi uscite", che ha priorità assoluta sulle immagini di catalogo:
+     * la prima riga che l'utente apre dopo la home deve essere già pronta.
+     */
+    suspend fun warmUrls(urls: Collection<String>, label: String): Boolean = withContext(Dispatchers.IO) {
+        val targets = urls.filter { it.isNotBlank() }.distinct().take(MAX_IMAGES)
+        if (targets.isEmpty()) return@withContext true
+        warmTargets(targets, label)
+    }
+
+    private suspend fun warmTargets(targets: List<String>, label: String): Boolean {
         val imageLoader = context.imageLoader
         val semaphore = Semaphore(CONCURRENCY)
         coroutineScope {
@@ -96,7 +109,7 @@ class HomeImagePreloader @Inject constructor(
                 }
             }.awaitAll()
         }
-        Log.d(TAG, "Warmed ${targets.size} images from ${rows.size} rows")
-        true
+        Log.d(TAG, "Warmed ${targets.size} $label images")
+        return true
     }
 }

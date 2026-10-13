@@ -86,6 +86,10 @@ class StartupHomePreloader @Inject constructor(
         // arriva a rate dopo, mentre l'utente naviga.
         private const val GENTLE_RAM_KB_THRESHOLD = 1_677_721L // 1.6 GB
         private const val GENTLE_PHASE_PACE_MS = 1_500L
+        // La riga "Ultimi uscite" è la prima che l'utente apre dopo la home:
+        // le sue immagini partono subito (+1s), prima ancora di quelle di
+        // catalogo (+10s). Priorità Netflix: pronta, non "arriva dopo".
+        private const val GENTLE_CW_IMAGE_WARM_DELAY_MS = 1_000L
         private const val GENTLE_IMAGE_WARM_DELAY_MS = 10_000L
         private const val GENTLE_TRANSLATION_WARM_DELAY_MS = 30_000L
     }
@@ -223,6 +227,17 @@ class StartupHomePreloader @Inject constructor(
             }
             _ready.value = true
             if (gentleProfile) {
+                // Priorità alla riga "Ultimi uscite": le sue immagini (poster,
+                // sfondi, miniature episodi) partono subito dopo la home,
+                // prima ancora di quelle di catalogo.
+                scope.launch {
+                    delay(GENTLE_CW_IMAGE_WARM_DELAY_MS)
+                    val cwUrls = runCatching {
+                        cwEnrichmentCache.getNextUpSnapshot().mapNotNull { it.thumbnail ?: it.backdrop ?: it.poster } +
+                            cwEnrichmentCache.getInProgressSnapshot().mapNotNull { it.episodeThumbnail ?: it.backdrop ?: it.poster }
+                    }.getOrDefault(emptyList())
+                    runCatching { homeImagePreloader.warmUrls(cwUrls, "continue-watching") }
+                }
                 // Modalità graduale: le immagini scheda (poster/sfondi/loghi)
                 // scaricano su disco DOPO che la home è visibile, sfalsate —
                 // non nel gate. Lo scroll le trova già in disco man mano.
