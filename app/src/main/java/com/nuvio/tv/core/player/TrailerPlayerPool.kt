@@ -65,6 +65,9 @@ class TrailerPlayerPool @Inject constructor(
     fun acquire(): ExoPlayer? {
         if (released.get()) return null
         if (android.os.SystemClock.elapsedRealtime() < trimCooldownUntilMs) return null
+        // Sistema in zona di kill: niente nuovo decoder. La home mostra lo sfondo
+        // statico (già gestito da acquire() == null) finché non si respira.
+        if (com.nuvio.tv.core.diagnostics.MemoryWatch.underPressure) return null
         if (yielded.get()) {
             // Reclaim was not called yet but someone wants the player — rebuild.
             reclaim()

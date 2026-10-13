@@ -139,6 +139,18 @@ class StartupHomePreloader @Inject constructor(
     private fun startPreload() {
         preloadJob?.cancel()
         preloadJob = scope.launch {
+            // Differisce il burst di preload (cataloghi + immagini + trailer
+            // warm: il momento di massima allocazione dell'app) finché il
+            // sistema è in zona di kill. Su una Stick sature da 1 GB partire
+            // subito significa alimentare la spirale swap→morte per LMK.
+            // Il retry ogni 10s costa zero; dopo 2 minuti si parte comunque
+            // perché la home deve pur aprirsi.
+            var waitedMs = 0L
+            while (com.nuvio.tv.core.diagnostics.MemoryWatch.underPressure && waitedMs < 120_000L) {
+                if (waitedMs == 0L) Log.i(TAG, "preload deferred: system under memory pressure")
+                delay(10_000L)
+                waitedMs += 10_000L
+            }
             _ready.value = false
             val startedAt = android.os.SystemClock.elapsedRealtime()
             val fluidPerformance = fluidModeState.isEnabled()

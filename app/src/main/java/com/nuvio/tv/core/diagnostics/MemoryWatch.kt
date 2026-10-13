@@ -57,6 +57,16 @@ object MemoryWatch {
     @Volatile
     var onRelief: ((String) -> Unit)? = null
 
+    /**
+     * Vero quando il sistema è in zona di kill (stato HARD). Usato da trailer
+     * pool e preloader per NON aggiungere allocazioni mentre l'LMK sta per
+     * colpire: sotto pressione la home mostra lo sfondo statico invece di
+     * avviare decoder, e il preload viene differito.
+     */
+    @Volatile
+    var underPressure: Boolean = false
+        private set
+
     @Volatile
     private var pressureState = Pressure.NONE
 
@@ -177,6 +187,7 @@ object MemoryWatch {
         }
         val old = pressureState
         pressureState = newState
+        underPressure = newState == Pressure.HARD
 
         when {
             newState == Pressure.HARD && old != Pressure.HARD -> {

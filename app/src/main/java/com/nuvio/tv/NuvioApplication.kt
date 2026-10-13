@@ -101,7 +101,9 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         // liberiamo trailer + cache ~1 minuto prima che il processo venga
         // sacrificato, quando la liberatoria è ancora efficace.
         runCatching {
-            com.nuvio.tv.core.diagnostics.MemoryWatch.onRelief = ::relieveMemoryPressure
+            com.nuvio.tv.core.diagnostics.MemoryWatch.onRelief = { reason ->
+                relieveMemoryPressure(reason, full = true)
+            }
         }
 
         // Warm the Fluid Mode zoom mirror for the same reason as the locale above:
@@ -131,6 +133,19 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         )
     }
 
+    /**
+     * Thread dedicato per la liberatoria: su una Stick affamata, System.gc() e
+     * il rilascio del codec (binder + teardown) sul main thread congelavano la
+     * UI per secondi — il "blocco" percepito prima di alcuni kill. ExoPlayer è
+     * thread-safe per release(); Coil e ART idem.
+     */
+    private val reliefExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "nuvio-memory-relief").apply { isDaemon = true }
+    }
+
+    @Volatile
+    private var lastReliefAtMs = 0L
+
     override fun onTrimMemory(level: Int) {
         super.onTrimMemory(level)
         // Log.i sopravvive nel release: senza questo non era possibile capire se il
@@ -138,26 +153,42 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         Log.i(TAG, "onTrimMemory level=$level poolInitialized=${this::trailerPlayerPool.isInitialized}")
         if (!this::trailerPlayerPool.isInitialized) return
         when {
-            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> relieveMemoryPressure("lmkd-level$level")
+            // Livello 80 (COMPLETE): lmkd lo invia POCHI istANTI prima del kill —
+            // qui si fa tutto, gc incluso, ogni risparmio conta.
+            level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE ->
+                relieveMemoryPressure("lmkd-level$level", full = true)
+            // Su questa Fire OS il livello 15 arriva PRESTO (anche con 200 MB
+            // liberi): solo azioni economiche, niente gc — un gc qui era la
+            // causa dei blocchi percepiti sulla home.
+            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL ->
+                relieveMemoryPressure("lmkd-level$level", full = false)
             level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> {
-                runCatching { trailerPlayerPool.trim() }
+                reliefExecutor.execute { runCatching { trailerPlayerPool.trim() } }
             }
         }
     }
 
     /**
-     * Percorso unico di liberatoria di memoria. Usato dal governor di pressione
-     * di MemoryWatch (autonomo, ~1 minuto prima del kill) e da onTrimMemory
-     * (segnale di lmkd). Il trailer è la risorsa più grande che possiamo
-     * rilasciare su richiesta: il trim misurato nel release è ~200 MB di heap
-     * nativo; la cache immagini (16 MB) si ricostruisce dal disco.
+     * Percorso unico di liberatoria di memoria, sempre su thread dedicato.
+     * Usato dal governor di pressione di MemoryWatch (autonomo, ~1 minuto prima
+     * del kill) e da onTrimMemory (segnali di lmkd). economico = trailer + cache
+     * immagini; full = anche System.gc(). Il trailer è la risorsa più grande
+     * che possiamo rilasciare su richiesta: misurato ~200 MB di heap nativo.
      */
-    private fun relieveMemoryPressure(reason: String) {
-        Log.w(TAG, "relieveMemoryPressure($reason)")
-        if (!this::trailerPlayerPool.isInitialized) return
-        runCatching { trailerPlayerPool.trim() }
-        runCatching { SingletonImageLoader.get(this).memoryCache?.clear() }
-        runCatching { System.gc() }
+    private fun relieveMemoryPressure(reason: String, full: Boolean) {
+        Log.w(TAG, "relieveMemoryPressure($reason) full=$full")
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (!full && now - lastReliefAtMs < 15_000L) {
+            Log.i(TAG, "relief debounced ($reason)")
+            return
+        }
+        lastReliefAtMs = now
+        reliefExecutor.execute {
+            if (!this::trailerPlayerPool.isInitialized) return@execute
+            runCatching { trailerPlayerPool.trim() }
+            runCatching { SingletonImageLoader.get(this).memoryCache?.clear() }
+            if (full) runCatching { System.gc() }
+        }
     }
 
     override fun newImageLoader(context: android.content.Context): ImageLoader {
