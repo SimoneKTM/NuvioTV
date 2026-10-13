@@ -94,6 +94,16 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         // allocation bursts — the LMK kills left us blind until now.
         runCatching { com.nuvio.tv.core.diagnostics.MemoryWatch.start() }
 
+        // Governor di pressione: lmkd avvisa (onTrimMemory livello 15) solo
+        // all'emergenza assoluta, e nei kill documentati l'avviso non arrivava
+        // mai in tempo. MemoryWatch legge MemAvailable/SwapFree dal sistema
+        // ogni 10s e chiama questo callback appena entrano in zona di kill:
+        // liberiamo trailer + cache ~1 minuto prima che il processo venga
+        // sacrificato, quando la liberatoria è ancora efficace.
+        runCatching {
+            com.nuvio.tv.core.diagnostics.MemoryWatch.onRelief = ::relieveMemoryPressure
+        }
+
         // Warm the Fluid Mode zoom mirror for the same reason as the locale above:
         // MainActivity reads it in attachBaseContext to decide the density scale.
         LayoutPreferenceDataStore.readFluidZoomMirror(this)
@@ -128,15 +138,26 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         Log.i(TAG, "onTrimMemory level=$level poolInitialized=${this::trailerPlayerPool.isInitialized}")
         if (!this::trailerPlayerPool.isInitialized) return
         when {
-            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> {
-                runCatching { trailerPlayerPool.trim() }
-                runCatching { SingletonImageLoader.get(this).memoryCache?.clear() }
-                runCatching { System.gc() }
-            }
+            level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> relieveMemoryPressure("lmkd-level$level")
             level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> {
                 runCatching { trailerPlayerPool.trim() }
             }
         }
+    }
+
+    /**
+     * Percorso unico di liberatoria di memoria. Usato dal governor di pressione
+     * di MemoryWatch (autonomo, ~1 minuto prima del kill) e da onTrimMemory
+     * (segnale di lmkd). Il trailer è la risorsa più grande che possiamo
+     * rilasciare su richiesta: il trim misurato nel release è ~200 MB di heap
+     * nativo; la cache immagini (16 MB) si ricostruisce dal disco.
+     */
+    private fun relieveMemoryPressure(reason: String) {
+        Log.w(TAG, "relieveMemoryPressure($reason)")
+        if (!this::trailerPlayerPool.isInitialized) return
+        runCatching { trailerPlayerPool.trim() }
+        runCatching { SingletonImageLoader.get(this).memoryCache?.clear() }
+        runCatching { System.gc() }
     }
 
     override fun newImageLoader(context: android.content.Context): ImageLoader {

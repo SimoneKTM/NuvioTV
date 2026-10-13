@@ -26,6 +26,43 @@ object MemoryWatch {
     private const val INTERVAL_MS = 10_000L
     private const val FIRST_DELAY_MS = 5_000L
 
+    /**
+     * Soglie di pressione del SISTEMA lette da /proc/meminfo.
+     *
+     * Tutti i kill LMK documentati seguono lo stesso schema: lo SwapFree della
+     * Stick collassa da ~115 MB a 0 in ~80 s (lo zRAM si riempie delle nostre
+     * pagine anonime) e lmkd sacrifica il processo in primo piano. A quel punto
+     * l'avviso di lmkd (onTrimMemory livello 15) non serve più: serve liberare
+     * PRIMA. I valori under-soglia di MemAvailable/SwapFree sono raggiungibili
+     * in-process a costo zero e anticipano il kill di circa un minuto.
+     */
+    private const val HARD_PRESSURE_SWAP_KB = 40_000L
+    private const val HARD_PRESSURE_AVAIL_KB = 90_000L
+    private const val SOFT_PRESSURE_AVAIL_KB = 150_000L
+    private const val SOFT_PRESSURE_SWAP_KB = 100_000L
+    private const val RELEASE_AVAIL_KB = 250_000L
+    private const val RELEASE_SWAP_KB = 180_000L
+
+    /** Evita di liberare più di una volta quando il valore oscilla attorno alla soglia. */
+    private const val RELIEF_MIN_INTERVAL_MS = 30_000L
+
+    private enum class Pressure { NONE, SOFT, HARD }
+
+    /**
+     * Invocato (una volta per episodio) quando il sistema entra in pressione
+     * critica: l'application libera trailer + cache immagini prima che lmkd
+     * uccida il processo. Al callback NON vanno fatte chiamate bloccanti lunghe:
+     * gira sul main handler del sampler.
+     */
+    @Volatile
+    var onRelief: ((String) -> Unit)? = null
+
+    @Volatile
+    private var pressureState = Pressure.NONE
+
+    @Volatile
+    private var lastReliefAtMs = 0L
+
     private val handler = Handler(Looper.getMainLooper())
     private var startedAtMs = 0L
 
@@ -93,6 +130,21 @@ object MemoryWatch {
             }
         }
 
+        // Stato di memoria del sistema: determina quando intervenire con il
+        // sollievo (trim trailer + cache) prima che lmkd uccida il processo.
+        var memAvailKb = -1L
+        var swapFreeKb = -1L
+        runCatching {
+            File("/proc/meminfo").forEachLine { line ->
+                val value = line.substringAfter(':').trim()
+                when {
+                    line.startsWith("MemAvailable:") -> memAvailKb = value.removeSuffix("kB").trim().toLongOrNull() ?: -1L
+                    line.startsWith("SwapFree:") -> swapFreeKb = value.removeSuffix("kB").trim().toLongOrNull() ?: -1L
+                }
+            }
+        }
+        evaluatePressure(memAvailKb, swapFreeKb, rssKb, swapKb)
+
         val rt = Runtime.getRuntime()
         val heapUsedKb = (rt.totalMemory() - rt.freeMemory()) / 1024
 
@@ -101,7 +153,53 @@ object MemoryWatch {
             "t=${elapsedS}s totalPss=${totalPssKb}kB javaHeap=${javaHeapKb}kB nativeHeap=${nativeHeapKb}kB " +
                 "code=${codeKb}kB graphics=${graphicsKb}kB privOther=${privOtherKb}kB | " +
                 "rtHeap=${heapUsedKb}/${rt.maxMemory() / 1024}kB nativeAlloc=${Debug.getNativeHeapAllocatedSize() / 1024}kB | " +
-                "rss=${rssKb}kB swap=${swapKb}kB vmSize=${vmSizeKb}kB thr=$threads"
+                "rss=${rssKb}kB swap=${swapKb}kB vmSize=${vmSizeKb}kB thr=$threads " +
+                "| sysAvail=${memAvailKb}kB sysSwapFree=${swapFreeKb}kB"
         )
+    }
+
+    /**
+     * Macchina a stati con isteresi su MemAvailable/SwapFree.
+     *
+     * - HARD  → zona di kill LMK (SwapFree < 40 MB oppure MemAvailable < 90 MB):
+     *           si invoca [onRelief] per liberare subito trailer + cache.
+     * - SOFT  → log diagnostico senza azioni (evita trim inutili).
+     * - NONE  → condizioni di recupero: la prossima ripresa è di nuovo libera.
+     * Valori di parse non validi (-1) mantengono lo stato corrente.
+     */
+    private fun evaluatePressure(memAvailKb: Long, swapFreeKb: Long, rssKb: Long, swapKb: Long) {
+        val within = { value: Long, limit: Long -> value >= 0L && value <= limit }
+        val newState = when {
+            within(swapFreeKb, HARD_PRESSURE_SWAP_KB) || within(memAvailKb, HARD_PRESSURE_AVAIL_KB) -> Pressure.HARD
+            within(memAvailKb, SOFT_PRESSURE_AVAIL_KB) && within(swapFreeKb, SOFT_PRESSURE_SWAP_KB) -> Pressure.SOFT
+            memAvailKb > RELEASE_AVAIL_KB && swapFreeKb > RELEASE_SWAP_KB -> Pressure.NONE
+            else -> pressureState
+        }
+        val old = pressureState
+        pressureState = newState
+
+        when {
+            newState == Pressure.HARD && old != Pressure.HARD -> {
+                Log.w(
+                    TAG,
+                    "PRESSURE HARD avail=${memAvailKb}kB swapFree=${swapFreeKb}kB " +
+                        "rss=${rssKb}kB swap=${swapKb}kB — releasing trailer+cache"
+                )
+                val now = android.os.SystemClock.elapsedRealtime()
+                if (now - lastReliefAtMs >= RELIEF_MIN_INTERVAL_MS) {
+                    lastReliefAtMs = now
+                    onRelief?.let { relief ->
+                        runCatching { relief("system-hard avail=${memAvailKb}kB swapFree=${swapFreeKb}kB") }
+                            .onFailure { Log.w(TAG, "relief callback failed: ${it.javaClass.simpleName}") }
+                    }
+                }
+            }
+            newState == Pressure.SOFT && old == Pressure.NONE -> {
+                Log.w(TAG, "PRESSURE SOFT avail=${memAvailKb}kB swapFree=${swapFreeKb}kB rss=${rssKb}kB")
+            }
+            newState == Pressure.NONE && old != Pressure.NONE -> {
+                Log.i(TAG, "pressure released, avail=${memAvailKb}kB swapFree=${swapFreeKb}kB")
+            }
+        }
     }
 }
