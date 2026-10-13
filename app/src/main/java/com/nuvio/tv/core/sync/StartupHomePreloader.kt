@@ -77,6 +77,17 @@ class StartupHomePreloader @Inject constructor(
         // Trailer warm-up: bounded so a slow extraction never holds the gate.
         private const val TRAILER_WARM_BUDGET_MS = 30_000L
         private const val TRAILER_WARM_COUNT = 6
+
+        // Modalità graduale (stile Netflix) per dispositivi con poca RAM: sotto
+        // questa classe di memoria il burst di avvio (tutti i cataloghi + tutte
+        // le immagini scheda + 6 estrazioni trailer in un minuto) satura la
+        // Stick e lmkd uccide il processo. Invece di un temporale: il gate
+        // aspetta solo il minimo per una prima schermata utile, il resto
+        // arriva a rate dopo, mentre l'utente naviga.
+        private const val GENTLE_RAM_KB_THRESHOLD = 1_677_721L // 1.6 GB
+        private const val GENTLE_PHASE_PACE_MS = 1_500L
+        private const val GENTLE_IMAGE_WARM_DELAY_MS = 10_000L
+        private const val GENTLE_TRANSLATION_WARM_DELAY_MS = 30_000L
     }
 
     // Warm-ups run on a background-priority thread: on low-end TV sticks the
@@ -107,13 +118,34 @@ class StartupHomePreloader @Inject constructor(
 
     private val _started = MutableStateFlow(false)
 
+    /**
+     * true su dispositivi con RAM sotto soglia (Fire TV Stick da 1 GB):
+     * attiva la politica di caricamento graduale invece del burst di avvio.
+     */
+    private val gentleProfile: Boolean by lazy {
+        runCatching {
+            var memTotalKb = 0L
+            java.io.File("/proc/meminfo").forEachLine { line ->
+                if (line.startsWith("MemTotal:")) {
+                    memTotalKb = line.substringAfter(':').removeSuffix("kB").trim().toLongOrNull() ?: 0L
+                }
+            }
+            memTotalKb in 1L until GENTLE_RAM_KB_THRESHOLD
+        }.getOrDefault(false)
+    }
+
     fun ensureStarted() {
         if (!_started.compareAndSet(expect = false, update = true)) return
-        Log.i(TAG, "preload requested (startup gate opened)")
+        Log.i(TAG, "preload requested (startup gate opened) profile=${if (gentleProfile) "gentle-lowram" else "full"}")
 
         // Fire-and-forget: pre-download the translation model once so the first
         // detail screen doesn't stall waiting for a multi-MB ML Kit download.
-        warmUpScope.launch { warmUpTranslationModel() }
+        // In modalità graduale parte con ritardo: il modello è un carico nativo
+        // da alcuni MB e non deve competere con il primo rendering della home.
+        warmUpScope.launch {
+            if (gentleProfile) delay(GENTLE_TRANSLATION_WARM_DELAY_MS)
+            warmUpTranslationModel()
+        }
 
         profileWatchJob = scope.launch {
             var lastProfileId = profileManager.activeProfileId.value
@@ -190,6 +222,15 @@ class StartupHomePreloader @Inject constructor(
                 }
             }
             _ready.value = true
+            if (gentleProfile) {
+                // Modalità graduale: le immagini scheda (poster/sfondi/loghi)
+                // scaricano su disco DOPO che la home è visibile, sfalsate —
+                // non nel gate. Lo scroll le trova già in disco man mano.
+                scope.launch {
+                    delay(GENTLE_IMAGE_WARM_DELAY_MS)
+                    runCatching { homeImagePreloader.warmImages() }
+                }
+            }
             // Solo se tutto è andato davvero a buon fine: il prossimo avvio è caldo.
             if (complete) {
                 runCatching { startupWarmupPreferences.markFirstHomeReady() }
@@ -207,9 +248,20 @@ class StartupHomePreloader @Inject constructor(
         var complete = true
 
         // Kick warm-ups early (no-ops if already running).
-        catalogRepository.warmUp()
-        calendarRepository.warmUp()
-        traktTop10Repository.warmUp()
+        if (gentleProfile) {
+            // Pacing: i tre fetch partono sfalsati invece che insieme, così il
+            // picco di allocazione del parsing si spezza in piccoletti che il
+            // GC di una Stick da 1 GB riesce a smaltire.
+            catalogRepository.warmUp()
+            delay(GENTLE_PHASE_PACE_MS)
+            calendarRepository.warmUp()
+            delay(GENTLE_PHASE_PACE_MS)
+            traktTop10Repository.warmUp()
+        } else {
+            catalogRepository.warmUp()
+            calendarRepository.warmUp()
+            traktTop10Repository.warmUp()
+        }
 
         suspend fun phase(block: suspend () -> Unit) {
             if (withTimeoutOrNull(phaseTimeoutMs) { block() } == null) complete = false
@@ -220,15 +272,25 @@ class StartupHomePreloader @Inject constructor(
         phase { layoutPreferenceDataStore.hasChosenLayout.first() }
         phase { experienceModeDataStore.mode.first() }
         phase { layoutPreferenceDataStore.homeCatalogOrderKeys.first() }
-        // Held on purpose: Home's own row loaders are heavy on a stick, so the
-        // loading screen stays up until every catalog answered its first page
-        // (still capped by the phase timeout and the total deadline force-release).
-        phase { catalogRepository.warmComplete.first { it } }
-        // Immagini: scarica su disco poster/sfondi/loghi delle prime pagine, così
-        // Home parte già pronta e lo scroll non scarica più nulla.
-        phase { homeImagePreloader.warmImages() }
-        // Trailer: best effort con budget proprio (non blocca la partenza).
-        phase { withTimeoutOrNull(TRAILER_WARM_BUDGET_MS) { warmTrailers() } }
+        if (gentleProfile) {
+            // Solo abbastanza per una prima schermata utile: la prima riga di
+            // catalogo basta per mostrare home e iniziare a navigare. Le righe
+            // e le immagini successive arrivano graduale in background
+            // (come Netflix: scheletro subito, riempimento poi).
+            phase {
+                while (catalogRepository.firstPageRows().isEmpty()) delay(500)
+            }
+        } else {
+            // Held on purpose: Home's own row loaders are heavy on a stick, so the
+            // loading screen stays up until every catalog answered its first page
+            // (still capped by the phase timeout and the total deadline force-release).
+            phase { catalogRepository.warmComplete.first { it } }
+            // Immagini: scarica su disco poster/sfondi/loghi delle prime pagine, così
+            // Home parte già pronta e lo scroll non scarica più nulla.
+            phase { homeImagePreloader.warmImages() }
+            // Trailer: best effort con budget proprio (non blocca la partenza).
+            phase { withTimeoutOrNull(TRAILER_WARM_BUDGET_MS) { warmTrailers() } }
+        }
         // Touch CW disk cache so first Home render hits warm FS state.
         phase {
             cwEnrichmentCache.getInProgressSnapshot()
