@@ -223,7 +223,11 @@ object NuvioExoPlayerPerformanceHelper {
         val gb = 1024L * 1024L * 1024L
         return when {
             totalMem <= 0L -> 250 // Safe default
-            totalMem < 1.15 * gb -> 150
+            // 64 MB e non 150: su una Stick da 1 GB il budget da 150 era da
+            // device da 2 GB — sommato al decoder 4K (misurato ~214 MB di ION)
+            // spingeva il processo a ~640 MB e l'LMK lo uccideva durante la
+            // riproduzione. Politica stile Netflix: secondi di riserva, non minuti.
+            totalMem < 1.15 * gb -> com.nuvio.tv.data.local.BufferSettings.LOW_RAM_SAFE_BUFFER_MB
             totalMem < 1.45 * gb -> 200
             totalMem < 2.3 * gb -> 250
             totalMem < 3.2 * gb -> 500

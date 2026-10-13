@@ -157,6 +157,12 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             // qui si fa tutto, gc incluso, ogni risparmio conta.
             level >= ComponentCallbacks2.TRIM_MEMORY_COMPLETE ->
                 relieveMemoryPressure("lmkd-level$level", full = true)
+            // UI nascosta (utente tornato al launcher): è IL momento per
+            // restituire tutto — niente trailer (yield senza cooldown: al
+            // ritorno si ricostruisce subito), cache giù, gc completo.
+            // Disciplina Netflix: quando non si vede, non occupa.
+            level == ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN ->
+                relieveUiHidden()
             // Su questa Fire OS il livello 15 arriva PRESTO (anche con 200 MB
             // liberi): solo azioni economiche, niente gc — un gc qui era la
             // causa dei blocchi percepiti sulla home.
@@ -188,6 +194,22 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             runCatching { trailerPlayerPool.trim() }
             runCatching { SingletonImageLoader.get(this).memoryCache?.clear() }
             if (full) runCatching { System.gc() }
+        }
+    }
+
+    /**
+     * Rilascio completo quando l'UI va in background (tasto Home). Usa [yield]
+     * invece di [com.nuvio.tv.core.player.TrailerPlayerPool.trim]: yield libera
+     * il decoder senza armare il cooldown, così al ritorno l'anteprima
+     * ricomincia senza attesa.
+     */
+    private fun relieveUiHidden() {
+        Log.i(TAG, "relieveUiHidden (UI hidden)")
+        if (!this::trailerPlayerPool.isInitialized) return
+        reliefExecutor.execute {
+            runCatching { trailerPlayerPool.yield() }
+            runCatching { SingletonImageLoader.get(this).memoryCache?.clear() }
+            runCatching { System.gc() }
         }
     }
 

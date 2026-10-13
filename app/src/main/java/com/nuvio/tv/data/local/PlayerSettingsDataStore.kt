@@ -165,6 +165,12 @@ data class BufferSettings(
         const val DEFAULT_BUFFER_FOR_PLAYBACK_MS = 5_000
         const val DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS = 3_000
         const val DEFAULT_TARGET_BUFFER_SIZE_MB: Int = 150
+        // Tetto del budget buffer sulle classi di RAM basse (< ~1.15 GB:
+        // Fire TV Stick 1 GB). Politica stile Netflix — pochi secondi di
+        // riserva, non minuti: su queste Stick il decoder 4K assorbe già
+        // ~214 MB di ION e un budget da 150 MB sommato a quello spinge il
+        // processo oltre la soglia di morte LMK (~640 MB).
+        const val LOW_RAM_SAFE_BUFFER_MB: Int = 64
         // Media3 reserves additional bytes for back buffer as a fraction of
         // targetBufferBytes. 15s default keeps peak heap within Fire TV class
         // limits while still covering 3 default 5s seek-back presses.
@@ -577,6 +583,7 @@ class PlayerSettingsDataStore @Inject constructor(
     private val migrationAfterRebufferLoweredDoneKey = booleanPreferencesKey("migration_after_rebuffer_lowered_done")
     private val migrationBackBufferDurationReducedDoneKey = booleanPreferencesKey("migration_back_buffer_duration_reduced_done")
     private val migrationTargetBufferSizeReducedDoneKey = booleanPreferencesKey("migration_target_buffer_size_reduced_done")
+    private val migrationLowRamBufferBudgetDoneKey = booleanPreferencesKey("migration_low_ram_buffer_budget_done")
     init {
         ioScope.launch {
             profileManager.activeProfileId.collect { pid ->
@@ -704,6 +711,27 @@ class PlayerSettingsDataStore @Inject constructor(
                         prefs[targetBufferSizeMbKey] = BufferSettings.DEFAULT_TARGET_BUFFER_SIZE_MB
                     }
                     prefs[migrationTargetBufferSizeReducedDoneKey] = true
+                }
+
+                // Politica buffer stile Netflix sulle classi di memoria basse:
+                // il budget era 150 MB (tarato per device da 2 GB) e durante la
+                // riproduzione si sommava al decoder 4K (~214 MB ION misurati),
+                // spingendo il processo oltre i 640 MB — la fascia di morte LMK
+                // su una Stick da 1 GB. Ora il safe-limit per la classe
+                // <1.15 GB è 64 MB (~20 s di un remux a 25 Mbps): la migrazione
+                // stringe solo verso il basso, mai verso l'alto, e disattiva il
+                // "large buffer" che lo re-inflava.
+                val lowRamBudgetMigrated = prefs[migrationLowRamBufferBudgetDoneKey] ?: false
+                if (!lowRamBudgetMigrated) {
+                    val safeLimitMb = NuvioExoPlayerPerformanceHelper.getSafeNativeMemoryLimitMb(context)
+                    if (safeLimitMb <= BufferSettings.LOW_RAM_SAFE_BUFFER_MB) {
+                        val currentTarget = prefs[targetBufferSizeMbKey] ?: BufferSettings.DEFAULT_TARGET_BUFFER_SIZE_MB
+                        if (currentTarget > safeLimitMb) {
+                            prefs[targetBufferSizeMbKey] = safeLimitMb
+                        }
+                        prefs[allowLargeTargetBufferKey] = false
+                    }
+                    prefs[migrationLowRamBufferBudgetDoneKey] = true
                 }
 
                 val min = prefs[minBufferMsKey]
