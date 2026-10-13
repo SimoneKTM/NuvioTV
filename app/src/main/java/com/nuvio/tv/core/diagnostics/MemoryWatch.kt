@@ -43,8 +43,26 @@ object MemoryWatch {
     private const val RELEASE_AVAIL_KB = 250_000L
     private const val RELEASE_SWAP_KB = 180_000L
 
+    /**
+     * Pressione AUTO-imposta: la RSS del processo. Il kill delle 23:01 è
+     * arrivato con rss=511 MB mentre il sistema era borderline — guardare
+     * solo il sistema non basta: su una Stick da 1 GB il processo deve
+     * tenere d'occhio anche SE STESSO. 380 MB di RSS occupano già ~40% della
+     * RAM fisica; la soglia vale solo sulle classi di RAM basse, dove quei
+     * MB sono critici (su TV da 2+ GB 380 MB sono normali).
+     */
+    private const val HARD_SELF_RSS_KB = 380_000L
+    private const val LOW_RAM_TOTAL_KB = 1_677_721L // 1.6 GB (classe gentle)
+
     /** Evita di liberare più di una volta quando il valore oscilla attorno alla soglia. */
     private const val RELIEF_MIN_INTERVAL_MS = 30_000L
+
+    /**
+     * Riedizione del sollievo mentre lo stato resta HARD: la prima
+     * liberazione non basta se l'app continua a crescere (scroll rapido +
+     * trailer). Finché dura la pressione si ripete al massimo ogni 45 s.
+     */
+    private const val RELIEF_REPEAT_MS = 45_000L
 
     private enum class Pressure { NONE, SOFT, HARD }
 
@@ -73,6 +91,10 @@ object MemoryWatch {
     @Volatile
     private var lastReliefAtMs = 0L
 
+    /** RAM fisica del dispositivo (letta una volta in [start]). */
+    @Volatile
+    private var totalMemKb = -1L
+
     private val handler = Handler(Looper.getMainLooper())
     private var startedAtMs = 0L
 
@@ -92,6 +114,13 @@ object MemoryWatch {
         if (running) return
         running = true
         startedAtMs = android.os.SystemClock.elapsedRealtime()
+        runCatching {
+            File("/proc/meminfo").forEachLine { line ->
+                if (line.startsWith("MemTotal:")) {
+                    totalMemKb = line.substringAfter(':').removeSuffix("kB").trim().toLongOrNull() ?: -1L
+                }
+            }
+        }
         val rt = Runtime.getRuntime()
         Log.i(
             TAG,
@@ -179,8 +208,11 @@ object MemoryWatch {
      */
     private fun evaluatePressure(memAvailKb: Long, swapFreeKb: Long, rssKb: Long, swapKb: Long) {
         val within = { value: Long, limit: Long -> value >= 0L && value <= limit }
+        // Pressione auto-imposta sulla nostra RSS (solo classi RAM basse):
+        // se il processo supera il tetto, siamo noi il problema, non il sistema.
+        val selfRssHard = totalMemKb in 1L until LOW_RAM_TOTAL_KB && rssKb >= HARD_SELF_RSS_KB
         val newState = when {
-            within(swapFreeKb, HARD_PRESSURE_SWAP_KB) || within(memAvailKb, HARD_PRESSURE_AVAIL_KB) -> Pressure.HARD
+            within(swapFreeKb, HARD_PRESSURE_SWAP_KB) || within(memAvailKb, HARD_PRESSURE_AVAIL_KB) || selfRssHard -> Pressure.HARD
             within(memAvailKb, SOFT_PRESSURE_AVAIL_KB) && within(swapFreeKb, SOFT_PRESSURE_SWAP_KB) -> Pressure.SOFT
             memAvailKb > RELEASE_AVAIL_KB && swapFreeKb > RELEASE_SWAP_KB -> Pressure.NONE
             else -> pressureState
@@ -194,13 +226,27 @@ object MemoryWatch {
                 Log.w(
                     TAG,
                     "PRESSURE HARD avail=${memAvailKb}kB swapFree=${swapFreeKb}kB " +
-                        "rss=${rssKb}kB swap=${swapKb}kB — releasing trailer+cache"
+                        "rss=${rssKb}kB swap=${swapKb}kB selfRss=$selfRssHard — releasing trailer+cache"
                 )
                 val now = android.os.SystemClock.elapsedRealtime()
                 if (now - lastReliefAtMs >= RELIEF_MIN_INTERVAL_MS) {
                     lastReliefAtMs = now
                     onRelief?.let { relief ->
-                        runCatching { relief("system-hard avail=${memAvailKb}kB swapFree=${swapFreeKb}kB") }
+                        runCatching { relief("system-hard avail=${memAvailKb}kB swapFree=${swapFreeKb}kB rss=${rssKb}kB") }
+                            .onFailure { Log.w(TAG, "relief callback failed: ${it.javaClass.simpleName}") }
+                    }
+                }
+            }
+            newState == Pressure.HARD -> {
+                // Stato HARD sostenuto: l'app è ancora viva e sta ancora
+                // crescendo — si ripete il sollievo ogni RELIEF_REPEAT_MS
+                // (il debounce interno impedisce di eccedere).
+                val now = android.os.SystemClock.elapsedRealtime()
+                if (now - lastReliefAtMs >= RELIEF_REPEAT_MS) {
+                    Log.w(TAG, "PRESSURE HARD sostenuta rss=${rssKb}kB avail=${memAvailKb}kB — repeat relief")
+                    lastReliefAtMs = now
+                    onRelief?.let { relief ->
+                        runCatching { relief("system-hard-sustained rss=${rssKb}kB avail=${memAvailKb}kB") }
                             .onFailure { Log.w(TAG, "relief callback failed: ${it.javaClass.simpleName}") }
                     }
                 }
