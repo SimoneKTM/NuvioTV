@@ -120,7 +120,7 @@ class TrailerPlayerPool @Inject constructor(
      */
     fun trim() {
         if (released.get() || _player == null) return
-        Log.d(TAG, "Trimming trailer player after memory pressure")
+        Log.i(TAG, "Trimming trailer player after memory pressure")
         _player?.let { player ->
             runCatching { player.stop() }
             runCatching { player.clearMediaItems() }
@@ -149,7 +149,7 @@ class TrailerPlayerPool @Inject constructor(
         val forceNative = runBlocking {
             playerSettingsDataStore.nuvioPerformanceModeEnabled.first()
         }
-        Log.d(TAG, "Creating shared trailer ExoPlayer instance with forceNativeAllocation = $forceNative")
+        Log.i(TAG, "Creating shared trailer ExoPlayer instance with forceNativeAllocation = $forceNative")
         val loadControlBuilder = DefaultLoadControl.Builder()
             // A trailer preview is a few seconds long and runs behind the home screen, so it
             // gets a byte ceiling as well as a short time window: without targetBufferBytes

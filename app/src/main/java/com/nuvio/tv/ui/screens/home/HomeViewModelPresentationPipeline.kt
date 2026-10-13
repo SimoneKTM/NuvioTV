@@ -601,7 +601,10 @@ internal fun HomeViewModel.onItemFocusPipeline(item: MetaPreview) {
             if (_enrichingItemId.value == item.id) setEnrichingItemId(null)
             return@launch
         }
-        if (willEnrich) setEnrichingItemId(item.id)
+        if (willEnrich) {
+            setEnrichingItemId(item.id)
+            android.util.Log.i("HomePipeline", "enrich start item=${item.id}")
+        }
         val tvdbAlreadyDone = !tvdbEnabledForCurrentLayout || item.id in prefetchedTvdbIds
         if ((item.id in prefetchedTmdbIds || item.id in prefetchedExternalMetaIds) && tvdbAlreadyDone) {
             if (!externalEnrichmentOutstanding(item.id)) {
@@ -696,6 +699,7 @@ internal fun HomeViewModel.onItemFocusPipeline(item: MetaPreview) {
             }
 
         } finally {
+            android.util.Log.i("HomePipeline", "enrich end item=${item.id}")
             // Release the claim only if it is still ours: a later focus may have claimed another item.
             if (pendingTmdbEnrichItemId == item.id) pendingTmdbEnrichItemId = null
             if (_enrichingItemId.value == item.id) {

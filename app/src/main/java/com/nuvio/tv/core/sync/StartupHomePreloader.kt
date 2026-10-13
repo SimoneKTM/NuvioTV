@@ -109,6 +109,7 @@ class StartupHomePreloader @Inject constructor(
 
     fun ensureStarted() {
         if (!_started.compareAndSet(expect = false, update = true)) return
+        Log.i(TAG, "preload requested (startup gate opened)")
 
         // Fire-and-forget: pre-download the translation model once so the first
         // detail screen doesn't stall waiting for a multi-MB ML Kit download.
@@ -181,7 +182,7 @@ class StartupHomePreloader @Inject constructor(
             if (complete) {
                 runCatching { startupWarmupPreferences.markFirstHomeReady() }
             }
-            Log.d(
+            Log.i(
                 TAG,
                 "Home preload ready in ${android.os.SystemClock.elapsedRealtime() - startedAt}ms " +
                     "(fluid=$fluidPerformance complete=$complete) profile=${profileManager.activeProfileId.value}"
@@ -244,6 +245,6 @@ class StartupHomePreloader @Inject constructor(
                 )
             }
         }
-        Log.d(TAG, "Warmed ${items.size} trailer lookups")
+        Log.i(TAG, "Warmed ${items.size} trailer lookups")
     }
 }

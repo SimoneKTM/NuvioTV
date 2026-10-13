@@ -446,6 +446,7 @@ class MainActivity : ComponentActivity() {
         systemSplash.setKeepOnScreenCondition { !systemSplashReady.get() }
         super.onCreate(savedInstanceState)
         isFirstResumeAfterCreate = true
+        android.util.Log.i("MainActivity", "onCreate")
         window?.setBackgroundDrawable(null)
 
         // Wire the Activity-level launcher to the tracker
@@ -1167,6 +1168,13 @@ class MainActivity : ComponentActivity() {
                     "JANK: ${frameData.frameDurationUiNanos / 1_000_000}ms | states: ${frameData.states}"
                 )
             }
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            android.util.Log.i("MainActivity", "window focus gained (UI interactive)")
         }
     }
 

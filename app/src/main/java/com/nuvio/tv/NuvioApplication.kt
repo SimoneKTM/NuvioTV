@@ -89,6 +89,11 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             .getString("locale_tag", null)
         LocaleCache.localeTag = tag ?: ""
 
+        // In-process memory telemetry (Log.i, release-safe): captures the Java/
+        // Native/Graphics curve every 10s even when dumpsys times out under
+        // allocation bursts — the LMK kills left us blind until now.
+        runCatching { com.nuvio.tv.core.diagnostics.MemoryWatch.start() }
+
         // Warm the Fluid Mode zoom mirror for the same reason as the locale above:
         // MainActivity reads it in attachBaseContext to decide the density scale.
         LayoutPreferenceDataStore.readFluidZoomMirror(this)
