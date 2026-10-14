@@ -35,6 +35,7 @@ import androidx.compose.foundation.lazy.LazyListPrefetchStrategy
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -1415,7 +1416,10 @@ private fun ModernCarouselCard(
                 focusedContainerColor = backgroundCardColor
             ),
             border = CardDefaults.border(focusedBorder = effectiveFocusedBorder),
-            scale = CardDefaults.scale(focusedScale = 1f),
+            // Focus "pop" stile Prime Video: 1.0.76 (prima 1f = nessun
+            // ingrandimento) dà il senso di manipolazione fisica. Sull'unico
+            // elemento focalizzato — costo zero in memoria.
+            scale = CardDefaults.scale(focusedScale = 1.06f),
             glow = effectiveCardGlow
         ) {
             Box(
@@ -1552,6 +1556,40 @@ private fun ModernCarouselCard(
                     )
                 }
 
+                // Chip Prime-style: bollini in alto a sinistra dal meta del
+                // titolo (voto IMDb ≥ 7, novità dell'anno corrente). Testo
+                // piccolo su piastra scura: costo zero, nessuna immagine.
+                val chipMeta = item.metaPreview
+                val chipRating = chipMeta?.imdbRating
+                val chipIsNew = remember(chipMeta?.releaseInfo) {
+                    val year = java.util.Calendar.getInstance()
+                        .get(java.util.Calendar.YEAR)
+                        .toString()
+                    chipMeta?.releaseInfo?.contains(year) == true
+                }
+                if (!isBackdropExpanded && (chipIsNew || (chipRating != null && chipRating >= 7.0))) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(start = NuvioTheme.spacing.sm, top = NuvioTheme.spacing.sm)
+                            .zIndex(2f),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (chipIsNew) {
+                            ModernCardChip(
+                                text = stringResource(R.string.card_chip_new),
+                                tint = Color.White
+                            )
+                        }
+                        if (chipRating != null && chipRating >= 7.0) {
+                            ModernCardChip(
+                                text = "★ " + String.format(java.util.Locale.US, "%.1f", chipRating),
+                                tint = Color(0xFFFFC94D)
+                            )
+                        }
+                    }
+                }
+
                 if (isWatched) {
                     Box(
                         modifier = Modifier
@@ -1597,9 +1635,36 @@ private fun ModernCarouselCard(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+                // Hint long-press stile Prime Video ("Hold for details"):
+                // comunica che il tasto lungo apre i dettagli, senza occupare
+                // schermo se non quando la card è focalizzata.
+                if (isFocused) {
+                    Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxs))
+                    Text(
+                        text = stringResource(R.string.card_hold_for_details),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = NuvioTheme.colors.TextSecondary,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
+}
+
+/** Chip compatto in stile Prime Video: piastra scura + testo vivido. */
+@Composable
+private fun ModernCardChip(text: String, tint: Color) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.SemiBold,
+        color = tint,
+        maxLines = 1,
+        modifier = Modifier
+            .background(Color.Black.copy(alpha = 0.72f), RoundedCornerShape(4.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    )
 }
 
 

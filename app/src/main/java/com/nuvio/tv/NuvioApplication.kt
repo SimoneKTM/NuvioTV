@@ -68,6 +68,12 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         private const val STARTUP_DEFERRED_INIT_DELAY_MS = 1_500L
         private const val STARTUP_CHANNEL_SYNC_DELAY_MS = 3_000L
         private const val STARTUP_HOME_PRELOAD_DELAY_MS = 4_500L
+
+        // Battito cardiaco GC (vedi scheduleHeapHeartbeat): soglia heap,
+        // intervallo minimo tra GC e cadenza del controllo.
+        private const val HEAP_HEARTBEAT_USED_BYTES = 140L * 1024 * 1024
+        private const val HEAP_HEARTBEAT_MIN_INTERVAL_MS = 20_000L
+        private const val HEAP_HEARTBEAT_PERIOD_MS = 10_000L
         /**
          * Shared cookie jar for CloudStream extension HTTP requests.
          * Accessible so the player's OkHttpClient can share cookies
@@ -127,6 +133,10 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                 relieveMemoryPressure(reason, full = false)
             }
         }
+
+        // Battito cardiaco GC: avviato qui, gira per tutta la vita del
+        // processo (controlla l'heap ogni 10s, GC al massimo ogni 20s).
+        heartbeatHandler.postDelayed({ scheduleHeapHeartbeat() }, 15_000L)
 
         // Warm the Fluid Mode zoom mirror for the same reason as the locale above:
         // MainActivity reads it in attachBaseContext to decide the density scale.
@@ -192,6 +202,35 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                 relieveMemoryPressure("lmkd-level$level", full = false)
             level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> {
                 reliefExecutor.execute { runCatching { trailerPlayerPool.trim() } }
+            }
+        }
+    }
+
+    private var lastHeartbeatGcAtMs = 0L
+    private val heartbeatHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /**
+     * Battito cardiaco GC — la lezione dei kill del 14/10 (15:28: RSS 715MB,
+     * other_free negativo, lmkd uccideva perfino i processi di sistema): i
+     * livelli 10/15 di lmkd non triggerano GC (rimosso perché "bloccava la
+     * home") e il sollievo completo non scattava mai in tempo — durante uno
+     * scroll lungo l'heap cresceva senza raccolta fino al kill. Un GC breve
+     * ogni ≥20s quando l'heap supera 140MB è una coda limitata (~100ms,
+     * disciplina Netflix delle code brevi) invece della morte.
+     */
+    private fun scheduleHeapHeartbeat() {
+        heartbeatHandler.postDelayed({ scheduleHeapHeartbeat() }, HEAP_HEARTBEAT_PERIOD_MS)
+        reliefExecutor.execute {
+            val runtime = Runtime.getRuntime()
+            val usedBytes = runtime.totalMemory() - runtime.freeMemory()
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (
+                usedBytes >= HEAP_HEARTBEAT_USED_BYTES &&
+                now - lastHeartbeatGcAtMs >= HEAP_HEARTBEAT_MIN_INTERVAL_MS
+            ) {
+                lastHeartbeatGcAtMs = now
+                Log.w(TAG, "heap heartbeat used=${usedBytes / (1024 * 1024)}MB — gc")
+                runCatching { System.gc() }
             }
         }
     }
