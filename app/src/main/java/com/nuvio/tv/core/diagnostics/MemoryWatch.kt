@@ -100,6 +100,14 @@ object MemoryWatch {
     var onRelief: ((String) -> Unit)? = null
 
     /**
+     * Pressione SOFT (MemAvailable < 150MB ma non ancora zona di kill):
+     * qui si rilascia SOLO il trailer. Fermare la riproduzione — libera
+     * ~147 MB di ION, misurato al kill delle 14:17 — appena il sistema
+     * respira male costa meno che aspettare la zona di kill.
+     */
+    var onSoftRelief: ((String) -> Unit)? = null
+
+    /**
      * Vero quando il sistema è in zona di kill (stato HARD). Usato da trailer
      * pool e preloader per NON aggiungere allocazioni mentre l'LMK sta per
      * colpire: sotto pressione la home mostra lo sfondo statico invece di
@@ -301,7 +309,11 @@ object MemoryWatch {
                 }
             }
             newState == Pressure.SOFT && old == Pressure.NONE -> {
-                Log.w(TAG, "PRESSURE SOFT avail=${memAvailKb}kB swapFree=${swapFreeKb}kB rss=${rssKb}kB")
+                Log.w(TAG, "PRESSURE SOFT avail=${memAvailKb}kB swapFree=${swapFreeKb}kB rss=${rssKb}kB — yielding trailer")
+                onSoftRelief?.let { relief ->
+                    runCatching { relief("system-soft avail=${memAvailKb}kB swapFree=${swapFreeKb}kB rss=${rssKb}kB") }
+                        .onFailure { Log.w(TAG, "soft relief callback failed: ${it.javaClass.simpleName}") }
+                }
             }
             newState == Pressure.NONE && old != Pressure.NONE -> {
                 Log.i(TAG, "pressure released, avail=${memAvailKb}kB swapFree=${swapFreeKb}kB")

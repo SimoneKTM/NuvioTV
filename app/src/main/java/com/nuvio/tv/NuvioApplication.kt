@@ -120,6 +120,12 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             com.nuvio.tv.core.diagnostics.MemoryWatch.onRelief = { reason ->
                 relieveMemoryPressure(reason, full = true)
             }
+            com.nuvio.tv.core.diagnostics.MemoryWatch.onSoftRelief = { reason ->
+                // SOFT: solo il trailer (niente cache-clear/GC). Fermare la
+                // riproduzione qui libera ~147MB di ION misurati e toglie il
+                // processo dalla zona di kill prima che il sistema collassi.
+                relieveMemoryPressure(reason, full = false)
+            }
         }
 
         // Warm the Fluid Mode zoom mirror for the same reason as the locale above:
@@ -204,6 +210,14 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             Log.i(TAG, "relief debounced ($reason)")
             return
         }
+        // Anche il sollievo FULL ha un debounce: con le soglie di rilascio
+        // calibrate (1.0.72) lo stato può rimbalzare HARD→NONE→HARD mentre
+        // si scorre — ogni rimbalzo = cache immagini svuotate + GC = scroll
+        // più lento. Mai due sollievi completi in meno di 30 secondi.
+        if (full && now - lastReliefAtMs < 30_000L) {
+            Log.i(TAG, "full relief debounced ($reason)")
+            return
+        }
         lastReliefAtMs = now
         reliefExecutor.execute {
             if (!this::trailerPlayerPool.isInitialized) return@execute
@@ -255,6 +269,11 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                     add(GifDecoder.Factory())
                 }
                 add(SvgDecoder.Factory())
+                // Clamp universale decode (stile Prime Video): nessuna immagine
+                // decoda oltre 960px di lato lungo — le card sono ~400px a
+                // schermo. Taglia la corsa RSS dello scroll di ~4x (kill del
+                // 14/10: RSS 438MB durante scroll veloce, 572MB totali).
+                add(com.nuvio.tv.core.image.ClampDecodeInterceptor())
                 // CacheControlCacheStrategy respects server Cache-Control headers,
                 // so dynamic images (e.g. BetterPosters with max-age) revalidate.
                 add(

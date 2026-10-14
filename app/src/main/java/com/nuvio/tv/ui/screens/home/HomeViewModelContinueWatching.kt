@@ -49,6 +49,18 @@ import com.nuvio.tv.data.repository.buildAddonIdCandidates
 
 private const val CW_MAX_RECENT_PROGRESS_ITEMS = 300
 private const val CW_MAX_NEXT_UP_LOOKUPS = 32
+
+/**
+ * Sotto pressione di memoria le risoluzioni next-up per titolo (chiamate
+ * addon, 2,5-6s ciascuna) vengono tagliate a questo tetto: la riga si
+ * dipinge con i primi titoli in ~10s invece di aspettare la cascata
+ * completa (~60s su una Stick satura). I restanti arrivano nei cicli
+ * successivi, appena il sistema respira.
+ */
+private const val CW_MAX_NEXT_UP_LOOKUPS_LOW_PRESSURE = 10
+
+/** Ritentativa del ciclo CW dopo uno skip dovuto alla pressione. */
+private const val CW_PRESSURE_RETRY_DELAY_MS = 45_000L
 private const val CW_MAX_NEXT_UP_CONCURRENCY = 4
 private const val CW_MAX_ENRICHMENT_CONCURRENCY = 4
 private const val CW_PROGRESS_DEBOUNCE_MS = 500L
@@ -644,6 +656,11 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                     showUnairedNextUp = showUnairedNextUp,
                     nextUpFromFurthestEpisode = nextUpFromFurthestEpisode,
                     debug = debug,
+                    maxNextUpLookups = if (com.nuvio.tv.core.diagnostics.MemoryWatch.underPressure) {
+                        CW_MAX_NEXT_UP_LOOKUPS_LOW_PRESSURE
+                    } else {
+                        CW_MAX_NEXT_UP_LOOKUPS
+                    },
                     onPartialUpdate = { partialNextUpItems ->
                         partialPublishMutex.withLock {
                             val partialCount = partialNextUpItems.size
@@ -775,18 +792,20 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                     // ciclo, e a regime c'è un tetto duro di 8s. Su una Stick
                     // satura l'awaitAll senza tetto era la causa del "Ultimi
                     // uscite compare dopo 1 minuto".
-                    if (firstTimeGroups.isNotEmpty() &&
-                        !com.nuvio.tv.core.diagnostics.MemoryWatch.underPressure
-                    ) {
-                        val metaSemaphore = Semaphore(2)
-                        withTimeoutOrNull(BADGE_FIRST_PAINT_MAX_WAIT_MS) {
-                            firstTimeGroups.map { group ->
-                                async {
-                                    metaSemaphore.withPermit {
-                                        resolveBadgeGroup(group)
+                    if (firstTimeGroups.isNotEmpty()) {
+                        if (!com.nuvio.tv.core.diagnostics.MemoryWatch.underPressure) {
+                            val metaSemaphore = Semaphore(2)
+                            withTimeoutOrNull(BADGE_FIRST_PAINT_MAX_WAIT_MS) {
+                                firstTimeGroups.map { group ->
+                                    async {
+                                        metaSemaphore.withPermit {
+                                            resolveBadgeGroup(group)
+                                        }
                                     }
-                                }
-                            }.awaitAll()
+                                }.awaitAll()
+                            }
+                        } else {
+                            scheduleCwPressureRetry()
                         }
                     }
 
@@ -867,10 +886,10 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                         // più veccoli (chiamate addon per titolo) aspettano il
                         // prossimo ciclo: la riga si dipinge con i dati già
                         // disponibili invece di attendere la cascata.
-                        if (uncachedSeeds.isNotEmpty() &&
-                            !com.nuvio.tv.core.diagnostics.MemoryWatch.underPressure
-                        ) {
-                            launch(Dispatchers.IO) {
+                        if (uncachedSeeds.isNotEmpty()) {
+                            if (com.nuvio.tv.core.diagnostics.MemoryWatch.underPressure) {
+                                scheduleCwPressureRetry()
+                            } else launch(Dispatchers.IO) {
                                 // Process sequentially with yielding to avoid CPU/GC spikes.
                                 // Emit partial updates every few resolved items so user sees
                                 // new CW entries appearing progressively.
@@ -1257,6 +1276,20 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
     }
 }
 
+/**
+ * Riprogramma un ciclo CW dopo uno skip dovuto alla pressione: la riga si
+ * dipinge subito con i dati disponibili e i lavori pesanti (badge meta,
+ * next-up veccoli, enrichment) recuperano al prossimo giro — non appena il
+ * sistema respira (attesa di [CW_PRESSURE_RETRY_DELAY_MS], poi il ciclo
+ * riparte da capo).
+ */
+private fun HomeViewModel.scheduleCwPressureRetry() {
+    viewModelScope.launch {
+        delay(CW_PRESSURE_RETRY_DELAY_MS)
+        cwPipelineRefreshTrigger.value++
+    }
+}
+
 internal fun normalizeExtraAddonBaseUrl(raw: String?): String =
     raw?.trim()?.trimEnd('/')?.lowercase(Locale.US).orEmpty()
 
@@ -1444,6 +1477,7 @@ private suspend fun HomeViewModel.buildLightweightNextUpItems(
     showUnairedNextUp: Boolean,
     nextUpFromFurthestEpisode: Boolean = true,
     debug: CwDebugSession? = null,
+    maxNextUpLookups: Int = CW_MAX_NEXT_UP_LOOKUPS,
     onPartialUpdate: suspend (List<ContinueWatchingItem.NextUp>) -> Unit = {}
 ): List<ContinueWatchingItem.NextUp> = coroutineScope {
     // Move seed filtering/grouping/sorting off the main thread.
@@ -1519,7 +1553,7 @@ private suspend fun HomeViewModel.buildLightweightNextUpItems(
                 // Negative hit (no next-up) — skip if TTL is fresh
                 !fullyWatchedSeriesIds.isSeriesValidationFresh(progress.contentId)
             }
-            .take(CW_MAX_NEXT_UP_LOOKUPS)
+            .take(maxNextUpLookups)
 
         seeds to ipIds
     }

@@ -21,13 +21,21 @@ fun posterImageRequest(
     widthPx: Int,
     heightPx: Int,
     crossfade: Boolean = true,
-): ImageRequest? = posterMemoryCacheKey(url, widthPx, heightPx)?.let { cacheKey ->
-    ImageRequest.Builder(context)
-        .data(url!!)
-        .crossfade(crossfade)
-        .memoryCacheKey(cacheKey)
-        .size(width = widthPx, height = heightPx)
-        .build()
+): ImageRequest? {
+    // Clamp (stile Prime Video, vedi ClampDecodeInterceptor): le card sono
+    // ~400px a schermo, decodere a pieno formato durante lo scroll è benzina
+    // per l'LMK. Applicato anche alle chiavi di cache: due viste diverse che
+    // collassano sullo stesso target condividono la stessa voce.
+    val cappedWidth = widthPx.coerceAtMost(960)
+    val cappedHeight = heightPx.coerceAtMost(960)
+    return posterMemoryCacheKey(url, cappedWidth, cappedHeight)?.let { cacheKey ->
+        ImageRequest.Builder(context)
+            .data(url!!)
+            .crossfade(crossfade)
+            .memoryCacheKey(cacheKey)
+            .size(width = cappedWidth, height = cappedHeight)
+            .build()
+    }
 }
 
 @Composable
