@@ -39,6 +39,13 @@ object MemoryWatch {
     private const val RUNAWAY_RSS_DELTA_KB = 100_000L // 100 MB
 
     /**
+     * La fuga RSS vale solo su RSS già alte: la crescita normale di avvio
+     * (processo fresco: 30 -> 140 MB in pochi secondi) NON è una fuga.
+     * Senza questo gate il governor entrava in HARD a ogni avvio app.
+     */
+    private const val RUNAWAY_MIN_RSS_KB = 300_000L
+
+    /**
      * Soglie di pressione del SISTEMA lette da /proc/meminfo.
      *
      * Tutti i kill LMK documentati seguono lo stesso schema: lo SwapFree della
@@ -52,8 +59,13 @@ object MemoryWatch {
     private const val HARD_PRESSURE_AVAIL_KB = 90_000L
     private const val SOFT_PRESSURE_AVAIL_KB = 150_000L
     private const val SOFT_PRESSURE_SWAP_KB = 100_000L
-    private const val RELEASE_AVAIL_KB = 250_000L
-    private const val RELEASE_SWAP_KB = 180_000L
+    // Per uscire da HARD/NONE servono ENTRAMBE le soglie, ma calibrate
+    // sulla realtà di queste Stick: a riposo vivono a ~180-260MB
+    // disponibili. Le soglie vecchie (>250MB/180MB) non si raggiungevano
+    // quasi mai → lo stato restava piantato e tutto ciò che è gatellato
+    // dalla pressione (arrivo CW, enrichment, trailer) restava in attesa.
+    private const val RELEASE_AVAIL_KB = 150_000L
+    private const val RELEASE_SWAP_KB = 100_000L
 
     /**
      * Pressione AUTO-imposta: la RSS del processo. Il kill delle 23:01 è
@@ -189,7 +201,9 @@ object MemoryWatch {
         // 2) Fuga RSS: tra due campioni il processo è cresciuto di troppo
         //    (scroll veloce che decodifica senza sosta, trailer + modelli).
         //    Anche se il sistema è in salute, questa curva porta al kill.
-        val runaway = lastRssKb >= 0L && rssKb >= 0L && rssKb - lastRssKb >= RUNAWAY_RSS_DELTA_KB
+        //    Vale solo su RSS già alte (vedi RUNAWAY_MIN_RSS_KB).
+        val runaway = rssKb >= RUNAWAY_MIN_RSS_KB &&
+            lastRssKb >= 0L && rssKb - lastRssKb >= RUNAWAY_RSS_DELTA_KB
         if (rssKb >= 0L) lastRssKb = rssKb
         evaluatePressure(memAvailKb, swapFreeKb, rssKb, swapKb, runaway)
 

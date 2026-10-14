@@ -54,7 +54,12 @@ private const val CW_MAX_ENRICHMENT_CONCURRENCY = 4
 private const val CW_PROGRESS_DEBOUNCE_MS = 500L
 // Sotto pressione di memoria l'enrichment CW attende al massimo questo
 // budget prima di arrendersi (ripronte al prossimo ciclo del pipeline).
-private const val ENRICHMENT_PRESSURE_MAX_WAIT_MS = 60_000L
+/**
+ * Tetto duro al blocco meta dei badge (chiamate di rete per titolo): mai
+ * oltre 8s prima che la riga CW si dipinga. Senza tetto, su una Stick
+ * satura, l'awaitAll poteva ritardare la prima pittura di ~60 secondi.
+ */
+private const val BADGE_FIRST_PAINT_MAX_WAIT_MS = 8_000L
 
 private data class ProgressSnapshot(
     val items: List<WatchProgress>,
@@ -765,15 +770,24 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                     }
 
                     // First-time: resolve as fast as possible so badges appear quickly.
-                    if (firstTimeGroups.isNotEmpty()) {
+                    // MA mai a scapito della prima pittura della riga: sotto
+                    // pressione i meta badge (N chiamate di rete) saltano il
+                    // ciclo, e a regime c'è un tetto duro di 8s. Su una Stick
+                    // satura l'awaitAll senza tetto era la causa del "Ultimi
+                    // uscite compare dopo 1 minuto".
+                    if (firstTimeGroups.isNotEmpty() &&
+                        !com.nuvio.tv.core.diagnostics.MemoryWatch.underPressure
+                    ) {
                         val metaSemaphore = Semaphore(2)
-                        firstTimeGroups.map { group ->
-                            async {
-                                metaSemaphore.withPermit {
-                                    resolveBadgeGroup(group)
+                        withTimeoutOrNull(BADGE_FIRST_PAINT_MAX_WAIT_MS) {
+                            firstTimeGroups.map { group ->
+                                async {
+                                    metaSemaphore.withPermit {
+                                        resolveBadgeGroup(group)
+                                    }
                                 }
-                            }
-                        }.awaitAll()
+                            }.awaitAll()
+                        }
                     }
 
                     // Revalidation: process gently to avoid CPU/memory spikes.
@@ -849,7 +863,13 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                         val uncachedSeeds = (seedsFromNextUp + seedsFromWatchedItems)
                             .groupBy { it.contentId }
                             .mapNotNull { (_, items) -> choosePreferredNextUpSeed(items, nextUpFromFurthestEpisode) }
-                        if (uncachedSeeds.isNotEmpty()) {
+                        // Sotto pressione le risoluzioni next-up degli seed
+                        // più veccoli (chiamate addon per titolo) aspettano il
+                        // prossimo ciclo: la riga si dipinge con i dati già
+                        // disponibili invece di attendere la cascata.
+                        if (uncachedSeeds.isNotEmpty() &&
+                            !com.nuvio.tv.core.diagnostics.MemoryWatch.underPressure
+                        ) {
                             launch(Dispatchers.IO) {
                                 // Process sequentially with yielding to avoid CPU/GC spikes.
                                 // Emit partial updates every few resolved items so user sees
@@ -1206,29 +1226,27 @@ internal fun HomeViewModel.loadContinueWatchingPipeline() {
                 // disponibili (la pura sostituzione con i metadati arriva
                 // appena il sistema respira). collectLatest annulla questo
                 // atteso non appena un'emissione più fresca arriva.
-                if (com.nuvio.tv.core.diagnostics.MemoryWatch.underPressure) {
-                    debug.markPhase("enrichment-yield-pressure")
-                    var pressureWaitedMs = 0L
-                    while (
-                        com.nuvio.tv.core.diagnostics.MemoryWatch.underPressure &&
-                        pressureWaitedMs < ENRICHMENT_PRESSURE_MAX_WAIT_MS
-                    ) {
-                        delay(10_000L)
-                        pressureWaitedMs += 10_000L
-                    }
+                // Sotto pressione l'enrichment (N chiamate TMDB per titolo) è
+                // il carico che fa ammalare una Stick da 1 GB: si SALTA il
+                // ciclo e la riga resta con i dati già disponibili — il
+                // polish arriva al prossimo ciclo, appena il sistema respira.
+                // (Prima: un'attesa di 60s che lasciava la riga senza
+                // metadata per un minuto pieno.)
+                if (!com.nuvio.tv.core.diagnostics.MemoryWatch.underPressure) {
+                    debug.markPhase("enrich-visible-items")
+                    val enrichStartMs = SystemClock.elapsedRealtime()
+                    val changed = enrichVisibleContinueWatchingItems(
+                        finalItems = normalItems,
+                        debug = debug,
+                        pipelineProfileId = pipelineProfileId
+                    )
+                    debug.recordEnrichmentComplete(
+                        elapsedMs = SystemClock.elapsedRealtime() - enrichStartMs,
+                        changed = changed
+                    )
+                } else {
+                    debug.markPhase("enrichment-skipped-pressure")
                 }
-
-                debug.markPhase("enrich-visible-items")
-                val enrichStartMs = SystemClock.elapsedRealtime()
-                val changed = enrichVisibleContinueWatchingItems(
-                    finalItems = normalItems,
-                    debug = debug,
-                    pipelineProfileId = pipelineProfileId
-                )
-                debug.recordEnrichmentComplete(
-                    elapsedMs = SystemClock.elapsedRealtime() - enrichStartMs,
-                    changed = changed
-                )
                 debug.markPhase("completed")
                 debug.logSummary()
             } catch (cancelled: CancellationException) {
