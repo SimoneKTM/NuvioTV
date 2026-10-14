@@ -170,6 +170,8 @@ import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.ui.components.NuvioScrollDefaults
 import com.nuvio.tv.ui.components.LocalCardDepthStyle
 import com.nuvio.tv.ui.components.ProfileAvatarCircle
+import com.nuvio.tv.ui.components.NuvioSectionTopBar
+import com.nuvio.tv.ui.components.TopBarSectionTab
 import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
 import com.nuvio.tv.ui.navigation.NuvioNavHost
 import com.nuvio.tv.ui.navigation.Screen
@@ -1673,6 +1675,23 @@ private fun ModernSidebarScaffold(
     val isRtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
     val contentFocusRequester = remember { FocusRequester() }
     val drawerItemFocusRequesters = rememberDrawerItemFocusRequesters(drawerItems)
+
+    // Barra alta sezioni (stile Prime Video): solo le voci di CONTENUTO
+    // (Home · Anime · Extra · Calendario) salgono in alto con le loro
+    // etichette; il rail a sinistra resta a icone. Le richieste di focus
+    // per tab permettono a SU (dalla cima dei contenuti) di atterrare
+    // direttamente sulla sezione attiva.
+    val sectionRoutes = remember {
+        setOf(Screen.Home.route, Screen.Anime.route, Screen.Extra.route, Screen.Calendar.route)
+    }
+    val topBarTabs = remember(drawerItems) {
+        drawerItems
+            .filter { it.route in sectionRoutes }
+            .map { TopBarSectionTab(route = it.route, label = it.label) }
+    }
+    val topBarTabFocusRequesters = remember(topBarTabs) {
+        topBarTabs.associate { it.route to FocusRequester() }
+    }
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
 
     var isSidebarExpanded by remember { mutableStateOf(false) }
@@ -1916,6 +1935,20 @@ private fun ModernSidebarScaffold(
                                 else -> Unit
                             }
                         }
+                        // SU non consumato dal contenuto = siamo in cima alla
+                        // pagina: il focus sale alla tab di sezione attiva
+                        // nella barra alta (come Prime). Se le righe hanno
+                        // gestito SU spostandosi verso l'alto, questo non
+                        // scatta mai — il tasto è già stato consumato.
+                        if (keyEvent.key == Key.DirectionUp && topBarTabs.isNotEmpty()) {
+                            val target = topBarTabFocusRequesters[selectedDrawerRoute]
+                                ?: topBarTabFocusRequesters[topBarTabs.first().route]
+                            if (target != null &&
+                                runCatching { target.requestFocus() }.getOrDefault(false)
+                            ) {
+                                return@onKeyEvent true
+                            }
+                        }
                         val openKey = if (isRtl) Key.DirectionRight else Key.DirectionLeft
                         if (keyEvent.key == openKey) {
                             if (focusManager.moveFocus(if (isRtl) FocusDirection.Right else FocusDirection.Left)) {
@@ -1944,6 +1977,27 @@ private fun ModernSidebarScaffold(
                     hideBuiltInHeaders = hideBuiltInHeaders
                 )
             }
+        }
+
+        if (showSidebar && topBarTabs.isNotEmpty()) {
+            NuvioSectionTopBar(
+                tabs = topBarTabs,
+                selectedRoute = selectedDrawerRoute,
+                tabFocusRequesters = topBarTabFocusRequesters,
+                showProfile = showProfileSelector && activeProfileName.isNotEmpty(),
+                profileName = activeProfileName,
+                profileColorHex = activeProfileColorHex,
+                profileAvatarImageUrl = activeProfileAvatarImageUrl,
+                onProfileClick = onSwitchProfile,
+                onNavigate = onNavigate,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth()
+                    .padding(
+                        start = collapsedSidebarWidth + NuvioTheme.spacing.lg,
+                        top = NuvioTheme.spacing.sm
+                    )
+            )
         }
 
         if (showSidebar && (sidebarVisible || sidebarWidth > NuvioTheme.spacing.none)) {
