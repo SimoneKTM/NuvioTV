@@ -2051,6 +2051,7 @@ private fun ModernSidebarScaffold(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
+                    .fillMaxHeight()
                     .width(sidebarWidth)
                     .padding(start = NuvioTheme.spacing.lg - NuvioTheme.spacing.xxs, top = NuvioTheme.spacing.lg, bottom = NuvioTheme.spacing.md, end = NuvioTheme.spacing.sm)
                     .offset {
@@ -2154,11 +2155,11 @@ private fun ModernSidebarScaffold(
                         pendingContentFocusTransfer = true
                     },
                     modifier = Modifier
-                        .align(Alignment.TopStart)
+                        .align(Alignment.CenterStart)
                         .offset {
                             IntOffset(
                                 (NuvioTheme.spacing.lg - NuvioTheme.spacing.xxs).roundToPx(),
-                                (NuvioTheme.spacing.lg + sidebarDeflateOffsetY).roundToPx()
+                                sidebarDeflateOffsetY.roundToPx()
                             )
                         }
                         .graphicsLayer {

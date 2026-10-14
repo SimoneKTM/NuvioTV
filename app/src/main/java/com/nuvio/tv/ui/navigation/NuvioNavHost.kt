@@ -1070,7 +1070,8 @@ fun NuvioNavHost(
                         Screen.CatalogSeeAll.createRoute(catalogId, addonId, type, fromSearch = true)
                     )
                 },
-                onOpenDiscover = { navController.navigate(Screen.Discover.route) }
+                onOpenDiscover = { navController.navigate(Screen.Discover.route) },
+                showBuiltInHeader = !hideBuiltInHeaders
             )
         }
 

@@ -84,7 +84,11 @@ fun DiscoverScreen(
                     viewModel.posterOptions.show(item, addonBaseUrl)
                 },
                 onEvent = { viewModel.onEvent(it) },
-                modifier = Modifier.padding(top = NuvioTheme.spacing.lg)
+                modifier = Modifier.padding(
+                    // Con la barra sezioni in alto il contenuto Scopri parte
+                    // sotto di essa (come in Ricerca ed Extra).
+                    top = if (showBuiltInHeader) NuvioTheme.spacing.lg else 72.dp
+                )
             )
         }
 
