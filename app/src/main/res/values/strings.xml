@@ -3462,5 +3462,4 @@
     <string name="sub_startup_mode_all_desc">Preload and attach all addon subtitles before playback. Slowest startup.</string>
 
   <string name="card_chip_new">NEW</string>
-  <string name="card_hold_for_details">Hold for details</string>
 </resources>

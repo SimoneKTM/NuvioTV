@@ -1635,18 +1635,6 @@ private fun ModernCarouselCard(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                // Hint long-press stile Prime Video ("Hold for details"):
-                // comunica che il tasto lungo apre i dettagli, senza occupare
-                // schermo se non quando la card è focalizzata.
-                if (isFocused) {
-                    Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxs))
-                    Text(
-                        text = stringResource(R.string.card_hold_for_details),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = NuvioTheme.colors.TextSecondary,
-                        maxLines = 1
-                    )
-                }
             }
         }
     }
