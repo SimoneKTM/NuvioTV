@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import com.nuvio.tv.LocalContentFocusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -136,7 +137,9 @@ fun CalendarHomeScreen(
                 val firstSection = uiState.sections.firstOrNull()
 
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .focusRequester(LocalContentFocusRequester.current),
                     contentPadding = PaddingValues(top = 72.dp, bottom = 160.dp)
                 ) {
                     if (firstSection != null) {

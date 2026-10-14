@@ -2039,9 +2039,9 @@ private fun ModernSidebarScaffold(
                         currentRoute = currentRoute,
                         targetRoute = route
                     )
-                    // Il cursore resta sulla tab selezionata: la barra resta
-                    // visibile su tutte le sezioni, quindi con GIÙ si scende
-                    // sul contenuto senza che il focus "scorra" su tab errate.
+                    // Anime, Extra e Calendario ora registrano il contentFocusRequester
+                    // (come la Home): il focus atterra direttamente sulla prima riga.
+                    pendingContentFocusTransfer = true
                 },
                 modifier = Modifier
                     .align(Alignment.TopStart)

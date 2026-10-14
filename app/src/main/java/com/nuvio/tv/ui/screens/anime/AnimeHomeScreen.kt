@@ -48,6 +48,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.focus.focusRequester
+import com.nuvio.tv.LocalContentFocusRequester
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -334,7 +336,8 @@ private fun AnimeModernContent(
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
                 .then(if (heroEnabled) Modifier.height(rowsViewportHeight) else Modifier.fillMaxSize())
-                .dpadRepeatThrottle(),
+                .dpadRepeatThrottle()
+                .focusRequester(LocalContentFocusRequester.current),
             contentPadding = PaddingValues(
                 // Con l'hero attivo le righe occupano solo la fascia bassa;
                 // senza hero partono dalla cima e devono scendere sotto la

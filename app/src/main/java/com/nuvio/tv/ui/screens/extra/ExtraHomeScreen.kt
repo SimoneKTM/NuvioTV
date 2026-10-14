@@ -24,6 +24,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
+import com.nuvio.tv.LocalContentFocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -232,7 +234,8 @@ private fun ExtraClassicContent(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .dpadRepeatThrottle(),
+                .dpadRepeatThrottle()
+                .focusRequester(LocalContentFocusRequester.current),
             contentPadding = PaddingValues(top = 72.dp, bottom = NuvioTheme.spacing.xxl)
         ) {
             if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
@@ -334,7 +337,8 @@ private fun ExtraModernContent(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .dpadRepeatThrottle(),
+            .dpadRepeatThrottle()
+            .focusRequester(LocalContentFocusRequester.current),
         contentPadding = PaddingValues(top = 72.dp, bottom = NuvioTheme.spacing.xxl)
     ) {
         if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
@@ -423,7 +427,8 @@ private fun ExtraGridContent(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .dpadRepeatThrottle(),
+            .dpadRepeatThrottle()
+            .focusRequester(LocalContentFocusRequester.current),
         contentPadding = PaddingValues(top = 72.dp, bottom = NuvioTheme.spacing.xxl)
     ) {
         if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
