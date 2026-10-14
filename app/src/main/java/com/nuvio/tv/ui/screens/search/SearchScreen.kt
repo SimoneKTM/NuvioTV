@@ -159,8 +159,7 @@ fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
     onNavigateToDetail: (String, String, String) -> Unit,
     onNavigateToSeeAll: (catalogId: String, addonId: String, type: String) -> Unit = { _, _, _ -> },
-    onOpenDiscover: () -> Unit = {},
-    showBuiltInHeader: Boolean = true
+    onOpenDiscover: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val watchedMovieIds by viewModel.watchedMovieIds.collectAsState()
@@ -594,13 +593,6 @@ fun SearchScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .then(
-                // Con la barra sezioni in alto (sidebar moderna) il banner di
-                // ricerca parte sotto di essa, altrimenti filtri e input
-                // finiscono sotto lo scrim della barra.
-                if (showBuiltInHeader) Modifier
-                else Modifier.padding(top = 72.dp)
-            )
             .recompositionHighlighter()
     ) {
         // Full-width search banner: always visible, spanning the whole page, with the clear

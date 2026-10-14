@@ -1703,6 +1703,7 @@ private fun ModernSidebarScaffold(
     // BACK ci porta il focus sopra, un secondo BACK esce dall'app.
     val primeRailRoutes = remember {
         setOf(
+            Screen.Home.route,
             Screen.Search.route,
             Screen.Library.route,
             Screen.LiveTv.route,
@@ -1974,7 +1975,10 @@ private fun ModernSidebarScaffold(
                         // nella barra alta (come Prime). Se le righe hanno
                         // gestito SU spostandosi verso l'alto, questo non
                         // scatta mai — il tasto è già stato consumato.
-                        if (keyEvent.key == Key.DirectionUp && topBarTabs.isNotEmpty()) {
+                        if (keyEvent.key == Key.DirectionUp &&
+                            topBarTabs.isNotEmpty() &&
+                            currentRoute == Screen.Home.route
+                        ) {
                             val target = topBarTabFocusRequesters[selectedDrawerRoute]
                                 ?: topBarTabFocusRequesters[topBarTabs.first().route]
                             if (target != null &&
@@ -2012,7 +2016,9 @@ private fun ModernSidebarScaffold(
             }
         }
 
-        if (showSidebar && topBarTabs.isNotEmpty()) {
+        // La barra sezioni esiste SOLO nella Home: nelle altre schermate
+        // (Ricerca, Scopri, Libreria, Live TV, Impostazioni...) non c'è.
+        if (showSidebar && currentRoute == Screen.Home.route && topBarTabs.isNotEmpty()) {
             NuvioSectionTopBar(
                 tabs = topBarTabs,
                 selectedRoute = selectedDrawerRoute,
