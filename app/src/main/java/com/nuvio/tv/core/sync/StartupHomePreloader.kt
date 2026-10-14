@@ -92,6 +92,13 @@ class StartupHomePreloader @Inject constructor(
         private const val GENTLE_CW_IMAGE_WARM_DELAY_MS = 1_000L
         private const val GENTLE_IMAGE_WARM_DELAY_MS = 10_000L
         private const val GENTLE_TRANSLATION_WARM_DELAY_MS = 30_000L
+
+        /**
+         * Il warm immagini compete con lo scroll per CPU e decodifica: su una
+         * Stick da 1 GB, avviato mentre l'utente naviga, è una causa diretta
+         * di blocchi. Parte solo dopo 2 s di inattività (atteso max 60 s).
+         */
+        private const val GENTLE_WARM_IDLE_MAX_WAIT_MS = 60_000L
     }
 
     // Warm-ups run on a background-priority thread: on low-end TV sticks the
@@ -232,6 +239,7 @@ class StartupHomePreloader @Inject constructor(
                 // prima ancora di quelle di catalogo.
                 scope.launch {
                     delay(GENTLE_CW_IMAGE_WARM_DELAY_MS)
+                    awaitUserIdle()
                     val cwUrls = runCatching {
                         cwEnrichmentCache.getNextUpSnapshot().mapNotNull { it.thumbnail ?: it.backdrop ?: it.poster } +
                             cwEnrichmentCache.getInProgressSnapshot().mapNotNull { it.episodeThumbnail ?: it.backdrop ?: it.poster }
@@ -243,6 +251,7 @@ class StartupHomePreloader @Inject constructor(
                 // non nel gate. Lo scroll le trova già in disco man mano.
                 scope.launch {
                     delay(GENTLE_IMAGE_WARM_DELAY_MS)
+                    awaitUserIdle()
                     runCatching { homeImagePreloader.warmImages() }
                 }
             }
@@ -313,6 +322,23 @@ class StartupHomePreloader @Inject constructor(
         }
 
         return complete
+    }
+
+    /**
+     * Aspetta che l'utente smetta di premere tasti (max
+     * [GENTLE_WARM_IDLE_MAX_WAIT_MS]). Chiamata prima dei warm immagini: il
+     * decode di decine di schede non deve mai competere con lo scroll attivo.
+     */
+    private suspend fun awaitUserIdle() {
+        var waitedMs = 0L
+        while (
+            waitedMs < GENTLE_WARM_IDLE_MAX_WAIT_MS &&
+            android.os.SystemClock.elapsedRealtime() -
+            com.nuvio.tv.NuvioApplication.lastUserInteractionAtMs < 2_000L
+        ) {
+            delay(1_000L)
+            waitedMs += 1_000L
+        }
     }
 
     /** Risolve gli URL dei trailer dei primi titoli per farli partire subito in Home. */

@@ -48,6 +48,22 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
 
     companion object {
         private const val TAG = "NuvioApplication"
+
+        /**
+         * Ultimo input dell'utente (tasto/comando premuto), marchiato da
+         * [MainActivity.onUserInteraction]. Usato per rimandare le azioni di
+         * sollievo che mettono l'UI in pausa (cache immagini + GC): mai a
+         * metà di uno scroll — è la causa diretta del "si blocca" percepito
+         * quando si scorre veloce sulla home.
+         */
+        @Volatile
+        var lastUserInteractionAtMs = 0L
+            private set
+
+        fun markUserInteraction() {
+            lastUserInteractionAtMs = android.os.SystemClock.elapsedRealtime()
+        }
+
         /** Let the splash/profile render before background startup work begins. */
         private const val STARTUP_DEFERRED_INIT_DELAY_MS = 1_500L
         private const val STARTUP_CHANNEL_SYNC_DELAY_MS = 3_000L
@@ -191,9 +207,26 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         lastReliefAtMs = now
         reliefExecutor.execute {
             if (!this::trailerPlayerPool.isInitialized) return@execute
+            // Il trailer si rilascia SUBITO: è la risorsa più grande che
+            // possiamo liberare (~130 MB di ION) e il rilascio non tocca l'UI.
             runCatching { trailerPlayerPool.trim() }
+            // Livello economico: solo il trailer. Svuotare la cache immagini
+            // qui (arrivava ogni level15, più volte l'ora) obbligava a
+            // riscaricare bitmaps visibili — jank gratuito.
+            if (!full) return@execute
+            // Cache immagini + GC mettono l'UI in pausa: i bitmaps visibili
+            // vanno riscaricati e il GC è stop-the-world. Se l'utente sta
+            // premendo tasti, rimandano finché non fa una pausa di 1,5 s
+            // (max 8 s): l'emergenza resta, ma mai a metà di uno scroll.
+            val deadline = android.os.SystemClock.elapsedRealtime() + 8_000L
+            while (
+                android.os.SystemClock.elapsedRealtime() < deadline &&
+                android.os.SystemClock.elapsedRealtime() - lastUserInteractionAtMs < 1_500L
+            ) {
+                runCatching { Thread.sleep(200L) }
+            }
             runCatching { SingletonImageLoader.get(this).memoryCache?.clear() }
-            if (full) runCatching { System.gc() }
+            runCatching { System.gc() }
         }
     }
 

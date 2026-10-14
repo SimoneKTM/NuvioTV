@@ -440,6 +440,16 @@ class MainActivity : ComponentActivity() {
         return base.createConfigurationContext(config)
     }
 
+    /**
+     * Ogni tasto premuto marchia l'ora in [com.nuvio.tv.NuvioApplication]:
+     * il governor di memoria rimanda cache-clear/GC finché l'utente non
+     * naviga — mai un blocco a metà di uno scroll.
+     */
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        NuvioApplication.markUserInteraction()
+    }
+
     @OptIn(ExperimentalFoundationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         val systemSplash = installSplashScreen()
