@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.components
 
+import com.nuvio.tv.core.perf.LocalFluidMode
+
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -941,7 +943,7 @@ private fun WideCardContent(
                     contentDescription = titleText,
                     modifier = Modifier
                         .fillMaxSize()
-                        .then(if (shouldBlur) Modifier.blur(12.dp) else Modifier),
+                        .then(if (shouldBlur && !LocalFluidMode.current) Modifier.blur(12.dp) else Modifier),
                     placeholder = backgroundPainter,
                     error = backgroundPainter,
                     fallback = backgroundPainter,

@@ -2,6 +2,8 @@
 
 package com.nuvio.tv.ui.screens
 
+import com.nuvio.tv.core.perf.LocalFluidMode
+
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.activity.compose.BackHandler
@@ -130,7 +132,7 @@ fun CatalogSeeAllScreen(
         height = activePosterHeightDp.dp,
         cornerRadius = activeCornerRadiusDp.dp,
         focusedBorderWidth = PosterCardDefaults.Style.focusedBorderWidth,
-        focusedScale = PosterCardDefaults.Style.focusedScale
+        focusedScale = if (LocalFluidMode.current) 1f else PosterCardDefaults.Style.focusedScale
     )
 
     BackHandler { onBackPress() }

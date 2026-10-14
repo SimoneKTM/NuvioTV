@@ -6,6 +6,8 @@
 
 package com.nuvio.tv.ui.components
 
+import com.nuvio.tv.core.perf.LocalFluidMode
+
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.compose.foundation.BorderStroke
@@ -280,7 +282,7 @@ private fun FolderCard(
                 shape = shape
             )
         ),
-        scale = CardDefaults.scale(focusedScale = posterCardStyle.focusedScale),
+        scale = CardDefaults.scale(focusedScale = if (LocalFluidMode.current) 1f else posterCardStyle.focusedScale),
         glow = cardGlow
     ) {
         Box(

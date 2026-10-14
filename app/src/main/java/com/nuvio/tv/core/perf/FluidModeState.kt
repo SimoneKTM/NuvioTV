@@ -1,6 +1,7 @@
 package com.nuvio.tv.core.perf
 
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
+import androidx.compose.runtime.compositionLocalOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -32,3 +33,10 @@ class FluidModeState @Inject constructor(
 
     suspend fun isEnabled(): Boolean = runCatching { enabled.first() }.getOrElse { false }
 }
+
+/**
+ * true quando Layout > Modalità Fluida è attiva: blur, espansione locandine
+ * e anteprime trailer vengono spenti (come promesso dal sottotitolo della
+ * impostazione). Le componenti la leggono via composition local.
+ */
+val LocalFluidMode = compositionLocalOf { false }

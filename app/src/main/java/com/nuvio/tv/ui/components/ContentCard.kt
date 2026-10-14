@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.components
 
+import com.nuvio.tv.core.perf.LocalFluidMode
+
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -130,6 +132,8 @@ fun ContentCard(
     var trailerFirstFrameRendered by remember(trailerPreviewUrl) { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
+    // Modalità Fluida: niente espansione locandina né anteprime trailer.
+    val fluidMode = LocalFluidMode.current
     val nextEpisodeDateLabel = rememberNextEpisodeDateLabel(item)
 
     LaunchedEffect(isBackdropExpanded) {
@@ -142,7 +146,7 @@ fun ContentCard(
 
     val isPlaceholderItem = item.poster == PLACEHOLDER_IMAGE_URL
 
-    if (focusedPosterBackdropExpandEnabled && !isPlaceholderItem) {
+    if (focusedPosterBackdropExpandEnabled && !fluidMode && !isPlaceholderItem) {
         LaunchedEffect(
             focusedPosterBackdropExpandDelaySeconds,
             isFocused,
@@ -348,7 +352,7 @@ fun ContentCard(
                     shape = cardShape
                 )
             ),
-            scale = CardDefaults.scale(focusedScale = posterCardStyle.focusedScale)
+            scale = CardDefaults.scale(focusedScale = if (fluidMode) 1f else posterCardStyle.focusedScale)
         ) {
             Box(
                 modifier = Modifier
@@ -389,7 +393,7 @@ fun ContentCard(
                     MonochromePosterPlaceholder()
                 }
 
-                val shouldPlayTrailerPreview = isBackdropExpanded &&
+                val shouldPlayTrailerPreview = !fluidMode && isBackdropExpanded &&
                     focusedPosterBackdropTrailerEnabled &&
                     isFocused &&
                     trailerPreviewUrl != null

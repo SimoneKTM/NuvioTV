@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.components
 
+import com.nuvio.tv.core.perf.LocalFluidMode
+
 import com.nuvio.tv.domain.model.isPlaceholder
 import com.nuvio.tv.ui.theme.NuvioTheme
 
@@ -179,7 +181,7 @@ fun GridContentCard(
                     shape = cardShape
                 )
             ),
-            scale = CardDefaults.scale(focusedScale = posterCardStyle.focusedScale)
+            scale = CardDefaults.scale(focusedScale = if (LocalFluidMode.current) 1f else posterCardStyle.focusedScale)
         ) {
             Box(
                 modifier = Modifier

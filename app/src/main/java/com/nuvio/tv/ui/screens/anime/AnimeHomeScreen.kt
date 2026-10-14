@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.anime
 
+import com.nuvio.tv.core.perf.LocalFluidMode
+
 import android.content.Context
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.foundation.background
@@ -301,7 +303,7 @@ private fun AnimeModernContent(
                     fullScreenBackdrop = fullScreenBackdrop,
                     useLandscapePosters = useLandscapePosters,
                     showFullReleaseDate = uiState.showFullReleaseDate,
-                    trailerPreviewUrl = if (heroPlaysTrailer) {
+                    trailerPreviewUrl = if (heroPlaysTrailer && !LocalFluidMode.current) {
                         trailerPreviewUrls[currentHeroItem.id]
                     } else {
                         null

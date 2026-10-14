@@ -6,6 +6,8 @@
 
 package com.nuvio.tv.ui.screens.home
 
+import com.nuvio.tv.core.perf.LocalFluidMode
+
 import com.nuvio.tv.ui.theme.NuvioMotion
 import com.nuvio.tv.ui.theme.NuvioTheme
 
@@ -749,17 +751,20 @@ fun ModernHomeContent(
             val isScrollStoppedState = remember(verticalRowListState) {
                 derivedStateOf { !verticalRowListState.isScrollInProgress }
             }
+            val fluidMode = LocalFluidMode.current
             val shouldPlayCatalogHeroTrailerState = remember(
                 isScrollStoppedState,
                 effectiveAutoplayEnabled,
                 trailerPlaybackTarget,
                 heroTrailerUrlsState,
                 isSidebarExpanded,
-                isRapidHorizontalNav
+                isRapidHorizontalNav,
+                fluidMode
             ) {
                 derivedStateOf {
                     isScrollStoppedState.value &&
                         effectiveAutoplayEnabled &&
+                        !fluidMode &&
                         !isSidebarExpanded.value &&
                         !isRapidHorizontalNav.value &&
                         trailerPlaybackTarget == FocusedPosterTrailerPlaybackTarget.HERO_MEDIA &&

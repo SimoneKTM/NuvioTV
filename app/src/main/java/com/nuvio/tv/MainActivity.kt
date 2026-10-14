@@ -115,6 +115,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import com.nuvio.tv.core.perf.FluidModeState
+import com.nuvio.tv.core.perf.LocalFluidMode
 import com.nuvio.tv.core.runtime.PluginRuntimeHooks
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -867,6 +868,7 @@ class MainActivity : ComponentActivity() {
                     val modernSidebarBlurEnabled =
                         mainUiPrefs.modernSidebarBlurPref && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S
                     val hideBuiltInHeadersForFloatingPill = modernSidebarEnabled && !sidebarCollapsed
+                    val fluidModeEnabled by fluidModeState.enabled.collectAsState(initial = false)
 
                     val startDestination = when {
                         needsExperienceSelection -> Screen.ExperienceModeSelection.route
@@ -1107,6 +1109,7 @@ class MainActivity : ComponentActivity() {
                             onDismiss = newEpisodeViewModel::dismiss
                         ) {
                             Box(modifier = Modifier.fillMaxSize()) {
+                                CompositionLocalProvider(LocalFluidMode provides fluidModeEnabled) {
                                 if (modernSidebarEnabled) {
                                     ModernSidebarScaffold(
                                         navController = navController,
@@ -1151,6 +1154,7 @@ class MainActivity : ComponentActivity() {
                                             finishAndRemoveTask()
                                         }
                                     )
+                                }
                                 }
 
                                 val autoNextOverlay by externalPlaybackTracker.autoNextOverlay.collectAsState()
@@ -1692,6 +1696,34 @@ private fun ModernSidebarScaffold(
     val topBarTabFocusRequesters = remember(topBarTabs) {
         topBarTabs.associate { it.route to FocusRequester() }
     }
+
+    // Rail laterale stile Prime Video: solo le utility (Cerca, Libreria,
+    // Live TV, Impostazioni). Le sezioni vivono nella barra alta; il rail
+    // è sempre visibile a icone nude e non si espande mai con le etichette:
+    // BACK ci porta il focus sopra, un secondo BACK esce dall'app.
+    val primeRailRoutes = remember {
+        setOf(
+            Screen.Search.route,
+            Screen.Library.route,
+            Screen.LiveTv.route,
+            Screen.Settings.route
+        )
+    }
+    val primeRailItems = remember(drawerItems) {
+        drawerItems.filter { it.route in primeRailRoutes }
+    }
+    var primeRailHasFocus by remember { mutableStateOf(false) }
+    val focusPrimeRail: () -> Boolean = {
+        val targetRoute = primeRailItems.firstOrNull { it.route == currentRoute }?.route
+            ?: primeRailItems.firstOrNull()?.route
+        if (targetRoute != null) {
+            runCatching {
+                drawerItemFocusRequesters.getValue(targetRoute).requestFocus()
+            }.getOrDefault(false)
+        } else {
+            false
+        }
+    }
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
 
     var isSidebarExpanded by remember { mutableStateOf(false) }
@@ -1723,9 +1755,11 @@ private fun ModernSidebarScaffold(
     }
 
     BackHandler(enabled = currentRoute in rootRoutes && !isSidebarExpanded && !sidebarCollapsePending) {
-        isSidebarExpanded = true
-        sidebarCollapsePending = false
-        pendingSidebarFocusRequest = true
+        // Rail stile Prime: nessun pannello con le etichette. Il primo BACK
+        // porta il focus sul rail; se è già lì (o il rail non ha voci) esce.
+        if (primeRailHasFocus || !focusPrimeRail()) {
+            onExitApp()
+        }
     }
 
     BackHandler(enabled = currentRoute in rootRoutes && isSidebarExpanded && !sidebarCollapsePending) {
@@ -1954,10 +1988,9 @@ private fun ModernSidebarScaffold(
                             if (focusManager.moveFocus(if (isRtl) FocusDirection.Right else FocusDirection.Left)) {
                                 true
                             } else {
-                                isSidebarExpanded = true
-                                sidebarCollapsePending = false
-                                pendingSidebarFocusRequest = true
-                                true
+                                // Rail stile Prime: se a sinistra non c'è nulla il
+                                // focus cade sul rail, senza pannello con le etichette.
+                                focusPrimeRail()
                             }
                         } else {
                             false
@@ -1989,12 +2022,23 @@ private fun ModernSidebarScaffold(
                 profileColorHex = activeProfileColorHex,
                 profileAvatarImageUrl = activeProfileAvatarImageUrl,
                 onProfileClick = onSwitchProfile,
-                onNavigate = onNavigate,
+                onNavigate = { route ->
+                    // Come nel pannello laterale: rotta ottimistica per l'highlight
+                    // IMMEDIATO + navigazione Vera sul NavController, altrimenti la
+                    // tab cambia logo ma il contenuto resta fermo.
+                    onNavigate(route)
+                    navigateToDrawerRoute(
+                        navController = navController,
+                        currentRoute = currentRoute,
+                        targetRoute = route
+                    )
+                    pendingContentFocusTransfer = true
+                },
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .fillMaxWidth()
                     .padding(
-                        start = collapsedSidebarWidth + NuvioTheme.spacing.lg,
+                        start = sidebarTokens.collapsedWidth + NuvioTheme.spacing.lg,
                         top = NuvioTheme.spacing.sm
                     )
             )
@@ -2052,7 +2096,7 @@ private fun ModernSidebarScaffold(
             ) {
                 if (showExpandedPanel) {
                     ModernSidebarBlurPanel(
-                        drawerItems = drawerItems,
+                        drawerItems = primeRailItems,
                         selectedDrawerRoute = selectedDrawerRoute,
                         keepSidebarFocusDuringCollapse = keepSidebarFocusDuringCollapse,
                         sidebarLabelAlpha = sidebarLabelAlpha,
@@ -2087,17 +2131,28 @@ private fun ModernSidebarScaffold(
                 }
             }
 
-            if (
-                !sidebarCollapsed &&
-                sidebarShowCollapsedPill &&
-                selectedDrawerRoute != Screen.Search.route
-            ) {
-                CollapsedSidebarPill(
-                    label = selectedDrawerItem.label,
-                    iconRes = selectedDrawerItem.iconRes,
-                    icon = selectedDrawerItem.icon,
-                    iconOnly = isFloatingPillIconOnly && !keepFloatingPillExpanded,
-                    blurEnabled = modernSidebarBlurEnabled,
+            if (sidebarShowCollapsedPill) {
+                // Rail stile Prime Video: colonna di sole icone nude
+                // (Cerca, Libreria, Live TV, Impostazioni), sempre visibile,
+                // senza etichette né pannello espanso.
+                PrimeRailStrip(
+                    items = primeRailItems,
+                    selectedRoute = selectedDrawerRoute,
+                    focusRequesters = drawerItemFocusRequesters,
+                    onItemFocused = { index, focused ->
+                        primeRailHasFocus = focused
+                        if (focused) focusedDrawerIndex = index
+                    },
+                    onItemClick = { targetRoute ->
+                        keyboardController?.hide()
+                        onNavigate(targetRoute)
+                        navigateToDrawerRoute(
+                            navController = navController,
+                            currentRoute = currentRoute,
+                            targetRoute = targetRoute
+                        )
+                        pendingContentFocusTransfer = true
+                    },
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .offset {
@@ -2109,18 +2164,102 @@ private fun ModernSidebarScaffold(
                         .graphicsLayer {
                             val progress = sidebarExpandProgress
                             alpha = 1f - progress
-                            val s = 0.9f + (0.1f * (1f - progress))
-                            scaleX = s
-                            scaleY = s
                             transformOrigin = TransformOrigin(0f, 0f)
-                        },
-                    onExpand = {
-                        isSidebarExpanded = true
-                        sidebarCollapsePending = false
-                        pendingSidebarFocusRequest = true
-                    }
+                        }
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun PrimeRailStrip(
+    items: List<DrawerItem>,
+    selectedRoute: String?,
+    focusRequesters: Map<String, FocusRequester>,
+    onItemFocused: (Int, Boolean) -> Unit,
+    onItemClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        items.forEachIndexed { index, item ->
+            key(item.route) {
+                PrimeRailItem(
+                    iconRes = item.iconRes,
+                    icon = item.icon,
+                    selected = selectedRoute == item.route,
+                    focusRequester = focusRequesters[item.route],
+                    onFocusChanged = { focused -> onItemFocused(index, focused) },
+                    onClick = { onItemClick(item.route) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrimeRailItem(
+    iconRes: Int?,
+    icon: ImageVector?,
+    selected: Boolean,
+    focusRequester: FocusRequester?,
+    onFocusChanged: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    var isFocused by remember { mutableStateOf(false) }
+    val colors = NuvioTheme.colors
+    val shape = RoundedCornerShape(NuvioRadii.tokens.full)
+    val itemSize = NuvioTheme.sizes.sidebar.leadingVisual + NuvioTheme.spacing.xs
+    val background = when {
+        isFocused -> colors.text.onOverlay.copy(alpha = NuvioTheme.effects.glowSoftAlpha)
+        selected -> colors.SurfaceVariant
+        else -> Color.Transparent
+    }
+    val borderColor = if (isFocused) {
+        colors.text.onOverlay.copy(alpha = NuvioTheme.effects.glowStrongAlpha)
+    } else {
+        Color.Transparent
+    }
+    Card(
+        onClick = onClick,
+        modifier = modifier
+            .size(itemSize)
+            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .onFocusChanged {
+                isFocused = it.hasFocus
+                onFocusChanged(it.hasFocus)
+            },
+        colors = CardDefaults.colors(
+            containerColor = background,
+            focusedContainerColor = background
+        ),
+        border = CardDefaults.border(
+            border = androidx.tv.material3.Border.None,
+            focusedBorder = androidx.tv.material3.Border(
+                border = androidx.compose.foundation.BorderStroke(
+                    NuvioStrokes.tokens.thin,
+                    borderColor
+                ),
+                shape = shape
+            )
+        ),
+        shape = CardDefaults.shape(shape = shape)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            DrawerItemIcon(
+                iconRes = iconRes,
+                icon = icon,
+                modifier = Modifier.size(itemSize - NuvioTheme.spacing.md),
+                tint = colors.text.onOverlay
+            )
         }
     }
 }
