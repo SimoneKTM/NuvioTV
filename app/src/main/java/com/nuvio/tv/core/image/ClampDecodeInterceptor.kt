@@ -1,7 +1,7 @@
 package com.nuvio.tv.core.image
 
-import coil3.intercept.ImageResult
 import coil3.intercept.Interceptor
+import coil3.request.ImageResult
 import coil3.size.Dimension
 import coil3.size.Size
 
@@ -15,13 +15,14 @@ import coil3.size.Size
  *
  * Registrato come interceptor globale in NuvioApplication.newImageLoader:
  * copre poster, sfondi, loghi e miniature senza toccare le chiamate.
+ *
+ * API Coil 3.3.0: `chain.size` è la dimensione già risolta della richiesta;
+ * `withSize()` produce una catena con la dimensione sostituita.
  */
 class ClampDecodeInterceptor : Interceptor {
 
     override suspend fun intercept(chain: Interceptor.Chain): ImageResult {
-        val request = chain.request()
-        val size = runCatching { request.sizeResolver.size() }.getOrNull()
-            ?: return chain.proceed(request)
+        val size = chain.size
         val widthPx = (size.width as? Dimension.Pixels)?.px
         val heightPx = (size.height as? Dimension.Pixels)?.px
         val cappedWidth =
@@ -29,13 +30,9 @@ class ClampDecodeInterceptor : Interceptor {
         val cappedHeight =
             if (heightPx != null && heightPx > MAX_DECODE_PX) Dimension.Pixels(MAX_DECODE_PX) else size.height
         if (cappedWidth == size.width && cappedHeight == size.height) {
-            return chain.proceed(request)
+            return chain.proceed()
         }
-        return chain.proceed(
-            request.newBuilder()
-                .size(Size(cappedWidth, cappedHeight))
-                .build()
-        )
+        return chain.withSize(Size(cappedWidth, cappedHeight)).proceed()
     }
 
     companion object {
