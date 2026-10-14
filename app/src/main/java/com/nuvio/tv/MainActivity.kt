@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
 import android.view.KeyEvent
 import android.widget.Toast
@@ -1911,7 +1912,20 @@ private fun ModernSidebarScaffold(
         if (!showSidebar || !pendingContentFocusTransfer || isSidebarExpanded || sidebarCollapsePending) {
             return@LaunchedEffect
         }
-        val requested = contentFocusRequester.requestFocusAfterFrames(8)
+        var requested = false
+        if (currentRoute in sectionRoutes) {
+            // Le sezioni registrano il contentFocusRequester, ma sulle TV lente
+            // (Fire TV Stick 1GB) il contenuto diventa focusabile DOPO il salto
+            // di sezione: riprova per qualche secondo, altrimenti il focus
+            // resta intrappolato su barra e rail.
+            val deadline = SystemClock.uptimeMillis() + 6000L
+            while (!requested && SystemClock.uptimeMillis() < deadline) {
+                requested = contentFocusRequester.requestFocusAfterFrames(6)
+                if (!requested) delay(250)
+            }
+        } else {
+            requested = contentFocusRequester.requestFocusAfterFrames(8)
+        }
         if (!requested) {
             // Root screens without a registered content requester (Search, Library, ...):
             // steer the d-pad at the content so the remote does not go dead.

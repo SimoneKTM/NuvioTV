@@ -112,18 +112,16 @@ internal fun NuvioSectionTopBar(
             }
             Spacer(modifier = Modifier.weight(1f))
             if (showProfile && profileName.isNotBlank()) {
+                // L'avatar è l'elemento cliccabile e focusabile: così il
+                // ring di focus si accende SULL'avatar, non su un riquadro
+                // invisibile affianco.
                 ProfileAvatarCircle(
                     name = profileName,
                     colorHex = profileColorHex,
                     avatarImageUrl = profileAvatarImageUrl,
                     size = 36.dp,
-                    modifier = Modifier.padding(start = NuvioTheme.spacing.sm)
-                )
-                // L'avatar è cliccabile: un Box overlay clickable della stessa
-                // misura evita di duplicare la logica di disegno.
-                Box(
                     modifier = Modifier
-                        .size(36.dp)
+                        .padding(start = NuvioTheme.spacing.sm)
                         .clip(RoundedCornerShape(50))
                         .clickable(onClick = onProfileClick)
                 )
