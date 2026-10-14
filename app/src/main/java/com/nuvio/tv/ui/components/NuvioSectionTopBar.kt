@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,10 +27,13 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.nuvio.tv.R
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 data class TopBarSectionTab(
@@ -88,6 +92,16 @@ internal fun NuvioSectionTopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
         ) {
+            // Marchio "nuvio" a sinistra come su Prime Video: la barra non è
+            // solo un tratto di tab ma anche identità di sezione.
+            Image(
+                painter = painterResource(R.drawable.nuvio_text),
+                contentDescription = null,
+                modifier = Modifier
+                    .padding(end = NuvioTheme.spacing.md)
+                    .height(20.dp),
+                contentScale = ContentScale.FillHeight
+            )
             tabs.forEach { tab ->
                 SectionTab(
                     label = tab.label,

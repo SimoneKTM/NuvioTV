@@ -22,7 +22,7 @@ val LocalFastHorizontalNavigationEnabled = compositionLocalOf { false }
  */
 fun Modifier.dpadRepeatThrottle(
     horizontalGateMs: Long = 80L,
-    verticalGateMs: Long = 112L
+    verticalGateMs: Long = 80L
 ): Modifier = composed {
     val focusManager = LocalFocusManager.current
     val fastHorizontalNavigationEnabled = LocalFastHorizontalNavigationEnabled.current

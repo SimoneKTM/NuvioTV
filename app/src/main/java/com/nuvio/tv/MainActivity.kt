@@ -2024,7 +2024,9 @@ private fun ModernSidebarScaffold(
                 tabs = topBarTabs,
                 selectedRoute = selectedDrawerRoute,
                 tabFocusRequesters = topBarTabFocusRequesters,
-                showProfile = showProfileSelector && activeProfileName.isNotEmpty(),
+                // L'avatar del profilo è sempre visibile (come su Prime), anche
+                // con profilo unico: è l'ancora destra della barra.
+                showProfile = activeProfileName.isNotEmpty(),
                 profileName = activeProfileName,
                 profileColorHex = activeProfileColorHex,
                 profileAvatarImageUrl = activeProfileAvatarImageUrl,

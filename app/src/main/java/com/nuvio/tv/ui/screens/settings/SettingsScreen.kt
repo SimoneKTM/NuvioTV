@@ -486,7 +486,9 @@ fun SettingsScreen(
             .padding(
                 start = NuvioTheme.spacing.xxl,
                 end = NuvioTheme.spacing.xxl,
-                top = if (showBuiltInHeader) NuvioTheme.spacing.xl else 68.dp,
+                // Niente più barra sopra Impostazioni: il menu tab torna in
+                // alto, allineato con la barra sezioni delle altre schermate.
+                top = NuvioTheme.spacing.sm,
                 bottom = NuvioTheme.spacing.xl
             )
     ) {
