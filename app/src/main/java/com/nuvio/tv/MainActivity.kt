@@ -1977,7 +1977,7 @@ private fun ModernSidebarScaffold(
                         // scatta mai — il tasto è già stato consumato.
                         if (keyEvent.key == Key.DirectionUp &&
                             topBarTabs.isNotEmpty() &&
-                            currentRoute == Screen.Home.route
+                            currentRoute in sectionRoutes
                         ) {
                             val target = topBarTabFocusRequesters[selectedDrawerRoute]
                                 ?: topBarTabFocusRequesters[topBarTabs.first().route]
@@ -2016,9 +2016,10 @@ private fun ModernSidebarScaffold(
             }
         }
 
-        // La barra sezioni esiste SOLO nella Home: nelle altre schermate
-        // (Ricerca, Scopri, Libreria, Live TV, Impostazioni...) non c'è.
-        if (showSidebar && currentRoute == Screen.Home.route && topBarTabs.isNotEmpty()) {
+        // La barra sezioni vive sulle sezioni (Home, Anime, Extra, Calendario);
+        // nelle schermate strumentali (Ricerca, Scopri, Libreria, Live TV,
+        // Impostazioni...) sparisce per non sovrapporsi ai contenuti.
+        if (showSidebar && currentRoute in sectionRoutes && topBarTabs.isNotEmpty()) {
             NuvioSectionTopBar(
                 tabs = topBarTabs,
                 selectedRoute = selectedDrawerRoute,

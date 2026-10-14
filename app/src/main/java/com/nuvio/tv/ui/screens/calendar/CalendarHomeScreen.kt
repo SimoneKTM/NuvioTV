@@ -137,7 +137,7 @@ fun CalendarHomeScreen(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 160.dp)
+                    contentPadding = PaddingValues(top = 72.dp, bottom = 160.dp)
                 ) {
                     if (firstSection != null) {
                         item(key = "hero_header") {

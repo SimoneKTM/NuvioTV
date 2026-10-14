@@ -335,7 +335,13 @@ private fun AnimeModernContent(
                 .fillMaxWidth()
                 .then(if (heroEnabled) Modifier.height(rowsViewportHeight) else Modifier.fillMaxSize())
                 .dpadRepeatThrottle(),
-            contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl),
+            contentPadding = PaddingValues(
+                // Con l'hero attivo le righe occupano solo la fascia bassa;
+                // senza hero partono dalla cima e devono scendere sotto la
+                // barra sezioni.
+                top = if (heroEnabled) NuvioTheme.spacing.none else 72.dp,
+                bottom = NuvioTheme.spacing.xxl
+            ),
             verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xl)
         ) {
             if (uiState.continueWatchingItems.isNotEmpty()) {

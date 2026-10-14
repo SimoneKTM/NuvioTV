@@ -233,7 +233,7 @@ private fun ExtraClassicContent(
             modifier = Modifier
                 .fillMaxSize()
                 .dpadRepeatThrottle(),
-            contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
+            contentPadding = PaddingValues(top = 72.dp, bottom = NuvioTheme.spacing.xxl)
         ) {
             if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
                 item(key = "extra_hero") {
@@ -335,7 +335,7 @@ private fun ExtraModernContent(
         modifier = Modifier
             .fillMaxSize()
             .dpadRepeatThrottle(),
-        contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
+        contentPadding = PaddingValues(top = 72.dp, bottom = NuvioTheme.spacing.xxl)
     ) {
         if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
             item(key = "extra_hero") {
@@ -424,7 +424,7 @@ private fun ExtraGridContent(
         modifier = Modifier
             .fillMaxSize()
             .dpadRepeatThrottle(),
-        contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
+        contentPadding = PaddingValues(top = 72.dp, bottom = NuvioTheme.spacing.xxl)
     ) {
         if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
             item(key = "extra_hero") {
