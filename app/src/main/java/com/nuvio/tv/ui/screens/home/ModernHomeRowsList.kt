@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
@@ -64,6 +66,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @OptIn(
@@ -270,6 +273,9 @@ internal fun ModernHomeRowsList(
 
     val defaultBringIntoViewSpec = LocalBringIntoViewSpec.current
 
+    val focusManager = LocalFocusManager.current
+    val rowLandingScope = rememberCoroutineScope()
+
     val sharedPlaceholderShimmerOffsetState = rememberPlaceholderShimmerOffsetState(label = "sharedRowShimmer")
 
     CompositionLocalProvider(
@@ -288,6 +294,45 @@ internal fun ModernHomeRowsList(
                 .graphicsLayer { alpha = trailerContentAlpha() }
                 .focusRequester(contentFocusRequester)
                 .focusRestorer { focusRestorerRequester() }
+                .onKeyEvent { event ->
+                    // SU non consumato dal focus search = nessun candidato
+                    // composto sopra la card attiva (la riga sopra è fuori
+                    // dall'viewport e il LazyColumn non la compone): senza
+                    // intercettarlo l'evento sale fino a MainActivity che
+                    // piazza il focus dritto in barra alta. Qui risaliamo di
+                    // una riga scrollando e riagganchiamo il focus col
+                    // solito meccanismo di landing (come a fine fast-scroll).
+                    // Con la riga attiva in cima al list (activeRowIndex == 0)
+                    // l'evento sfugge alla barra, com'è corretto.
+                    if (event.type != KeyEventType.KeyDown ||
+                        event.key != Key.DirectionUp
+                    ) return@onKeyEvent false
+                    val activeRowIndex = activeRowKey.value
+                        ?.let { key -> carouselRows.list.indexOfFirst { it.key == key } }
+                        ?.takeIf { it >= 0 }
+                        ?: verticalRowListState.firstVisibleItemIndex
+                    if (activeRowIndex <= 0) return@onKeyEvent false
+                    // Se la riga sopra È composta (visibile o coperta dall'hero)
+                    // lascia muovere il focus normalmente; se il movimento è
+                    // bloccato (focus properties in transizione) si cade sullo
+                    // scroll manuale qui sotto.
+                    val aboveComposed = verticalRowListState.layoutInfo.visibleItemsInfo
+                        .any { it.index == activeRowIndex - 1 }
+                    if (aboveComposed && focusManager.moveFocus(FocusDirection.Up)) {
+                        return@onKeyEvent true
+                    }
+                    if (!verticalRowListState.canScrollBackward) return@onKeyEvent false
+                    val targetRow = carouselRows.list.getOrNull(activeRowIndex - 1)
+                        ?: return@onKeyEvent false
+                    val savedIdx = (focusedItemByRowMap[targetRow.key] ?: 0)
+                        .coerceIn(0, (targetRow.items.list.size - 1).coerceAtLeast(0))
+                    rowLandingScope.launch {
+                        verticalRowListState.animateScrollToItem(activeRowIndex - 1)
+                        latestOnActiveRowKeyChange.value(targetRow.key)
+                        latestOnActiveItemIndexChange.value(savedIdx)
+                    }
+                    true
+                }
                 .onPreviewKeyEvent { event ->
                     val firstRowKey = carouselRows.list.firstOrNull()?.key
                     val lastRowKey = carouselRows.list.lastOrNull()?.key

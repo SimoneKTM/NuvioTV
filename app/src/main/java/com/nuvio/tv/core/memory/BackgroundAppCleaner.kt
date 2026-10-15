@@ -42,6 +42,17 @@ object BackgroundAppCleaner {
      *  fermarsi e scendere a stato cached). */
     private const val GRACE_MS = 2500L
 
+    /** Intervallo tra un tentativo di kill e l'app successiva: subito dopo
+     *  il cambio di app il processo resta per un po' in stato "previous" o
+     *  perceptible (adj 200-700) e killBackgroundProcesses non lo tocca;
+     *  appena scende a stato killable l'unico modo di coglierlo è
+     *  riprovare. */
+    private const val KILL_RETRY_MS = 8_000L
+
+    /** Quanti tentativi per l'app lasciata (≈2 minuti: oltre, viene presa
+     *  dalla pulizia secca al prossimo cambio di app). */
+    private const val KILL_MAX_ATTEMPTS = 15
+
     /** Gate anti-spam della pulizia secca. */
     private const val CLEAN_GATE_MS = 2000L
 
@@ -67,7 +78,7 @@ object BackgroundAppCleaner {
         CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
             val event = UsageEvents.Event()
             var currentForeground: String? = null
-            var pendingKill: Pair<String, Long>? = null
+            var pendingKill: Triple<String, Long, Int>? = null
             while (isActive) {
                 delay(POLL_MS)
                 runCatching {
@@ -83,13 +94,30 @@ object BackgroundAppCleaner {
                         }
                     }
                     if (lastResumed != null && lastResumed != currentForeground) {
-                        currentForeground?.let { previous -> pendingKill = previous to now }
+                        currentForeground?.let { previous ->
+                            pendingKill = Triple(previous, now + GRACE_MS, 0)
+                        }
                         currentForeground = lastResumed
+                        // Ogni passaggio di primo piano è il momento in cui le
+                        // app più vecchie scendono a cached: fallo ripulire
+                        // (il gate anti-spam di cleanAllCached limita il costo).
+                        cleanAllCached(appContext)
                     }
-                    pendingKill?.let { (pkg, sinceMs) ->
-                        if (pkg != currentForeground && now - sinceMs >= GRACE_MS) {
+                    pendingKill?.let { (pkg, nextAttemptMs, attempts) ->
+                        if (pkg == currentForeground) {
                             pendingKill = null
-                            killIfCached(appContext, pkg)
+                            return@let
+                        }
+                        if (now < nextAttemptMs) return@let
+                        killIfCached(appContext, pkg)
+                        // Il kill è un no-op finché il processo non è davvero
+                        // killable (stato previous/perceptible per qualche
+                        // secondo): riprova a intervalli finché non sparisce
+                        // o torna in primo piano.
+                        pendingKill = if (attempts + 1 >= KILL_MAX_ATTEMPTS) {
+                            null
+                        } else {
+                            Triple(pkg, now + KILL_RETRY_MS, attempts + 1)
                         }
                     }
                 }.onFailure { Log.w(TAG, "poll fallito: ${it.message}") }

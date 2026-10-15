@@ -2070,7 +2070,9 @@ private fun ModernSidebarScaffold(
                     .align(Alignment.TopStart)
                     .fillMaxWidth()
                     .padding(
-                        start = sidebarTokens.collapsedWidth + NuvioTheme.spacing.lg,
+                        // Marchio subito dopo la colonna nera del rail (52dp):
+                        // molto più a sinistra del vecchio collapsedWidth.
+                        start = 52.dp,
                         top = NuvioTheme.spacing.sm
                     )
                     // GIÙ dalla barra alta = contenuto. Senza questo handler il
@@ -2178,6 +2180,22 @@ private fun ModernSidebarScaffold(
             }
 
             if (sidebarShowCollapsedPill) {
+                // Colonna nera a tutta altezza sotto le icone (stile Prime
+                // Video): chiude il lato sinistro, tiene le icone nude
+                // leggibili su ogni backdrop e nasconde le card che scorrono
+                // dentro la colonna del rail — stessi 52dp di rowStartPadding
+                // delle righe, così il contenuto sparisce esattamente al
+                // bordo della colonna.
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .fillMaxHeight()
+                        .width(52.dp)
+                        .background(Color.Black)
+                        .graphicsLayer {
+                            alpha = 1f - sidebarExpandProgress
+                        }
+                )
                 // Rail stile Prime Video: colonna di sole icone nude
                 // (Cerca, Libreria, Live TV, Impostazioni), sempre visibile,
                 // senza etichette né pannello espanso.
