@@ -1255,6 +1255,10 @@ class MainActivity : ComponentActivity() {
         startupSyncService.startPeriodicSurfacePulls()
         profileSettingsSyncService.requestForegroundPull()
         androidTvChannelSyncService.onForegroundChanged(true)
+        // Appena Nuvio si apre, uccidi subito tutto ciò che l'utente ha
+        // appena lasciato (cached): la RAM è libera quando servirà al
+        // contenuto e alla prossima app.
+        com.nuvio.tv.core.memory.BackgroundAppCleaner.cleanOnNuvioLaunch(this)
     }
 
     override fun onStop() {
@@ -1264,6 +1268,9 @@ class MainActivity : ComponentActivity() {
         // App going to background (e.g. user returning to the launcher): reconcile the
         // Continue Watching channel once so Projectivy repaints it with fresh progress.
         androidTvChannelSyncService.onForegroundChanged(false)
+        // Uscendo da Nuvio tutto ciò che è tornato in cached muore subito: la
+        // prossima app che si apre trova la RAM libera.
+        com.nuvio.tv.core.memory.BackgroundAppCleaner.cleanAllCached(this)
     }
 
     override fun onDestroy() {

@@ -116,6 +116,11 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         // allocation bursts — the LMK kills left us blind until now.
         runCatching { com.nuvio.tv.core.diagnostics.MemoryWatch.start() }
 
+        // Chiusura immediata delle app lasciate dall'utente: watcher dei
+        // cambi di primo piano (usage stats) + pulizia cached all'apertura.
+        // Su 1GB ogni app cached ruba RAM alla prossima app aperta.
+        runCatching { com.nuvio.tv.core.memory.BackgroundAppCleaner.start(this) }
+
         // Governor di pressione: lmkd avvisa (onTrimMemory livello 15) solo
         // all'emergenza assoluta, e nei kill documentati l'avviso non arrivava
         // mai in tempo. MemoryWatch legge MemAvailable/SwapFree dal sistema
