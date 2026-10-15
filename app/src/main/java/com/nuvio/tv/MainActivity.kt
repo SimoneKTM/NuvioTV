@@ -2073,6 +2073,19 @@ private fun ModernSidebarScaffold(
                         start = sidebarTokens.collapsedWidth + NuvioTheme.spacing.lg,
                         top = NuvioTheme.spacing.sm
                     )
+                    // GIÙ dalla barra alta = contenuto. Senza questo handler il
+                    // focus search geometrico vede prima il rail laterale (più
+                    // vicino in basso a sinistra) e il focus resta "bloccato"
+                    // sulla barra laterale invece di scendere sulle righe.
+                    .onPreviewKeyEvent { keyEvent ->
+                        if (keyEvent.type != KeyEventType.KeyDown ||
+                            keyEvent.key != Key.DirectionDown
+                        ) {
+                            return@onPreviewKeyEvent false
+                        }
+                        pendingContentFocusTransfer = true
+                        true
+                    }
             )
         }
 
