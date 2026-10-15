@@ -45,6 +45,9 @@ object BackgroundAppCleaner {
     /** Gate anti-spam della pulizia secca. */
     private const val CLEAN_GATE_MS = 2000L
 
+    /** Finestra "appena usate": uccidiamo chi è stato in primo piano negli ultimi X. */
+    private const val RECENT_WINDOW_MS = 15 * 60 * 1000L
+
     /** Appop di UsageStatsManager (API 19+; la costante statica è compilata
      *  inline quindi la stringa va bene su ogni versione). */
     private const val USAGE_STATS_OP = "android:get_usage_stats"
@@ -95,45 +98,57 @@ object BackgroundAppCleaner {
     }
 
     /**
-     * Uccide tutti i processi cached altrui. Da chiamare all'apertura (primo
-     * passo subito, secondo passo oltre la grazia, così chi sta appena
+     * Uccide le app appena lasciate in background. Da chiamare all'apertura
+     * (primo passo subito, secondo passo oltre la grazia, così chi sta appena
      * sfumando in background viene preso anche lui).
+     *
+     * NOTA: su Android moderno getRunningAppProcesses restituisce SOLO i
+     * processi dell'app chiamante, quindi l'enumerazione "tutto cached" non
+     * vede nulla. killBackgroundProcesses è comunque safe di per sé (il
+     * sistema uccide solo processi già in stato cached): si applica alle
+     * app usate di recente, che sono proprio quelle appena lasciate.
      */
     fun cleanOnNuvioLaunch(context: Context) {
         cleanAllCached(context)
         Handler(Looper.getMainLooper()).postDelayed({ cleanAllCached(context) }, GRACE_MS + 100L)
     }
 
-    /** Uccide tutti i processi cached altrui, con gate anti-spam. */
+    /** Uccide le app usate di recente (ultimi [RECENT_WINDOW_MS]), con gate anti-spam. */
     fun cleanAllCached(context: Context) {
         val now = android.os.SystemClock.elapsedRealtime()
         if (now - lastCleanAtMs < CLEAN_GATE_MS) return
         lastCleanAtMs = now
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return
-        val myPid = Process.myPid()
-        val cachedPkgs = am.runningAppProcesses
-            .orEmpty()
-            .filter { it.pid != myPid && it.importance >= ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED }
-            .flatMap { it.pkgList?.toList().orEmpty() }
-            .filter { it != context.packageName }
-            .distinct()
-        if (cachedPkgs.isEmpty()) return
-        cachedPkgs.forEach { pkg -> runCatching { am.killBackgroundProcesses(pkg) } }
-        Log.i(TAG, "cleanAllCached: ${cachedPkgs.size} pacchetti cached uccisi")
+        val recentPkgs = recentPackages(context)
+        if (recentPkgs.isEmpty()) return
+        recentPkgs.forEach { pkg -> runCatching { am.killBackgroundProcesses(pkg) } }
+        Log.i(TAG, "cleanAllCached: kill richiesto su ${recentPkgs.size} app usate di recente")
     }
 
     private fun killIfCached(context: Context, pkg: String) {
         if (pkg == context.packageName) return
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return
-        val procs = am.runningAppProcesses.orEmpty().filter { it.pkgList?.contains(pkg) == true }
-        if (procs.isEmpty()) return
-        val stillActive = procs.any { it.importance < ActivityManager.RunningAppProcessInfo.IMPORTANCE_CACHED }
-        if (stillActive) {
-            Log.i(TAG, "$pkg ancora attivo (visibile o con servizi): non tocco")
-            return
-        }
+        // Nessun filtro importance: su Android moderno l'elenco dei processi
+        // altrui non è visibile all'app, quindi il filtro vedeva lista vuota
+        // e non uccideva MAI niente. killBackgroundProcesses tocca solo i
+        // cached (lo decide il sistema): è sicuro chiamarlo direttamente.
         runCatching { am.killBackgroundProcesses(pkg) }
-        Log.i(TAG, "$pkg chiuso (era cached)")
+        Log.i(TAG, "$pkg kill richiesto (il sistema uccide solo i cached)")
+    }
+
+    /** App usate di recente (esclusa se stessa), via UsageStats. */
+    private fun recentPackages(context: Context): List<String> {
+        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+            ?: return emptyList()
+        val now = System.currentTimeMillis()
+        return runCatching {
+            usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, now - RECENT_WINDOW_MS, now)
+                .orEmpty()
+                .filter { it.lastTimeUsed >= now - RECENT_WINDOW_MS }
+                .mapNotNull { it.packageName }
+                .filter { it != context.packageName }
+                .distinct()
+        }.getOrDefault(emptyList())
     }
 
     private fun hasUsageStats(context: Context): Boolean = runCatching {

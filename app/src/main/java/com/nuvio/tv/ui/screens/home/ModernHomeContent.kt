@@ -1004,6 +1004,29 @@ fun ModernHomeContent(
                 }
             }
 
+            // Prefetch dei backdrop dei vicini: quando il focus si sposta, lo
+            // swap dell'hero trova già il bitmap pronto in cache (niente rete
+            // né decode a freddo dentro il frame dello scambio). Su Fire TV
+            // Stick 1GB ogni decode a freddo costava 90-130ms di frame janky:
+            // era la differenza percepita "Nuvio è più lenta di Prime".
+            val heroPrefetchContext = LocalContext.current
+            LaunchedEffect(activeHeroItemKey, activeRow, heroMediaWidthPx, heroMediaHeightPx) {
+                val row = activeRow ?: return@LaunchedEffect
+                val loader = heroPrefetchContext.imageLoader
+                listOf(clampedActiveItemIndex - 1, clampedActiveItemIndex + 1).forEach { index ->
+                    val item = row.items.list.getOrNull(index) ?: return@forEach
+                    val url = item.heroPreview.backdrop?.takeIf { it.isNotBlank() }
+                        ?: item.heroPreview.imageUrl?.takeIf { it.isNotBlank() }
+                        ?: return@forEach
+                    loader.enqueue(
+                        ImageRequest.Builder(heroPrefetchContext)
+                            .data(url)
+                            .size(heroMediaWidthPx, heroMediaHeightPx)
+                            .build()
+                    )
+                }
+            }
+
             val fullScreenBackdropUpdated by rememberUpdatedState(fullScreenBackdrop)
             val shouldPlayCatalogHeroTrailerUpdated by rememberUpdatedState(shouldPlayCatalogHeroTrailerState.value)
             val shouldPlayCollectionHeroVideoUpdated by rememberUpdatedState(shouldPlayCollectionHeroVideoState.value)

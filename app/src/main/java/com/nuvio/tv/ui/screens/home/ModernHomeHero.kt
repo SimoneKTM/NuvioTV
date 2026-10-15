@@ -175,8 +175,14 @@ internal fun ModernHeroMediaLayer(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        compositingStrategy = CompositingStrategy.Offscreen
-                        alpha = 1f - transitionProgressState.value
+                        // Offscreen serve SOLO durante il crossfade (alpha < 1):
+                        // tenerlo sempre fisso costringeva la GPU della Stick a
+                        // mantenere un render-target extra per TUTTA la vita
+                        // della home. A riposo si torna alla composizione
+                        // standard, che è notevolmente più economica.
+                        val a = 1f - transitionProgressState.value
+                        compositingStrategy = if (a < 1f) CompositingStrategy.Offscreen else CompositingStrategy.Auto
+                        alpha = a
                     },
                 contentScale = ContentScale.Crop,
                 alignment = Alignment.TopEnd
