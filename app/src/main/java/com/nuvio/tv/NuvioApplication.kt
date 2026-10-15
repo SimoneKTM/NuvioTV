@@ -114,7 +114,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         // In-process memory telemetry (Log.i, release-safe): captures the Java/
         // Native/Graphics curve every 10s even when dumpsys times out under
         // allocation bursts — the LMK kills left us blind until now.
-        runCatching { com.nuvio.tv.core.diagnostics.MemoryWatch.start() }
+        runCatching { com.nuvio.tv.core.diagnostics.MemoryWatch.start(this) }
 
         // Chiusura immediata delle app lasciate dall'utente: watcher dei
         // cambi di primo piano (usage stats) + pulizia cached all'apertura.

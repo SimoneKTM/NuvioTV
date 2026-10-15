@@ -1,10 +1,15 @@
 package com.nuvio.tv.core.diagnostics
 
+import android.content.Context
 import android.os.Debug
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Lightweight in-process memory telemetry.
@@ -20,11 +25,24 @@ import java.io.File
  * /proc/self/status, and emits ONE compact line every [INTERVAL_MS] via Log.i
  * (Log.i survives in release builds; Log.d does not). A PC-side logcat capture
  * then preserves the full memory curve across kills.
+ *
+ * Ogni riga viene inoltre **appenduta su file** (memwatch.log, ring-buffer con
+ * rotazione a [MAX_LOG_BYTES] → memwatch.prev.log): logcat viene perso quando
+ * il processo viene ucciso o quando non c'è una cattura PC attiva, mentre il
+ * file sopravvive al kill e resta leggibile con `adb pull`
+ * (getExternalFilesDir → /sdcard/Android/data/com.nuvio.tv/files/). Il
+ * prefisso wall-clock di ogni riga permette di ricollegare le curve di
+ * sessioni diverse.
  */
 object MemoryWatch {
     private const val TAG = "MemWatch"
     private const val INTERVAL_MS = 10_000L
     private const val FIRST_DELAY_MS = 5_000L
+
+    /** Soglia di rotazione del ring-buffer su file (~1000 campioni, ore di curva). */
+    private const val MAX_LOG_BYTES = 256L * 1024
+    private const val LOG_FILE_NAME = "memwatch.log"
+    private const val LOG_PREV_NAME = "memwatch.prev.log"
 
     /**
      * Campionamento rapido (3 s) quando si è in pressione o la RSS sta
@@ -134,6 +152,45 @@ object MemoryWatch {
     private val handler = Handler(Looper.getMainLooper())
     private var startedAtMs = 0L
 
+    // --- ring-buffer su file (vedi KDoc): tutte le scritture girano sul main
+    // thread del sampler, il lock serve solo contro eventuali emit esterni. ---
+    @Volatile
+    private var logFile: File? = null
+    private val logLock = Any()
+    private val wallFmt = SimpleDateFormat("MM-dd HH:mm:ss", Locale.US)
+
+    /**
+     * Logcat + append sul file di curva. Il file viene aperto in append per
+     * singola riga e flussato: le pagine sporche restano nel page-cache del
+     * kernel e sopravvivono al kill LMK del processo. Rotazione a
+     * [MAX_LOG_BYTES]: la vecchia versione va su memwatch.prev.log.
+     */
+    private fun emit(priority: Int, message: String) {
+        Log.println(priority, TAG, message)
+        val file = logFile ?: return
+        synchronized(logLock) {
+            runCatching {
+                if (file.length() > MAX_LOG_BYTES) {
+                    val prev = File(file.parentFile, LOG_PREV_NAME)
+                    prev.delete() // false se non esiste: l'esito rilevante è il rename
+                    if (!file.renameTo(prev)) {
+                        // Rotazione fallita: meglio fermarsi che far crescere
+                        // il file senza limite.
+                        logFile = null
+                        return
+                    }
+                }
+                val line = "${wallFmt.format(Date())} $message\n"
+                FileOutputStream(file, true).use { out ->
+                    out.write(line.toByteArray(Charsets.UTF_8))
+                    out.flush()
+                }
+            }.onFailure {
+                Log.w(TAG, "file log write failed: ${it.javaClass.simpleName}")
+            }
+        }
+    }
+
     @Volatile
     private var running = false
 
@@ -147,10 +204,14 @@ object MemoryWatch {
         }
     }
 
-    fun start() {
+    fun start(context: Context) {
         if (running) return
         running = true
         startedAtMs = android.os.SystemClock.elapsedRealtime()
+        runCatching {
+            val dir = context.getExternalFilesDir(null) ?: context.filesDir
+            logFile = File(dir, LOG_FILE_NAME)
+        }
         runCatching {
             File("/proc/meminfo").forEachLine { line ->
                 if (line.startsWith("MemTotal:")) {
@@ -159,10 +220,11 @@ object MemoryWatch {
             }
         }
         val rt = Runtime.getRuntime()
-        Log.i(
-            TAG,
+        emit(
+            Log.INFO,
             "watch started heapMax=${rt.maxMemory() / 1024}kB " +
-                "heapTotal=${rt.totalMemory() / 1024}kB nativeHeap=${Debug.getNativeHeapAllocatedSize() / 1024}kB"
+                "heapTotal=${rt.totalMemory() / 1024}kB nativeHeap=${Debug.getNativeHeapAllocatedSize() / 1024}kB " +
+                "pid=${android.os.Process.myPid()}"
         )
         handler.postDelayed(sampler, FIRST_DELAY_MS)
     }
@@ -240,8 +302,8 @@ object MemoryWatch {
         val rt = Runtime.getRuntime()
         val heapUsedKb = (rt.totalMemory() - rt.freeMemory()) / 1024
 
-        Log.i(
-            TAG,
+        emit(
+            Log.INFO,
             "t=${elapsedS}s${if (fast) " fast" else ""} totalPss=${totalPssKb}kB javaHeap=${javaHeapKb}kB nativeHeap=${nativeHeapKb}kB " +
                 "code=${codeKb}kB graphics=${graphicsKb}kB privOther=${privOtherKb}kB | " +
                 "rtHeap=${heapUsedKb}/${rt.maxMemory() / 1024}kB nativeAlloc=${Debug.getNativeHeapAllocatedSize() / 1024}kB | " +
@@ -280,8 +342,8 @@ object MemoryWatch {
 
         when {
             newState == Pressure.HARD && old != Pressure.HARD -> {
-                Log.w(
-                    TAG,
+                emit(
+                    Log.WARN,
                     "PRESSURE HARD avail=${memAvailKb}kB swapFree=${swapFreeKb}kB " +
                         "rss=${rssKb}kB swap=${swapKb}kB selfRss=$selfRssHard runaway=$runaway — releasing trailer+cache"
                 )
@@ -300,7 +362,7 @@ object MemoryWatch {
                 // (il debounce interno impedisce di eccedere).
                 val now = android.os.SystemClock.elapsedRealtime()
                 if (now - lastReliefAtMs >= RELIEF_REPEAT_MS) {
-                    Log.w(TAG, "PRESSURE HARD sostenuta rss=${rssKb}kB avail=${memAvailKb}kB — repeat relief")
+                    emit(Log.WARN, "PRESSURE HARD sostenuta rss=${rssKb}kB avail=${memAvailKb}kB — repeat relief")
                     lastReliefAtMs = now
                     onRelief?.let { relief ->
                         runCatching { relief("system-hard-sustained rss=${rssKb}kB avail=${memAvailKb}kB") }
@@ -309,14 +371,14 @@ object MemoryWatch {
                 }
             }
             newState == Pressure.SOFT && old == Pressure.NONE -> {
-                Log.w(TAG, "PRESSURE SOFT avail=${memAvailKb}kB swapFree=${swapFreeKb}kB rss=${rssKb}kB — yielding trailer")
+                emit(Log.WARN, "PRESSURE SOFT avail=${memAvailKb}kB swapFree=${swapFreeKb}kB rss=${rssKb}kB — yielding trailer")
                 onSoftRelief?.let { relief ->
                     runCatching { relief("system-soft avail=${memAvailKb}kB swapFree=${swapFreeKb}kB rss=${rssKb}kB") }
                         .onFailure { Log.w(TAG, "soft relief callback failed: ${it.javaClass.simpleName}") }
                 }
             }
             newState == Pressure.NONE && old != Pressure.NONE -> {
-                Log.i(TAG, "pressure released, avail=${memAvailKb}kB swapFree=${swapFreeKb}kB")
+                emit(Log.INFO, "pressure released, avail=${memAvailKb}kB swapFree=${swapFreeKb}kB")
             }
         }
     }

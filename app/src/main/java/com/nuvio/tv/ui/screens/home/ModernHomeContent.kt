@@ -243,6 +243,12 @@ fun ModernHomeContent(
     val heroFocusSettleDelayMs = remember { mutableLongStateOf(MODERN_HERO_FOCUS_DEBOUNCE_MS) }
     val isFastScrolling = remember { mutableStateOf(false) }
     val isRapidHorizontalNav = remember { mutableStateOf(false) }
+    // Dwell dell'hero: ogni cambio di focus arma un timer di
+    // heroFocusSettleDelayMs durante il quale la scena dell'hero (backdrop,
+    // titolo, trailer) resta congelata sull'elemento precedente. Quando il
+    // focus si ferma, l'hero commetta una volta sola. Stile Prime: in
+    // navigazione si muovono solo le card.
+    val heroSettlePending = remember { mutableStateOf(false) }
     val focusedCatalogSelection = remember { mutableStateOf<FocusedCatalogSelection?>(null) }
     var lastRequestedTrailerFocusKey by remember { mutableStateOf<String?>(null) }
     val expandedCatalogFocusKey = remember { mutableStateOf<String?>(null) }
@@ -513,6 +519,21 @@ fun ModernHomeContent(
         isRapidHorizontalNav.value = false
     }
 
+    // Dwell timer: si ri-arma a ogni cambio di focus (l'effetto viene
+    // rilanciato dalla chiave), quindi resta attivo fino a
+    // heroFocusSettleDelayMs di quiete reale — anche con pressioni distanziate
+    // (il rapid-nav scatta solo sotto i 130ms). Durante il dwell la scena
+    // dell'hero resta congelata: in navigazione si muovono solo le card.
+    LaunchedEffect(activeHeroItemKey) {
+        if (activeHeroItemKey == null) {
+            heroSettlePending.value = false
+            return@LaunchedEffect
+        }
+        heroSettlePending.value = true
+        delay(heroFocusSettleDelayMs.longValue)
+        heroSettlePending.value = false
+    }
+
     val latestHeroRow by rememberUpdatedState(activeRow)
     val latestHeroIndex by rememberUpdatedState(clampedActiveItemIndex)
     LaunchedEffect(activeHeroItemKey, verticalRowListState) {
@@ -759,6 +780,7 @@ fun ModernHomeContent(
                 heroTrailerUrlsState,
                 isSidebarExpanded,
                 isRapidHorizontalNav,
+                heroSettlePending,
                 fluidMode
             ) {
                 derivedStateOf {
@@ -767,6 +789,9 @@ fun ModernHomeContent(
                         !fluidMode &&
                         !isSidebarExpanded.value &&
                         !isRapidHorizontalNav.value &&
+                        // Niente start trailer durante il dwell: parte una sola
+                        // volta, quando il focus si è davvero fermato.
+                        !heroSettlePending.value &&
                         trailerPlaybackTarget == FocusedPosterTrailerPlaybackTarget.HERO_MEDIA &&
                         !heroTrailerUrlsState.value.first.isNullOrBlank()
                 }
@@ -776,7 +801,8 @@ fun ModernHomeContent(
                 collectionHeroVideoUrl,
                 collectionHeroVideoPlaybackKey,
                 endedCollectionHeroVideoPlaybackKey,
-                isSidebarExpanded
+                isSidebarExpanded,
+                heroSettlePending
             ) {
                 derivedStateOf {
                     val focusedSelection = focusedCatalogSelection.value
@@ -787,6 +813,7 @@ fun ModernHomeContent(
                     else {
                         isScrollStoppedState.value &&
                             !isSidebarExpanded.value &&
+                            !heroSettlePending.value &&
                             collectionHeroVideoPlaybackKey != null &&
                             endedCollectionHeroVideoPlaybackKey != collectionHeroVideoPlaybackKey
                     }
@@ -868,12 +895,17 @@ fun ModernHomeContent(
                     val currentLive = liveHeroSceneState.value
                     val isScrolling = verticalRowListState.isScrollInProgress
                     val isRapidNav = isRapidHorizontalNav.value
+                    val isSettling = heroSettlePending.value
                     val stable = stableHeroSceneStateRef.value
                     val stableHasPreview = stable?.preview?.title?.isNotBlank() == true
                     val liveHasPreview = currentLive.preview?.title?.isNotBlank() == true
                     when {
                         isScrolling && stableHasPreview -> stable
                         isScrolling && !stableHasPreview && liveHasPreview -> currentLive
+                        // Dwell: non aggiornare lo stable finché il focus non si
+                        // ferma; alla scadenza il flag cambia e questo flow
+                        // riemette il live corrente, committando l'swap una volta.
+                        isSettling && stableHasPreview -> stable
                         isRapidNav -> currentLive.copy(preview = null, enrichmentActive = false)
                         else -> currentLive
                     }
@@ -900,6 +932,7 @@ fun ModernHomeContent(
             val currentLiveHeroSceneStateUpdated by rememberUpdatedState(liveHeroSceneState.value)
             val isScrollInProgressUpdated by rememberUpdatedState(verticalRowListState.isScrollInProgress)
             val isRapidHorizontalNavUpdated by rememberUpdatedState(isRapidHorizontalNav.value)
+            val isHeroSettlePendingUpdated by rememberUpdatedState(heroSettlePending.value)
 
             val heroSceneStateLambda = remember {
                 {
@@ -919,6 +952,10 @@ fun ModernHomeContent(
                         // During vertical scroll: freeze stable to avoid flashing
                         // transient addon data before enrichment completes
                         isScrolling && stableHasPreview -> stable!!
+                        // Dwell: congella l'hero precedente finché il focus non si
+                        // ferma (stile Prime). Se non c'è ancora uno stable
+                        // (primissimo caricamento) si segue il live.
+                        isHeroSettlePendingUpdated && stableHasPreview -> stable!!
                         // During rapid horizontal nav: freeze to avoid backdrop flashing
                         isRapidNav && stable != null -> stable
                         // Normal: show live state
@@ -934,6 +971,7 @@ fun ModernHomeContent(
             val latestLiveForStable = liveHeroSceneState.value
             if (!verticalRowListState.isScrollInProgress &&
                 !isRapidHorizontalNav.value &&
+                !heroSettlePending.value &&
                 !latestLiveForStable.enrichmentActive
             ) {
                 val hasNewPreview = latestLiveForStable.preview?.title?.isNotBlank() == true &&

@@ -72,7 +72,9 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
@@ -965,12 +967,14 @@ class HomeViewModel @Inject constructor(
                     Log.w(TAG, "latest releases failed: ${e.message}")
                 }
                 .collect { items ->
+                    // Primo publish immediato: gli item che hanno già un logo
+                    // (sessione precedente) appaiono subito.
                     publishLatestReleaseItems(items)
-                    // La riga parte subito col poster di TMDB discover; logo,
-                    // sfondo e poster mancanti arrivano subito dopo in background
-                    // così la hero della riga è identica alle altre.
-                    val filled = fillLatestReleaseArtwork(items)
-                    if (filled !== items) publishLatestReleaseItems(filled)
+                    // Poi la riga si riempie in modo incrementale: ogni titolo
+                    // arricchito viene pubblicato appena pronto, senza aspettare
+                    // il completamento di tutti (l'awaitAll precedente teneva la
+                    // riga vuota per l'intera durata dell'arricchimento).
+                    fillLatestReleaseArtwork(items)
                 }
         }
     }
@@ -993,12 +997,13 @@ class HomeViewModel @Inject constructor(
      * restituisce poster e sfondo ma non il logo, per cui la hero mostrava il
      * titolo in testo al posto del logo usato dalle altre righe. Ogni titolo
      * mancante viene arricchito una volta sola (3 richieste in parallelo) e la
-     * riga viene ripubblicata solo se qualcosa è cambiato.
+     * riga viene **ripubblicata a ogni arricchimento completato**, così i primi
+     * titoli appaiono in pochi secondi invece di aspettare l'awaitAll di tutti.
      */
-    private suspend fun fillLatestReleaseArtwork(items: List<CalendarItem>): List<CalendarItem> {
-        if (items.isEmpty()) return items
+    private suspend fun fillLatestReleaseArtwork(items: List<CalendarItem>) {
+        if (items.isEmpty()) return
         val settings = currentTmdbSettings
-        if (!settings.enabled) return items
+        if (!settings.enabled) return
         val pending = items.filter { item ->
             item.meta.id !in latestReleaseArtworkIds &&
                 (item.meta.logo.isNullOrBlank() ||
@@ -1006,14 +1011,20 @@ class HomeViewModel @Inject constructor(
                     item.meta.poster.isNullOrBlank() ||
                     item.meta.description.isNullOrBlank())
         }
-        if (pending.isEmpty()) return items
+        if (pending.isEmpty()) return
 
+        // Snapshot degli item correnti: ogni risultato viene fuso qui e
+        // pubblicato subito dopo (sotto mutex, per non serializzare però le
+        // richieste di rete — il semaforo resta a 3 in parallelo).
+        val byId = LinkedHashMap<String, CalendarItem>(items.size)
+        items.forEach { byId[it.meta.id] = it }
+        val mergeMutex = Mutex()
         val semaphore = Semaphore(3)
-        val results = coroutineScope {
+        coroutineScope {
             pending.map { item ->
                 async {
                     semaphore.withPermit {
-                        item to runCatching {
+                        val enrichment = runCatching {
                             val tmdbId = tmdbService.ensureTmdbId(item.meta.id, item.meta.apiType)
                                 ?: return@runCatching null
                             tmdbMetadataService.fetchEnrichment(
@@ -1022,35 +1033,31 @@ class HomeViewModel @Inject constructor(
                                 language = settings.language
                             )
                         }.getOrNull()
+                        latestReleaseArtworkIds.add(item.meta.id)
+                        if (enrichment == null) return@withPermit
+                        mergeMutex.withLock {
+                            var meta = item.meta
+                            if (settings.useArtwork) {
+                                meta = meta.copy(
+                                    logo = enrichment.logo ?: meta.logo,
+                                    background = enrichment.backdrop ?: meta.background,
+                                    poster = enrichment.poster ?: meta.poster
+                                )
+                            }
+                            if (settings.useBasicInfo) {
+                                meta = meta.copy(description = enrichment.description ?: meta.description)
+                            }
+                            if (meta == item.meta) return@withPermit
+                            byId[item.meta.id] = item.copy(meta = meta)
+                            // Publish incrementale: la riga cresce man mano che
+                            // ogni logo arriva; l'uguaglianza del publish è un
+                            // no-op se il filtro a logo non cambia la lista.
+                            publishLatestReleaseItems(items.map { byId[it.meta.id] ?: it })
+                        }
                     }
                 }
             }.awaitAll()
         }
-
-        val byId = LinkedHashMap<String, CalendarItem>(items.size)
-        items.forEach { byId[it.meta.id] = it }
-        var changed = false
-        results.forEach { (item, enrichment) ->
-            latestReleaseArtworkIds.add(item.meta.id)
-            if (enrichment == null) return@forEach
-            var meta = item.meta
-            if (settings.useArtwork) {
-                meta = meta.copy(
-                    logo = enrichment.logo ?: meta.logo,
-                    background = enrichment.backdrop ?: meta.background,
-                    poster = enrichment.poster ?: meta.poster
-                )
-            }
-            if (settings.useBasicInfo) {
-                meta = meta.copy(description = enrichment.description ?: meta.description)
-            }
-            if (meta != item.meta) {
-                changed = true
-                byId[item.meta.id] = item.copy(meta = meta)
-            }
-        }
-        if (!changed) return items
-        return items.map { byId[it.meta.id] ?: it }
     }
 
     internal var posterStatusReconcileJob: Job? = null
