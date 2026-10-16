@@ -1,11 +1,13 @@
 package com.nuvio.tv.data.repository
 
+import android.content.Context
 import android.util.Log
 import com.nuvio.tv.core.perf.FluidModeState
 import com.nuvio.tv.core.tmdb.TmdbEnrichment
 import com.nuvio.tv.core.tmdb.TmdbMetadataService
 import com.nuvio.tv.core.tmdb.TmdbService
 import com.nuvio.tv.data.local.AnimeTvdbSettingsDataStore
+import com.nuvio.tv.data.local.LatestReleaseMonthStore
 import com.nuvio.tv.data.local.MDBListSettingsDataStore
 import com.nuvio.tv.data.local.TmdbSettingsDataStore
 import com.nuvio.tv.data.local.TvdbSettingsDataStore
@@ -25,6 +27,7 @@ import com.nuvio.tv.core.network.NetworkResult
 import com.nuvio.tv.core.trakt.traktBestBackdropUrl
 import com.nuvio.tv.core.trakt.traktBestLogoUrl
 import com.nuvio.tv.core.trakt.traktBestPosterUrl
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -49,6 +52,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -60,6 +64,7 @@ import javax.inject.Singleton
 
 @Singleton
 class CalendarRepositoryImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val traktApi: TraktApi,
     private val fluidModeState: FluidModeState,
     private val metaRepository: MetaRepository,
@@ -96,6 +101,12 @@ class CalendarRepositoryImpl @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val cachedItems = MutableStateFlow<List<CalendarItem>>(emptyList())
     private val cachedMonthItems = MutableStateFlow<List<CalendarItem>>(emptyList())
+
+    // Snapshot su disco della riga "Ultime Uscite" (vedi getMonthReleaseItems):
+    // paint istantaneo alla prossima sessione senza attendere Trakt.
+    private val monthSnapshotStore = LatestReleaseMonthStore(
+        File(context.filesDir, "latest_release_month.json")
+    )
     // Attempted-once set (like LibraryRepositoryImpl.enrichedAddonIds) so we
     // don't re-query addons for items that already succeeded or failed.
     private val enrichedAddonIds = ConcurrentHashMap.newKeySet<String>()
@@ -283,6 +294,15 @@ class CalendarRepositoryImpl @Inject constructor(
             return@flow
         }
 
+        // Snapshot su disco: la riga "Ultime Uscite" dipinge in pochi
+        // secondi anche a primo avvio, senza attendere il round-trip Trakt
+        // del mese (~15-25s su una Stick); il fetch di rete qui sotto la
+        // aggiorna in background con dati freschi.
+        val monthKey = monthStart.toString()
+        monthSnapshotStore.load(monthKey)?.let { snapshotItems ->
+            if (snapshotItems.isNotEmpty()) emit(snapshotItems)
+        }
+
         // The month calendar and the regular 33-day calendar used to run one after
         // the other, so the "Ultime Uscite" row only existed after two serial Trakt
         // round trips and always popped in after every catalog row. Run them in
@@ -327,6 +347,13 @@ class CalendarRepositoryImpl @Inject constructor(
         try {
             val enriched = enrichItemsWithAddonData(rawMonth)
             cachedMonthItems.value = enriched
+            // Persisti la riga (lista già con shaping 25 passati + 30 futuri
+            // e artwork addon) così la prossima sessione la dipinge
+            // istantaneamente dallo snapshot.
+            monthSnapshotStore.save(
+                monthKey,
+                buildLatestReleaseItems(enriched, emptyList(), monthStart, today)
+            )
             emitAll(
                 getCalendarItems().map { calendarItems ->
                     buildLatestReleaseItems(
