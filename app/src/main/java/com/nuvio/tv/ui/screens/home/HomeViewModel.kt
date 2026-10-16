@@ -22,6 +22,7 @@ import com.nuvio.tv.data.local.TvdbSettingsDataStore
 import com.nuvio.tv.data.local.TraktSettingsDataStore
 import com.nuvio.tv.data.local.TrailerSettingsDataStore
 import com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
+import com.nuvio.tv.data.local.LatestReleaseArtworkDiskCache
 import com.nuvio.tv.data.trailer.TrailerService
 import com.nuvio.tv.data.translation.MetadataTextTranslator
 import com.nuvio.tv.data.tvdb.TvdbMetadataService
@@ -76,6 +77,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
+import java.io.File
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -952,6 +954,13 @@ class HomeViewModel @Inject constructor(
     // titolo viene interrogato su TMDB al massimo una volta per sessione.
     private val latestReleaseArtworkIds = ConcurrentHashMap.newKeySet<String>()
 
+    // Artwork persistito su disco: alla prima emissione del calendario la
+    // riga dipinge subito con i logo/ poster già noti, senza attendere la
+    // rete (decine di secondi su una Fire TV Stick con cache fredda).
+    private val latestReleaseArtworkCache = LatestReleaseArtworkDiskCache(
+        File(appContext.filesDir, "latest_release_artwork.json")
+    )
+
     private fun observeLatestReleases() {
         viewModelScope.launch {
             calendarRepository.getMonthReleaseItems()
@@ -967,28 +976,56 @@ class HomeViewModel @Inject constructor(
                     Log.w(TAG, "latest releases failed: ${e.message}")
                 }
                 .collect { items ->
+                    // Applica subito l'artwork salvato su disco: la riga
+                    // diventa visibile con la prima emissione del calendario.
+                    val withCachedArtwork = applyCachedLatestReleaseArtwork(items)
                     // Primo publish immediato: gli item che hanno già un logo
-                    // (sessione precedente) appaiono subito.
-                    publishLatestReleaseItems(items)
+                    // (sessione precedente o Trakt) appaiono subito.
+                    publishLatestReleaseItems(withCachedArtwork)
                     // Poi la riga si riempie in modo incrementale: ogni titolo
                     // arricchito viene pubblicato appena pronto, senza aspettare
                     // il completamento di tutti (l'awaitAll precedente teneva la
                     // riga vuota per l'intera durata dell'arricchimento).
-                    fillLatestReleaseArtwork(items)
+                    fillLatestReleaseArtwork(withCachedArtwork)
                 }
         }
     }
 
-    private fun publishLatestReleaseItems(items: List<CalendarItem>) {
-        // Nasconde dalla riga "Ultime Uscite" i titoli prive di logo stilizzato.
-        // Il filtro gira dopo l'arricchimento TMDB, quindi i titoli che
-        // acquistano un logo in seguito vengono mostrati senza popup.
-        val withLogo = items.filter { item ->
-            val logo = item.meta.logo
-            !logo.isNullOrBlank() && !logo.isPlaceholder()
+    private fun applyCachedLatestReleaseArtwork(items: List<CalendarItem>): List<CalendarItem> {
+        if (items.isEmpty()) return items
+        return items.map { item ->
+            val cached = latestReleaseArtworkCache.get(item.meta.id) ?: return@map item
+            var meta = item.meta
+            if (meta.logo.isNullOrBlank() && !cached.logo.isNullOrBlank()) {
+                meta = meta.copy(logo = cached.logo)
+            }
+            if (meta.poster.isNullOrBlank() && !cached.poster.isNullOrBlank()) {
+                meta = meta.copy(poster = cached.poster)
+            }
+            if (meta.background.isNullOrBlank() && !cached.background.isNullOrBlank()) {
+                meta = meta.copy(background = cached.background)
+            }
+            if (meta.description.isNullOrBlank() && !cached.description.isNullOrBlank()) {
+                meta = meta.copy(description = cached.description)
+            }
+            if (meta == item.meta) item else item.copy(meta = meta)
         }
-        if (_uiState.value.latestReleaseItems == withLogo) return
-        _uiState.update { it.copy(latestReleaseItems = withLogo) }
+    }
+
+    private fun publishLatestReleaseItems(items: List<CalendarItem>) {
+        // Rende visibili i titoli con un artwork utilizzabile: logo
+        // stilizzato oppure poster (le card della riga mostrano il poster,
+        // il logo serve solo alla hero che finché manca mostra il titolo in
+        // testo). Il filtro gira dopo l'arricchimento TMDB, quindi i titoli
+        // che acquistano artwork in seguito vengono mostrati senza popup.
+        val ready = items.filter { item ->
+            val logo = item.meta.logo
+            val poster = item.meta.poster
+            (!logo.isNullOrBlank() && !logo.isPlaceholder()) ||
+                (!poster.isNullOrBlank() && !poster.isPlaceholder())
+        }
+        if (_uiState.value.latestReleaseItems == ready) return
+        _uiState.update { it.copy(latestReleaseItems = ready) }
         scheduleUpdateCatalogRows()
     }
 
@@ -996,9 +1033,11 @@ class HomeViewModel @Inject constructor(
      * Riempe artwork/descrizione dei titoli di "Ultime Uscite": TMDB discover
      * restituisce poster e sfondo ma non il logo, per cui la hero mostrava il
      * titolo in testo al posto del logo usato dalle altre righe. Ogni titolo
-     * mancante viene arricchito una volta sola (3 richieste in parallelo) e la
-     * riga viene **ripubblicata a ogni arricchimento completato**, così i primi
-     * titoli appaiono in pochi secondi invece di aspettare l'awaitAll di tutti.
+     * mancante viene arricchito una volta sola con la variante leggera
+     * fetchArtworkEnrichment (2 chiamate TMDB invece di 6) e la riga viene
+     * **ripubblicata a ogni arricchimento completato**, così i primi titoli
+     * appaiono in pochi secondi invece di aspettare l'awaitAll di tutti.
+     * L'artwork risultante viene salvato su disco per i riavvii successivi.
      */
     private suspend fun fillLatestReleaseArtwork(items: List<CalendarItem>) {
         if (items.isEmpty()) return
@@ -1015,11 +1054,11 @@ class HomeViewModel @Inject constructor(
 
         // Snapshot degli item correnti: ogni risultato viene fuso qui e
         // pubblicato subito dopo (sotto mutex, per non serializzare però le
-        // richieste di rete — il semaforo resta a 3 in parallelo).
+        // richieste di rete — il semaforo resta a 5 in parallelo).
         val byId = LinkedHashMap<String, CalendarItem>(items.size)
         items.forEach { byId[it.meta.id] = it }
         val mergeMutex = Mutex()
-        val semaphore = Semaphore(3)
+        val semaphore = Semaphore(5)
         coroutineScope {
             pending.map { item ->
                 async {
@@ -1027,7 +1066,7 @@ class HomeViewModel @Inject constructor(
                         val enrichment = runCatching {
                             val tmdbId = tmdbService.ensureTmdbId(item.meta.id, item.meta.apiType)
                                 ?: return@runCatching null
-                            tmdbMetadataService.fetchEnrichment(
+                            tmdbMetadataService.fetchArtworkEnrichment(
                                 tmdbId = tmdbId,
                                 contentType = item.meta.type,
                                 language = settings.language
@@ -1049,6 +1088,18 @@ class HomeViewModel @Inject constructor(
                             }
                             if (meta == item.meta) return@withPermit
                             byId[item.meta.id] = item.copy(meta = meta)
+                            // Persisti l'artwork per i riavvii: la prossima
+                            // sessione dipinge la riga senza rete.
+                            latestReleaseArtworkCache.put(
+                                item.meta.id,
+                                LatestReleaseArtworkDiskCache.Entry(
+                                    logo = meta.logo,
+                                    poster = meta.poster,
+                                    background = meta.background,
+                                    description = meta.description,
+                                    fetchedAtMs = System.currentTimeMillis()
+                                )
+                            )
                             // Publish incrementale: la riga cresce man mano che
                             // ogni logo arriva; l'uguaglianza del publish è un
                             // no-op se il filtro a logo non cambia la lista.

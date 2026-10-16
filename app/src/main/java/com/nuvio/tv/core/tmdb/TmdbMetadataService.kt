@@ -49,6 +49,7 @@ private const val TMDB_SEASON_REQUEST_CONCURRENCY = 4
 // jank mid-scroll, so entries past the cap are evicted — a dropped one simply
 // costs a refetch.
 private const val MAX_ENRICHMENT_CACHE_ENTRIES = 256
+private const val MAX_ARTWORK_CACHE_ENTRIES = 512
 private const val MAX_EPISODE_CACHE_ENTRIES = 64
 private const val MAX_LIST_CACHE_ENTRIES = 128
 private val YOUTUBE_VIDEO_ID_REGEX = Regex("^[a-zA-Z0-9_-]{11}$")
@@ -63,6 +64,11 @@ class TmdbMetadataService(
 
     // In-memory caches
     private val enrichmentCache = ConcurrentHashMap<String, TmdbEnrichment>()
+    // Solo artwork (logo/backdrop/poster/description) per le righe Home:
+    // separata dalla cache completa, così un arricchimento parziale non
+    // può mai sostituire quello integrale nelle schermate di dettaglio.
+    private val artworkCache = ConcurrentHashMap<String, TmdbEnrichment>()
+    private val artworkInFlight = ConcurrentHashMap<String, CompletableDeferred<TmdbEnrichment?>>()
     private val episodeCache = ConcurrentHashMap<String, Map<Pair<Int, Int>, TmdbEpisodeEnrichment>>()
     private val enrichmentInFlight = ConcurrentHashMap<String, CompletableDeferred<TmdbEnrichment?>>()
     private val episodeInFlight = ConcurrentHashMap<String, CompletableDeferred<Map<Pair<Int, Int>, TmdbEpisodeEnrichment>>>()
@@ -528,6 +534,102 @@ class TmdbMetadataService(
                     requestDeferred.complete(null)
                 }
                 enrichmentInFlight.remove(cacheKey, requestDeferred)
+            }
+        }
+
+    /**
+     * Variante leggera di fetchEnrichment per le righe Home (es. "Ultime
+     * Uscite"): solo dettagli + immagini, quindi **2 chiamate TMDB invece
+     * di 6**, per ricavare logo/backdrop/poster/description. La riga si
+     * riempie così in pochi secondi; crediti/cast/trailer arrivano dalla
+     * fetch completa quando l'utente apre il titolo. Cache dedicata: un
+     * arricchimento parziale non deve mai sostituire quello completo.
+     */
+    suspend fun fetchArtworkEnrichment(
+        tmdbId: String,
+        contentType: ContentType,
+        language: String = "en"
+    ): TmdbEnrichment? =
+        withContext(ioDispatcher) {
+            val normalizedLanguage = normalizeTmdbLanguage(language)
+            val cacheKey = "$tmdbId:${contentType.name}:$normalizedLanguage"
+            artworkCache[cacheKey]?.let { return@withContext it }
+            artworkInFlight[cacheKey]?.let { return@withContext it.await() }
+
+            val numericId = tmdbId.toIntOrNull() ?: return@withContext null
+            val requestDeferred = CompletableDeferred<TmdbEnrichment?>()
+            artworkInFlight.putIfAbsent(cacheKey, requestDeferred)?.let { existing ->
+                return@withContext existing.await()
+            }
+            val tmdbType = when (contentType) {
+                ContentType.SERIES, ContentType.TV -> "tv"
+                else -> "movie"
+            }
+
+            try {
+                val includeImageLanguage = buildString {
+                    append(normalizedLanguage.substringBefore("-"))
+                    append(",")
+                    append(normalizedLanguage)
+                    append(",en,null")
+                }
+                val (details, images) = coroutineScope {
+                    val detailsDeferred = async {
+                        when (tmdbType) {
+                            "tv" -> tmdbApi.getTvDetails(numericId, TMDB_API_KEY, normalizedLanguage).body()
+                            else -> tmdbApi.getMovieDetails(numericId, TMDB_API_KEY, normalizedLanguage).body()
+                        }
+                    }
+                    val imagesDeferred = async {
+                        when (tmdbType) {
+                            "tv" -> tmdbApi.getTvImages(numericId, TMDB_API_KEY, includeImageLanguage).body()
+                            else -> tmdbApi.getMovieImages(numericId, TMDB_API_KEY, includeImageLanguage).body()
+                        }
+                    }
+                    Pair(detailsDeferred.await(), imagesDeferred.await())
+                }
+                val logoPath = images?.logos?.let {
+                    selectBestLocalizedImagePath(it, normalizedLanguage)
+                }
+                val enrichment = TmdbEnrichment(
+                    localizedTitle = null,
+                    description = details?.overview?.takeIf { it.isNotBlank() },
+                    genres = emptyList(),
+                    backdrop = buildImageUrl(details?.backdropPath, size = "w1280"),
+                    logo = buildImageUrl(logoPath, size = "w500"),
+                    poster = buildImageUrl(details?.posterPath, size = "w500"),
+                    directorMembers = emptyList(),
+                    writerMembers = emptyList(),
+                    castMembers = emptyList(),
+                    releaseInfo = null,
+                    rating = null,
+                    runtimeMinutes = null,
+                    director = emptyList(),
+                    writer = emptyList(),
+                    productionCompanies = emptyList(),
+                    networks = emptyList(),
+                    ageRating = null,
+                    status = null,
+                    countries = null,
+                    language = null,
+                    collectionId = null,
+                    collectionName = null
+                )
+                putBounded(artworkCache, cacheKey, enrichment, MAX_ARTWORK_CACHE_ENTRIES)
+                requestDeferred.complete(enrichment)
+                enrichment
+            } catch (e: CancellationException) {
+                requestDeferred.cancel(e)
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to fetch TMDB artwork enrichment: ${e.message}")
+                requestDeferred.complete(null)
+                null
+            } finally {
+                if (!requestDeferred.isCompleted) {
+                    requestDeferred.complete(null)
+                }
+                artworkInFlight.remove(cacheKey, requestDeferred)
             }
         }
 
