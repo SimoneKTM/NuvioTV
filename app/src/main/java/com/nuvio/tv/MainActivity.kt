@@ -2180,18 +2180,26 @@ private fun ModernSidebarScaffold(
             }
 
             if (sidebarShowCollapsedPill) {
-                // Colonna nera a tutta altezza sotto le icone (stile Prime
-                // Video): chiude il lato sinistro, tiene le icone nude
-                // leggibili su ogni backdrop e nasconde le card che scorrono
-                // dentro la colonna del rail — stessi 52dp di rowStartPadding
-                // delle righe, così il contenuto sparisce esattamente al
-                // bordo della colonna.
+                // Colonna a tutta altezza sotto le icone (stile Prime Video):
+                // chiude il lato sinistro e tiene le icone nude leggibili su
+                // ogni backdrop. Pieno nero per i primi ~39dp (sotto le icone),
+                // poi dissolvenza orizzontale sugli ultimi ~13dp: le card
+                // luminose che scorrono dentro la colonna sbiadiscono invece
+                // di essere sezionate dal bordo. Stessi 52dp di rowStartPadding
+                // delle righe: la dissolvenza finisce esattamente dove il
+                // contenuto riposa, senza scurire le card a riposo.
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .fillMaxHeight()
                         .width(52.dp)
-                        .background(Color.Black)
+                        .background(
+                            Brush.horizontalGradient(
+                                0f to Color.Black,
+                                0.75f to Color.Black,
+                                1f to Color.Transparent
+                            )
+                        )
                         .graphicsLayer {
                             alpha = 1f - sidebarExpandProgress
                         }
