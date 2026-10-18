@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.focus.focusRequester
 import com.nuvio.tv.LocalContentFocusRequester
+import com.nuvio.tv.ui.util.rowsListUpRecovery
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -331,13 +332,16 @@ private fun AnimeModernContent(
             }
         }
 
+        val rowsListState = rememberLazyListState()
         LazyColumn(
+            state = rowsListState,
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
                 .then(if (heroEnabled) Modifier.height(rowsViewportHeight) else Modifier.fillMaxSize())
                 .dpadRepeatThrottle()
-                .focusRequester(LocalContentFocusRequester.current),
+                .focusRequester(LocalContentFocusRequester.current)
+                .rowsListUpRecovery(rowsListState),
             contentPadding = PaddingValues(
                 // Con l'hero attivo le righe occupano solo la fascia bassa;
                 // senza hero partono dalla cima e devono scendere sotto la
@@ -938,10 +942,13 @@ private fun AnimeClassicContent(
                 .fillMaxSize()
                 .background(NuvioTheme.colors.Background)
         )
+        val rowsListState = rememberLazyListState()
         LazyColumn(
+            state = rowsListState,
             modifier = Modifier
                 .fillMaxSize()
-                .dpadRepeatThrottle(),
+                .dpadRepeatThrottle()
+                .rowsListUpRecovery(rowsListState),
             contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
         ) {
             if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
@@ -1013,10 +1020,13 @@ private fun AnimeGridContent(
     onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
 ) {
+    val rowsListState = rememberLazyListState()
     LazyColumn(
+        state = rowsListState,
         modifier = Modifier
             .fillMaxSize()
-            .dpadRepeatThrottle(),
+            .dpadRepeatThrottle()
+            .rowsListUpRecovery(rowsListState),
         contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
     ) {
         if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {

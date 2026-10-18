@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -123,6 +124,29 @@ fun NuvioNavHost(
         return from.startsWith("player/") && to.startsWith("stream/")
     }
 
+    // Le schermate dotate di chrome globale (barra sezioni in alto + rail
+    // laterale) non usano il crossfade di default. NavHost composta le root
+    // da capo a ogni ritorno (Home è pesante): con il fade il canvas va in
+    // nero appena la schermata vecchia è svanita e per qualche secondo su
+    // Stick lente resta SOLO il chrome disegnato sopra il vuoto, finché la
+    // nuova schermata non finisce di comporre. A transizione netta la
+    // vecchia schermata resta sullo schermo fino al primo frame di quella
+    // nuova: nero e sovrapposizione spariscono.
+    val chromeRoutes = remember {
+        setOf(
+            Screen.Home.route,
+            Screen.Anime.route,
+            Screen.Extra.route,
+            Screen.Calendar.route,
+            Screen.Search.route,
+            Screen.Library.route,
+            Screen.LiveTv.route,
+            Screen.Settings.route
+        )
+    }
+    fun involvesChrome(from: String, to: String): Boolean =
+        from in chromeRoutes || to in chromeRoutes
+
     // Next-episode date badges are rendered by GridContentCard across the
     // whole graph (Home, Search, Discover, Library, Detail grids, TMDB
     // browse...), so provide the calendar-derived labels once at the
@@ -140,7 +164,7 @@ fun NuvioNavHost(
             val isAutoPlayNav = targetState.arguments
                 ?.getString("autoPlayNav")
                 ?.toBooleanStrictOrNull() == true
-            if (isStreamToPlayer(from, to) && isAutoPlayNav) {
+            if ((isStreamToPlayer(from, to) && isAutoPlayNav) || involvesChrome(from, to)) {
                 EnterTransition.None
             } else {
                 fadeIn(animationSpec = tween(NuvioMotion.tokens.durations.medium))
@@ -164,7 +188,7 @@ fun NuvioNavHost(
             val isAutoPlayNav = initialState.arguments
                 ?.getString("autoPlayNav")
                 ?.toBooleanStrictOrNull() == true
-            if (isPlayerToStream(from, to) && isAutoPlayNav) {
+            if ((isPlayerToStream(from, to) && isAutoPlayNav) || involvesChrome(from, to)) {
                 EnterTransition.None
             } else {
                 fadeIn(animationSpec = tween(NuvioMotion.tokens.durations.medium))
@@ -176,7 +200,7 @@ fun NuvioNavHost(
             val isAutoPlayNav = initialState.arguments
                 ?.getString("autoPlayNav")
                 ?.toBooleanStrictOrNull() == true
-            if (isPlayerToStream(from, to) && isAutoPlayNav) {
+            if ((isPlayerToStream(from, to) && isAutoPlayNav) || involvesChrome(from, to)) {
                 ExitTransition.None
             } else {
                 fadeOut(animationSpec = tween(NuvioMotion.tokens.durations.medium))

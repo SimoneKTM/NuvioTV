@@ -77,6 +77,7 @@ import com.nuvio.tv.ui.screens.home.HeroBackdropState
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.localizedContentType
 import com.nuvio.tv.ui.util.localizedGenreLabel
+import com.nuvio.tv.ui.util.rowsListUpRecovery
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlinx.coroutines.delay
@@ -136,10 +137,13 @@ fun CalendarHomeScreen(
             else -> {
                 val firstSection = uiState.sections.firstOrNull()
 
+                val rowsListState = rememberLazyListState()
                 LazyColumn(
+                    state = rowsListState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .focusRequester(LocalContentFocusRequester.current),
+                        .focusRequester(LocalContentFocusRequester.current)
+                        .rowsListUpRecovery(rowsListState),
                     contentPadding = PaddingValues(top = 72.dp, bottom = 160.dp)
                 ) {
                     if (firstSection != null) {

@@ -53,6 +53,7 @@ import com.nuvio.tv.ui.screens.home.firstNonBlank
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.asStable
 import com.nuvio.tv.ui.util.dpadRepeatThrottle
+import com.nuvio.tv.ui.util.rowsListUpRecovery
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -231,11 +232,14 @@ private fun ExtraClassicContent(
                 .fillMaxSize()
                 .background(NuvioTheme.colors.Background)
         )
+        val rowsListState = androidx.compose.foundation.lazy.rememberLazyListState()
         LazyColumn(
+            state = rowsListState,
             modifier = Modifier
                 .fillMaxSize()
                 .dpadRepeatThrottle()
-                .focusRequester(LocalContentFocusRequester.current),
+                .focusRequester(LocalContentFocusRequester.current)
+                .rowsListUpRecovery(rowsListState),
             contentPadding = PaddingValues(top = 72.dp, bottom = NuvioTheme.spacing.xxl)
         ) {
             if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
@@ -334,11 +338,14 @@ private fun ExtraModernContent(
     val posterCardStyle = extraPosterCardStyle(uiState)
     val (cwCardWidth, cwCardHeight) = extraCwCardSize(uiState)
 
+    val rowsListState = androidx.compose.foundation.lazy.rememberLazyListState()
     LazyColumn(
+        state = rowsListState,
         modifier = Modifier
             .fillMaxSize()
             .dpadRepeatThrottle()
-            .focusRequester(LocalContentFocusRequester.current),
+            .focusRequester(LocalContentFocusRequester.current)
+            .rowsListUpRecovery(rowsListState),
         contentPadding = PaddingValues(top = 72.dp, bottom = NuvioTheme.spacing.xxl)
     ) {
         if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
@@ -424,11 +431,14 @@ private fun ExtraGridContent(
 ) {
     val posterCardStyle = extraPosterCardStyle(uiState)
 
+    val rowsListState = androidx.compose.foundation.lazy.rememberLazyListState()
     LazyColumn(
+        state = rowsListState,
         modifier = Modifier
             .fillMaxSize()
             .dpadRepeatThrottle()
-            .focusRequester(LocalContentFocusRequester.current),
+            .focusRequester(LocalContentFocusRequester.current)
+            .rowsListUpRecovery(rowsListState),
         contentPadding = PaddingValues(top = 72.dp, bottom = NuvioTheme.spacing.xxl)
     ) {
         if (uiState.heroEnabled && uiState.heroItems.isNotEmpty()) {
