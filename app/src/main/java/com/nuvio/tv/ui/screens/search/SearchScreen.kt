@@ -104,6 +104,7 @@ import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.nuvio.tv.LocalSidebarExpanded
+import com.nuvio.tv.LocalFocusPrimeRail
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.CardDepthSurface
 import com.nuvio.tv.domain.model.DiscoverLocation
@@ -185,6 +186,8 @@ fun SearchScreen(
     val strVoiceUnavailable = stringResource(R.string.search_voice_unavailable)
     val voiceFocusRequester = remember { FocusRequester() }
     val searchFocusRequester = remember { FocusRequester() }
+    val discoverFocusRequester = remember { FocusRequester() }
+    val focusPrimeRail = LocalFocusPrimeRail.current
     val recentFirstItemFocusRequester = remember { FocusRequester() }
     var isSearchFieldFocused by remember { mutableStateOf(false) }
     var isRecentSearchSectionFocused by remember { mutableStateOf(false) }
@@ -537,10 +540,15 @@ fun SearchScreen(
 
     LaunchedEffect(topInputFocusRequester) {
         if (viewModel.hasSavedSearchFocus) return@LaunchedEffect
+        val initialTarget = if (uiState.discoverLocation == DiscoverLocation.IN_SEARCH) {
+            discoverFocusRequester
+        } else {
+            topInputFocusRequester
+        }
         var attempt = 0
         while (attempt < MAX_INITIAL_FOCUS_ATTEMPTS) {
             repeat(2) { withFrameNanos { } }
-            val focused = runCatching { topInputFocusRequester.requestFocus() }.getOrDefault(false)
+            val focused = runCatching { initialTarget.requestFocus() }.getOrDefault(false)
             if (focused) break
             attempt++
             delay(50)
@@ -658,6 +666,7 @@ fun SearchScreen(
                 isVoiceListening = isVoiceListening,
                 voiceRmsLevel = voiceRmsLevel,
                 onVoiceSearch = launchVoiceSearch,
+                discoverFocusRequester = discoverFocusRequester,
                 onMoveToResults = { focusResults = true },
                 onMoveToKeyboard = requestKeyboardFocus,
                 onOpenDiscover = onOpenDiscover,
@@ -836,8 +845,10 @@ fun SearchScreen(
                                 viewModel.posterOptions.show(item, addonBaseUrl)
                             },
                             onFirstColumnLeftPress = {
-                                inputAreaActive = true
-                                pendingKeyboardFocus = true
+                                if (focusPrimeRail?.invoke() != true) {
+                                    inputAreaActive = true
+                                    pendingKeyboardFocus = true
+                                }
                             },
                             showLoadingFooter = uiState.isSearching || hasPendingUnsubmittedQuery,
                             modifier = Modifier.weight(1f)
@@ -900,6 +911,7 @@ private fun SearchInputField(
     isVoiceListening: Boolean,
     voiceRmsLevel: Float,
     onVoiceSearch: () -> Unit,
+    discoverFocusRequester: FocusRequester,
     onMoveToResults: () -> Unit,
     onMoveToKeyboard: (() -> Unit)?,
     onOpenDiscover: () -> Unit,
@@ -925,6 +937,7 @@ private fun SearchInputField(
             IconButton(
                 onClick = onOpenDiscover,
                 modifier = Modifier
+                    .focusRequester(discoverFocusRequester)
                     .onFocusChanged { isDiscoverButtonFocused = it.isFocused }
                     .onPreviewKeyEvent { keyEvent ->
                         if (keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_DOWN &&

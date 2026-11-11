@@ -525,21 +525,6 @@ fun SettingsScreen(
         entryFocusSettled = true
     }
 
-    LaunchedEffect(selectedCategory) {
-        if (selectedCategory == SettingsCategory.ANIME) {
-            animeSection = AnimeSettingsSection.Hub
-        }
-        if (selectedCategory == SettingsCategory.EXTRA) {
-            extraSection = ExtraSettingsSection.Hub
-        }
-        if (selectedCategory == SettingsCategory.INTEGRATION) {
-            integrationSection = IntegrationSettingsSection.Hub
-        }
-        if (selectedCategory == SettingsCategory.LIBRARY) {
-            librarySection = LibrarySettingsSection.Hub
-        }
-    }
-
     LaunchedEffect(pendingContentFocusRequestId) {
         val category = pendingContentFocusCategory ?: return@LaunchedEffect
         delay(SETTINGS_DETAIL_FOCUS_DELAY_MS)
@@ -581,9 +566,6 @@ fun SettingsScreen(
             val railListState = rememberLazyListState()
 
             val onSectionClick: (SettingsSectionSpec) -> Unit = { section ->
-                if (section.category == SettingsCategory.INTEGRATION) {
-                    integrationSection = IntegrationSettingsSection.Hub
-                }
                 allowDetailAutofocus = true
                 selectedCategory = section.category
                 pendingContentFocusCategory = section.category
@@ -599,9 +581,6 @@ fun SettingsScreen(
 
                 val selectFocusedTab: (SettingsCategory) -> Unit = { category ->
                     if (entryFocusSettled && selectedCategory != category) {
-                        if (category == SettingsCategory.INTEGRATION) {
-                            integrationSection = IntegrationSettingsSection.Hub
-                        }
                         allowDetailAutofocus = false
                         selectedCategory = category
                     }

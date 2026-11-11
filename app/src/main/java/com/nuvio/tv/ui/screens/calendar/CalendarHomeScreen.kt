@@ -575,6 +575,10 @@ private fun CalendarHeroSection(
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
                         .data(displayedItem.meta.backdropUrl)
+                        // Richiedi il backdrop a risoluzione TV: senza una
+                        // size esplicita Coil riusava la variante da poster
+                        // nelle anteprime di alcuni provider.
+                        .size(1280, 720)
                         .crossfade(true)
                         .memoryCachePolicy(CachePolicy.ENABLED)
                         .diskCachePolicy(CachePolicy.ENABLED)

@@ -273,7 +273,10 @@ internal fun ModernHeroGradientLayer(
                     )
                 }
 
-                val bottomStripStartY = size.height * if (fullScreen) 0.64f else 0.82f
+                // Estendi la dissolvenza verso l'alto: il vecchio tratto
+                // finale, concentrato nell'ultimo 18% della scena, appariva
+                // come una fascia nera netta sopra le card.
+                val bottomStripStartY = size.height * if (fullScreen) 0.58f else 0.70f
                 val verticalGradient = Brush.verticalGradient(
                     colorStops = if (fullScreen) {
                         arrayOf(
@@ -285,9 +288,9 @@ internal fun ModernHeroGradientLayer(
                     } else {
                         arrayOf(
                             0.0f to Color.Transparent,
-                            0.40f to bgColor.copy(alpha = 0.25f),
-                            0.75f to bgColor.copy(alpha = 0.65f),
-                            1.0f to bgColor
+                            0.42f to bgColor.copy(alpha = 0.18f),
+                            0.76f to bgColor.copy(alpha = 0.52f),
+                            1.0f to bgColor.copy(alpha = 0.92f)
                         )
                     },
                     startY = bottomStripStartY,

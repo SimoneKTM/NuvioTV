@@ -80,7 +80,10 @@ class CalendarHomeViewModel @Inject constructor(
                 }
                 previous = language
                 targetLanguage = language
-                if (rawItems.isNotEmpty()) scheduleDescriptionTranslations(rawItems)
+                if (rawItems.isNotEmpty()) {
+                    publishSections(rawItems)
+                    scheduleDescriptionTranslations(rawItems)
+                }
             }
         }
     }
@@ -133,12 +136,22 @@ class CalendarHomeViewModel @Inject constructor(
      */
     private fun publishSections(items: List<CalendarItem>) {
         val localized = synchronized(translationLock) {
-            if (translatedDescriptions.isEmpty()) items
-            else items.map { item ->
+            val language = targetLanguage
+            items.map { item ->
                 val original = item.meta.description ?: return@map item
-                val translated = translatedDescriptions[original] ?: return@map item
-                if (translated == original) item
-                else item.copy(meta = item.meta.copy(description = translated))
+                val translated = translatedDescriptions[original]
+                if (!translated.isNullOrBlank()) {
+                    if (translated == original) item
+                    else item.copy(meta = item.meta.copy(description = translated))
+                } else if (shouldTranslate(original, language)) {
+                    // In italiano non mostrare la sinossi inglese durante il
+                    // download del modello o se la traduzione non è riuscita.
+                    // Le informazioni restano disponibili e la sinossi torna
+                    // appena una traduzione valida entra in cache.
+                    item.copy(meta = item.meta.copy(description = null))
+                } else {
+                    item
+                }
             }
         }
         val sections = groupItemsByPeriod(localized)
@@ -153,9 +166,8 @@ class CalendarHomeViewModel @Inject constructor(
     }
 
     /**
-     * Una traduzione per ogni sinossi distinta, in async: la UI mostra prima il
-     * testo grezzo e publishSections lo sostituisce appena pronto (nessuno
-     * schermo resta bloccato in attesa della rete/mlkit).
+     * Una traduzione per ogni sinossi distinta, in async: la UI non aspetta il
+     * modello e in italiano non espone nel frattempo il testo inglese.
      */
     private fun scheduleDescriptionTranslations(items: List<CalendarItem>) {
         val language = targetLanguage ?: return

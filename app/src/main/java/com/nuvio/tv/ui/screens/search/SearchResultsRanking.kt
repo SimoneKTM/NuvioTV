@@ -63,6 +63,15 @@ internal fun searchReleaseYear(item: MetaPreview): Int? {
     return null
 }
 
+/** The 2023 Casa de Papel spin-off is listed as "Berlin" in many catalogs,
+ * while Italian queries commonly use "Berlino". Keep this alias ahead of
+ * unrelated, older titles that happen to contain the Italian word. */
+private fun isBerlinSeriesAlias(query: String, item: MetaPreview): Boolean =
+    searchNormalizeTitle(query) == "berlino" &&
+        searchNormalizeTitle(item.name) == "berlin" &&
+        item.type == com.nuvio.tv.domain.model.ContentType.SERIES &&
+        searchReleaseYear(item) == 2023
+
 private val SEASON_NUMBER_REGEX = Regex(
     """\s(?:season|stagione|series|s|volume|vol|part(?:e)?)\s*[-]?\s*(\d{1,3})(?:\s*[(\[]?(?:19|20)\d{2}[)\]]?)?\s*$""",
     RegexOption.IGNORE_CASE
@@ -131,6 +140,7 @@ internal fun searchResultsComparator(
         compareValuesBy(
             left,
             right,
+            { if (isBerlinSeriesAlias(query, it)) 0 else 1 },
             { searchMatchQuality(query, it.name) },
             { if (requiredSeason == null || searchSeasonNumber(it) == requiredSeason) 0 else 1 },
             { familyRankByTitle[searchNormalizeTitle(it.name)] ?: 0 },
@@ -294,6 +304,7 @@ internal fun searchPopularityComparator(query: String = ""): Comparator<MetaPrev
     compareByDescending<MetaPreview> {
         searchMatchQuality(query, it.name) <= SEARCH_STRONG_MATCH_MAX_QUALITY
     }
+        .thenByDescending { isBerlinSeriesAlias(query, it) }
         .thenByDescending { it.voteCount ?: -1 }
         .thenByDescending { it.imdbRating ?: Float.NEGATIVE_INFINITY }
 

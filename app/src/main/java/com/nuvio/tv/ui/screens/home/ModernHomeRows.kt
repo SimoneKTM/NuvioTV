@@ -1012,7 +1012,13 @@ internal fun ModernRowSection(
                     // rail, a sinistra della scritta della riga.
                     .padding(start = rowStartPadding)
                     .clipToBounds(),
-                contentPadding = PaddingValues(start = 0.dp, end = rowStartPadding),
+                // Spazio di coda per la card espansa: senza questo margine la
+                // penultima/ultima immagine resta tagliata dal viewport anche
+                // dopo il bring-into-view, soprattutto vicino a fine riga.
+                contentPadding = PaddingValues(
+                    start = 0.dp,
+                    end = rowStartPadding + if (effectiveExpandEnabled && !isTop10Row) 160.dp else 0.dp
+                ),
                 horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
             ) {
                 itemsIndexed(
