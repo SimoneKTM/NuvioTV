@@ -454,6 +454,9 @@ private const val TRAILER_PREFETCH_DEBOUNCE_MS = 400L
  */
 internal fun HomeViewModel.preloadTrailerPreviewPipeline(item: MetaPreview) {
     if (!AppFeaturePolicy.inAppTrailerPlaybackEnabled) return
+    // Fluid Mode keeps only the focused hero trailer: warming neighbours would
+    // add network/parser work while the user is still navigating.
+    if (fluidModeEnabled.value) return
     if (startupGracePeriodActive) return
     val prefs = _uiState.value
     if (!prefs.focusedPosterBackdropTrailerEnabled) return

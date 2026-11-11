@@ -1,7 +1,6 @@
 package com.nuvio.tv.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,18 +47,6 @@ data class TopBarSectionTab(
  */
 internal val TOP_BAR_BAND_HEIGHT = 64.dp
 
-/**
- * Stato condiviso della banda scura sotto la barra sezioni: `false` quando
- * NON va oscurato ciò che sta sotto. La home moderna lo imposta a false: nel
- * suo layout il contenuto non passa mai sotto la barra (le righe sono
- * ritagliate nel viewport in basso) e la banda copriva solo i primi 64dp
- * dell'immagine hero ("la barra superiore copre gran parte dell'immagine").
- * Le altre schermate lasciano il default `true`: la banda continua a coprire
- * il contenuto che scorre.
- */
-internal object SectionTopBarScrimState {
-    var visible by mutableStateOf(true)
-}
 
 /**
  * Barra alta delle sezioni — il riferimento è Prime Video: una striscia di
@@ -79,42 +66,50 @@ internal fun NuvioSectionTopBar(
     selectedRoute: String?,
     tabFocusRequesters: Map<String, FocusRequester>,
     onNavigate: (String) -> Unit,
+    scrimOnHero: Boolean = false,
     startPadding: Dp = 0.dp,
     topPadding: Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
     var barHasFocus by remember { mutableStateOf(false) }
     val barAlpha by animateFloatAsState(
-        targetValue = if (barHasFocus) 1f else 0.72f,
+        targetValue = if (barHasFocus) 1f else 0.94f,
         label = "topBarAlpha"
     )
-    // La banda scompare (con dissolvenza) quando la schermata dichiara che
-    // sotto la barra c'è solo l'immagine hero da non oscurare.
-    val bandAlpha by animateFloatAsState(
-        targetValue = if (SectionTopBarScrimState.visible) 1f else 0f,
-        animationSpec = tween(durationMillis = 280),
-        label = "topBarBandAlpha"
-    )
-
+    // La banda resta sempre opaca (era spenta da Home/Anime e la barra
+    // sembrava trasparente sopra l'hero).
     Box(
         modifier = modifier.height(TOP_BAR_BAND_HEIGHT)
     ) {
-        // Banda nera: opaca dietro le tab (fino a ~48dp) con la dissolvenza
+        // Banda nera: opaca dietro le tab (fino a ~57dp) con la dissolvenza
         // che termina esattamente a fine tab (64dp), così il contenuto che
         // scorre in alto sparisce dietro la fascia delle tab senza taglio netto.
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .graphicsLayer { alpha = bandAlpha }
                 .background(
-                    Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0f to Color.Black,
-                            0.75f to Color.Black,
-                            0.93f to Color.Black.copy(alpha = 0.85f),
-                            1f to Color.Transparent
+                    if (scrimOnHero) {
+                        // Keep the labels on a black field, then fade before
+                        // the artwork begins so the tab band does not cut a
+                        // horizontal black strip through the hero image.
+                        Brush.horizontalGradient(
+                            colorStops = arrayOf(
+                                0f to Color.Black,
+                                0.33f to Color.Black,
+                                0.43f to Color.Transparent,
+                                1f to Color.Transparent
+                            )
                         )
-                    )
+                    } else {
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0f to Color.Black,
+                                0.88f to Color.Black,
+                                0.97f to Color.Black.copy(alpha = 0.9f),
+                                1f to Color.Transparent
+                            )
+                        )
+                    }
                 )
         )
         Row(
@@ -168,7 +163,9 @@ private fun SectionTab(
         Text(
             text = label,
             style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
+            // Il peso Bold della variabile era troppo sottile a distanza:
+            // le quattro voci devono leggersi subito come grassetto.
+            fontWeight = FontWeight.ExtraBold,
             color = textColor,
             maxLines = 1
         )

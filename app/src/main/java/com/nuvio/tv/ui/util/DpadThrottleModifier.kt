@@ -32,7 +32,7 @@ val LocalFastHorizontalNavigationEnabled = compositionLocalOf { false }
  *                         content (and get stuck on the tab bar).
  */
 fun Modifier.dpadRepeatThrottle(
-    horizontalGateMs: Long = 80L,
+    horizontalGateMs: Long = 60L,
     verticalGateMs: Long = 80L,
     scrollableState: LazyListState? = null
 ): Modifier = composed {
@@ -55,7 +55,7 @@ fun Modifier.dpadRepeatThrottle(
             val gateMs = if (isVertical) {
                 verticalGateMs
             } else if (fastHorizontalNavigationEnabled) {
-                48L
+                40L
             } else {
                 horizontalGateMs
             }

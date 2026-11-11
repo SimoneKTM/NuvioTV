@@ -606,6 +606,9 @@ fun SearchScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // Sfondo opaco: durante la transizione a nero non deve
+            // trasparire la schermata precedente (Home/Libreria).
+            .background(NuvioTheme.colors.Background)
             .recompositionHighlighter()
     ) {
         // Full-width search banner: always visible, spanning the whole page, with the clear
@@ -683,7 +686,7 @@ fun SearchScreen(
                 modifier = Modifier
                     .width(SEARCH_LEFT_PANEL_WIDTH)
                     .fillMaxHeight()
-                    .padding(start = NuvioTheme.spacing.xxxl, top = NuvioTheme.spacing.lg)
+                    .padding(start = SIDEBAR_COLLAPSED_CLEARANCE, top = NuvioTheme.spacing.lg)
                     // Bigger keys + up to four recents can exceed the panel height on
                     // 540dp-tall Fire TVs: scroll instead of clipping, focus auto-scrolls.
                     .verticalScroll(rememberScrollState())
@@ -1283,7 +1286,7 @@ private fun SingleSearchResultsGrid(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl)
+            .padding(start = SIDEBAR_COLLAPSED_CLEARANCE, end = NuvioTheme.spacing.xxxl)
     ) {
         val horizontalSpacing = NuvioTheme.spacing.md
         val verticalSpacing = NuvioTheme.spacing.md
@@ -1430,7 +1433,7 @@ private fun SearchResultsSkeletonGrid(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl)
+            .padding(start = SIDEBAR_COLLAPSED_CLEARANCE, end = NuvioTheme.spacing.xxxl)
     ) {
         val horizontalSpacing = NuvioTheme.spacing.md
         val columns = run {

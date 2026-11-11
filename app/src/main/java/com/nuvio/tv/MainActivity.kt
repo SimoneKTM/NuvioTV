@@ -82,6 +82,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -225,6 +226,10 @@ val LocalPendingContentFocusTransfer = compositionLocalOf { mutableStateOf(false
 // solo SU non consumato, ma dentro rowsListUpRecovery il tasto è già stato
 // consumato, quindi serve un modo esplicito di raggiungere la barra.
 val LocalFocusSectionTopBar = compositionLocalOf<(() -> Boolean)?> { null }
+// Porta il focus sul rail laterale. Le righe lo usano quando SINISTRA arriva
+// sulla prima card: senza questo il focus search geometrico può agganciare la
+// top bar (più vicina in verticale) invece della colonna laterale.
+val LocalFocusPrimeRail = compositionLocalOf<(() -> Boolean)?> { null }
 
 private const val SIDEBAR_AUTO_COLLAPSE_DELAY_MS = 4_000L
 
@@ -1721,6 +1726,17 @@ private fun ModernSidebarScaffold(
         topBarTabs.associate { it.route to FocusRequester() }
     }
 
+    // La casetta del rail rappresenta l'intero gruppo di sezioni: resta
+    // selezionata su Home, Anime, Extra e Calendario. Prima l'indicatore
+    // spariva appena si lasciava la Home (selectedDrawerRoute puntava alla
+    // route della sezione, che non esiste nel rail). La selezione cambia
+    // solo quando si naviga esplicitamente nel rail.
+    val railSelectedRoute = if (currentRoute in sectionRoutes) {
+        Screen.Home.route
+    } else {
+        selectedDrawerRoute
+    }
+
     // Rail laterale stile Prime Video: solo le utility (Cerca, Libreria,
     // Live TV, Impostazioni). Le sezioni vivono nella barra alta; il rail
     // è sempre visibile a icone nude e non si espande mai con le etichette:
@@ -1738,13 +1754,23 @@ private fun ModernSidebarScaffold(
         drawerItems.filter { it.route in primeRailRoutes }
     }
     var primeRailHasFocus by remember { mutableStateOf(false) }
+    val sidebarScope = rememberCoroutineScope()
     val focusPrimeRail: () -> Boolean = {
         val targetRoute = primeRailItems.firstOrNull { it.route == currentRoute }?.route
             ?: primeRailItems.firstOrNull()?.route
         if (targetRoute != null) {
-            runCatching {
-                drawerItemFocusRequesters.getValue(targetRoute).requestFocus()
-            }.getOrDefault(false)
+            // Mentre il contenuto di una sezione ha il focus il rail è
+            // escluso dallo search geometrico. Prima di spostarci lì lo
+            // riabilitiamo e chiediamo il focus dopo un paio di frame,
+            // quando il nuovo canFocus è già stato applicato.
+            PrimeRailFocusGuard.railFocusSearchExcluded.value = false
+            sidebarScope.launch {
+                repeat(2) { withFrameNanos { } }
+                runCatching {
+                    drawerItemFocusRequesters.getValue(targetRoute).requestFocus()
+                }
+            }
+            true
         } else {
             false
         }
@@ -1755,6 +1781,24 @@ private fun ModernSidebarScaffold(
     var sidebarCollapsePending by remember { mutableStateOf(false) }
     val pendingContentFocusTransferState = remember { mutableStateOf(false) }
     var pendingContentFocusTransfer by pendingContentFocusTransferState
+    // DESTRA sul rail chiuso: riporta il focus al contenuto. La richiesta
+    // diretta al content requester passa dal focusRestorer della schermata e
+    // riaggancia l'ultima card, senza far ripartire l'entry "prima card di
+    // Continua a guardare" (che invece serve quando si cambia sezione).
+    val focusContentFromRail: () -> Boolean = {
+        sidebarScope.launch {
+            repeat(2) { withFrameNanos { } }
+            val requested = runCatching {
+                contentFocusRequester.requestFocusAfterFrames(5)
+            }.getOrDefault(false)
+            if (!requested) {
+                // Rete di sicurezza per le root senza content requester:
+                // meglio il trasferimento d'ingresso che restare sul rail.
+                pendingContentFocusTransfer = true
+            }
+        }
+        true
+    }
     var pendingSidebarFocusRequest by remember { mutableStateOf(false) }
     var focusedDrawerIndex by remember { mutableStateOf(-1) }
     var isFloatingPillIconOnly by remember { mutableStateOf(false) }
@@ -1772,6 +1816,20 @@ private fun ModernSidebarScaffold(
             pendingSidebarFocusRequest = false
             isFloatingPillIconOnly = false
         }
+    }
+
+    // SU/GIÙ nel contenuto delle sezioni non devono mai agganciare le icone
+    // del rail (x≈24): il focus search di Compose non ha vincoli sulle X e
+    // sceglieva la barra laterale invece della riga sopra/sotto. Con questa
+    // esclusione il rail resta raggiungibile solo con SINISTRA (focusPrimeRail
+    // la azzera al volo) o con BACK, come sulla Home.
+    LaunchedEffect(currentRoute, primeRailHasFocus, isSidebarExpanded) {
+        PrimeRailFocusGuard.railFocusSearchExcluded.value =
+            if (currentRoute in sectionRoutes) {
+                !primeRailHasFocus && !isSidebarExpanded
+            } else {
+                false
+            }
     }
 
     // La pill in Impostazioni è forzata a mostrare l'etichetta: appena se ne
@@ -1850,7 +1908,14 @@ private fun ModernSidebarScaffold(
         },
         label = "sidebarWidth"
     )
-    val animationDuration = if (sidebarVisible) 280 else 200
+    val animationDuration = when {
+        // Fuori dalle sezioni (dettaglio, player) il rail deve sparire nello
+        // stesso frame della navigazione: con il fade da 200 ms restava
+        // visibile sopra la schermata in ingresso e lo si intravedeva.
+        !showSidebar -> 0
+        sidebarVisible -> 280
+        else -> 200
+    }
     val animationEasing = if (sidebarVisible) FastOutSlowInEasing else FastOutLinearInEasing
 
     val sidebarSlideX by animateDpAsState(
@@ -1943,7 +2008,13 @@ private fun ModernSidebarScaffold(
         if (expanded) NuvioTheme.spacing.none else (-8).dp
     }
 
-    LaunchedEffect(isSidebarExpanded, sidebarCollapsePending, pendingContentFocusTransfer, showSidebar) {
+    LaunchedEffect(
+        currentRoute,
+        isSidebarExpanded,
+        sidebarCollapsePending,
+        pendingContentFocusTransfer,
+        showSidebar
+    ) {
         if (!showSidebar || !pendingContentFocusTransfer || isSidebarExpanded || sidebarCollapsePending) {
             return@LaunchedEffect
         }
@@ -1985,6 +2056,13 @@ private fun ModernSidebarScaffold(
             previousRoute == null ||
             previousRoute in sectionRoutes
         ) {
+            return@LaunchedEffect
+        }
+        // Il Calendario ripristina da solo il primo poster della sezione in
+        // ON_RESUME (con clear + richiesta esplicita). Lasciare anche il
+        // trasferimento generico qui significherebbe una seconda richiesta
+        // sul contenitore dopo 6 frame, che può rubare il focus alla card.
+        if (currentRoute == Screen.Calendar.route) {
             return@LaunchedEffect
         }
         pendingContentFocusTransfer = true
@@ -2092,7 +2170,16 @@ private fun ModernSidebarScaffold(
                 LocalSidebarExpanded provides isSidebarExpanded,
                 LocalContentFocusRequester provides contentFocusRequester,
                 LocalPendingContentFocusTransfer provides pendingContentFocusTransferState,
-                LocalFocusSectionTopBar provides focusSectionTopBar
+                LocalFocusSectionTopBar provides focusSectionTopBar,
+                // Le righe possono consegnare il focus al rail solo quando il
+                // rail è davvero disponibile (root con sidebar visibile).
+                // Fuori dalle root (dettaglio, folder, player) il valore è
+                // null e SINISTRA resta dentro la riga.
+                LocalFocusPrimeRail provides if (showSidebar && !isSidebarExpanded) {
+                    focusPrimeRail
+                } else {
+                    null
+                }
             ) {
                 NuvioNavHost(
                     navController = navController,
@@ -2117,6 +2204,7 @@ private fun ModernSidebarScaffold(
                 tabs = topBarTabs,
                 selectedRoute = selectedDrawerRoute,
                 tabFocusRequesters = topBarTabFocusRequesters,
+                scrimOnHero = currentRoute == Screen.Home.route || currentRoute == Screen.Anime.route,
                 onNavigate = { route ->
                     // Come nel pannello laterale: rotta ottimistica per l'highlight
                     // IMMEDIATO + navigazione Vera sul NavController, altrimenti la
@@ -2206,7 +2294,7 @@ private fun ModernSidebarScaffold(
                 if (showExpandedPanel) {
                     ModernSidebarBlurPanel(
                         drawerItems = primeRailItems,
-                        selectedDrawerRoute = selectedDrawerRoute,
+                        selectedDrawerRoute = railSelectedRoute,
                         keepSidebarFocusDuringCollapse = keepSidebarFocusDuringCollapse,
                         sidebarLabelAlpha = sidebarLabelAlpha,
                         sidebarIconScale = sidebarIconScale,
@@ -2258,8 +2346,12 @@ private fun ModernSidebarScaffold(
                         .background(
                             Brush.horizontalGradient(
                                 0f to Color.Black,
-                                0.78f to Color.Black,
-                                0.94f to Color.Transparent,
+                                // Opaco fin sotto le icone (che arrivano a
+                                // ~58dp), poi dissolvenza breve: prima la
+                                // colonna sbiadiva già a 50dp e su backdrop
+                                // chiari il rail sembrava trasparente.
+                                0.86f to Color.Black,
+                                0.97f to Color.Black.copy(alpha = 0.92f),
                                 1f to Color.Transparent
                             )
                         )
@@ -2272,7 +2364,7 @@ private fun ModernSidebarScaffold(
                 // senza etichette né pannello espanso.
                 PrimeRailStrip(
                     items = primeRailItems,
-                    selectedRoute = selectedDrawerRoute,
+                    selectedRoute = railSelectedRoute,
                     focusRequesters = drawerItemFocusRequesters,
                     onItemFocused = { index, focused ->
                         primeRailHasFocus = focused
@@ -2290,6 +2382,21 @@ private fun ModernSidebarScaffold(
                     },
                     modifier = Modifier
                         .align(Alignment.CenterStart)
+                        // DESTRA sul rail: il focus torna ai poster, non alla
+                        // barra alta. Senza questo handler il focus search
+                        // geometrico sceglie le tab (più vicine in verticale)
+                        // invece della riga di contenuti.
+                        .onPreviewKeyEvent { keyEvent ->
+                            val returnKey = if (isRtl) Key.DirectionLeft else Key.DirectionRight
+                            if (!isSidebarExpanded &&
+                                keyEvent.type == KeyEventType.KeyDown &&
+                                keyEvent.key == returnKey
+                            ) {
+                                focusContentFromRail()
+                            } else {
+                                false
+                            }
+                        }
                         .offset {
                             IntOffset(
                                 (NuvioTheme.spacing.xl - NuvioTheme.spacing.xs).roundToPx(),

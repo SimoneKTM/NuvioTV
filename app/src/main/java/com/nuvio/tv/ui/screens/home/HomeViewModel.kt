@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.LocaleCache
+import com.nuvio.tv.core.perf.FluidModeState
 import com.nuvio.tv.core.player.StreamAutoPlayPolicy
 import com.nuvio.tv.core.recommendations.TvRecommendationManager
 import com.nuvio.tv.core.tmdb.TmdbMetadataService
@@ -72,6 +73,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.retryWhen
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
@@ -110,6 +113,7 @@ class HomeViewModel @Inject constructor(
     internal val tvdbMetadataService: TvdbMetadataService,
     internal val mdbListRepository: MDBListRepository,
     internal val trailerService: TrailerService,
+    internal val fluidModeState: FluidModeState,
     internal val watchedSeriesStateHolder: com.nuvio.tv.data.local.WatchedSeriesStateHolder,
     internal val profileManager: ProfileManager,
     internal val cwEnrichmentCache: ContinueWatchingEnrichmentCache,
@@ -161,6 +165,10 @@ class HomeViewModel @Inject constructor(
     val effectiveAutoplayEnabled = playerSettingsDataStore.playerSettings
         .map(StreamAutoPlayPolicy::isEffectivelyEnabled)
         .distinctUntilChanged()
+    // Cached so the trailer prefetch can stay off in Fluid Mode without a
+    // suspend read on the caller path.
+    internal val fluidModeEnabled: StateFlow<Boolean> = fluidModeState.enabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
     internal val _fullCatalogRows = MutableStateFlow<List<CatalogRow>>(emptyList())
     val fullCatalogRows: StateFlow<List<CatalogRow>> = _fullCatalogRows.asStateFlow()
 

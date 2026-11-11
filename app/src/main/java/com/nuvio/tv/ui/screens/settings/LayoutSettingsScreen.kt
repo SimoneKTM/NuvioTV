@@ -926,9 +926,13 @@ fun LayoutSettingsContent(
                     // no playback target), so its trailer rows would be dead toggles.
                     val showAutoplayRow = !isExtraLayout &&
                         AppFeaturePolicy.inAppTrailerPlaybackEnabled &&
-                        (uiState.focusedPosterBackdropExpandEnabled || isModernLandscape)
+                        (
+                            uiState.focusedPosterBackdropExpandEnabled ||
+                                isModernLandscape ||
+                                uiState.fluidModeEnabled
+                            )
 
-                    if (!isModernLandscape) {
+                    if (!isModernLandscape && !uiState.fluidModeEnabled) {
                         CompactToggleRow(
                             title = stringResource(R.string.layout_expand_poster),
                             subtitle = stringResource(R.string.layout_expand_poster_sub),
@@ -944,7 +948,9 @@ fun LayoutSettingsContent(
                         )
                     }
 
-                    if (!isModernLandscape && uiState.focusedPosterBackdropExpandEnabled) {
+                    if (!isModernLandscape && !uiState.fluidModeEnabled &&
+                        uiState.focusedPosterBackdropExpandEnabled
+                    ) {
                         SliderSettingsItem(
                             icon = Icons.Default.Timer,
                             title = stringResource(R.string.layout_expand_delay),
@@ -1010,7 +1016,10 @@ fun LayoutSettingsContent(
                     if (
                         isModern &&
                         showAutoplayRow &&
-                        uiState.focusedPosterBackdropTrailerEnabled
+                        uiState.focusedPosterBackdropTrailerEnabled &&
+                        // Fluid Mode has no card expansion: the preview always
+                        // plays in the hero, so the target choice is meaningless.
+                        !uiState.fluidModeEnabled
                     ) {
                         ModernTrailerPlaybackTargetRow(
                             selectedTarget = uiState.focusedPosterBackdropTrailerPlaybackTarget,

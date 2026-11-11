@@ -27,6 +27,11 @@ data class NuvioMotionDurations(
     val sidebarEnter: Int,
     val sidebarExit: Int,
     val hero: Int,
+    // Transizione tra schermate "a nero": la vecchia sfuma nel nero, poi la
+    // nuova entra dal nero. Non sono mai visibili insieme.
+    val page: Int,
+    val pageOut: Int,
+    val pageIn: Int,
     val shimmer: Int
 )
 
@@ -76,6 +81,12 @@ object NuvioMotion {
             sidebarEnter = 180,
             sidebarExit = 70,
             hero = 200,
+            page = 240,
+            // 140 ms per arrivare al nero + 240 ms per entrare: il passaggio
+            // dura ~380 ms, abbastanza da non far intravedere rail e pagina
+            // precedente, senza rendere lenta la navigazione.
+            pageOut = 140,
+            pageIn = 240,
             shimmer = 600
         ),
         easings = NuvioMotionEasings(

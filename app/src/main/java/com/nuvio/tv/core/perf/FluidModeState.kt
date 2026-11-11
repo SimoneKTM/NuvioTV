@@ -35,8 +35,9 @@ class FluidModeState @Inject constructor(
 }
 
 /**
- * true quando Layout > Modalità Fluida è attiva: blur, espansione locandine
- * e anteprime trailer vengono spenti (come promesso dal sottotitolo della
- * impostazione). Le componenti la leggono via composition local.
+ * true quando Layout > Modalità Fluida è attiva: blur ed espansione locandine
+ * vengono spenti. Il trailer della Media Hero resta disponibile in versione
+ * leggera (player condiviso, qualità ridotta, muto), così la modalità
+ * prestazioni non spegne del tutto le anteprime.
  */
 val LocalFluidMode = compositionLocalOf { false }

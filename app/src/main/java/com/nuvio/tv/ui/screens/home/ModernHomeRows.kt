@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.gestures.animateScrollBy
@@ -131,19 +132,19 @@ import com.nuvio.tv.ui.components.nuvioCardDepth
 import com.nuvio.tv.ui.components.rememberArtworkBackedCardGlow
 import com.nuvio.tv.ui.components.rememberLegacyCardGlowHalo
 import com.nuvio.tv.ui.components.rememberPlaceholderShimmerOffsetState
+import com.nuvio.tv.LocalFocusPrimeRail
 import com.nuvio.tv.LocalSidebarExpanded
 import com.nuvio.tv.ui.theme.ThemeColors
 import com.nuvio.tv.ui.util.posterMemoryCacheKey
 import com.nuvio.tv.ui.util.rememberPosterImageRequest
-import kotlin.math.abs
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import com.nuvio.tv.ui.util.recompositionHighlighter
 import com.nuvio.tv.ui.util.StableMap
 import com.nuvio.tv.ui.util.StableRef
 import com.nuvio.tv.ui.util.asStable
 import com.nuvio.tv.ui.util.rememberLongPressKeyTracker
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.debounce
 
@@ -151,22 +152,24 @@ private const val MODERN_HORIZONTAL_FOCUS_DEBOUNCE_MS = 140L
 private const val POSTER_PREFETCH_DISTANCE = 2
 private const val NESTED_PREFETCH_COUNT = 2
 
-// Top 10 row metrics: the whole item is TOP10_RANK_SLOT_FRACTION card-widths
-// wide (like the old look in the reference): the rank number occupies the
-// left part of that slot and the poster sits on the right, overlapping the
-// digits by TOP10_RANK_TUCK_FRACTION of a card width. Stile "un tempo"
-// (ripristinato su richiesta): gutter e tuck rapportati alla LARGHEZZA della
-// card, non alla sua altezza.
-private const val TOP10_RANK_SLOT_FRACTION = 1.6f
-private const val TOP10_RANK_TUCK_FRACTION = 0.25f
+// Top 10 row metrics: like the reference screenshots, the rank gutter is a
+// fraction of the POSTER HEIGHT. Single-digit ranks use 0.55x the card height
+// ("10" needs 1.05x to stay fully visible) and the poster only slightly tucks
+// over the digits by TOP10_RANK_TUCK_FRACTION of the height. The item is
+// slot + card wide, with the poster offset by the slot.
+private const val TOP10_RANK_SLOT_FRACTION = 0.55f
+private const val TOP10_RANK_SLOT_WIDE_FRACTION = 1.05f
+private const val TOP10_RANK_TUCK_FRACTION = 0.12f
 private const val TOP10_RANK_CONDENSE_FACTOR = 0.72f
 
-private fun top10RankSlotWidth(cardWidth: Dp): Dp =
-    cardWidth * TOP10_RANK_SLOT_FRACTION
+// 96dp: titoli e card delle righe Home partono dallo stesso bordo sinistro
+// della hero (heroHorizontalPadding in ModernHomeContent), come nel
+// riferimento BlueStacks 1.0.97. La colonna nera del rail non scende più a
+// tutta altezza, quindi le card non ci finiscono sotto.
+private val HOME_ROW_START_PADDING = 96.dp
 
-/** Space to the LEFT of the poster inside a Top 10 item (the visible gutter). */
-private fun top10RankGutter(cardWidth: Dp): Dp =
-    top10RankSlotWidth(cardWidth) - cardWidth
+private fun top10RankSlotWidth(cardHeight: Dp, rank: Int): Dp =
+    cardHeight * (if (rank >= 10) TOP10_RANK_SLOT_WIDE_FRACTION else TOP10_RANK_SLOT_FRACTION)
 
 internal val LocalVerticalRowsScrolling = compositionLocalOf<State<Boolean>> { mutableStateOf(false) }
 
@@ -555,6 +558,7 @@ internal fun ModernRowSection(
     @Suppress("NAME_SHADOWING") val itemFocusRequesters = itemFocusRequesters.value
     val rowKey = row.key
     val isTop10Row = row.addonId == TOP10_ADDON_ID && row.catalogId == TOP10_CATALOG_ID
+    val focusPrimeRail = LocalFocusPrimeRail.current
 
     // Per-row derived state: only invalidates when THIS row's focused index
     // changes, not when any other row's index changes in the shared map.
@@ -581,7 +585,7 @@ internal fun ModernRowSection(
         val rowTitle = row.title
         val textColor = NuvioTheme.colors.TextPrimary
         val textModifier = remember(rowTitleBottom) {
-            Modifier.padding(start = 64.dp, bottom = rowTitleBottom)
+            Modifier.padding(start = HOME_ROW_START_PADDING, bottom = rowTitleBottom)
         }
         Text(
             text = rowTitle,
@@ -595,6 +599,25 @@ internal fun ModernRowSection(
                 firstVisibleItemIndex = focusStateCatalogRowScrollIndex,
                 prefetchStrategy = LazyListPrefetchStrategy(nestedPrefetchItemCount = NESTED_PREFETCH_COUNT)
             )
+        }
+        // La card focalizzata si appoggia sempre al bordo iniziale della riga:
+        // Compose da solo scrolla solo quando la card è fuori dal viewport e,
+        // tornando indietro, lascia la card precedente tagliata a metà. Qui la
+        // riga si riallinea a ogni cambio di focus (anche verso sinistra).
+        val rowIsActiveState = remember(rowKey) { derivedStateOf { isActiveRow() } }
+        val focusedIndexForRow = rowFocusedIndex.value
+        LaunchedEffect(
+            row.key,
+            focusedIndexForRow,
+            rowIsActiveState.value,
+            row.items.list.size
+        ) {
+            if (!rowIsActiveState.value || row.items.list.isEmpty()) return@LaunchedEffect
+            val target = focusedIndexForRow.coerceIn(0, row.items.list.lastIndex)
+            // Allineamento immediato: l'animazione per ogni card teneva il
+            // bordo della riga in ritardo rispetto al focus e rendeva lento
+            // lo scorrimento veloce a destra/sinistra.
+            runCatching { rowListState.scrollToItem(target) }
         }
 
         val firstItemKey = row.items.list.firstOrNull()?.key
@@ -682,10 +705,10 @@ internal fun ModernRowSection(
         }
 
         val density = LocalDensity.current
-        // 64dp: deve restare in sync con rowHorizontalPadding in
-        // ModernHomeContent (titoli riga, hero e card), altrimenti la card
-        // espansa arriva sulla rail laterale.
-        val rowStartPadding = 64.dp
+        // 96dp: titoli e card delle righe restano allineati tra loro e con
+        // la hero (heroHorizontalPadding in ModernHomeContent), come nel
+        // riferimento BlueStacks 1.0.97.
+        val rowStartPadding = HOME_ROW_START_PADDING
         val context = LocalContext.current
         val imageLoader = context.imageLoader
 
@@ -853,15 +876,18 @@ internal fun ModernRowSection(
         // what asks to be brought into view, so pinning its own left edge to
         // rowStartPadding scrolled the rank number off-screen the moment a card
         // took focus. Compensate with the gutter of the card being focused.
-        val top10CardWidthForGutter = if (useLandscapePosters) {
-            landscapeCatalogCardWidth
+        val top10CardHeightForGutter = if (useLandscapePosters) {
+            landscapeCatalogCardHeight
         } else {
-            portraitCatalogCardWidth
+            portraitCatalogCardHeight
         }
         val horizontalBringIntoViewSpec = remember(
-            density, defaultBringIntoViewSpec, rowStartPadding, isRtl, isTop10Row
+            density, defaultBringIntoViewSpec, isRtl, isTop10Row
         ) {
-            val parentStartOffsetPx = with(density) { rowStartPadding.roundToPx() }
+            // La LazyRow ora vive dentro un contenitore che parte a
+            // HOME_ROW_START_PADDING: il suo bordo iniziale coincide con il
+            // titolo della riga, quindi il target per l'edge leading è 0.
+            val parentStartOffsetPx = 0f
             @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
             object : BringIntoViewSpec {
                 override val scrollAnimationSpec: AnimationSpec<Float> =
@@ -872,37 +898,26 @@ internal fun ModernRowSection(
                     size: Float,
                     containerSize: Float
                 ): Float {
-                    val childSize = abs(size)
                     val top10GutterPx = if (isTop10Row) {
+                        val rank = rowFocusedIndex.value + 1
                         with(density) {
-                            top10RankGutter(top10CardWidthForGutter).roundToPx()
+                            top10RankSlotWidth(top10CardHeightForGutter, rank).roundToPx()
                         }.toFloat()
                     } else {
                         0f
                     }
                     if (isRtl) {
-                        val childSmallerThanParent = childSize <= containerSize
+                        // La card focalizzata si appoggia al bordo destro del
+                        // viewport: nessuna card precedente resta tagliata.
                         val initialTarget = containerSize - parentStartOffsetPx.toFloat()
-                        val targetForTrailingEdge =
-                            if (childSmallerThanParent && initialTarget < childSize) {
-                                childSize
-                            } else {
-                                initialTarget
-                            }
-                        return (offset + size) - targetForTrailingEdge
+                        return (offset + size) - initialTarget
                     } else {
-                        val childSmallerThanParent = childSize <= containerSize
+                        // La card focalizzata si appoggia al bordo sinistro del
+                        // viewport (dopo l'eventuale gutter del Top 10). Così la
+                        // riga mostra sempre card intere e non lascia mai la
+                        // card precedente tagliata a metà sul bordo.
                         val initialTarget = parentStartOffsetPx.toFloat() + top10GutterPx
-                        val spaceAvailable = containerSize - initialTarget
-
-                        val targetForLeadingEdge =
-                            if (childSmallerThanParent && spaceAvailable < childSize) {
-                                containerSize - childSize
-                            } else {
-                                initialTarget
-                            }
-
-                        return offset - targetForLeadingEdge
+                        return offset - initialTarget
                     }
                 }
             }
@@ -966,7 +981,24 @@ internal fun ModernRowSection(
             LazyRow(
                 state = rowListState,
                 modifier = Modifier
+                    .fillMaxWidth()
                     .recompositionHighlighter()
+                    // SINISTRA sulla prima card della riga non deve agganciare
+                    // la barra alta: il focus passa al rail laterale. Dentro la
+                    // riga il movimento resta invariato (card N -> N-1) e si
+                    // ferma sulla card 0 (in RTL il tasto "indietro" è DESTRA).
+                    .onPreviewKeyEvent { event ->
+                        val backwardKey = if (isRtl) Key.DirectionRight else Key.DirectionLeft
+                        if (event.type == KeyEventType.KeyDown &&
+                            event.key == backwardKey &&
+                            rowFocusedIndex.value <= 0
+                        ) {
+                            focusPrimeRail?.invoke()
+                            true
+                        } else {
+                            false
+                        }
+                    }
                     .focusRequester(rowFocusRequester)
                     .focusRestorer {
                         val savedIdx = rowFocusedIndex.value
@@ -974,8 +1006,13 @@ internal fun ModernRowSection(
                             ?: itemFocusRequesters[0]
                             ?: FocusRequester.Default
                     }
-                    .focusGroup(),
-                contentPadding = PaddingValues(horizontal = rowStartPadding),
+                    .focusGroup()
+                    // Il viewport della riga parte dal bordo del titolo
+                    // (96dp): le card che scorrono non finiscono più sotto il
+                    // rail, a sinistra della scritta della riga.
+                    .padding(start = rowStartPadding)
+                    .clipToBounds(),
+                contentPadding = PaddingValues(start = 0.dp, end = rowStartPadding),
                 horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
             ) {
                 itemsIndexed(
@@ -1077,11 +1114,11 @@ internal fun ModernRowSection(
                                 }
                             }
                             val placeholderFocusBlock = isPlaceholder && index > 0
-                            val top10SlotWidth = top10RankSlotWidth(top10CardWidth)
+                            val top10SlotWidth = top10RankSlotWidth(top10CardHeight, index + 1)
                             Box(modifier = (if (placeholderFocusBlock) {
                                 Modifier.focusProperties { canFocus = false }
                             } else Modifier).then(
-                                if (isTop10Row) Modifier.width(top10SlotWidth)
+                                if (isTop10Row) Modifier.width(top10SlotWidth + top10CardWidth)
                                 else Modifier
                             )) {
                             if (isTop10Row) {
@@ -1089,7 +1126,7 @@ internal fun ModernRowSection(
                                     rank = index + 1,
                                     isTargetItem = isTargetItem,
                                     cardHeight = top10CardHeight,
-                                    numberWidth = (top10RankGutter(top10CardWidth) + top10CardWidth * TOP10_RANK_TUCK_FRACTION) / TOP10_RANK_CONDENSE_FACTOR,
+                                    numberWidth = (top10SlotWidth + top10CardHeight * TOP10_RANK_TUCK_FRACTION) / TOP10_RANK_CONDENSE_FACTOR,
                                     modifier = Modifier.align(Alignment.CenterStart)
                                 )
                             }
@@ -1101,7 +1138,7 @@ internal fun ModernRowSection(
                                 modifier = if (isTop10Row) {
                                     Modifier
                                         .align(Alignment.CenterStart)
-                                        .offset(x = top10RankGutter(top10CardWidth))
+                                        .offset(x = top10SlotWidth)
                                 } else {
                                     Modifier
                                 },
@@ -1421,10 +1458,11 @@ private fun ModernCarouselCard(
                 focusedContainerColor = backgroundCardColor
             ),
             border = CardDefaults.border(focusedBorder = effectiveFocusedBorder),
-            // Focus "pop" stile Prime Video: 1.0.76 (prima 1f = nessun
-            // ingrandimento) dà il senso di manipolazione fisica. Sull'unico
-            // elemento focalizzato — costo zero in memoria.
-            scale = CardDefaults.scale(focusedScale = 1.06f),
+            // Nessun ingrandimento al focus: la riga taglia sul proprio bordo
+            // e una card scaled 1.06 al bordo iniziale finirebbe mutilata
+            // (immagine tagliata, focus ring più stretto). Stessa scala delle
+            // altre card (token = 1.0), così il focus resta sempre intero.
+            scale = CardDefaults.scale(focusedScale = 1f),
             glow = effectiveCardGlow
         ) {
             Box(

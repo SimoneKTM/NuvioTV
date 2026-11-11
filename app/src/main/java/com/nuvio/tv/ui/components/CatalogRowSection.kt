@@ -43,6 +43,11 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.gestures.BringIntoViewSpec
@@ -56,6 +61,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import com.nuvio.tv.R
+import com.nuvio.tv.LocalFocusPrimeRail
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
 import androidx.tv.material3.Card
@@ -125,6 +131,7 @@ fun CatalogRowSection(
     val itemFocusRequestersByKey = remember { mutableMapOf<String, FocusRequester>() }
     var lastRequestedFocusItemKey by remember { mutableStateOf<String?>(null) }
     val lastFocusedItemIndex = remember { mutableIntStateOf(-1) }
+    val focusPrimeRail = LocalFocusPrimeRail.current
 
     val blockingFocusExit = remember { mutableStateOf(false) }
     val rowHasFocusRef = remember { mutableStateOf(false) }
@@ -292,6 +299,21 @@ fun CatalogRowSection(
                         FocusRequester.Default
                     }
                 )
+                // SINISTRA sulla prima card porta al rail laterale, non alla
+                // barra alta. Dentro la riga il movimento resta invariato
+                // (card N -> N-1). Su dettaglio/folder LocalFocusPrimeRail è
+                // null, quindi la riga non esce dal contenuto.
+                .onPreviewKeyEvent { event ->
+                    val backwardKey = if (isRtl) Key.DirectionRight else Key.DirectionLeft
+                    if (event.type == KeyEventType.KeyDown &&
+                        event.key == backwardKey &&
+                        lastFocusedItemIndex.intValue <= 0
+                    ) {
+                        focusPrimeRail?.invoke() == true
+                    } else {
+                        false
+                    }
+                }
                 .focusGroup(),
             contentPadding = PaddingValues(start = startPadding, end = 200.dp),
             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.lg)

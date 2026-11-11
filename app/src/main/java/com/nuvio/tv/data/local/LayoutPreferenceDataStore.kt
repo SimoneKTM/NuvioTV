@@ -136,8 +136,6 @@ class LayoutPreferenceDataStore @Inject constructor(
     private val fluidModeEnabledKey = booleanPreferencesKey("fluid_mode_enabled")
     private val preFluidModeExpandEnabledKey =
         booleanPreferencesKey("pre_fluid_mode_expand_enabled")
-    private val preFluidModeTrailerEnabledKey =
-        booleanPreferencesKey("pre_fluid_mode_trailer_enabled")
     private val followAddonsOrderKey = booleanPreferencesKey("follow_addons_order")
     private val composeHighlighterEnabledKey = booleanPreferencesKey("compose_highlighter_enabled")
     private val animeTabVisibleKey = booleanPreferencesKey("anime_tab_visible")
@@ -470,23 +468,20 @@ class LayoutPreferenceDataStore @Inject constructor(
     }
 
     /**
-     * One-touch preset for slow devices: turns off every GPU-heavy effect
-     * (blurs, poster expansion, trailer preview) and speeds up D-pad repeat.
-     * Turning it off restores the corresponding defaults.
+     * One-touch preset for slow devices: turns off the GPU-heavy effects
+     * (blurs, poster expansion) and speeds up D-pad repeat.
      *
-     * The poster-expansion and trailer switches are the user's own choices, so
-     * their current values are saved while Fluid Mode is on and written back
-     * when it is turned off. Before this, turning Fluid Mode off always forced
-     * the trailer switch to false, which silently killed trailer previews even
-     * though the user had explicitly enabled them.
+     * The trailer switch is intentionally left untouched: Home keeps only the
+     * lightweight hero trailer in Fluid Mode (single shared player, low
+     * resolution, muted), so previews stay available without re-enabling
+     * expansion or blurs. The poster-expansion switch is still saved and
+     * restored.
      */
     suspend fun setFluidModeEnabled(enabled: Boolean) {
         store().edit { prefs ->
             if (enabled) {
                 prefs[preFluidModeExpandEnabledKey] =
                     prefs[focusedPosterBackdropExpandEnabledKey] ?: true
-                prefs[preFluidModeTrailerEnabledKey] =
-                    prefs[focusedPosterBackdropTrailerEnabledKey] ?: false
             }
             prefs[fluidModeEnabledKey] = enabled
             prefs[modernSidebarBlurEnabledKey] = false
@@ -495,11 +490,9 @@ class LayoutPreferenceDataStore @Inject constructor(
             } else {
                 prefs[preFluidModeExpandEnabledKey] ?: true
             }
-            prefs[focusedPosterBackdropTrailerEnabledKey] = if (enabled) {
-                false
-            } else {
-                prefs[preFluidModeTrailerEnabledKey] ?: true
-            }
+            // Il trailer resta una scelta indipendente: la Modalità Fluida
+            // cambia solo *come* viene riprodotto (solo hero, qualità bassa,
+            // muto), non se l'utente lo vuole.
             if (enabled) {
                 prefs[focusedPosterBackdropTrailerMutedKey] = true
             }

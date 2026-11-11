@@ -94,7 +94,7 @@ fun Modifier.dpadVerticalFastScroll(
     resolveVerticalLanding: (sign: Int) -> String?,
     onFastScrollingChanged: (Boolean) -> Unit = {},
     shouldHaltForward: () -> Boolean = { false },
-    horizontalGateMs: Long = 80L,
+    horizontalGateMs: Long = 60L,
     verticalVelocityDpPerSec: Float = DEFAULT_VERTICAL_VELOCITY_DP_PER_SEC,
     endTimeoutMs: Long = DEFAULT_END_TIMEOUT_MS,
     maxFrameDtSec: Float = DEFAULT_MAX_FRAME_DT_SEC,

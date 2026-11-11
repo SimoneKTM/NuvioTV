@@ -103,7 +103,9 @@ fun LiveTvScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(
-                                start = NuvioTheme.spacing.xxxl,
+                                // 72dp: lascia fuori dalla rail nera (64dp)
+                                // titolo e contenuto della pagina.
+                                start = 72.dp,
                                 end = NuvioTheme.spacing.xxxl,
                                 top = NuvioTheme.spacing.xl,
                                 bottom = NuvioTheme.spacing.lg
@@ -200,7 +202,7 @@ private fun LiveTvSectionLabel(text: String) {
         style = MaterialTheme.typography.titleMedium,
         color = NuvioTheme.colors.TextPrimary,
         modifier = Modifier.padding(
-            start = NuvioTheme.spacing.xxxl,
+            start = 72.dp,
             end = NuvioTheme.spacing.xxxl,
             top = NuvioTheme.spacing.lg,
             bottom = NuvioTheme.spacing.sm
@@ -220,7 +222,7 @@ private fun LiveTvPlaylistRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = NuvioTheme.spacing.xxxl),
+            .padding(start = 72.dp, end = NuvioTheme.spacing.xxxl),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
     ) {
@@ -312,7 +314,7 @@ private fun LiveTvChannelRow(
         onClick = onPlay,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = NuvioTheme.spacing.xxxl)
+            .padding(start = 72.dp, end = NuvioTheme.spacing.xxxl)
             .heightIn(min = 64.dp),
         colors = CardDefaults.colors(
             containerColor = NuvioTheme.colors.BackgroundElevated,

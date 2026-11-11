@@ -39,10 +39,15 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import com.nuvio.tv.R
+import com.nuvio.tv.LocalFocusPrimeRail
 import com.nuvio.tv.domain.model.CardDepthSurface
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -159,6 +164,7 @@ fun ContinueWatchingSection(
     var lastRequestedFocusIndex by remember { mutableIntStateOf(-1) }
     var pendingFocusIndex by remember { mutableStateOf<Int?>(null) }
     var optionsItem by remember { mutableStateOf<ContinueWatchingItem?>(null) }
+    val focusPrimeRail = LocalFocusPrimeRail.current
     
     val listState = rememberLazyListState()
 
@@ -239,6 +245,19 @@ fun ContinueWatchingSection(
                     focusRequesters[idx]
                         ?: focusRequesters.values.firstOrNull()
                         ?: FocusRequester.Default
+                }
+                // SINISTRA sulla prima card porta al rail, mai alla barra
+                // alta. Dentro la riga il comportamento resta invariato.
+                .onPreviewKeyEvent { event ->
+                    val backwardKey = if (isRtl) Key.DirectionRight else Key.DirectionLeft
+                    if (event.type == KeyEventType.KeyDown &&
+                        event.key == backwardKey &&
+                        lastFocusedIndex <= 0
+                    ) {
+                        focusPrimeRail?.invoke() == true
+                    } else {
+                        false
+                    }
                 }
                 .focusGroup(),
             contentPadding = PaddingValues(start = startPadding, end = NuvioTheme.spacing.xxxl),

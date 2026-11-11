@@ -563,7 +563,9 @@ fun SettingsScreen(
             // due barre sovrapposte durante il cambio di rotta (issue #11).
             .background(NuvioTheme.colors.Background)
             .padding(
-                start = NuvioTheme.spacing.xxl,
+                // 72dp: la rail nera laterale è larga 64dp; con 32dp la
+                // colonna delle categorie finiva sotto il nero.
+                start = 72.dp,
                 end = NuvioTheme.spacing.xxl,
                 // Niente più barra sopra Impostazioni: il menu tab torna in
                 // alto, allineato con la barra sezioni delle altre schermate.

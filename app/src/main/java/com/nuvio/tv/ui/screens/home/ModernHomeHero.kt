@@ -376,8 +376,8 @@ private fun HeroTitleContent(
     val density = LocalDensity.current
     val bodyMedium = MaterialTheme.typography.bodyMedium
     val labelMedium = MaterialTheme.typography.labelMedium
-    val logoMaxWidthPx = remember(density) { with(density) { 300.dp.roundToPx() } }
-    val logoHeightPx = remember(density) { with(density) { 72.dp.roundToPx() } }
+    val logoMaxWidthPx = remember(density) { with(density) { 256.dp.roundToPx() } }
+    val logoHeightPx = remember(density) { with(density) { 56.dp.roundToPx() } }
 
     // Logo risolto: prima il logo corrente, poi quello "congelato" della card
     // (il primo valore non vuoto vince): durante lo scroll l'hero non deve mai
@@ -429,8 +429,8 @@ private fun HeroTitleContent(
         if (showLogo) {
             Box(
                 modifier = Modifier
-                    .height(72.dp)
-                    .widthIn(min = 100.dp, max = 300.dp)
+                    .height(56.dp)
+                    .widthIn(min = 100.dp, max = 256.dp)
                     .fillMaxWidth()
                     .clipToBounds()
             ) {
@@ -475,7 +475,7 @@ private fun HeroTitleContent(
                     text = localizedAwards,
                     style = MaterialTheme.typography.labelLarge,
                     color = NuvioPrimitives.green500,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
@@ -709,15 +709,15 @@ private fun HeroTitleContent(
                 } else {
                     descriptionMaxLines
                 }
-                if (linesThatFit >= 1) {
-                    Text(
-                        text = description,
-                        style = scaledDescriptionStyle,
-                        color = NuvioTheme.colors.TextPrimary,
-                        maxLines = linesThatFit.coerceAtMost(descriptionMaxLines),
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                // Almeno una riga: la sinossi è un'informazione primaria della
+                // hero e non deve sparire quando awards/meta occupano spazio.
+                Text(
+                    text = description,
+                    style = scaledDescriptionStyle,
+                    color = NuvioTheme.colors.TextPrimary,
+                    maxLines = linesThatFit.coerceIn(1, descriptionMaxLines),
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }

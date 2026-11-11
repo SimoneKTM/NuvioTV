@@ -78,9 +78,9 @@ import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.components.ContinueWatchingOptionsDialog
 import com.nuvio.tv.ui.components.TOP_BAR_BAND_HEIGHT
-import com.nuvio.tv.ui.components.SectionTopBarScrimState
 import com.nuvio.tv.LocalSidebarExpanded
 import com.nuvio.tv.LocalContentFocusRequester
+import com.nuvio.tv.core.perf.LocalFluidMode
 import com.nuvio.tv.ui.util.LocalRecompositionHighlighterEnabled
 import com.nuvio.tv.ui.util.localizedLanguageText
 import com.nuvio.tv.ui.util.StableRef
@@ -132,17 +132,40 @@ fun ModernHomeContent(
     val lifecycleOwner = LocalLifecycleOwner.current
     val useLandscapePosters = uiState.modernLandscapePostersEnabled
     val fullScreenBackdrop = uiState.modernHeroFullScreenBackdropEnabled
-    val trailerPlaybackTarget = uiState.focusedPosterBackdropTrailerPlaybackTarget
-    val effectiveAutoplayEnabled =
+    val fluidModeEnabled = LocalFluidMode.current
+    // In Fluid Mode the expansion is off by design, so the only place a
+    // preview can play is the hero: ignore a stale "expanded card" target
+    // instead of silently disabling trailers.
+    val trailerPlaybackTarget = if (fluidModeEnabled) {
+        FocusedPosterTrailerPlaybackTarget.HERO_MEDIA
+    } else {
+        uiState.focusedPosterBackdropTrailerPlaybackTarget
+    }
+    val heroTrailerEnabled =
         uiState.focusedPosterBackdropTrailerEnabled &&
-            (useLandscapePosters || uiState.focusedPosterBackdropExpandEnabled)
+            trailerPlaybackTarget == FocusedPosterTrailerPlaybackTarget.HERO_MEDIA
+    // The hero can host the trailer even when expansion and landscape posters
+    // are off (Fluid Mode). Expanded-card previews still require expansion.
+    val effectiveAutoplayEnabled =
+        heroTrailerEnabled ||
+            (
+                uiState.focusedPosterBackdropTrailerEnabled &&
+                    (useLandscapePosters || uiState.focusedPosterBackdropExpandEnabled)
+                )
     val landscapeExpandedCardMode =
-        useLandscapePosters &&
+        !fluidModeEnabled &&
+            useLandscapePosters &&
             effectiveAutoplayEnabled &&
             trailerPlaybackTarget == FocusedPosterTrailerPlaybackTarget.EXPANDED_CARD
+    // Fluid Mode also wins over a manual re-enable of the expansion toggle:
+    // the whole point of the preset is to keep the home free of card scaling
+    // and backdrop expansion.
     val effectiveExpandEnabled =
-        (uiState.focusedPosterBackdropExpandEnabled && !useLandscapePosters) ||
-            landscapeExpandedCardMode
+        !fluidModeEnabled &&
+            (
+                (uiState.focusedPosterBackdropExpandEnabled && !useLandscapePosters) ||
+                    landscapeExpandedCardMode
+                )
     val shouldActivateFocusedPosterFlow =
         effectiveExpandEnabled ||
             (effectiveAutoplayEnabled &&
@@ -170,8 +193,8 @@ fun ModernHomeContent(
                         onNavigateToDetail(item.id, item.apiType, item.sourceAddonBaseUrl.orEmpty())
                     },
                     onItemFocus = { item -> onItemFocus(item) },
-                    // 64dp: come rowHorizontalPadding del resto della home moderna.
-                    startPadding = 64.dp
+                    // 96dp: stessa posizione della hero della home moderna (riferimento 1.0.97).
+                    startPadding = 96.dp
                 )
             }
         }
@@ -277,16 +300,8 @@ fun ModernHomeContent(
         metricsHolder.state?.putState("HeroEnriching", (enrichingItemId != null).toString())
     }
 
-    // Banda della barra sezioni: nel layout moderno le righe sono ritagliate
-    // nel viewport in basso e NON passano mai sotto la barra — l'unica cosa
-    // sotto la banda è l'immagine hero, che la banda nera oscurava per i suoi
-    // primi 64dp ("la barra superiore copre gran parte dell'immagine"). Con la
-    // home composta la banda viene quindi spenta; alla navigazione via si
-    // ripristina (le altre schermate la vogliono opaca).
-    DisposableEffect(Unit) {
-        SectionTopBarScrimState.visible = false
-        onDispose { SectionTopBarScrimState.visible = true }
-    }
+    // La banda nera della top bar resta attiva anche qui: spenta, sopra
+    // l'immagine hero la barra sembrava trasparente.
 
     LaunchedEffect(
         focusedCatalogSelection.value?.focusKey,
@@ -333,6 +348,7 @@ fun ModernHomeContent(
     LaunchedEffect(
         focusedCatalogSelection.value?.focusKey,
         effectiveAutoplayEnabled,
+        fluidModeEnabled,
         verticalRowListState.isScrollInProgress
     ) {
         if (!effectiveAutoplayEnabled) {
@@ -349,7 +365,9 @@ fun ModernHomeContent(
             return@LaunchedEffect
         }
         if (selection.focusKey == lastRequestedTrailerFocusKey) return@LaunchedEffect
-        delay(150)
+        // In Fluid Mode a longer debounce avoids starting a YouTube extraction
+        // for every title skimmed while the user keeps navigating.
+        delay(if (fluidModeEnabled) FLUID_TRAILER_REQUEST_DEBOUNCE_MS else 150L)
         if (focusedCatalogSelection.value?.focusKey != selection.focusKey) return@LaunchedEffect
         onRequestTrailerPreview(
             payload.itemId,
@@ -639,11 +657,10 @@ fun ModernHomeContent(
 
     Box(modifier = Modifier.fillMaxSize()) {
             val posterCardCornerRadius = remember(uiState.posterCardCornerRadiusDp) { uiState.posterCardCornerRadiusDp.dp }
-            // 64dp invece di 52: con il padding vecchio la card espansa
-            // (dopo il ritardo di espansione) scivola ~10dp oltre il bordo
-            // della LazyRow e finisce sopra la fascia sfumata della rail
-            // laterale ("la barra laterale ha una parte coperta dal poster").
-            val rowHorizontalPadding = 64.dp
+            // 96dp: la hero resta nella posizione del riferimento BlueStacks
+            // (1.0.97) e titoli e card delle righe partono dallo stesso bordo
+            // sinistro (vedi HOME_ROW_START_PADDING).
+            val heroHorizontalPadding = 96.dp
 
             val activeCarouselItemState = remember(carouselRows, rowByKey) {
                 derivedStateOf {
@@ -1216,21 +1233,21 @@ fun ModernHomeContent(
             val shouldPlayTrailerLambda = remember { { shouldPlayCatalogHeroTrailerUpdated || shouldPlayCollectionHeroVideoUpdated } }
             val heroTrailerRenderedLambda = remember { { heroTrailerFirstFrameRenderedUpdated } }
 
-            val heroMetadataModifier = remember(rowHorizontalPadding, rowsViewportHeight) {
+            val heroMetadataModifier = remember(heroHorizontalPadding, rowsViewportHeight) {
                 Modifier
-                    .align(Alignment.BottomStart)
-                    // Vincolo alla banda della barra (64dp): il blocco è
-                    // ancorato in basso, senza questo inset poteva salire
-                    // DIETRO la barra e il titolo veniva tagliato in alto
-                    // (1.0.97). Lo spazio perso non appiattisce la sinossi:
-                    // la descrizione in ModernHomeHero misura lo spazio che
-                    // resta e si ferma su righe intere (mai taglio a metà
-                    // riga), tipicamente 3 righe.
+                    // Ancorato in alto: logo e meta partono sempre subito sotto
+                    // la banda della barra, indipendentemente da quante righe
+                    // occupa la sinossi. Prima era ancorato in basso e con i
+                    // titoli dalla sinossi corta il blocco scendeva.
+                    .align(Alignment.TopStart)
                     .padding(
-                        top = TOP_BAR_BAND_HEIGHT,
-                        start = rowHorizontalPadding,
+                        top = TOP_BAR_BAND_HEIGHT + MODERN_HERO_TOP_GAP,
+                        start = heroHorizontalPadding,
                         end = NuvioTheme.spacing.xxxl,
-                        bottom = NuvioTheme.spacing.none + rowsViewportHeight + NuvioTheme.spacing.lg
+                        // Limite inferiore: il blocco non deve mai entrare
+                        // nelle righe. Se il contenuto è troppo alto viene
+                        // tagliato in coda dal clipToBounds interno.
+                        bottom = rowsViewportHeight + NuvioTheme.spacing.lg
                     )
                     .fillMaxWidth(MODERN_HERO_TEXT_WIDTH_FRACTION)
             }

@@ -24,14 +24,28 @@ import com.nuvio.tv.ui.util.StableSet
 import com.nuvio.tv.ui.util.asStable
 
 internal val YEAR_REGEX = Regex("""\b(19|20)\d{2}\b""")
-internal const val MODERN_HERO_TEXT_WIDTH_FRACTION = 0.42f
+// 0.45: la sinossi si ferma prima della parte visibile del backdrop (la
+// protagonista), restando sopra la zona scura della sfumatura. Prima a 0.52
+// arrivava a ridosso dell'immagine.
+internal const val MODERN_HERO_TEXT_WIDTH_FRACTION = 0.45f
 internal const val MODERN_HERO_MEDIA_WIDTH_FRACTION = 0.72f
 internal const val MODERN_TRAILER_OVERSCAN_ZOOM = 1.35f
 internal const val MODERN_HERO_FOCUS_DEBOUNCE_MS = 450L
+// In Fluid Mode the trailer request waits a little longer: skimming titles
+// must not spin up a YouTube extraction for every card that gets focus.
+internal const val FLUID_TRAILER_REQUEST_DEBOUNCE_MS = 600L
 // Attesa minima prima di aprire la hero quando il trailer è il target del
 // focus: serve solo a non far scattare l'apertura durante lo scroll rapido.
 internal const val MIN_TRAILER_EXPANSION_DELAY_MS = 150L
 internal val MODERN_ROW_HEADER_FOCUS_INSET = 40.dp
+// Alza logo/meta/sinossi dell'hero sotto la barra alta senza toccare righe,
+// card o backdrop: il blocco è ancorato in basso, quindi questo extra sul
+// padding inferiore lo sposta verso l'alto della stessa misura.
+internal val MODERN_HERO_TEXT_LIFT = 48.dp
+// Distanza tra la banda della barra alta e l'inizio del blocco testo della
+// hero: il blocco è ancorato in alto, così logo e meta restano sempre nella
+// stessa posizione anche quando la sinossi è corta.
+internal val MODERN_HERO_TOP_GAP = 8.dp
 internal const val MODERN_CONTINUE_WATCHING_ROW_KEY = "continue_watching"
 internal const val MODERN_UPCOMING_ROW_KEY = "upcoming_section"
 internal val MODERN_LANDSCAPE_LOGO_GRADIENT = Brush.verticalGradient(

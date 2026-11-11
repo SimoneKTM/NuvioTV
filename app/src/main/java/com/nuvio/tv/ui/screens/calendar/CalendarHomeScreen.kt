@@ -30,12 +30,14 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -45,6 +47,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import com.nuvio.tv.LocalContentFocusRequester
+import com.nuvio.tv.LocalFocusPrimeRail
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -57,6 +60,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -65,6 +69,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Border
 import androidx.tv.material3.Card as TvCard
@@ -88,8 +95,6 @@ import com.nuvio.tv.ui.screens.home.MODERN_ROW_HEADER_FOCUS_INSET
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.localizedContentType
 import com.nuvio.tv.ui.util.localizedGenreLabel
-import com.nuvio.tv.ui.util.rowsListUpRecovery
-import com.nuvio.tv.ui.util.rowsListDownRecovery
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
@@ -128,11 +133,17 @@ fun CalendarHomeScreen(
     // stole focus from the rows during UP navigation (the list scrolled to
     // reveal a partially visible row, re-composed the hero, and the hero
     // grabbed focus 50ms later, jumping to the top bar).
+    // rememberSaveable: se la destinazione viene ricomposta al ritorno dal
+    // dettaglio, l'effetto non deve ripartire e rubare il focus alla card
+    // che nel frattempo è stata ripristinata.
+    var initialFocusApplied by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
+        if (initialFocusApplied) return@LaunchedEffect
         while (uiState.sections.isEmpty() && !uiState.hasLoaded) delay(100)
         if (uiState.sections.isEmpty()) return@LaunchedEffect
         delay(50)
         runCatching { firstCardFocusRequester.requestFocusAfterFrames(2) }
+        initialFocusApplied = true
     }
 
     // Error/empty must be reachable: only show the spinner while loading with
@@ -175,11 +186,16 @@ fun CalendarHomeScreen(
                 val rowsListState = rememberLazyListState()
                 val density = LocalDensity.current
                 val focusScope = rememberCoroutineScope()
-                // Un requester per il PRIMO poster di ogni sezione: i movimenti
-                // verticali vengono intercettati qui sotto e portano sempre il
-                // focus sul primo poster della riga precedente/successiva
-                // (richiesta: "scorrendo su e giù il focus deve stare sempre
-                // sul primo poster della lista").
+                val focusManager = LocalFocusManager.current
+                // Un requester STABILE per il primo poster di ogni sezione:
+                // i movimenti verticali vengono intercettati qui sotto e
+                // portano sempre il focus sul primo poster della riga
+                // precedente/successiva (richiesta: "scorrendo su e giù il
+                // focus deve stare sempre sul primo poster della lista").
+                // La chiave è solo il label: se cambia il numero di item
+                // (refresh dei dati) i requester NON vengono ricreati,
+                // altrimenti le richieste di focus finivano su oggetti
+                // scollegati dalle card.
                 val sectionFirstPosterRequesters = remember(uiState.sections.map { it.label }) {
                     uiState.sections.mapIndexed { index, section ->
                         section.label to if (index == 0) {
@@ -189,19 +205,145 @@ fun CalendarHomeScreen(
                         }
                     }.toMap()
                 }
-                var focusedSectionIndex by remember { mutableStateOf(-1) }
-                val moveToSectionFirstPoster: (Int) -> Unit = { targetIndex ->
+                // rememberSaveable: la destinazione può essere smontata
+                // mentre il dettaglio è in primo piano. Senza, al ritorno
+                // focusedSectionIndex ripartiva da -1 e SU/GIÙ sceglievano
+                // la sezione sbagliata.
+                var focusedSectionIndex by rememberSaveable { mutableIntStateOf(-1) }
+                // Sezione da ripristinare al ritorno dal dettaglio. Viene
+                // fotografata in ON_PAUSE, prima che il focus del dettaglio
+                // possa alterare focusedSectionIndex, e sopravvive alla
+                // ricomposizione della destinazione.
+                var pendingRestoreSectionIndex by rememberSaveable {
+                    mutableIntStateOf(Int.MIN_VALUE)
+                }
+                // Evita che il focus transitorio sull'hero durante il ritorno
+                // azzeri la sezione che stiamo per ripristinare.
+                var restoringFocus by remember { mutableStateOf(false) }
+                // Un solo movimento verticale alla volta: con i repeat del
+                // D-pad ogni pressione lanciava uno scroll + una richiesta di
+                // focus in parallelo, e il focus finiva su sezioni sbagliate
+                // o rimbalzava tra due righe. Le pressioni che arrivano
+                // mentre il movimento è in corso vengono assorbite, e
+                // l'indice si aggiorna subito (non aspetta il callback di
+                // focus della card).
+                var sectionMovePending by remember { mutableStateOf(false) }
+                val moveToSectionFirstPoster: (Int) -> Boolean = { targetIndex ->
                     val label = uiState.sections.getOrNull(targetIndex)?.label
                     val requester = label?.let { sectionFirstPosterRequesters[it] }
-                    if (requester != null) {
+                    if (requester == null) {
+                        false
+                    } else if (sectionMovePending) {
+                        true
+                    } else {
+                        val previous = focusedSectionIndex
+                        sectionMovePending = true
+                        focusedSectionIndex = targetIndex
                         focusScope.launch {
                             // Compone la sezione di destinazione prima di
                             // chiedere il focus (le righe fuori viewport non
                             // sono altrimenti agganciabili).
                             runCatching { rowsListState.scrollToItem(targetIndex + 1) }
-                            requester.requestFocusAfterFrames(2)
+                            val moved = runCatching {
+                                requester.requestFocusAfterFrames(2)
+                            }.getOrDefault(false)
+                            if (!moved) focusedSectionIndex = previous
+                            sectionMovePending = false
+                        }
+                        true
+                    }
+                }
+                // SU dalla prima sezione: il focus torna alla hero, che è
+                // l'elemento sopra la lista. Va riportata in composizione con
+                // scrollToItem(0), altrimenti dopo aver scrollato in basso la
+                // richiesta di focus cade nel vuoto.
+                val moveToHero: () -> Boolean = {
+                    if (sectionMovePending) {
+                        true
+                    } else {
+                        sectionMovePending = true
+                        focusScope.launch {
+                            runCatching { rowsListState.scrollToItem(0) }
+                            val moved = runCatching {
+                                firstCardFocusRequester.requestFocusAfterFrames(2)
+                            }.getOrDefault(false)
+                            if (moved) {
+                                focusedSectionIndex = -1
+                            }
+                            sectionMovePending = false
+                        }
+                        true
+                    }
+                }
+                // La sezione di partenza è quella della riga che riceve il
+                // tasto (passata da CalendarSection), non uno stato globale
+                // aggiornato dai callback di focus: dopo uno scroll o un
+                // ritorno dal dettaglio quello stato poteva essere indietro e
+                // invertire/bloccare SU e GIÙ.
+                val moveVertically: (Int, Int) -> Boolean = { fromSection, delta ->
+                    val target = fromSection + delta
+                    when {
+                        target < 0 -> moveToHero()
+                        target > uiState.sections.lastIndex -> true
+                        else -> moveToSectionFirstPoster(target)
+                    }
+                }
+                // Al ritorno dal dettaglio il focus deve tornare sulla sezione
+                // di partenza, sempre sul PRIMO poster. Navigation a volte
+                // ripristina solo il nodo (bordo spento) o l'hero, quindi in
+                // ON_RESUME forziamo clear + richiesta esplicita sul primo
+                // poster della sezione fotografata in ON_PAUSE.
+                val latestSections = rememberUpdatedState(uiState.sections)
+                val latestFirstPosterRequesters =
+                    rememberUpdatedState(sectionFirstPosterRequesters)
+                val latestFocusedSectionIndex = rememberUpdatedState(focusedSectionIndex)
+                val latestInitialFocusApplied = rememberUpdatedState(initialFocusApplied)
+                val lifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        when (event) {
+                            Lifecycle.Event.ON_PAUSE -> {
+                                if (latestInitialFocusApplied.value) {
+                                    pendingRestoreSectionIndex =
+                                        latestFocusedSectionIndex.value
+                                }
+                            }
+
+                            Lifecycle.Event.ON_RESUME -> {
+                                val targetIndex = pendingRestoreSectionIndex
+                                if (targetIndex == Int.MIN_VALUE) {
+                                    return@LifecycleEventObserver
+                                }
+                                pendingRestoreSectionIndex = Int.MIN_VALUE
+                                restoringFocus = true
+                                focusScope.launch {
+                                    // Lascia al NavHost il tempo di ricomporre
+                                    // la destinazione, poi riaggancia la card.
+                                    focusManager.clearFocus(force = true)
+                                    val targetLabel = latestSections.value
+                                        .getOrNull(targetIndex)
+                                        ?.label
+                                    val requester = targetLabel?.let {
+                                        latestFirstPosterRequesters.value[it]
+                                    }
+                                    if (requester != null) {
+                                        runCatching {
+                                            rowsListState.scrollToItem(targetIndex + 1)
+                                        }
+                                        requester.requestFocusAfterFrames(3)
+                                    } else {
+                                        firstCardFocusRequester
+                                            .requestFocusAfterFrames(3)
+                                    }
+                                    restoringFocus = false
+                                }
+                            }
+
+                            else -> Unit
                         }
                     }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
                 }
                 val defaultBringIntoViewSpec = LocalBringIntoViewSpec.current
                 // Stesso spec verticale della Home/Anime: il focus resta agganciato
@@ -231,44 +373,7 @@ fun CalendarHomeScreen(
                         .clipToBounds()
                         .focusRequester(LocalContentFocusRequester.current)
                         .focusRestorer()
-                        .onPreviewKeyEvent { event ->
-                            if (event.type != KeyEventType.KeyDown) {
-                                return@onPreviewKeyEvent false
-                            }
-                            when (event.key) {
-                                Key.DirectionDown -> {
-                                    val current = focusedSectionIndex
-                                    if (current >= 0 && current < uiState.sections.lastIndex) {
-                                        moveToSectionFirstPoster(current + 1)
-                                        true
-                                    } else {
-                                        false
-                                    }
-                                }
-                                Key.DirectionUp -> {
-                                    val current = focusedSectionIndex
-                                    when {
-                                        current > 0 -> {
-                                            moveToSectionFirstPoster(current - 1)
-                                            true
-                                        }
-                                        current == 0 -> {
-                                            // Dalla prima riga si torna alla hero.
-                                            val moved = runCatching {
-                                                firstCardFocusRequester.requestFocus()
-                                            }.getOrDefault(false)
-                                            if (moved) focusedSectionIndex = -1
-                                            moved
-                                        }
-                                        else -> false
-                                    }
-                                }
-                                else -> false
-                            }
-                        }
-                        .dpadRepeatThrottle(scrollableState = rowsListState)
-                        .rowsListUpRecovery(rowsListState)
-                        .rowsListDownRecovery(rowsListState),
+                        .dpadRepeatThrottle(scrollableState = rowsListState),
                     contentPadding = PaddingValues(top = 72.dp, bottom = 200.dp)
                 ) {
                     if (firstSection != null) {
@@ -277,7 +382,12 @@ fun CalendarHomeScreen(
                                 section = firstSection,
                                 onNavigateToDetail = onNavigateToDetail,
                                 initialFocusRequester = firstCardFocusRequester,
-                                downFocusRequester = firstSectionPosterFocusRequester
+                                downFocusRequester = firstSectionPosterFocusRequester,
+                                onHeroFocused = {
+                                    if (!restoringFocus) {
+                                        focusedSectionIndex = -1
+                                    }
+                                }
                             )
                         }
                     }
@@ -291,7 +401,12 @@ fun CalendarHomeScreen(
                             onNavigateToDetail = onNavigateToDetail,
                             firstPosterFocusRequester = sectionFirstPosterRequesters[section.label],
                             sectionIndex = index,
-                            onPosterFocused = { focusedSectionIndex = it }
+                            onPosterFocused = { sectionIndex ->
+                                focusedSectionIndex = sectionIndex
+                            },
+                            onVerticalMove = { delta ->
+                                moveVertically(index, delta)
+                            }
                         )
                     }
                 }
@@ -360,7 +475,8 @@ private fun CalendarHeroSection(
     section: CalendarSection,
     onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit,
     initialFocusRequester: FocusRequester? = null,
-    downFocusRequester: FocusRequester? = null
+    downFocusRequester: FocusRequester? = null,
+    onHeroFocused: () -> Unit = {}
 ) {
     val firstItem = section.items.firstOrNull() ?: return
     var displayedIndex by rememberSaveable(section.label) { mutableIntStateOf(0) }
@@ -421,6 +537,7 @@ private fun CalendarHeroSection(
                 .onFocusChanged {
                     isHeroFocused = it.isFocused
                     if (it.isFocused) {
+                        onHeroFocused()
                         HeroBackdropState.update(displayedItem.meta.backdropUrl)
                     }
                 }
@@ -699,11 +816,17 @@ private fun CalendarSection(
     onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit,
     firstPosterFocusRequester: FocusRequester? = null,
     sectionIndex: Int = 0,
-    onPosterFocused: (Int) -> Unit = {}
+    onPosterFocused: (Int) -> Unit = {},
+    onVerticalMove: (Int) -> Boolean = { false }
 ) {
     val rowState = rememberLazyListState()
-    // Chi ha bisogno di agganciare il primo poster (GIÙ dall'hero) passa il
-    // proprio requester: quello interno resta il target di focusRestorer.
+    // Indice della card focalizzata nella riga: serve a fermare SINISTRA
+    // sulla prima card e a consegnare il focus al rail, mai alla barra alta.
+    var focusedItemIndex by remember(section.label) { mutableIntStateOf(0) }
+    val focusPrimeRail = LocalFocusPrimeRail.current
+    // Chi ha bisogno di agganciare il primo poster (GIÙ dall'hero o ritorno
+    // dal dettaglio) passa il proprio requester: quello interno resta il
+    // target di focusRestorer.
     val ownFirstPosterRequester = remember(section.label) { FocusRequester() }
     val firstPosterRequester = firstPosterFocusRequester ?: ownFirstPosterRequester
 
@@ -792,11 +915,41 @@ private fun CalendarSection(
             modifier = Modifier
                 .focusGroup()
                 .focusRestorer { firstPosterRequester }
+                // SU/GIÙ sono gestiti dalla riga che ha davvero il focus:
+                // ogni sezione conosce il proprio indice, quindi il movimento
+                // non può più invertirsi o bloccarsi per uno stato globale
+                // rimasto indietro dopo uno scroll o il ritorno dal dettaglio.
+                .onPreviewKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) {
+                        return@onPreviewKeyEvent false
+                    }
+                    when (event.key) {
+                        Key.DirectionDown -> {
+                            onVerticalMove(1)
+                            true
+                        }
+
+                        Key.DirectionUp -> {
+                            onVerticalMove(-1)
+                            true
+                        }
+
+                        else -> {
+                            val backwardKey = if (isRtl) Key.DirectionRight else Key.DirectionLeft
+                            if (event.key == backwardKey && focusedItemIndex <= 0) {
+                                focusPrimeRail?.invoke() == true
+                            } else {
+                                false
+                            }
+                        }
+                    }
+                }
         ) {
             itemsIndexed(
                 items = section.items,
                 key = { _, it -> "${it.meta.id}:${it.releaseDate}:${it.episodeLabel ?: ""}" }
             ) { index, calendarItem ->
+                val cardRequester = if (index == 0) firstPosterRequester else null
                 CalendarPortraitCard(
                     meta = calendarItem.meta,
                     releaseDate = calendarItem.releaseDate,
@@ -808,8 +961,11 @@ private fun CalendarSection(
                             calendarItem.meta.sourceAddonBaseUrl?.takeIf { it.isNotBlank() }
                         )
                     },
-                    focusRequester = if (index == 0) firstPosterRequester else null,
-                    onFocused = { onPosterFocused(sectionIndex) }
+                    focusRequester = cardRequester,
+                    onFocused = {
+                        focusedItemIndex = index
+                        onPosterFocused(sectionIndex)
+                    }
                 )
             }
         }

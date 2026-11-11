@@ -81,7 +81,14 @@ fun Modifier.rowsListUpRecovery(state: LazyListState): Modifier = composed {
                             focusManager.moveFocus(FocusDirection.Up)
                             repeat(3) { withFrameNanos { } }
                             if (!focusInside) {
-                                runCatching { contentFocusRequester.requestFocusAfterFrames() }
+                                val restored = runCatching {
+                                    contentFocusRequester.requestFocusAfterFrames()
+                                }.getOrDefault(false)
+                                // Rete di sicurezza: il focus non deve mai
+                                // restare sul rail laterale dopo un SU.
+                                if (!restored) {
+                                    focusSectionTopBar?.invoke()
+                                }
                             }
                         } else {
                             // Nessuna riga sopra (lista ferma su un item parziale
@@ -100,9 +107,24 @@ fun Modifier.rowsListUpRecovery(state: LazyListState): Modifier = composed {
                     // Ancora dentro ma nessun candidato composto sopra e la lista
                     // può ancora scrollare: fai emergere la riga sopra e riprova.
                     !moved && !escaped && state.canScrollBackward -> {
-                        state.scrollToItem(topComposed - 1)
-                        repeat(3) { withFrameNanos { } }
-                        focusManager.moveFocus(FocusDirection.Up)
+                        if (topComposed > 0) {
+                            state.scrollToItem(topComposed - 1)
+                            repeat(3) { withFrameNanos { } }
+                            focusManager.moveFocus(FocusDirection.Up)
+                        } else {
+                            // Primo item composto ma lista ancora scrollabile
+                            // (item parziale in testa, es. l'hero di Extra).
+                            // Non esiste una riga sopra: topComposed - 1 era -1
+                            // e faceva crashare l'app (Extra). Riporta la lista
+                            // in cima e consegna il focus alla barra sezione.
+                            state.scrollToItem(0)
+                            repeat(3) { withFrameNanos { } }
+                            if (focusSectionTopBar?.invoke() != true) {
+                                runCatching {
+                                    contentFocusRequester.requestFocusAfterFrames()
+                                }
+                            }
+                        }
                     }
 
                     // In cima alla lista e il focus non può avanzare: consegnalo

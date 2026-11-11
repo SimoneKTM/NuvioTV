@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -39,6 +40,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -51,8 +57,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.FocusRequester
 import com.nuvio.tv.LocalContentFocusRequester
+import com.nuvio.tv.LocalFocusPrimeRail
 import com.nuvio.tv.LocalPendingContentFocusTransfer
-import com.nuvio.tv.ui.components.SectionTopBarScrimState
 import com.nuvio.tv.ui.util.rowsListUpRecovery
 import com.nuvio.tv.ui.util.rowsListDownRecovery
 import androidx.compose.ui.unit.dp
@@ -92,6 +98,7 @@ import com.nuvio.tv.ui.screens.home.ContinueWatchingItem
 import com.nuvio.tv.ui.screens.home.HeroPreview
 import com.nuvio.tv.ui.screens.home.HeroTitleBlock
 import com.nuvio.tv.ui.screens.home.MODERN_HERO_MEDIA_WIDTH_FRACTION
+import com.nuvio.tv.ui.screens.home.MODERN_HERO_TEXT_LIFT
 import com.nuvio.tv.ui.screens.home.MODERN_HERO_TEXT_WIDTH_FRACTION
 import com.nuvio.tv.ui.screens.home.MODERN_ROW_HEADER_FOCUS_INSET
 import com.nuvio.tv.ui.screens.home.ModernHeroScene
@@ -249,14 +256,8 @@ private fun AnimeModernContent(
     onLoadMoreCatalog: (String, String, String) -> Unit,
     onItemFocus: (MetaPreview) -> Unit
 ) {
-    // Come la Home moderna: l'hero arriva fino in cima, quindi la banda nera
-    // sotto la barra sezioni va spenta. Con la banda attiva (default delle
-    // altre schermate) i primi 64dp dell'immagine venivano coperti: "in anime
-    // l'immagine viene tagliata".
-    DisposableEffect(Unit) {
-        SectionTopBarScrimState.visible = false
-        onDispose { SectionTopBarScrimState.visible = true }
-    }
+    // La banda nera della top bar resta attiva anche qui: spenta, sopra
+    // l'immagine hero la barra sembrava trasparente.
 
     val defaultHeroItem = uiState.heroItem
     var focusedHeroItem by remember {
@@ -430,6 +431,14 @@ private fun AnimeModernContent(
                     .then(if (heroEnabled) Modifier.height(rowsViewportHeight) else Modifier.fillMaxSize())
                     .clipToBounds()
                     .focusRequester(LocalContentFocusRequester.current)
+                    // focusRestorer riaggancia l'ultima card quando
+                    // rowsListUpRecovery rientra nel contenuto dopo che il
+                    // focus search ha agganciato barra/rail. Senza, la
+                    // richiesta di focus cadeva sulla LazyColumn (non
+                    // focusabile) e il focus restava sulla barra laterale.
+                    // L'entry continua a forzare la prima card di "Continua a
+                    // guardare" nel LaunchedEffect qui sopra.
+                    .focusRestorer()
                     .dpadRepeatThrottle(scrollableState = rowsListState)
                     .rowsListUpRecovery(rowsListState)
                     .rowsListDownRecovery(rowsListState),
@@ -560,9 +569,9 @@ private fun AnimeModernCatalogRow(
     val rowTitleStyle = remember(titleMediumStyle) {
         titleMediumStyle.copy(fontWeight = FontWeight.SemiBold)
     }
-    // 64dp: in sync con rowHorizontalPadding della home moderna — la card
-    // espansa non deve arrivare sulla rail laterale.
-    val rowStartPadding = 64.dp
+    // 96dp: titoli e card delle righe Anime allineati al bordo sinistro
+    // della hero, come nel riferimento BlueStacks.
+    val rowStartPadding = 96.dp
     val rowTitleBottom = 14.dp
     val posterCardStyle = remember(
         useLandscapePosters,
@@ -591,8 +600,9 @@ private fun AnimeModernCatalogRow(
     val defaultBringIntoViewSpec = LocalBringIntoViewSpec.current
     val layoutDirection = LocalLayoutDirection.current
     val isRtl = layoutDirection == LayoutDirection.Rtl
-    val horizontalBringIntoViewSpec = remember(density, defaultBringIntoViewSpec, rowStartPadding, isRtl) {
-        val parentStartOffsetPx = with(density) { rowStartPadding.roundToPx() }
+    val horizontalBringIntoViewSpec = remember(density, defaultBringIntoViewSpec, isRtl) {
+        // La LazyRow parte dal bordo del titolo (96dp): il target leading è 0.
+        val parentStartOffsetPx = 0f
         @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
         object : BringIntoViewSpec {
             override val scrollAnimationSpec: AnimationSpec<Float> =
@@ -603,36 +613,26 @@ private fun AnimeModernCatalogRow(
                 size: Float,
                 containerSize: Float
             ): Float {
-                val childSize = abs(size)
                 if (isRtl) {
-                    val childSmallerThanParent = childSize <= containerSize
+                    // Card focalizzata appoggiata al bordo destro: nessuna
+                    // card precedente resta tagliata nel viewport.
                     val initialTarget = containerSize - parentStartOffsetPx.toFloat()
-                    val targetForTrailingEdge =
-                        if (childSmallerThanParent && initialTarget < childSize) {
-                            childSize
-                        } else {
-                            initialTarget
-                        }
-                    return (offset + size) - targetForTrailingEdge
+                    return (offset + size) - initialTarget
                 } else {
-                    val childSmallerThanParent = childSize <= containerSize
+                    // Card focalizzata appoggiata al bordo sinistro: la riga
+                    // mostra sempre card intere, mai una card tagliata a metà.
                     val initialTarget = parentStartOffsetPx.toFloat()
-                    val spaceAvailable = containerSize - initialTarget
-
-                    val targetForLeadingEdge =
-                        if (childSmallerThanParent && spaceAvailable < childSize) {
-                            containerSize - childSize
-                        } else {
-                            initialTarget
-                        }
-
-                    return offset - targetForLeadingEdge
+                    return offset - initialTarget
                 }
             }
         }
     }
 
     val rowListState = rememberLazyListState()
+    // Indice della card focalizzata: serve a fermare SINISTRA sulla prima
+    // card e a consegnare il focus al rail, mai alla barra alta.
+    var focusedItemIndex by remember(catalogRow.catalogId) { mutableIntStateOf(0) }
+    val focusPrimeRail = LocalFocusPrimeRail.current
     val currentRow = rememberUpdatedState(catalogRow)
     val catalogId = catalogRow.catalogId
     val addonId = catalogRow.addonId
@@ -676,14 +676,33 @@ private fun AnimeModernCatalogRow(
         CompositionLocalProvider(LocalBringIntoViewSpec provides horizontalBringIntoViewSpec) {
             LazyRow(
                 state = rowListState,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = rowStartPadding),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // Viewport allineato al titolo: niente card sotto il rail.
+                    .padding(start = rowStartPadding)
+                    .clipToBounds()
+                    // SINISTRA sulla prima card porta al rail laterale, non
+                    // alla barra alta (in RTL il bordo iniziale è a destra,
+                    // quindi il tasto "indietro" è DESTRA).
+                    .onPreviewKeyEvent { event ->
+                        val backwardKey = if (isRtl) Key.DirectionRight else Key.DirectionLeft
+                        if (event.type == KeyEventType.KeyDown &&
+                            event.key == backwardKey &&
+                            focusedItemIndex <= 0
+                        ) {
+                            focusPrimeRail?.invoke()
+                            true
+                        } else {
+                            false
+                        }
+                    },
+                contentPadding = PaddingValues(start = 0.dp, end = rowStartPadding),
                 horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
             ) {
                 itemsIndexed(
                     items = catalogRow.items,
                     key = { index, _ -> catalogRow.stableItemKey(index) }
-                ) { _, item ->
+                ) { index, item ->
                     ContentCard(
                         item = item,
                         posterCardStyle = posterCardStyle,
@@ -695,7 +714,10 @@ private fun AnimeModernCatalogRow(
                         focusedPosterBackdropTrailerMuted = focusedPosterBackdropTrailerMuted,
                         trailerPreviewUrl = trailerPreviewUrls[item.id],
                         trailerPreviewAudioUrl = trailerPreviewAudioUrls[item.id],
-                        onFocus = { onItemFocus(it) },
+                        onFocus = {
+                            focusedItemIndex = index
+                            onItemFocus(it)
+                        },
                         onClick = { onItemClick(item.id, item.apiType, catalogRow.addonBaseUrl) }
                     )
                 }
@@ -735,14 +757,16 @@ private fun AnimeModernContinueWatchingRow(
     val rowTitleStyle = remember(titleMediumStyle) {
         titleMediumStyle.copy(fontWeight = FontWeight.SemiBold)
     }
-    val rowStartPadding = 64.dp
+    // 96dp: come le righe catalogo Anime (titoli + card), allineate alla hero.
+    val rowStartPadding = 96.dp
 
     val density = LocalDensity.current
     val defaultBringIntoViewSpec = LocalBringIntoViewSpec.current
     val layoutDirection = LocalLayoutDirection.current
     val isRtl = layoutDirection == LayoutDirection.Rtl
-    val horizontalBringIntoViewSpec = remember(density, defaultBringIntoViewSpec, rowStartPadding, isRtl) {
-        val parentStartOffsetPx = with(density) { rowStartPadding.roundToPx() }
+    val horizontalBringIntoViewSpec = remember(density, defaultBringIntoViewSpec, isRtl) {
+        // La LazyRow parte dal bordo del titolo (96dp): il target leading è 0.
+        val parentStartOffsetPx = 0f
         @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
         object : BringIntoViewSpec {
             override val scrollAnimationSpec: AnimationSpec<Float> =
@@ -753,34 +777,26 @@ private fun AnimeModernContinueWatchingRow(
                 size: Float,
                 containerSize: Float
             ): Float {
-                val childSize = abs(size)
                 if (isRtl) {
-                    val childSmallerThanParent = childSize <= containerSize
+                    // Card focalizzata appoggiata al bordo destro: nessuna
+                    // card precedente resta tagliata nel viewport.
                     val initialTarget = containerSize - parentStartOffsetPx.toFloat()
-                    val targetForTrailingEdge =
-                        if (childSmallerThanParent && initialTarget < childSize) {
-                            childSize
-                        } else {
-                            initialTarget
-                        }
-                    return (offset + size) - targetForTrailingEdge
+                    return (offset + size) - initialTarget
                 } else {
-                    val childSmallerThanParent = childSize <= containerSize
+                    // Card focalizzata appoggiata al bordo sinistro: la riga
+                    // mostra sempre card intere, mai una card tagliata a metà.
                     val initialTarget = parentStartOffsetPx.toFloat()
-                    val spaceAvailable = containerSize - initialTarget
-
-                    val targetForLeadingEdge =
-                        if (childSmallerThanParent && spaceAvailable < childSize) {
-                            containerSize - childSize
-                        } else {
-                            initialTarget
-                        }
-
-                    return offset - targetForLeadingEdge
+                    return offset - initialTarget
                 }
             }
         }
     }
+
+    val rowListState = rememberLazyListState()
+    // Indice della card focalizzata: SINISTRA sulla prima card porta al rail,
+    // non alla barra alta.
+    var focusedItemIndex by remember { mutableIntStateOf(0) }
+    val focusPrimeRail = LocalFocusPrimeRail.current
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -792,8 +808,28 @@ private fun AnimeModernContinueWatchingRow(
 
         CompositionLocalProvider(LocalBringIntoViewSpec provides horizontalBringIntoViewSpec) {
             LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = rowStartPadding),
+                state = rowListState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // Viewport allineato al titolo: niente card sotto il rail.
+                    .padding(start = rowStartPadding)
+                    .clipToBounds()
+                    // SINISTRA sulla prima card porta al rail laterale, non
+                    // alla barra alta (in RTL il bordo iniziale è a destra,
+                    // quindi il tasto "indietro" è DESTRA).
+                    .onPreviewKeyEvent { event ->
+                        val backwardKey = if (isRtl) Key.DirectionRight else Key.DirectionLeft
+                        if (event.type == KeyEventType.KeyDown &&
+                            event.key == backwardKey &&
+                            focusedItemIndex <= 0
+                        ) {
+                            focusPrimeRail?.invoke()
+                            true
+                        } else {
+                            false
+                        }
+                    },
+                contentPadding = PaddingValues(start = 0.dp, end = rowStartPadding),
                 horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
             ) {
                 itemsIndexed(
@@ -824,6 +860,7 @@ private fun AnimeModernContinueWatchingRow(
                                 cardFocused = state.isFocused
                                 if (index == 0) onFirstCardFocus?.invoke(state.isFocused)
                                 if (state.isFocused) {
+                                    focusedItemIndex = index
                                     continueWatchingItemToMetaPreview(item)?.let { onItemFocus(it) }
                                 }
                             }
@@ -1004,9 +1041,9 @@ private fun AnimeModernHero(
                 // della barra: il logo non resta più mezzo coperto dalla striscia.
                 .padding(
                     top = TOP_BAR_BAND_HEIGHT,
-                    start = 64.dp,
+                    start = 96.dp,
                     end = NuvioTheme.spacing.xxxl,
-                    bottom = rowsViewportHeight + NuvioTheme.spacing.lg
+                    bottom = rowsViewportHeight + NuvioTheme.spacing.lg + MODERN_HERO_TEXT_LIFT
                 )
                 .fillMaxWidth(MODERN_HERO_TEXT_WIDTH_FRACTION)
         )

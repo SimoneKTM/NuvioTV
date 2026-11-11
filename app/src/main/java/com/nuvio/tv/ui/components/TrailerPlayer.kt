@@ -31,6 +31,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.source.MergingMediaSource
 import com.nuvio.tv.core.player.LocalTrailerPlayerPool
 import com.nuvio.tv.core.player.TrailerPlayerPool
+import com.nuvio.tv.core.perf.LocalFluidMode
 import com.nuvio.tv.data.trailer.YoutubeChunkedDataSourceFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -79,6 +80,7 @@ fun TrailerPlayer(
 
     // Resolve pool: explicit parameter > CompositionLocal
     val resolvedPool = trailerPlayerPool ?: LocalTrailerPlayerPool.current
+    val fluidMode = LocalFluidMode.current
 
     // Use the shared pool instance instead of creating a new ExoPlayer per focus.
     // The pool keeps one ExoPlayer alive across poster focus changes, eliminating
@@ -100,6 +102,19 @@ fun TrailerPlayer(
         } else {
             C.VIDEO_SCALING_MODE_SCALE_TO_FIT
         }
+    }
+
+    // Fluid Mode previews must stay cheap: cap the decoder at 480p and disable
+    // the audio track entirely while muted (volume 0 would still decode it).
+    // Outside Fluid Mode the pool's 720p ceiling is kept.
+    LaunchedEffect(trailerPlayer, muted, fluidMode) {
+        val player = trailerPlayer ?: return@LaunchedEffect
+        val maxHeight = if (fluidMode) 480 else 720
+        player.trackSelectionParameters = player.trackSelectionParameters
+            .buildUpon()
+            .setMaxVideoSize(maxHeight * 16 / 9, maxHeight)
+            .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, muted)
+            .build()
     }
 
     LaunchedEffect(isPlaying, trailerUrl, trailerAudioUrl, muted, trailerPlayer) {

@@ -7,6 +7,7 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.CompositionLocalProvider
@@ -14,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -56,6 +58,7 @@ import com.nuvio.tv.ui.screens.account.AuthQrSignInScreen
 import com.nuvio.tv.ui.screens.cast.CastDetailScreen
 import com.nuvio.tv.ui.screens.profile.ProfileSelectionMode
 import com.nuvio.tv.ui.screens.profile.ProfileSelectionScreen
+import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.screens.tmdb.TmdbEntityBrowseScreen
 import com.nuvio.tv.ui.screens.home.HeroBackdropState
 
@@ -164,29 +167,6 @@ fun NuvioNavHost(
         return from.startsWith("player/") && to.startsWith("stream/")
     }
 
-    // Le schermate dotate di chrome globale (barra sezioni in alto + rail
-    // laterale) non usano il crossfade di default. NavHost composta le root
-    // da capo a ogni ritorno (Home è pesante): con il fade il canvas va in
-    // nero appena la schermata vecchia è svanita e per qualche secondo su
-    // Stick lente resta SOLO il chrome disegnato sopra il vuoto, finché la
-    // nuova schermata non finisce di comporre. A transizione netta la
-    // vecchia schermata resta sullo schermo fino al primo frame di quella
-    // nuova: nero e sovrapposizione spariscono.
-    val chromeRoutes = remember {
-        setOf(
-            Screen.Home.route,
-            Screen.Anime.route,
-            Screen.Extra.route,
-            Screen.Calendar.route,
-            Screen.Search.route,
-            Screen.Library.route,
-            Screen.LiveTv.route,
-            Screen.Settings.route
-        )
-    }
-    fun involvesChrome(from: String, to: String): Boolean =
-        from in chromeRoutes || to in chromeRoutes
-
     // Next-episode date badges are rendered by GridContentCard across the
     // whole graph (Home, Search, Discover, Library, Detail grids, TMDB
     // browse...), so provide the calendar-derived labels once at the
@@ -198,16 +178,25 @@ fun NuvioNavHost(
     NavHost(
         navController = navController,
         startDestination = startDestination,
+        modifier = Modifier.background(NuvioTheme.colors.Background),
+        // Transizione "a nero": la vecchia schermata sfuma fino al nero, poi
+        // la nuova entra dal nero. Non si vedono mai due pagine sovrapposte
+        // (Home/Cerca/Libreria/Impostazioni) né il rail della pagina uscente.
         enterTransition = {
             val from = initialState.destination.route.orEmpty()
             val to = targetState.destination.route.orEmpty()
             val isAutoPlayNav = targetState.arguments
                 ?.getString("autoPlayNav")
                 ?.toBooleanStrictOrNull() == true
-            if ((isStreamToPlayer(from, to) && isAutoPlayNav) || involvesChrome(from, to)) {
+            if (isStreamToPlayer(from, to) && isAutoPlayNav) {
                 EnterTransition.None
             } else {
-                fadeIn(animationSpec = tween(NuvioMotion.tokens.durations.medium))
+                fadeIn(
+                    animationSpec = tween(
+                        durationMillis = NuvioMotion.tokens.durations.pageIn,
+                        delayMillis = NuvioMotion.tokens.durations.pageOut
+                    )
+                )
             }
         },
         exitTransition = {
@@ -216,16 +205,10 @@ fun NuvioNavHost(
             val isAutoPlayNav = targetState.arguments
                 ?.getString("autoPlayNav")
                 ?.toBooleanStrictOrNull() == true
-            // Stessa regola di enter/popEnter/popExit: tra schermate con chrome
-            // non si dissolve MAI la schermata vecchia. Con il fade in uscita
-            // la schermata di partenza (es. le Impostazioni con la sua barra
-            // schede) resta mezza trasparente sopra la nuova per ~150 ms e,
-            // finché la nuova non ha composto il primo frame, si vedono
-            // sovrapposte entrambe le barre ("barra visibile e sovrapposta").
-            if ((isStreamToPlayer(from, to) && isAutoPlayNav) || involvesChrome(from, to)) {
+            if (isStreamToPlayer(from, to) && isAutoPlayNav) {
                 ExitTransition.None
             } else {
-                fadeOut(animationSpec = tween(NuvioMotion.tokens.durations.medium))
+                fadeOut(animationSpec = tween(NuvioMotion.tokens.durations.pageOut))
             }
         },
         popEnterTransition = {
@@ -234,10 +217,15 @@ fun NuvioNavHost(
             val isAutoPlayNav = initialState.arguments
                 ?.getString("autoPlayNav")
                 ?.toBooleanStrictOrNull() == true
-            if ((isPlayerToStream(from, to) && isAutoPlayNav) || involvesChrome(from, to)) {
+            if (isPlayerToStream(from, to) && isAutoPlayNav) {
                 EnterTransition.None
             } else {
-                fadeIn(animationSpec = tween(NuvioMotion.tokens.durations.medium))
+                fadeIn(
+                    animationSpec = tween(
+                        durationMillis = NuvioMotion.tokens.durations.pageIn,
+                        delayMillis = NuvioMotion.tokens.durations.pageOut
+                    )
+                )
             }
         },
         popExitTransition = {
@@ -246,10 +234,10 @@ fun NuvioNavHost(
             val isAutoPlayNav = initialState.arguments
                 ?.getString("autoPlayNav")
                 ?.toBooleanStrictOrNull() == true
-            if ((isPlayerToStream(from, to) && isAutoPlayNav) || involvesChrome(from, to)) {
+            if (isPlayerToStream(from, to) && isAutoPlayNav) {
                 ExitTransition.None
             } else {
-                fadeOut(animationSpec = tween(NuvioMotion.tokens.durations.medium))
+                fadeOut(animationSpec = tween(NuvioMotion.tokens.durations.pageOut))
             }
         }
     ) {

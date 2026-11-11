@@ -46,7 +46,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -95,6 +97,7 @@ import com.nuvio.tv.ui.util.localizedGenreLabel
 import kotlinx.coroutines.delay
 import androidx.compose.ui.res.stringResource
 import com.nuvio.tv.R
+import com.nuvio.tv.LocalContentFocusRequester
 
 private const val KEY_REPEAT_THROTTLE_MS = 80L
 
@@ -118,7 +121,7 @@ private fun LibraryListTab.localizedTitle(): String {
     }
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalFoundationApi::class, ExperimentalTvMaterial3Api::class)
 @Composable
 fun LibraryScreen(
     viewModel: LibraryViewModel = hiltViewModel(),
@@ -179,6 +182,13 @@ fun LibraryScreen(
             }
 
             if (!focused) {
+                val firstPosterRequester = firstVisiblePosterKey
+                    ?.let { posterFocusRequesters[it] }
+                focused = firstPosterRequester
+                    ?.let { requester -> runCatching { requester.requestFocus() }.isSuccess }
+                    ?: false
+            }
+            if (!focused) {
                 focused = runCatching { primaryFocusRequester.requestFocus() }.isSuccess
             }
             if (!focused) {
@@ -211,7 +221,8 @@ fun LibraryScreen(
 
         Box(
             modifier = Modifier
-                .fillMaxSize(),
+                .fillMaxSize()
+                .background(NuvioTheme.colors.Background),
             contentAlignment = androidx.compose.ui.Alignment.Center
         ) {
             Box(
@@ -242,6 +253,18 @@ fun LibraryScreen(
         state = gridState,
         modifier = Modifier
             .fillMaxSize()
+            // Sfondo opaco: evita che la pagina uscente (Home/Cerca) resti
+            // visibile sotto la griglia durante il passaggio a nero.
+            .background(NuvioTheme.colors.Background)
+            // Route-level focus transfers from the rail should land on the
+            // last poster (or the first poster on a fresh visit), not on the
+            // sidebar or the filter controls above the artwork.
+            .focusRequester(LocalContentFocusRequester.current)
+            .focusRestorer {
+                firstVisiblePosterKey
+                    ?.let { posterFocusRequesters[it] }
+                    ?: primaryFocusRequester
+            }
             .onPreviewKeyEvent { event ->
                 val native = event.nativeKeyEvent
                 if (native.action == AndroidKeyEvent.ACTION_DOWN && native.repeatCount > 0) {
@@ -253,7 +276,9 @@ fun LibraryScreen(
                 }
                 false
             },
-        contentPadding = PaddingValues(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, top = NuvioTheme.spacing.xl, bottom = NuvioTheme.spacing.xxl),
+        // 72dp: la rail laterale nera è larga 64dp; 48dp lasciava la prima
+        // colonna parzialmente sotto la colonna nera.
+        contentPadding = PaddingValues(start = 72.dp, end = NuvioTheme.spacing.xxxl, top = NuvioTheme.spacing.xl, bottom = NuvioTheme.spacing.xxl),
         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
         verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.lg)
     ) {
