@@ -22,6 +22,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
@@ -56,6 +57,7 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.IconButton
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.nuvio.tv.LocalContentFocusRequester
 import coil3.compose.AsyncImage
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.LiveTvChannel
@@ -95,6 +97,7 @@ fun LiveTvScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
+                    .focusRequester(LocalContentFocusRequester.current)
                     .dpadRepeatThrottle(),
                 contentPadding = PaddingValues(bottom = NuvioTheme.spacing.xxl)
             ) {
@@ -211,12 +214,13 @@ private fun LiveTvSectionLabel(text: String) {
 }
 
 @Composable
-private fun LiveTvPlaylistRow(
+internal fun LiveTvPlaylistRow(
     playlist: LiveTvPlaylist,
     channelsCount: Int,
     isLoading: Boolean,
     errorMessage: String?,
     onRefresh: () -> Unit,
+    onEdit: (() -> Unit)? = null,
     onRemove: () -> Unit
 ) {
     Row(
@@ -288,6 +292,18 @@ private fun LiveTvPlaylistRow(
                 Icon(
                     imageVector = Icons.Default.Refresh,
                     contentDescription = stringResource(R.string.live_tv_refresh),
+                    tint = NuvioTheme.colors.TextSecondary
+                )
+            }
+        }
+        if (onEdit != null) {
+            IconButton(
+                onClick = onEdit,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = stringResource(R.string.cd_edit),
                     tint = NuvioTheme.colors.TextSecondary
                 )
             }
@@ -411,13 +427,16 @@ internal fun LiveTvAddPlaylistForm(
     isBusy: Boolean,
     errorMessage: String?,
     onAddM3u: (String) -> Unit,
-    onAddXtream: (String, String, String) -> Unit
+    onAddXtream: (String, String, String) -> Unit,
+    initialPlaylist: LiveTvPlaylist? = null
 ) {
-    var isXtream by remember { mutableStateOf(false) }
-    var url by remember { mutableStateOf("") }
-    var serverUrl by remember { mutableStateOf("") }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var isXtream by remember(initialPlaylist?.id) { mutableStateOf(initialPlaylist?.isXtream == true) }
+    var url by remember(initialPlaylist?.id) {
+        mutableStateOf(initialPlaylist?.takeUnless { it.isXtream }?.sourceUrl.orEmpty())
+    }
+    var serverUrl by remember(initialPlaylist?.id) { mutableStateOf(initialPlaylist?.xtreamServerUrl.orEmpty()) }
+    var username by remember(initialPlaylist?.id) { mutableStateOf(initialPlaylist?.xtreamUsername.orEmpty()) }
+    var password by remember(initialPlaylist?.id) { mutableStateOf(initialPlaylist?.xtreamPassword.orEmpty()) }
     val keyboardController = LocalSoftwareKeyboardController.current
     val submit = {
         keyboardController?.hide()
@@ -498,7 +517,11 @@ internal fun LiveTvAddPlaylistForm(
                 },
                 colors = ButtonDefaults.colors(containerColor = NuvioTheme.colors.Primary)
             ) {
-                Text(stringResource(R.string.live_tv_add_btn))
+                Text(
+                    stringResource(
+                        if (initialPlaylist != null) R.string.action_save else R.string.live_tv_add_btn
+                    )
+                )
             }
         }
     }

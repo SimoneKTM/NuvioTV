@@ -1,10 +1,15 @@
 package com.nuvio.tv.core.player
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.os.SystemClock
 import android.util.Log
 import android.util.LruCache
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import java.security.MessageDigest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
@@ -17,6 +22,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -32,14 +38,16 @@ import javax.inject.Singleton
 @OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
 class SeekThumbnailGenerator @Inject constructor(
-    private val hlsExtractor: HlsFrameExtractor
+    private val hlsExtractor: HlsFrameExtractor,
+    @ApplicationContext private val context: Context
 ) {
 
     companion object {
         private const val TAG = "SeekThumbs"
         // Frames are ~0.5 MB each: the cache must hold several full strips so
         // reopening the controls shows them again without re-extracting.
-        private const val MAX_CACHE_KB = 24 * 1024
+        private const val MAX_CACHE_KB = 12 * 1024
+        private const val MAX_DISK_CACHE_BYTES = 96L * 1024L * 1024L
         private const val CACHE_FRAME_WIDTH = 480
         private const val MAX_CONSECUTIVE_FAILURES = 3
         private const val FAILED_RETRY_MS = 30_000L
@@ -74,6 +82,9 @@ class SeekThumbnailGenerator @Inject constructor(
         override fun sizeOf(key: String, value: Bitmap): Int =
             value.allocationByteCount.coerceAtLeast(1) / 1024
     }
+    private val diskCacheDirectory: File by lazy {
+        File(context.cacheDir, "seek-thumbnails").apply { mkdirs() }
+    }
 
     /** False for streams known to be unable to yield frames (or already failed). */
     fun isSupported(url: String?): Boolean {
@@ -104,15 +115,23 @@ class SeekThumbnailGenerator @Inject constructor(
 
         val key = "$url#${positionMs.coerceAtLeast(0L)}"
         cache.get(key)?.let { return it }
+        withContext(Dispatchers.IO) { readDiskFrame(key) }?.let { bitmap ->
+            cache.put(key, bitmap)
+            return bitmap
+        }
 
         val deferred = requestsMutex.withLock {
             inFlight[key] ?: run {
                 val created = scope.async(start = CoroutineStart.LAZY) {
                     val frame = extractFrame(url, headers, positionMs)
                     Log.d(TAG, "extract pos=$positionMs ok=${frame != null} host=${url.safeHostForLog()}")
-                    frame?.let { cache.put(key, it.fitForCache()) }
+                    val cachedFrame = frame?.fitForCache()
+                    if (cachedFrame != null) {
+                        cache.put(key, cachedFrame)
+                        writeDiskFrame(key, cachedFrame)
+                    }
                     requestsMutex.withLock { inFlight.remove(key) }
-                    frame
+                    cachedFrame
                 }
                 inFlight[key] = created
                 created.start()
@@ -215,6 +234,44 @@ class SeekThumbnailGenerator @Inject constructor(
         }.onFailure { error ->
             Log.w(TAG, "adaptive extract failed: ${error.message}")
         }.getOrNull()
+    }
+
+    private fun diskFile(key: String): File {
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(key.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
+        return File(diskCacheDirectory, "$digest.jpg")
+    }
+
+    private fun readDiskFrame(key: String): Bitmap? = runCatching {
+        val file = diskFile(key)
+        if (!file.isFile || file.length() == 0L) return null
+        BitmapFactory.decodeFile(file.absolutePath)?.also {
+            file.setLastModified(System.currentTimeMillis())
+        }
+    }.getOrNull()
+
+    private fun writeDiskFrame(key: String, bitmap: Bitmap) {
+        runCatching {
+            val directory = diskCacheDirectory
+            val file = diskFile(key)
+            val temporary = File(directory, "${file.name}.tmp")
+            temporary.outputStream().buffered().use { output ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 72, output)
+            }
+            if (!temporary.renameTo(file)) {
+                temporary.copyTo(file, overwrite = true)
+                temporary.delete()
+            }
+            val files = directory.listFiles()?.filter { it.isFile && it.extension == "jpg" }
+                ?.sortedBy { it.lastModified() } ?: return
+            var total = files.sumOf { it.length() }
+            for (cached in files) {
+                if (total <= MAX_DISK_CACHE_BYTES) break
+                val size = cached.length()
+                if (cached.delete()) total -= size
+            }
+        }.onFailure { Log.d(TAG, "frame disk cache write skipped: ${it.message}") }
     }
 
     private fun isManifestUrl(url: String): Boolean {

@@ -181,9 +181,12 @@ class CalendarHomeViewModel @Inject constructor(
         for (description in pending) {
             viewModelScope.launch {
                 val translated = translateWithRetries(description, language)
-                if (translated != null) {
+                val resolved = translated ?: runCatching {
+                    if (metadataTextTranslator.isAlreadyInTargetLanguage(description, language)) description else null
+                }.getOrNull()
+                if (resolved != null) {
                     synchronized(translationLock) {
-                        translatedDescriptions[description] = translated
+                        translatedDescriptions[description] = resolved
                     }
                     publishSections(rawItems)
                 } else {

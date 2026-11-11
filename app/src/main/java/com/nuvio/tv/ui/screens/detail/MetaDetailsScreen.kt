@@ -1689,7 +1689,12 @@ private fun MetaDetailsContent(
                         mdbListRatings = mdbListRatings,
                         hideMetaInfoImdb = showMdbListImdb,
                         awards = awards,
-                        tmdbRating = if (mdbListRatings?.isEmpty() != false) tmdbRating else null,
+                        // Anime providers often expose IMDb on the base meta but
+                        // do not resolve a separate TMDB rating. Keep a visible
+                        // score beside cast even when MDBList is not configured.
+                        tmdbRating = if (mdbListRatings?.isEmpty() != false) {
+                            tmdbRating ?: meta.imdbRating
+                        } else null,
                         tvdbRating = tvdbRating,
                         showFullReleaseDate = showFullReleaseDate,
                         trailerAvailable = trailerButtonEnabled && !trailerUrl.isNullOrBlank(),

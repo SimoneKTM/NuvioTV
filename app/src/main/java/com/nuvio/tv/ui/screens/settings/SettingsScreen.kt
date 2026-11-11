@@ -101,6 +101,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
@@ -134,6 +135,7 @@ import com.nuvio.tv.domain.model.ExperienceMode
 import com.nuvio.tv.domain.model.SettingsUiStyle
 import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
 import com.nuvio.tv.ui.screens.livetv.LiveTvAddPlaylistForm
+import com.nuvio.tv.ui.screens.livetv.LiveTvPlaylistRow
 import com.nuvio.tv.ui.util.rowsListDownRecovery
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
@@ -230,8 +232,8 @@ internal data class SettingsSectionSpec(
 
 private const val SETTINGS_DETAIL_FOCUS_DELAY_MS = 120L
 private const val SETTINGS_TAB_FOCUS_SELECT_DELAY_MS = 140L
-private const val SETTINGS_DETAIL_ANIM_IN_DURATION_MS = 200
-private const val SETTINGS_DETAIL_ANIM_OUT_DURATION_MS = 180
+private const val SETTINGS_DETAIL_ANIM_IN_DURATION_MS = 420
+private const val SETTINGS_DETAIL_ANIM_OUT_DURATION_MS = 360
 
 private sealed interface ExperienceModeLoadState {
     data object Loading : ExperienceModeLoadState
@@ -439,10 +441,10 @@ fun SettingsScreen(
     val extraHubFocusRequester = remember { FocusRequester() }
     val extraContentDiscoveryFocusRequester = remember { FocusRequester() }
     val extraIntegrationsFocusRequester = remember { FocusRequester() }
-    var integrationSection by remember { mutableStateOf(IntegrationSettingsSection.Hub) }
-    var librarySection by remember { mutableStateOf(LibrarySettingsSection.Hub) }
-    var animeSection by remember { mutableStateOf(AnimeSettingsSection.Hub) }
-    var extraSection by remember { mutableStateOf(ExtraSettingsSection.Hub) }
+    var integrationSection by rememberSaveable { mutableStateOf(IntegrationSettingsSection.Hub) }
+    var librarySection by rememberSaveable { mutableStateOf(LibrarySettingsSection.Hub) }
+    var animeSection by rememberSaveable { mutableStateOf(AnimeSettingsSection.Hub) }
+    var extraSection by rememberSaveable { mutableStateOf(ExtraSettingsSection.Hub) }
     var pendingContentFocusCategory by remember { mutableStateOf<SettingsCategory?>(null) }
     var pendingContentFocusRequestId by remember { mutableLongStateOf(0L) }
     var allowDetailAutofocus by remember { mutableStateOf(false) }
@@ -752,6 +754,7 @@ fun SettingsScreen(
                                 .align(Alignment.TopCenter)
                                 .fillMaxHeight()
                                 .widthIn(max = 880.dp)
+                                .background(Color.Black)
                                 .fillMaxWidth(),
                             transitionSpec = {
                                 val order = visibleSections.map { it.category }
@@ -1951,6 +1954,7 @@ private fun LiveTvSettingsContent(
             val liveTvHubState = rememberLazyListState()
             val fallbackFocusRequester = remember { FocusRequester() }
             var addPlaylistExpanded by remember { mutableStateOf(false) }
+            var editingPlaylist by remember { mutableStateOf<com.nuvio.tv.domain.model.LiveTvPlaylist?>(null) }
             Box(modifier = Modifier.fillMaxSize()) {
                 LazyColumn(
                     state = liveTvHubState,
@@ -1979,7 +1983,10 @@ private fun LiveTvSettingsContent(
                             } else {
                                 stringResource(R.string.playback_afr_closed)
                             },
-                            onClick = { addPlaylistExpanded = !addPlaylistExpanded },
+                            onClick = {
+                                editingPlaylist = null
+                                addPlaylistExpanded = !addPlaylistExpanded
+                            },
                             leadingIcon = Icons.Default.LiveTv,
                             trailingIcon = if (addPlaylistExpanded) {
                                 Icons.Default.ExpandMore
@@ -1994,16 +2001,54 @@ private fun LiveTvSettingsContent(
                             LiveTvAddPlaylistForm(
                                 isBusy = liveTvUiState.isAdding,
                                 errorMessage = liveTvUiState.addError,
+                                initialPlaylist = editingPlaylist,
                                 onAddM3u = { url ->
-                                    liveTvViewModel.addPlaylist(url) {
+                                    val editing = editingPlaylist
+                                    if (editing != null) liveTvViewModel.updatePlaylist(editing, url) {
+                                        editingPlaylist = null
+                                        addPlaylistExpanded = false
+                                    } else liveTvViewModel.addPlaylist(url) {
                                         addPlaylistExpanded = false
                                     }
                                 },
                                 onAddXtream = { server, username, password ->
-                                    liveTvViewModel.addXtreamPlaylist(server, username, password) {
+                                    val editing = editingPlaylist
+                                    if (editing != null) liveTvViewModel.updateXtreamPlaylist(
+                                        editing, server, username, password
+                                    ) {
+                                        editingPlaylist = null
+                                        addPlaylistExpanded = false
+                                    } else liveTvViewModel.addXtreamPlaylist(server, username, password) {
                                         addPlaylistExpanded = false
                                     }
                                 }
+                            )
+                        }
+                    }
+                    if (liveTvUiState.playlists.isNotEmpty()) {
+                        item(key = "live_tv_hub_saved_playlists_header") {
+                            Text(
+                                text = stringResource(R.string.live_tv_playlists_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = NuvioTheme.colors.TextPrimary,
+                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                            )
+                        }
+                        items(
+                            items = liveTvUiState.playlists,
+                            key = { "live_tv_saved_${it.playlist.id}" }
+                        ) { playlistState ->
+                            LiveTvPlaylistRow(
+                                playlist = playlistState.playlist,
+                                channelsCount = playlistState.channels.size,
+                                isLoading = playlistState.isLoading,
+                                errorMessage = playlistState.errorMessage,
+                                onRefresh = { liveTvViewModel.refreshPlaylist(playlistState.playlist) },
+                                onEdit = {
+                                    editingPlaylist = playlistState.playlist
+                                    addPlaylistExpanded = true
+                                },
+                                onRemove = { liveTvViewModel.removePlaylist(playlistState.playlist) }
                             )
                         }
                     }

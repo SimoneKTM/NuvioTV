@@ -273,6 +273,13 @@ class HomeViewModel @Inject constructor(
                     )
                     if (cached != null && cached != preview.description) {
                         preview.copy(description = cached)
+                    } else if (
+                        cached == null &&
+                        com.nuvio.tv.data.translation.shouldTranslate(preview.description, currentTmdbSettings.language)
+                    ) {
+                        // Hide the untranslated synopsis while ML Kit prepares
+                        // Italian; already Italian text is restored by detection.
+                        preview.copy(description = null)
                     } else preview
                 }
             }
@@ -373,6 +380,21 @@ class HomeViewModel @Inject constructor(
         }
         val result = translated
         if (result == null) {
+            val alreadyLocalized = runCatching {
+                metadataTextTranslator.isAlreadyInTargetLanguage(description, currentTmdbSettings.language)
+            }.getOrDefault(false)
+            if (alreadyLocalized) {
+                _enrichedPreviews.update { current ->
+                    val existing = current[id]
+                    if (existing != null && existing.description == null) {
+                        current + (id to existing.copy(description = description))
+                    } else current
+                }
+                _lastEnrichedPreview.update { current ->
+                    if (current?.id == id && current.description == null) current.copy(description = description) else current
+                }
+                return
+            }
             // The ML Kit models may still have been downloading — release the
             // claim so the next publish/focus for this item retries instead
             // of leaving the raw English text on screen forever.
@@ -392,7 +414,7 @@ class HomeViewModel @Inject constructor(
                 "apply id=$id existingDesc=${existing?.description?.take(30)} " +
                     "result=${result.take(30)} pending=${pend?.first?.take(30)} pendingOk=${pend != null}"
             )
-            if (existing != null && existing.description == description) {
+            if (existing != null && (existing.description == description || existing.description == null)) {
                 applied = true
                 current + (id to existing.copy(description = result))
             } else {

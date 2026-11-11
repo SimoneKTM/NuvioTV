@@ -158,7 +158,6 @@ class StartupHomePreloader @Inject constructor(
         // prime hero apparissero non tradotte e solo poi cambiassero; a 5s il
         // modello è pronto mentre la home si sta ancora popolando.
         warmUpScope.launch {
-            if (gentleProfile) delay(GENTLE_TRANSLATION_WARM_DELAY_MS)
             warmUpTranslationModel()
         }
 

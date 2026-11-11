@@ -126,6 +126,67 @@ class LiveTvViewModel @Inject constructor(
         }
     }
 
+    fun updatePlaylist(previous: LiveTvPlaylist, url: String, onUpdated: () -> Unit = {}) {
+        val trimmed = url.trim()
+        if (trimmed.isBlank()) return
+        replacePlaylist(
+            previous,
+            LiveTvPlaylist(
+                id = trimmed,
+                sourceUrl = trimmed,
+                name = LiveTvRepository.displayNameForUrl(trimmed)
+            ),
+            onUpdated
+        )
+    }
+
+    fun updateXtreamPlaylist(
+        previous: LiveTvPlaylist,
+        serverUrl: String,
+        username: String,
+        password: String,
+        onUpdated: () -> Unit = {}
+    ) {
+        val server = serverUrl.trim()
+        if (server.isBlank()) return
+        replacePlaylist(
+            previous,
+            LiveTvPlaylist(
+                id = server,
+                sourceUrl = LiveTvRepository.xtreamPlaylistUrl(server, username, password),
+                name = server.substringAfter("://").substringBefore('/'),
+                xtreamServerUrl = server,
+                xtreamUsername = username.trim(),
+                xtreamPassword = password
+            ),
+            onUpdated
+        )
+    }
+
+    private fun replacePlaylist(
+        previous: LiveTvPlaylist,
+        replacement: LiveTvPlaylist,
+        onUpdated: () -> Unit
+    ) {
+        viewModelScope.launch {
+            isAdding.value = true
+            addError.value = null
+            try {
+                val saved = dataStore.playlists.first().toMutableList()
+                val index = saved.indexOfFirst { it.id == previous.id }
+                if (index >= 0) saved[index] = replacement else saved += replacement
+                dataStore.setPlaylists(saved.distinctBy { it.id })
+                playlistStates.update { it - previous.id - replacement.id }
+                refreshPlaylist(replacement)
+                onUpdated()
+            } catch (error: Throwable) {
+                addError.value = error.message ?: context.getString(R.string.live_tv_error_generic)
+            } finally {
+                isAdding.value = false
+            }
+        }
+    }
+
     fun refreshAllPlaylists() {
         viewModelScope.launch {
             val saved = dataStore.playlists.first()

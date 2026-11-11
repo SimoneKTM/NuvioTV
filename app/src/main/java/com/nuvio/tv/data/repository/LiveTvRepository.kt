@@ -7,6 +7,7 @@ import com.nuvio.tv.domain.model.LiveTvPlaylist
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import java.io.BufferedReader
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
@@ -32,9 +33,13 @@ class LiveTvRepository @Inject constructor(
                     if (!response.isSuccessful) {
                         error(context.getString(R.string.live_tv_error_http, response.code, playlist.name))
                     }
-                    val body = response.body?.string()
+                    val body = response.body
                         ?: error(context.getString(R.string.live_tv_error_empty_playlist))
-                    parseM3u(body, playlist, playlistUrl)
+                    // Parse a line at a time: large IPTV lists no longer need
+                    // a second full-size String allocation on low-memory TVs.
+                    body.charStream().buffered().use { reader ->
+                        parseM3u(reader, playlist, playlistUrl)
+                    }
                 }
             }
         }
@@ -51,24 +56,28 @@ class LiveTvRepository @Inject constructor(
         }
 
     fun parseM3u(content: String, playlist: LiveTvPlaylist, playlistUrl: String = playlist.sourceUrl): List<LiveTvChannel> {
-        // UTF-8 BOM from some playlist servers breaks the first line check.
-        val normalized = content.removePrefix("\uFEFF")
-        if (!looksLikeM3u(normalized)) {
-            error(context.getString(R.string.live_tv_error_invalid_playlist))
-        }
+        return parseM3uLines(content.lineSequence(), playlist, playlistUrl)
+    }
+
+    private fun parseM3u(reader: BufferedReader, playlist: LiveTvPlaylist, playlistUrl: String): List<LiveTvChannel> =
+        parseM3uLines(reader.lineSequence(), playlist, playlistUrl)
+
+    private fun parseM3uLines(lines: Sequence<String>, playlist: LiveTvPlaylist, playlistUrl: String): List<LiveTvChannel> {
         val baseUrl = playlistUrl.toHttpUrlOrNull()
-        val lines = normalized.lines()
         val channels = mutableListOf<LiveTvChannel>()
         var pendingName: String? = null
         var pendingLogo: String? = null
         var pendingGroup: String? = null
         var index = 0
+        var sawHeader = false
 
         for (rawLine in lines) {
-            val line = rawLine.trim()
+            val line = rawLine.removePrefix("\uFEFF").trim()
             if (line.isEmpty()) continue
             when {
+                line.startsWith("#EXTM3U", ignoreCase = true) -> sawHeader = true
                 line.startsWith("#EXTINF", ignoreCase = true) -> {
+                    sawHeader = true
                     val commaIndex = line.indexOf(',')
                     val rawName = if (commaIndex >= 0) line.substring(commaIndex + 1).trim() else ""
                     val attrs = line.substring(
@@ -102,16 +111,10 @@ class LiveTvRepository @Inject constructor(
                 }
             }
         }
-        if (channels.isEmpty()) {
+        if (!sawHeader || channels.isEmpty()) {
             error(context.getString(R.string.live_tv_error_invalid_playlist))
         }
         return channels
-    }
-
-    private fun looksLikeM3u(content: String): Boolean {
-        val firstLine = content.lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty()
-        return firstLine.startsWith("#EXTM3U", ignoreCase = true) ||
-            content.contains("#EXTINF", ignoreCase = true)
     }
 
     private fun resolveStreamUrl(line: String, baseUrl: okhttp3.HttpUrl?): String {

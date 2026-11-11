@@ -1151,20 +1151,34 @@ class MetaDetailsViewModel @Inject constructor(
     private suspend fun applyMetaWithEnrichment(meta: Meta) {
         resolveProvenanceFallback(meta)
         rememberResolvedSource(meta)
+        val language = runCatching {
+            activeTmdbSettingsDataStore.settings.first().language
+        }.getOrNull().orEmpty()
+        fun firstPaint(source: Meta): Meta {
+            val description = source.description?.takeIf(String::isNotBlank) ?: return source
+            val cached = metadataTextTranslator.peekCachedTranslation(language, description)
+            val visible = cached ?: if (
+                com.nuvio.tv.data.translation.shouldTranslate(description, language)
+            ) null else description
+            return source.copy(description = visible)
+        }
         // Fire all independent async jobs immediately — they run in parallel.
         loadMoreLikeThisAsync(meta)
         // Paint the base meta right away: enrichMeta() below can burn seconds on a
         // stick (TMDB id + main + per-season episode lookups) and the detail
         // renders fine without it. Side effects (trailer, comments) start with
         // this first paint, so the enriched re-apply below skips them.
-        applyMeta(meta)
+        applyMeta(firstPaint(meta))
         // La sinossi va tradotta SUBITO, in parallelo con l'enrichment:
         // enrichMeta() può bruciare secondi (id TMDB + main + episodi per
         // stagione + TVDB) e la traduzione partiva solo alla fine, tenendo il
         // dettaglio inglese per tutto quel tempo.
         var earlySynopsis: Pair<String?, String>? = null
         viewModelScope.launch {
-            val translated = translateDescriptionEarly(meta)
+            val translated = translateDescriptionEarly(meta) ?: run {
+                val raw = meta.description?.takeIf(String::isNotBlank) ?: return@launch
+                if (metadataTextTranslator.isAlreadyInTargetLanguage(raw, language)) raw else null
+            }
             if (translated != null) {
                 earlySynopsis = meta.description to translated
                 publishTranslatedDescription(meta, translated)
@@ -1187,7 +1201,7 @@ class MetaDetailsViewModel @Inject constructor(
         updateNextToWatch(precomputedNextToWatch)
 
         if (enriched !== meta) {
-            applyMeta(enriched, startSideEffects = false)
+            applyMeta(firstPaint(enriched), startSideEffects = false)
             // applyMeta sostituisce meta wholesale: se la sinossi non è
             // cambiata, ripubblica quella già tradotta invece di tornare
             // all'inglese per un frame (o per sempre, se il batch tarda).
@@ -1225,7 +1239,9 @@ class MetaDetailsViewModel @Inject constructor(
                 } else {
                     current.videos
                 }
-                val nextDescription = if (current.description == enriched.description) {
+                val nextDescription = if (
+                    current.description == enriched.description || current.description.isNullOrBlank()
+                ) {
                     translated.description ?: current.description
                 } else {
                     // Sinossi già sostituita (traduzione anticipata): non tornare
@@ -1937,7 +1953,9 @@ class MetaDetailsViewModel @Inject constructor(
             val current = state.meta
             if (current?.id != enriched.id) return@update state
             // Never clobber text the screen has moved on to since the batch started.
-            if (current.description != enriched.description) return@update state
+            if (current.description != enriched.description && !current.description.isNullOrBlank()) {
+                return@update state
+            }
             state.copy(meta = current.copy(description = translatedDescription))
         }
     }

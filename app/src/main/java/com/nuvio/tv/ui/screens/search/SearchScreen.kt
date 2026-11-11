@@ -105,6 +105,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.nuvio.tv.LocalSidebarExpanded
 import com.nuvio.tv.LocalFocusPrimeRail
+import com.nuvio.tv.LocalContentFocusRequester
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.CardDepthSurface
 import com.nuvio.tv.domain.model.DiscoverLocation
@@ -186,7 +187,9 @@ fun SearchScreen(
     val strVoiceUnavailable = stringResource(R.string.search_voice_unavailable)
     val voiceFocusRequester = remember { FocusRequester() }
     val searchFocusRequester = remember { FocusRequester() }
-    val discoverFocusRequester = remember { FocusRequester() }
+    // MainActivity transfers focus to this requester when entering Search.
+    // A screen-local requester left the global request with nowhere to land.
+    val discoverFocusRequester = LocalContentFocusRequester.current
     val focusPrimeRail = LocalFocusPrimeRail.current
     val recentFirstItemFocusRequester = remember { FocusRequester() }
     var isSearchFieldFocused by remember { mutableStateOf(false) }
@@ -538,7 +541,7 @@ fun SearchScreen(
         pendingFocusMoveHadExistingSearchRows = false
     }
 
-    LaunchedEffect(topInputFocusRequester) {
+    LaunchedEffect(topInputFocusRequester, uiState.discoverLocation) {
         if (viewModel.hasSavedSearchFocus) return@LaunchedEffect
         val initialTarget = if (uiState.discoverLocation == DiscoverLocation.IN_SEARCH) {
             discoverFocusRequester

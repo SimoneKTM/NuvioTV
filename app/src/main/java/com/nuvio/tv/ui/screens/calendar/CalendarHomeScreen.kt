@@ -34,6 +34,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -187,24 +188,19 @@ fun CalendarHomeScreen(
                 val density = LocalDensity.current
                 val focusScope = rememberCoroutineScope()
                 val focusManager = LocalFocusManager.current
-                // Un requester STABILE per il primo poster di ogni sezione:
-                // i movimenti verticali vengono intercettati qui sotto e
-                // portano sempre il focus sul primo poster della riga
-                // precedente/successiva (richiesta: "scorrendo su e giù il
-                // focus deve stare sempre sul primo poster della lista").
-                // La chiave è solo il label: se cambia il numero di item
-                // (refresh dei dati) i requester NON vengono ricreati,
-                // altrimenti le richieste di focus finivano su oggetti
-                // scollegati dalle card.
-                val sectionFirstPosterRequesters = remember(uiState.sections.map { it.label }) {
-                    uiState.sections.mapIndexed { index, section ->
-                        section.label to if (index == 0) {
-                            firstSectionPosterFocusRequester
-                        } else {
-                            FocusRequester()
+                // Ogni riga mantiene il poster attivo quando si passa alla
+                // sezione sopra/sotto; il focus non salta più all'inizio.
+                val sectionPosterRequesters = remember(
+                    uiState.sections.map { section -> section.label to section.items.size }
+                ) {
+                    uiState.sections.mapIndexed { sectionIndex, section ->
+                        section.label to List(section.items.size.coerceAtLeast(1)) { itemIndex ->
+                            if (sectionIndex == 0 && itemIndex == 0) firstSectionPosterFocusRequester
+                            else FocusRequester()
                         }
                     }.toMap()
                 }
+                val focusedPosterIndexes = remember { mutableStateMapOf<Int, Int>() }
                 // rememberSaveable: la destinazione può essere smontata
                 // mentre il dettaglio è in primo piano. Senza, al ritorno
                 // focusedSectionIndex ripartiva da -1 e SU/GIÙ sceglievano
@@ -217,6 +213,7 @@ fun CalendarHomeScreen(
                 var pendingRestoreSectionIndex by rememberSaveable {
                     mutableIntStateOf(Int.MIN_VALUE)
                 }
+                var pendingRestorePosterIndex by rememberSaveable { mutableIntStateOf(0) }
                 // Evita che il focus transitorio sull'hero durante il ritorno
                 // azzeri la sezione che stiamo per ripristinare.
                 var restoringFocus by remember { mutableStateOf(false) }
@@ -228,9 +225,11 @@ fun CalendarHomeScreen(
                 // l'indice si aggiorna subito (non aspetta il callback di
                 // focus della card).
                 var sectionMovePending by remember { mutableStateOf(false) }
-                val moveToSectionFirstPoster: (Int) -> Boolean = { targetIndex ->
+                val moveToSectionPoster: (Int, Int) -> Boolean = { targetIndex, requestedIndex ->
                     val label = uiState.sections.getOrNull(targetIndex)?.label
-                    val requester = label?.let { sectionFirstPosterRequesters[it] }
+                    val requesters = label?.let { sectionPosterRequesters[it] }
+                    val posterIndex = requesters?.let { requestedIndex.coerceIn(0, it.lastIndex) } ?: 0
+                    val requester = requesters?.getOrNull(posterIndex)
                     if (requester == null) {
                         false
                     } else if (sectionMovePending) {
@@ -280,12 +279,12 @@ fun CalendarHomeScreen(
                 // aggiornato dai callback di focus: dopo uno scroll o un
                 // ritorno dal dettaglio quello stato poteva essere indietro e
                 // invertire/bloccare SU e GIÙ.
-                val moveVertically: (Int, Int) -> Boolean = { fromSection, delta ->
+                val moveVertically: (Int, Int, Int) -> Boolean = { fromSection, delta, fromPoster ->
                     val target = fromSection + delta
                     when {
                         target < 0 -> moveToHero()
                         target > uiState.sections.lastIndex -> true
-                        else -> moveToSectionFirstPoster(target)
+                        else -> moveToSectionPoster(target, fromPoster)
                     }
                 }
                 // Al ritorno dal dettaglio il focus deve tornare sulla sezione
@@ -294,8 +293,8 @@ fun CalendarHomeScreen(
                 // ON_RESUME forziamo clear + richiesta esplicita sul primo
                 // poster della sezione fotografata in ON_PAUSE.
                 val latestSections = rememberUpdatedState(uiState.sections)
-                val latestFirstPosterRequesters =
-                    rememberUpdatedState(sectionFirstPosterRequesters)
+                val latestPosterRequesters = rememberUpdatedState(sectionPosterRequesters)
+                val latestFocusedPosterIndexes = rememberUpdatedState(focusedPosterIndexes)
                 val latestFocusedSectionIndex = rememberUpdatedState(focusedSectionIndex)
                 val latestInitialFocusApplied = rememberUpdatedState(initialFocusApplied)
                 val lifecycleOwner = LocalLifecycleOwner.current
@@ -306,6 +305,9 @@ fun CalendarHomeScreen(
                                 if (latestInitialFocusApplied.value) {
                                     pendingRestoreSectionIndex =
                                         latestFocusedSectionIndex.value
+                                    pendingRestorePosterIndex = latestFocusedPosterIndexes.value[
+                                        latestFocusedSectionIndex.value
+                                    ] ?: 0
                                 }
                             }
 
@@ -323,9 +325,11 @@ fun CalendarHomeScreen(
                                     val targetLabel = latestSections.value
                                         .getOrNull(targetIndex)
                                         ?.label
-                                    val requester = targetLabel?.let {
-                                        latestFirstPosterRequesters.value[it]
-                                    }
+                                    val requesters = targetLabel?.let { latestPosterRequesters.value[it] }
+                                    val restoreIndex = requesters?.let {
+                                        pendingRestorePosterIndex.coerceIn(0, it.lastIndex)
+                                    } ?: 0
+                                    val requester = requesters?.getOrNull(restoreIndex)
                                     if (requester != null) {
                                         runCatching {
                                             rowsListState.scrollToItem(targetIndex + 1)
@@ -399,13 +403,16 @@ fun CalendarHomeScreen(
                         CalendarSection(
                             section = section,
                             onNavigateToDetail = onNavigateToDetail,
-                            firstPosterFocusRequester = sectionFirstPosterRequesters[section.label],
+                            posterFocusRequesters = sectionPosterRequesters[section.label].orEmpty(),
                             sectionIndex = index,
                             onPosterFocused = { sectionIndex ->
                                 focusedSectionIndex = sectionIndex
                             },
-                            onVerticalMove = { delta ->
-                                moveVertically(index, delta)
+                            onPosterIndexFocused = { sectionIndex, posterIndex ->
+                                focusedPosterIndexes[sectionIndex] = posterIndex
+                            },
+                            onVerticalMove = { delta, posterIndex ->
+                                moveVertically(index, delta, posterIndex)
                             }
                         )
                     }
@@ -487,8 +494,9 @@ private fun CalendarHeroSection(
     val heroCandidateIndexes = remember(section) {
         heroItems.indices.filter { index ->
             val item = heroItems[index]
+            val landscape = item.meta.background ?: item.meta.landscapePoster
             item.meta.logo != null &&
-                item.meta.backdropUrl != null &&
+                !landscape.isNullOrBlank() &&
                 !item.meta.description.isNullOrBlank()
         }.take(HERO_MAX_SLIDES)
     }
@@ -504,12 +512,15 @@ private fun CalendarHeroSection(
 
     // Keep Detail's hero backdrop in sync with the calendar hero so back/nav
     // does not inherit a stale Home backdrop.
-    LaunchedEffect(displayedItem.meta.backdropUrl) {
-        HeroBackdropState.update(displayedItem.meta.backdropUrl)
+    val heroImageUrl = displayedItem.meta.background ?: displayedItem.meta.landscapePoster
+    LaunchedEffect(heroImageUrl) {
+        HeroBackdropState.update(heroImageUrl)
     }
 
-    // Autonomous slideshow: independent from any focus/scroll state.
-    LaunchedEffect(heroCandidateIndexes) {
+    // La hero si muove solo quando è lei a ricevere il focus; mentre si
+    // navigano i poster resta ferma e non distrae né ruba stabilità visiva.
+    LaunchedEffect(heroCandidateIndexes, isHeroFocused) {
+        if (!isHeroFocused) return@LaunchedEffect
         if (heroCandidateIndexes.size <= 1) return@LaunchedEffect
         while (true) {
             delay(10000L)
@@ -538,7 +549,7 @@ private fun CalendarHeroSection(
                     isHeroFocused = it.isFocused
                     if (it.isFocused) {
                         onHeroFocused()
-                        HeroBackdropState.update(displayedItem.meta.backdropUrl)
+                        HeroBackdropState.update(heroImageUrl)
                     }
                 }
                 .onPreviewKeyEvent { event ->
@@ -571,10 +582,10 @@ private fun CalendarHeroSection(
                     }
                 }
         ) {
-            if (displayedItem.meta.backdropUrl != null) {
+            if (heroImageUrl != null) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data(displayedItem.meta.backdropUrl)
+                        .data(heroImageUrl)
                         // Richiedi il backdrop a risoluzione TV: senza una
                         // size esplicita Coil riusava la variante da poster
                         // nelle anteprime di alcuni provider.
@@ -818,10 +829,11 @@ private fun CalendarHeroSection(
 private fun CalendarSection(
     section: CalendarSection,
     onNavigateToDetail: (itemId: String, itemType: String, addonBaseUrl: String?) -> Unit,
-    firstPosterFocusRequester: FocusRequester? = null,
+    posterFocusRequesters: List<FocusRequester> = emptyList(),
     sectionIndex: Int = 0,
     onPosterFocused: (Int) -> Unit = {},
-    onVerticalMove: (Int) -> Boolean = { false }
+    onPosterIndexFocused: (Int, Int) -> Unit = { _, _ -> },
+    onVerticalMove: (Int, Int) -> Boolean = { _, _ -> false }
 ) {
     val rowState = rememberLazyListState()
     // Indice della card focalizzata nella riga: serve a fermare SINISTRA
@@ -832,7 +844,7 @@ private fun CalendarSection(
     // dal dettaglio) passa il proprio requester: quello interno resta il
     // target di focusRestorer.
     val ownFirstPosterRequester = remember(section.label) { FocusRequester() }
-    val firstPosterRequester = firstPosterFocusRequester ?: ownFirstPosterRequester
+    val firstPosterRequester = posterFocusRequesters.firstOrNull() ?: ownFirstPosterRequester
 
     // Spec orizzontale della riga: la LazyRow vive dentro lo spec verticale
     // della lista, che altrimenti interpreterebbe le richieste di scorrimento
@@ -929,12 +941,12 @@ private fun CalendarSection(
                     }
                     when (event.key) {
                         Key.DirectionDown -> {
-                            onVerticalMove(1)
+                            onVerticalMove(1, focusedItemIndex)
                             true
                         }
 
                         Key.DirectionUp -> {
-                            onVerticalMove(-1)
+                            onVerticalMove(-1, focusedItemIndex)
                             true
                         }
 
@@ -953,7 +965,8 @@ private fun CalendarSection(
                 items = section.items,
                 key = { _, it -> "${it.meta.id}:${it.releaseDate}:${it.episodeLabel ?: ""}" }
             ) { index, calendarItem ->
-                val cardRequester = if (index == 0) firstPosterRequester else null
+                val cardRequester = posterFocusRequesters.getOrNull(index)
+                    ?: if (index == 0) firstPosterRequester else null
                 CalendarPortraitCard(
                     meta = calendarItem.meta,
                     releaseDate = calendarItem.releaseDate,
@@ -969,6 +982,7 @@ private fun CalendarSection(
                     onFocused = {
                         focusedItemIndex = index
                         onPosterFocused(sectionIndex)
+                        onPosterIndexFocused(sectionIndex, index)
                     }
                 )
             }

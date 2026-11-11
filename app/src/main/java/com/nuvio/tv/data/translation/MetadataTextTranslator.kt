@@ -236,6 +236,18 @@ class MetadataTextTranslator @Inject constructor(
             }
         }
 
+    /** True only when ML Kit confidently recognizes the requested language. */
+    suspend fun isAlreadyInTargetLanguage(text: String, targetLanguage: String): Boolean =
+        withContext(Dispatchers.IO) {
+            val target = normalizeLanguageCode(targetLanguage) ?: return@withContext false
+            val body = text.trim()
+            if (body.length < TRANSLATION_MIN_TEXT_LENGTH || body.length > TRANSLATION_MAX_TEXT_LENGTH) {
+                return@withContext false
+            }
+            val detected = withTimeoutOrNull(DETECT_TIMEOUT_MS) { identifyLanguage(body) }
+            normalizeLanguageCode(detected) == target
+        }
+
     private suspend fun translateVideos(
         meta: Meta,
         targetLanguage: String,

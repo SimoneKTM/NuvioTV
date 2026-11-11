@@ -1757,6 +1757,7 @@ private fun ModernSidebarScaffold(
     val sidebarScope = rememberCoroutineScope()
     val focusPrimeRail: () -> Boolean = {
         val targetRoute = primeRailItems.firstOrNull { it.route == currentRoute }?.route
+            ?: selectedDrawerRoute?.takeIf { route -> primeRailItems.any { it.route == route } }
             ?: primeRailItems.firstOrNull()?.route
         if (targetRoute != null) {
             // Mentre il contenuto di una sezione ha il focus il rail è

@@ -85,8 +85,10 @@ object NuvioMotion {
             // 140 ms per arrivare al nero + 240 ms per entrare: il passaggio
             // dura ~380 ms, abbastanza da non far intravedere rail e pagina
             // precedente, senza rendere lenta la navigazione.
-            pageOut = 140,
-            pageIn = 240,
+            // Dissolvenza a nero più distesa: al ritorno non fa apparire il
+            // rail sopra la pagina prima che la nuova schermata sia pronta.
+            pageOut = 280,
+            pageIn = 360,
             shimmer = 600
         ),
         easings = NuvioMotionEasings(
