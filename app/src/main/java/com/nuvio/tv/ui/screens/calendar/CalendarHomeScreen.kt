@@ -102,6 +102,8 @@ import kotlin.math.abs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.nuvio.tv.ui.util.dpadRepeatThrottle
+import com.nuvio.tv.ui.util.rowsListDownRecovery
+import com.nuvio.tv.ui.util.rowsListUpRecovery
 
 private val HERO_HEIGHT = 380.dp
 // 64dp: in sync con rowHorizontalPadding della home moderna e rowStartPadding
@@ -217,81 +219,9 @@ fun CalendarHomeScreen(
                 // Evita che il focus transitorio sull'hero durante il ritorno
                 // azzeri la sezione che stiamo per ripristinare.
                 var restoringFocus by remember { mutableStateOf(false) }
-                // Un solo movimento verticale alla volta: con i repeat del
-                // D-pad ogni pressione lanciava uno scroll + una richiesta di
-                // focus in parallelo, e il focus finiva su sezioni sbagliate
-                // o rimbalzava tra due righe. Le pressioni che arrivano
-                // mentre il movimento è in corso vengono assorbite, e
-                // l'indice si aggiorna subito (non aspetta il callback di
-                // focus della card).
-                var sectionMovePending by remember { mutableStateOf(false) }
-                val moveToSectionPoster: (Int, Int) -> Boolean = { targetIndex, requestedIndex ->
-                    val label = uiState.sections.getOrNull(targetIndex)?.label
-                    val requesters = label?.let { sectionPosterRequesters[it] }
-                    val posterIndex = requesters?.let { requestedIndex.coerceIn(0, it.lastIndex) } ?: 0
-                    val requester = requesters?.getOrNull(posterIndex)
-                    if (requester == null) {
-                        false
-                    } else if (sectionMovePending) {
-                        true
-                    } else {
-                        val previous = focusedSectionIndex
-                        sectionMovePending = true
-                        focusedSectionIndex = targetIndex
-                        focusScope.launch {
-                            // Compone la sezione di destinazione prima di
-                            // chiedere il focus (le righe fuori viewport non
-                            // sono altrimenti agganciabili).
-                            runCatching { rowsListState.scrollToItem(targetIndex + 1) }
-                            val moved = runCatching {
-                                requester.requestFocusAfterFrames(2)
-                            }.getOrDefault(false)
-                            if (!moved) focusedSectionIndex = previous
-                            sectionMovePending = false
-                        }
-                        true
-                    }
-                }
-                // SU dalla prima sezione: il focus torna alla hero, che è
-                // l'elemento sopra la lista. Va riportata in composizione con
-                // scrollToItem(0), altrimenti dopo aver scrollato in basso la
-                // richiesta di focus cade nel vuoto.
-                val moveToHero: () -> Boolean = {
-                    if (sectionMovePending) {
-                        true
-                    } else {
-                        sectionMovePending = true
-                        focusScope.launch {
-                            runCatching { rowsListState.scrollToItem(0) }
-                            val moved = runCatching {
-                                firstCardFocusRequester.requestFocusAfterFrames(2)
-                            }.getOrDefault(false)
-                            if (moved) {
-                                focusedSectionIndex = -1
-                            }
-                            sectionMovePending = false
-                        }
-                        true
-                    }
-                }
-                // La sezione di partenza è quella della riga che riceve il
-                // tasto (passata da CalendarSection), non uno stato globale
-                // aggiornato dai callback di focus: dopo uno scroll o un
-                // ritorno dal dettaglio quello stato poteva essere indietro e
-                // invertire/bloccare SU e GIÙ.
-                val moveVertically: (Int, Int, Int) -> Boolean = { fromSection, delta, fromPoster ->
-                    val target = fromSection + delta
-                    when {
-                        target < 0 -> moveToHero()
-                        target > uiState.sections.lastIndex -> true
-                        else -> moveToSectionPoster(target, fromPoster)
-                    }
-                }
-                // Al ritorno dal dettaglio il focus deve tornare sulla sezione
-                // di partenza, sempre sul PRIMO poster. Navigation a volte
-                // ripristina solo il nodo (bordo spento) o l'hero, quindi in
-                // ON_RESUME forziamo clear + richiesta esplicita sul primo
-                // poster della sezione fotografata in ON_PAUSE.
+                // La barra alta viene armata solo quando SU arriva davvero in
+                // cima: le tab non devono mai essere agganciabili mentre il
+                // focus è su un poster.
                 val latestSections = rememberUpdatedState(uiState.sections)
                 val latestPosterRequesters = rememberUpdatedState(sectionPosterRequesters)
                 val latestFocusedPosterIndexes = rememberUpdatedState(focusedPosterIndexes)
@@ -331,8 +261,11 @@ fun CalendarHomeScreen(
                                     } ?: 0
                                     val requester = requesters?.getOrNull(restoreIndex)
                                     if (requester != null) {
-                                        runCatching {
-                                            rowsListState.scrollToItem(targetIndex + 1)
+                                        val targetItemIndex = targetIndex + 1
+                                        val alreadyComposed = rowsListState.layoutInfo
+                                            .visibleItemsInfo.any { it.index == targetItemIndex }
+                                        if (!alreadyComposed) {
+                                            runCatching { rowsListState.scrollToItem(targetItemIndex) }
                                         }
                                         requester.requestFocusAfterFrames(3)
                                     } else {
@@ -377,7 +310,9 @@ fun CalendarHomeScreen(
                         .clipToBounds()
                         .focusRequester(LocalContentFocusRequester.current)
                         .focusRestorer()
-                        .dpadRepeatThrottle(scrollableState = rowsListState),
+                        .dpadRepeatThrottle(scrollableState = rowsListState)
+                        .rowsListUpRecovery(rowsListState)
+                        .rowsListDownRecovery(rowsListState),
                     contentPadding = PaddingValues(top = 72.dp, bottom = 200.dp)
                 ) {
                     if (firstSection != null) {
@@ -410,9 +345,6 @@ fun CalendarHomeScreen(
                             },
                             onPosterIndexFocused = { sectionIndex, posterIndex ->
                                 focusedPosterIndexes[sectionIndex] = posterIndex
-                            },
-                            onVerticalMove = { delta, posterIndex ->
-                                moveVertically(index, delta, posterIndex)
                             }
                         )
                     }
@@ -487,6 +419,8 @@ private fun CalendarHeroSection(
 ) {
     val firstItem = section.items.firstOrNull() ?: return
     var displayedIndex by rememberSaveable(section.label) { mutableIntStateOf(0) }
+    // Solo per disegnare il bordo di focus sull'hero: la rotazione del
+    // carosello non dipende più da questo stato.
     var isHeroFocused by remember { mutableStateOf(false) }
     // Only titles with logo + backdrop + synopsis rotate in the hero; the
     // rest stay exclusively in the poster cards below.
@@ -517,10 +451,11 @@ private fun CalendarHeroSection(
         HeroBackdropState.update(heroImageUrl)
     }
 
-    // La hero si muove solo quando è lei a ricevere il focus; mentre si
-    // navigano i poster resta ferma e non distrae né ruba stabilità visiva.
-    LaunchedEffect(heroCandidateIndexes, isHeroFocused) {
-        if (!isHeroFocused) return@LaunchedEffect
+    // Il carosello della hero ruota finché la hero è composta, anche mentre
+    // il focus è sui poster: restando legato al solo focus, dopo un ritorno
+    // dal dettaglio (focus ripristinato su un poster) l'immagine grande
+    // rimaneva ferma per sempre sulla stessa slide.
+    LaunchedEffect(heroCandidateIndexes) {
         if (heroCandidateIndexes.size <= 1) return@LaunchedEffect
         while (true) {
             delay(10000L)
@@ -832,8 +767,7 @@ private fun CalendarSection(
     posterFocusRequesters: List<FocusRequester> = emptyList(),
     sectionIndex: Int = 0,
     onPosterFocused: (Int) -> Unit = {},
-    onPosterIndexFocused: (Int, Int) -> Unit = { _, _ -> },
-    onVerticalMove: (Int, Int) -> Boolean = { _, _ -> false }
+    onPosterIndexFocused: (Int, Int) -> Unit = { _, _ -> }
 ) {
     val rowState = rememberLazyListState()
     // Indice della card focalizzata nella riga: serve a fermare SINISTRA
@@ -930,34 +864,27 @@ private fun CalendarSection(
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             modifier = Modifier
                 .focusGroup()
-                .focusRestorer { firstPosterRequester }
-                // SU/GIÙ sono gestiti dalla riga che ha davvero il focus:
-                // ogni sezione conosce il proprio indice, quindi il movimento
-                // non può più invertirsi o bloccarsi per uno stato globale
-                // rimasto indietro dopo uno scroll o il ritorno dal dettaglio.
+                .focusRestorer {
+                    // Ripristina l'ultimo poster focalizzato, non il primo:
+                    // al ritorno dal dettaglio il focus deve restare dove
+                    // l'utente lo aveva lasciato.
+                    val idx = focusedItemIndex
+                        .coerceIn(0, (section.items.size - 1).coerceAtLeast(0))
+                    posterFocusRequesters.getOrNull(idx) ?: firstPosterRequester
+                }
+                // SU/GIÙ restano al focus search + rowsList*Recovery della
+                // LazyColumn (stesso comportamento di DAZN): niente salti di
+                // sezione o scroll automatici dei poster. Qui resta solo
+                // SINISTRA dalla prima card, che consegna il focus al rail.
                 .onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown) {
                         return@onPreviewKeyEvent false
                     }
-                    when (event.key) {
-                        Key.DirectionDown -> {
-                            onVerticalMove(1, focusedItemIndex)
-                            true
-                        }
-
-                        Key.DirectionUp -> {
-                            onVerticalMove(-1, focusedItemIndex)
-                            true
-                        }
-
-                        else -> {
-                            val backwardKey = if (isRtl) Key.DirectionRight else Key.DirectionLeft
-                            if (event.key == backwardKey && focusedItemIndex <= 0) {
-                                focusPrimeRail?.invoke() == true
-                            } else {
-                                false
-                            }
-                        }
+                    val backwardKey = if (isRtl) Key.DirectionRight else Key.DirectionLeft
+                    if (event.key == backwardKey && focusedItemIndex <= 0) {
+                        focusPrimeRail?.invoke() == true
+                    } else {
+                        false
                     }
                 }
         ) {

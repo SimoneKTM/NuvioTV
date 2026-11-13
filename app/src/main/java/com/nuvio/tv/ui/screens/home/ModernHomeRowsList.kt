@@ -311,7 +311,19 @@ internal fun ModernHomeRowsList(
                         ?.let { key -> carouselRows.list.indexOfFirst { it.key == key } }
                         ?.takeIf { it >= 0 }
                         ?: verticalRowListState.firstVisibleItemIndex
-                    if (activeRowIndex <= 0) return@onKeyEvent false
+                    // Prima riga attiva ma lista ancora scorsa: SU deve solo
+                    // riportare la lista in cima (come DAZN), non armare la
+                    // top bar. La barra si raggiunge con un secondo SU quando
+                    // `canScrollBackward` è ormai false.
+                    if (activeRowIndex <= 0) {
+                        if (!verticalRowListState.canScrollBackward) {
+                            return@onKeyEvent false
+                        }
+                        rowLandingScope.launch {
+                            verticalRowListState.animateScrollToItem(0)
+                        }
+                        return@onKeyEvent true
+                    }
                     // Se la riga sopra È composta (visibile o coperta dall'hero)
                     // lascia muovere il focus normalmente; se il movimento è
                     // bloccato (focus properties in transizione) si cade sullo

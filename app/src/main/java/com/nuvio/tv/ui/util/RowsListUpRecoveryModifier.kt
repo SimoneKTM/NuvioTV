@@ -76,7 +76,12 @@ fun Modifier.rowsListUpRecovery(state: LazyListState): Modifier = composed {
                         val newTop = state.layoutInfo.visibleItemsInfo.firstOrNull()?.index
                         val target = (newTop ?: topComposed) - 1
                         if (target >= 0) {
-                            state.scrollToItem(target)
+                            // Scroll animato, non istantaneo: scendendo il
+                            // bringIntoView di Compose anima già la riga,
+                            // quindi salendo un salto secco faceva sembrare
+                            // il movimento dei poster diverso. Animando anche
+                            // qui il gesto è speculare.
+                            state.animateScrollToItem(target)
                             repeat(3) { withFrameNanos { } }
                             focusManager.moveFocus(FocusDirection.Up)
                             repeat(3) { withFrameNanos { } }
@@ -108,7 +113,9 @@ fun Modifier.rowsListUpRecovery(state: LazyListState): Modifier = composed {
                     // può ancora scrollare: fai emergere la riga sopra e riprova.
                     !moved && !escaped && state.canScrollBackward -> {
                         if (topComposed > 0) {
-                            state.scrollToItem(topComposed - 1)
+                            // Vedi sopra: stessa animazione del movimento in
+                            // discesa invece del salto istantaneo.
+                            state.animateScrollToItem(topComposed - 1)
                             repeat(3) { withFrameNanos { } }
                             focusManager.moveFocus(FocusDirection.Up)
                         } else {

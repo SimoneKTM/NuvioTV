@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,10 +20,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -66,6 +70,12 @@ internal fun NuvioSectionTopBar(
     selectedRoute: String?,
     tabFocusRequesters: Map<String, FocusRequester>,
     onNavigate: (String) -> Unit,
+    // Le tab restano NON focusabili finché il contenuto ha il focus. La barra
+    // viene "armata" solo quando SU arriva davvero in cima: altrimenti il
+    // focus search geometrico può agganciare una tab qualsiasi (es. Anime
+    // mentre si è su DAZN) e il focus fugge dal contenuto.
+    focusEnabled: Boolean = true,
+    onBarFocusChanged: (Boolean) -> Unit = {},
     scrimOnHero: Boolean = false,
     startPadding: Dp = 0.dp,
     topPadding: Dp = 0.dp,
@@ -76,37 +86,30 @@ internal fun NuvioSectionTopBar(
         targetValue = if (barHasFocus) 1f else 0.94f,
         label = "topBarAlpha"
     )
-    // La banda resta sempre opaca (era spenta da Home/Anime e la barra
-    // sembrava trasparente sopra l'hero).
     Box(
         modifier = modifier.height(TOP_BAR_BAND_HEIGHT)
     ) {
         // Banda nera: opaca dietro le tab (fino a ~57dp) con la dissolvenza
         // che termina esattamente a fine tab (64dp), così il contenuto che
         // scorre in alto sparisce dietro la fascia delle tab senza taglio netto.
+        // Su Home/Anime (hero a tutto schermo) la banda è spenta: le etichette
+        // restano leggibili grazie all'ombra del testo e l'artwork non viene
+        // più tagliato dalla striscia nera in cima.
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .background(
+                .then(
                     if (scrimOnHero) {
-                        // Keep the labels on a black field, then fade before
-                        // the artwork begins so the tab band does not cut a
-                        // horizontal black strip through the hero image.
-                        Brush.horizontalGradient(
-                            colorStops = arrayOf(
-                                0f to Color.Black,
-                                0.33f to Color.Black,
-                                0.43f to Color.Transparent,
-                                1f to Color.Transparent
-                            )
-                        )
+                        Modifier
                     } else {
-                        Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0f to Color.Black,
-                                0.88f to Color.Black,
-                                0.97f to Color.Black.copy(alpha = 0.9f),
-                                1f to Color.Transparent
+                        Modifier.background(
+                            Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0f to Color.Black,
+                                    0.88f to Color.Black,
+                                    0.97f to Color.Black.copy(alpha = 0.9f),
+                                    1f to Color.Transparent
+                                )
                             )
                         )
                     }
@@ -119,7 +122,10 @@ internal fun NuvioSectionTopBar(
                 .height(56.dp)
                 // Solo le tab si dimmeranno: la banda resta sempre opaca.
                 .graphicsLayer { alpha = barAlpha }
-                .onFocusChanged { state -> barHasFocus = state.hasFocus },
+                .onFocusChanged { state ->
+                    barHasFocus = state.hasFocus
+                    onBarFocusChanged(state.hasFocus)
+                },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
         ) {
@@ -129,6 +135,7 @@ internal fun NuvioSectionTopBar(
                 SectionTab(
                     label = tab.label,
                     selected = tab.route == selectedRoute,
+                    focusEnabled = focusEnabled,
                     focusRequester = tabFocusRequesters[tab.route],
                     onClick = { onNavigate(tab.route) }
                 )
@@ -141,6 +148,7 @@ internal fun NuvioSectionTopBar(
 private fun SectionTab(
     label: String,
     selected: Boolean,
+    focusEnabled: Boolean,
     focusRequester: FocusRequester?,
     onClick: () -> Unit
 ) {
@@ -150,11 +158,24 @@ private fun SectionTab(
         selected -> NuvioTheme.colors.TextPrimary
         else -> NuvioTheme.colors.TextSecondary
     }
+    val baseStyle = MaterialTheme.typography.titleSmall
+    // Ombra sul testo: senza la banda nera (Home/Anime) le etichette devono
+    // restare leggibili anche sopra un backdrop chiaro.
+    val tabTextStyle = remember(baseStyle) {
+        baseStyle.copy(
+            shadow = Shadow(
+                color = Color.Black.copy(alpha = 0.8f),
+                offset = Offset(0f, 2f),
+                blurRadius = 6f
+            )
+        )
+    }
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
             .background(if (focused) NuvioTheme.colors.FocusBackground else Color.Transparent)
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .focusProperties { canFocus = focusEnabled }
             .onFocusChanged { state -> focused = state.isFocused }
             .clickable(onClick = onClick)
             .padding(horizontal = NuvioTheme.spacing.md, vertical = NuvioTheme.spacing.sm),
@@ -162,7 +183,7 @@ private fun SectionTab(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.titleSmall,
+            style = tabTextStyle,
             // Il peso Bold della variabile era troppo sottile a distanza:
             // le quattro voci devono leggersi subito come grassetto.
             fontWeight = FontWeight.ExtraBold,

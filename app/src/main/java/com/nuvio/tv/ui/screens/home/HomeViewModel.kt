@@ -224,6 +224,18 @@ class HomeViewModel @Inject constructor(
     private val pendingPreviewTranslations: MutableMap<String, Pair<String, String>> =
         createLruMap(MAX_ENRICHMENT_CACHE_SIZE)
 
+    /**
+     * Descrizione GREZZA (non tradotta) di ogni preview, per id. Quando la
+     * traduzione non è ancora pronta la descrizione pubblicata viene nascosta
+     * (`description = null`) per non mostrare mai l'inglese; senza questo
+     * riferimento i focus successivi chiamavano
+     * [schedulePreviewDescriptionTranslation] con la preview ormai vuota e la
+     * funzione usciva subito, lasciando la sinossi invisibile per sempre dopo
+     * un primo tentativo fallito.
+     */
+    private val previewRawDescriptions: MutableMap<String, String> =
+        createLruMap(MAX_ENRICHMENT_CACHE_SIZE)
+
     private val previewTranslationLock = Any()
 
     /**
@@ -254,6 +266,14 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun putEnrichedPreview(id: String, preview: MetaPreview) {
+        // Tieni da parte il testo originale: la versione pubblicata potrebbe
+        // essere nascosta (description = null) finché ML Kit non produce
+        // l'italiano, ma i tentativi successivi devono poter ripartire da qui.
+        preview.description?.takeIf { it.isNotBlank() }?.let { raw ->
+            synchronized(previewTranslationLock) {
+                previewRawDescriptions[id] = raw
+            }
+        }
         // Se la traduzione di questa stessa descrizione era già pronta, applichila
         // subito: la UI vede italiano dal primo fotogramma.
         val stored = synchronized(previewTranslationLock) {
@@ -304,6 +324,9 @@ class HomeViewModel @Inject constructor(
         priority: Boolean = false
     ) {
         val description = preview.description?.takeIf { it.isNotBlank() }
+            ?: synchronized(previewTranslationLock) {
+                previewRawDescriptions[id]?.takeIf { raw -> raw.isNotBlank() }
+            }
         if (description == null) {
             return
         }

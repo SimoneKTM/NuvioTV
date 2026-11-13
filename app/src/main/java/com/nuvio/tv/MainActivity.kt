@@ -1725,6 +1725,38 @@ private fun ModernSidebarScaffold(
     val topBarTabFocusRequesters = remember(topBarTabs) {
         topBarTabs.associate { it.route to FocusRequester() }
     }
+    // La barra alta viene armata solo su richiesta esplicita (SU arrivato in
+    // cima al contenuto). Finché è disarmata le tab non sono focusabili, così
+    // il focus search geometrico non può agganciarle e far fuggire il focus
+    // dal contenuto: era la causa del salto Anime→DAZN e delle uscite
+    // premature da Home/Anime.
+    var sectionTopBarArmed by remember { mutableStateOf(false) }
+    var sectionTopBarHasFocus by remember { mutableStateOf(false) }
+    val sectionTopBarScope = rememberCoroutineScope()
+    val focusSectionTopBar: () -> Boolean = {
+        if (topBarTabs.isEmpty() || currentRoute !in sectionRoutes) {
+            false
+        } else {
+            sectionTopBarArmed = true
+            sectionTopBarScope.launch {
+                // due frame: il nuovo canFocus è già stato applicato alle tab
+                repeat(2) { withFrameNanos { } }
+                val target = topBarTabFocusRequesters[selectedDrawerRoute]
+                    ?: topBarTabFocusRequesters[topBarTabs.first().route]
+                val focused = target != null &&
+                    runCatching { target.requestFocus() }.getOrDefault(false)
+                if (!focused) {
+                    repeat(2) { withFrameNanos { } }
+                    if (!sectionTopBarHasFocus) sectionTopBarArmed = false
+                }
+            }
+            true
+        }
+    }
+    LaunchedEffect(currentRoute) {
+        // Cambio sezione: la barra torna disarmata finché SU non la richiede.
+        sectionTopBarArmed = false
+    }
 
     // La casetta del rail rappresenta l'intero gruppo di sezioni: resta
     // selezionata su Home, Anime, Extra e Calendario. Prima l'indicatore
@@ -2120,21 +2152,15 @@ private fun ModernSidebarScaffold(
                             }
                         }
                         // SU non consumato dal contenuto = siamo in cima alla
-                        // pagina: il focus sale alla tab di sezione attiva
-                        // nella barra alta (come Prime). Se le righe hanno
+                        // pagina: arma la barra e porta il focus sulla tab di
+                        // sezione attiva (come Prime). Se le righe hanno
                         // gestito SU spostandosi verso l'alto, questo non
                         // scatta mai — il tasto è già stato consumato.
                         if (keyEvent.key == Key.DirectionUp &&
-                            topBarTabs.isNotEmpty() &&
-                            currentRoute in sectionRoutes
+                            currentRoute in sectionRoutes &&
+                            focusSectionTopBar()
                         ) {
-                            val target = topBarTabFocusRequesters[selectedDrawerRoute]
-                                ?: topBarTabFocusRequesters[topBarTabs.first().route]
-                            if (target != null &&
-                                runCatching { target.requestFocus() }.getOrDefault(false)
-                            ) {
-                                return@onKeyEvent true
-                            }
+                            return@onKeyEvent true
                         }
                         val openKey = if (isRtl) Key.DirectionRight else Key.DirectionLeft
                         if (keyEvent.key == openKey) {
@@ -2153,20 +2179,9 @@ private fun ModernSidebarScaffold(
                     }
                 }
         ) {
-            // Piazza il focus sulla tab di sezione attiva (o alla prima). Le
-            // schermate lo invocano quando SU dalla riga in cima non può
-            // avanzare: MainWindow intercetta solo SU non consumato, ma dentro
-            // rowsListUpRecovery il tasto è già stato consumato.
-            val focusSectionTopBar: () -> Boolean = {
-                if (topBarTabs.isNotEmpty() && currentRoute in sectionRoutes) {
-                    val target = topBarTabFocusRequesters[selectedDrawerRoute]
-                        ?: topBarTabFocusRequesters[topBarTabs.first().route]
-                    target != null &&
-                        runCatching { target.requestFocus() }.getOrDefault(false)
-                } else {
-                    false
-                }
-            }
+            // focusSectionTopBar è hoistato più in alto: lo usano sia
+            // l'intercettazione SU di questa Box sia il recovery delle righe
+            // (LocalFocusSectionTopBar).
             CompositionLocalProvider(
                 LocalSidebarExpanded provides isSidebarExpanded,
                 LocalContentFocusRequester provides contentFocusRequester,
@@ -2205,11 +2220,17 @@ private fun ModernSidebarScaffold(
                 tabs = topBarTabs,
                 selectedRoute = selectedDrawerRoute,
                 tabFocusRequesters = topBarTabFocusRequesters,
+                focusEnabled = sectionTopBarArmed,
+                onBarFocusChanged = { hasFocus ->
+                    sectionTopBarHasFocus = hasFocus
+                    sectionTopBarArmed = hasFocus
+                },
                 scrimOnHero = currentRoute == Screen.Home.route || currentRoute == Screen.Anime.route,
                 onNavigate = { route ->
                     // Come nel pannello laterale: rotta ottimistica per l'highlight
                     // IMMEDIATO + navigazione Vera sul NavController, altrimenti la
                     // tab cambia logo ma il contenuto resta fermo.
+                    sectionTopBarArmed = false
                     onNavigate(route)
                     navigateToDrawerRoute(
                         navController = navController,
@@ -2235,6 +2256,9 @@ private fun ModernSidebarScaffold(
                         ) {
                             return@onPreviewKeyEvent false
                         }
+                        // Disarma subito: le tab tornano non focusabili e SU
+                        // dal contenuto non può più agganciarle per caso.
+                        sectionTopBarArmed = false
                         pendingContentFocusTransfer = true
                         true
                     }
