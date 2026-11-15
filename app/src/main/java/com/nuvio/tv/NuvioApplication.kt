@@ -372,7 +372,17 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             }
             .crossfade(false)
             .precision(coil3.size.Precision.INEXACT)
-            .allowHardware(true)
+            // false = bitmap software invece di AHardwareBuffer. Profilato sul
+            // Google TV Streamer 4K (15/11): con allowHardware(true) l'80% del
+            // tempo di decode se ne va in allocateHardwareBitmap +
+            // uploadHardwareBitmap + CPU->gralloc (es. 538 ms alloc su 635 ms
+            // totali per un poster 457x686), e sotto renderer Vulkan
+            // (skiavk) l'upload gralloc crashava l'app (SIGSEGV in
+            // GrallocUploadThread). Il percorso software salta del tutto il
+            // gralloc: decode più veloci e nessuna dipendenza dal translator
+            // graphics dell'emulatore. La cache resta capata a 16 MB, quindi
+            // l'heap non cresce rispetto a prima.
+            .allowHardware(false)
             .allowRgb565(true)
             // 2 parallele significava che, scrollando, si alternavano momenti in
             // cui nessuna card stava venendo decodificata: le righe dense (Top 10,

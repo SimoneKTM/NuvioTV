@@ -33,6 +33,16 @@ class ClampDecodeInterceptor : Interceptor {
         val heightPx = (size.height as? Dimension.Pixels)?.px
         val longSide = maxOf(widthPx ?: 0, heightPx ?: 0)
         val cap = if (longSide > FULLSCREEN_MIN_PX) FULLSCREEN_MAX_PX else MAX_DECODE_PX
+        // Size originale (nessun asse in px): prima bypassava il clamp del
+        // tutto (widthPx/heightPx null → nessun cap) e la immagine veniva
+        // decodificata a file intero — profilo 15/11 su GTV Streamer: decode
+        // 2114x1189 a 242 ms durante la navigazione, dentro il frame. Ora
+        // rientra nel cap delle superfici a tutta pagina (sorgente TMDB
+        // w1280): identico a video, ~64% di pixel in meno da decodificare.
+        if (widthPx == null && heightPx == null) {
+            val bounded = Dimension.Pixels(FULLSCREEN_MAX_PX)
+            return chain.withSize(Size(bounded, bounded)).proceed()
+        }
         val cappedWidth =
             if (widthPx != null && widthPx > cap) Dimension.Pixels(cap) else size.width
         val cappedHeight =

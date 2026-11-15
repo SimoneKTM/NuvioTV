@@ -27,6 +27,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -53,6 +54,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.nuvio.tv.R
@@ -72,6 +74,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.CachePolicy
 import coil3.request.crossfade
+import com.nuvio.tv.ui.util.animatedWidth
 import com.nuvio.tv.ui.util.localizedContentType
 import com.nuvio.tv.ui.screens.home.rememberNextEpisodeDateLabel
 import com.nuvio.tv.ui.util.recompositionHighlighter
@@ -185,13 +188,12 @@ fun ContentCard(
 
     // Only pay the animation cost on the card that is actually focused/expanding.
     // Unfocused cards snap directly to baseCardWidth — no animation state overhead.
-    val animatedCardWidth = when {
-        !focusedPosterBackdropExpandEnabled -> baseCardWidth
-        !isFocused && !isBackdropExpanded -> baseCardWidth
+    val animatedCardWidthState: State<Dp> = when {
+        !focusedPosterBackdropExpandEnabled -> rememberUpdatedState(baseCardWidth)
+        !isFocused && !isBackdropExpanded -> rememberUpdatedState(baseCardWidth)
         else -> {
             val targetCardWidth = if (isBackdropExpanded) expandedCardWidth else baseCardWidth
-            val width by animateDpAsState(targetValue = targetCardWidth, label = "contentCardWidth")
-            width
+            animateDpAsState(targetValue = targetCardWidth, label = "contentCardWidth")
         }
     }
     val metaTokens = if (isBackdropExpanded) {
@@ -230,7 +232,7 @@ fun ContentCard(
 
     Column(
         modifier = modifier
-            .width(animatedCardWidth)
+            .animatedWidth(animatedCardWidthState)
             .recompositionHighlighter()
     ) {
         val density = LocalDensity.current
@@ -412,15 +414,16 @@ fun ContentCard(
                 }
 
                 // Only allocate animation state when trailer is actually playing.
-                val trailerCoverAlpha = if (shouldPlayTrailerPreview) {
-                    val alpha by animateFloatAsState(
+                // Lo State passa al graphicsLayer: il tick invalida solo il draw,
+                // non ricomposa la card.
+                val trailerCoverAlphaState: State<Float> = if (shouldPlayTrailerPreview) {
+                    animateFloatAsState(
                         targetValue = if (!trailerFirstFrameRendered) 1f else 0f,
                         animationSpec = tween(durationMillis = 250),
                         label = "trailerCoverAlpha"
                     )
-                    alpha
                 } else {
-                    0f
+                    remember { mutableStateOf(0f) }
                 }
 
                 if (shouldPlayTrailerPreview) {
@@ -455,7 +458,7 @@ fun ContentCard(
                         contentDescription = null,
                         modifier = Modifier
                             .fillMaxSize()
-                            .graphicsLayer { alpha = trailerCoverAlpha },
+                            .graphicsLayer { alpha = trailerCoverAlphaState.value },
                         contentScale = ContentScale.Crop
                     )
                 }

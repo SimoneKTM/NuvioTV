@@ -4,6 +4,9 @@ package com.nuvio.tv.ui.screens.home
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
+import android.graphics.Paint
+import android.text.TextPaint
+import android.graphics.Typeface
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.animateDpAsState
@@ -57,8 +60,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
@@ -67,6 +72,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.focus.focusRestorer
@@ -83,9 +89,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontSynthesis
+import androidx.compose.ui.text.font.resolveAsTypeface
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -135,6 +146,7 @@ import com.nuvio.tv.ui.components.rememberPlaceholderShimmerOffsetState
 import com.nuvio.tv.LocalFocusPrimeRail
 import com.nuvio.tv.LocalSidebarExpanded
 import com.nuvio.tv.ui.theme.ThemeColors
+import com.nuvio.tv.ui.util.animatedWidth
 import com.nuvio.tv.ui.util.posterMemoryCacheKey
 import com.nuvio.tv.ui.util.rememberPosterImageRequest
 import com.nuvio.tv.ui.util.recompositionHighlighter
@@ -142,6 +154,7 @@ import com.nuvio.tv.ui.util.StableMap
 import com.nuvio.tv.ui.util.StableRef
 import com.nuvio.tv.ui.util.asStable
 import com.nuvio.tv.ui.util.rememberLongPressKeyTracker
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -460,6 +473,15 @@ private fun ModernCatalogRowItem(
  * the tuck is exact, and stroked (outline only, no fill) with a thick
  * card-proportional stroke — the outline brightens while its card holds
  * focus.
+ *
+ * L'anello lo disegna l'app sui path dei glifi (getTextPath + Path.op UNION +
+ * getFillPath) invece di affidarlo al disegno del testo di Android: il font
+ * variabile di sistema (Android 12+) ha contorni sovrapposti — la "8" è due
+ * ovali incrociati, la "6"/"9" hanno i terminali accavallati — e strokeare il
+ * path grezzo disegna anche i bordi interni, chiudendo la vita con un ponte
+ * di inchiostro. L'unione booleana normalizza i contorni come nel font statico
+ * di Android 9, così la geometria la decide il nostro codice su qualsiasi
+ * versione di Android.
  */
 @Composable
 private fun ModernTop10RankNumber(
@@ -474,26 +496,122 @@ private fun ModernTop10RankNumber(
         animationSpec = tween(durationMillis = 240),
         label = "top10RankAlpha"
     )
+    val uiDensity = LocalDensity.current
+    val textDirection = LocalLayoutDirection.current
+    val fontFamilyResolver = LocalFontFamilyResolver.current
+    val text = rank.toString()
+    val numberStyle = TextStyle(
+        color = Color.Transparent,
+        fontSize = (cardHeight * 1.15f).value.sp,
+        lineHeight = (cardHeight * 1.3f).value.sp,
+        fontWeight = FontWeight.Black,
+        textAlign = TextAlign.End
+    )
+    // Stesso typeface che Compose darebbe al Text (resolver di sistema).
+    val resolvedTypeface = remember(
+        fontFamilyResolver,
+        numberStyle.fontFamily,
+        numberStyle.fontWeight,
+        numberStyle.fontStyle
+    ) {
+        fontFamilyResolver.resolveAsTypeface(
+            fontFamily = numberStyle.fontFamily,
+            fontWeight = numberStyle.fontWeight ?: FontWeight.Normal,
+            fontStyle = numberStyle.fontStyle ?: FontStyle.Normal,
+            fontSynthesis = FontSynthesis.All
+        )
+    }.value
+    val textMeasurer = remember(fontFamilyResolver, uiDensity, textDirection) {
+        TextMeasurer(fontFamilyResolver, uiDensity, textDirection)
+    }
+    val strokePaint = remember { TextPaint(Paint.ANTI_ALIAS_FLAG) }
+    val outlinePaint = remember { Paint(Paint.ANTI_ALIAS_FLAG) }
+    // Anello calcolato una volta per glifo: drawBehind gira a ogni frame e
+    // l'op booleana + lo stroke non sono economici. La chiave copre tutti gli
+    // input che cambiano il path (testo, misure, baseline del layout).
+    val outlineCache = remember { HashMap<String, android.graphics.Path>() }
+    val strokePx = with(uiDensity) { (cardHeight * 0.05f).toPx() }
+    val fontSizePx = with(uiDensity) { numberStyle.fontSize.toPx() }
+    // Il colore (alpha animato) si calcola dentro drawBehind: qui fuori la
+    // lettura di alpha ricomposerebbe il numero a ogni tick dell'animazione.
+    val textPrimary = NuvioTheme.colors.TextPrimary
+
     Text(
-        text = rank.toString(),
+        text = text,
         modifier = modifier
             .width(numberWidth)
             .graphicsLayer(
                 scaleX = TOP10_RANK_CONDENSE_FACTOR,
                 transformOrigin = TransformOrigin(0f, 0.5f)
-            ),
+            )
+            // Va dopo graphicsLayer: il path va disegnato non scalato e la
+            // condensazione 0.72 la applica il layer, come al testo.
+            .drawBehind {
+                val layout = textMeasurer.measure(
+                    text = text,
+                    style = numberStyle,
+                    constraints = Constraints.fixed(
+                        size.width.roundToInt(),
+                        size.height.roundToInt()
+                    ),
+                    maxLines = 1,
+                    softWrap = false,
+                    layoutDirection = textDirection,
+                    density = uiDensity,
+                    fontFamilyResolver = fontFamilyResolver
+                )
+                val startX = layout.getHorizontalPosition(0, true)
+                val baseline = layout.getLineBaseline(0)
+
+                // Stessi settaggi del text paint di Compose (AA, hinting on,
+                // subpixel off): il glifo deve avere la stessa geometria che
+                // avrebbe se lo disegnasse il testo del sistema. Join e miter
+                // restano i default del sistema; la giunzione è stata esclusa
+                // come causa del ponte (pixel identici con ROUND e con MITER).
+                strokePaint.typeface = resolvedTypeface ?: Typeface.DEFAULT
+                strokePaint.textSize = fontSizePx
+                strokePaint.style = Paint.Style.STROKE
+                strokePaint.strokeWidth = strokePx
+                strokePaint.strokeMiter = 4f
+                strokePaint.strokeJoin = Paint.Join.ROUND
+                strokePaint.strokeCap = Paint.Cap.BUTT
+                strokePaint.hinting = Paint.HINTING_ON
+                strokePaint.isSubpixelText = false
+
+                val outlinePath = outlineCache.getOrPut(
+                    "$text|$fontSizePx|$strokePx|$startX|$baseline"
+                ) {
+                    val glyphPath = android.graphics.Path()
+                    strokePaint.getTextPath(text, 0, text.length, startX, baseline, glyphPath)
+                    // CAUSA DEL PONTE: il font variabile di sistema costruisce la
+                    // "8" con due ovali che si sovrappongono nella vita (e la
+                    // "6"/"9" con i terminali accavallati sul nodo), mentre il
+                    // font statico di Android 9 ha i contorni già uniti. Strokeare
+                    // il path grezzo disegna anche i bordi interni: sulla vita
+                    // restano 6px di gap invece dei 33 del riferimento. L'unione
+                    // booleana normalizza il path in contorni non sovrapposti —
+                    // il contorno esatto della forma piena — quindi lo stroke
+                    // copre solo il bordo visibile, identico al riferimento su
+                    // qualsiasi versione di Android.
+                    val mergedGlyph = android.graphics.Path()
+                    val glyphCopy = android.graphics.Path(glyphPath)
+                    if (!mergedGlyph.op(glyphPath, glyphCopy, android.graphics.Path.Op.UNION)) {
+                        mergedGlyph.set(glyphPath) // fallback: nessuna normalizzazione
+                    }
+                    val outline = android.graphics.Path()
+                    strokePaint.getFillPath(mergedGlyph, outline)
+                    outline
+                }
+
+                outlinePaint.style = Paint.Style.FILL
+                outlinePaint.color = textPrimary.copy(alpha = alpha).toArgb()
+                drawIntoCanvas { canvas ->
+                    canvas.nativeCanvas.drawPath(outlinePath, outlinePaint)
+                }
+            },
         maxLines = 1,
         softWrap = false,
-        style = TextStyle(
-            color = NuvioTheme.colors.TextPrimary.copy(alpha = alpha),
-            fontSize = (cardHeight * 1.15f).value.sp,
-            lineHeight = (cardHeight * 1.3f).value.sp,
-            fontWeight = FontWeight.Black,
-            textAlign = TextAlign.End,
-            drawStyle = Stroke(
-                width = with(LocalDensity.current) { (cardHeight * 0.05f).toPx() }
-            )
-        )
+        style = numberStyle
     )
 }
 
@@ -1232,7 +1350,7 @@ private fun ModernCarouselCard(
     } else {
         cardWidth
     }
-    val animatedCardWidthState = if (focusedPosterBackdropExpandEnabled) {
+    val animatedCardWidthState: State<Dp> = if (focusedPosterBackdropExpandEnabled) {
         animateDpAsState(
             targetValue = targetCardWidth,
             label = "modernCardWidth"
@@ -1240,7 +1358,6 @@ private fun ModernCarouselCard(
     } else {
         rememberUpdatedState(cardWidth)
     }
-    val animatedCardWidth by animatedCardWidthState
     // Freeze the logo URL for row cards - enrichment updates must not cause flickering.
     // The first non-blank value wins and is never replaced.
     // Primary source of truth is the data-layer frozen value (survives navigation);
@@ -1404,7 +1521,7 @@ private fun ModernCarouselCard(
 
     Column(
         modifier = modifier
-            .width(animatedCardWidth)
+            .animatedWidth(animatedCardWidthState)
             .recompositionHighlighter(),
         verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
     ) {

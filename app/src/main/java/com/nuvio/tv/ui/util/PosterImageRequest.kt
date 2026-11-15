@@ -20,6 +20,8 @@ fun posterImageRequest(
     url: String?,
     widthPx: Int,
     heightPx: Int,
+    // Nessuna chiamata passa crossfade: il default true vale per tutti i
+    // poster. Cambiarlo altera la transizione percepita a ogni scroll.
     crossfade: Boolean = true,
 ): ImageRequest? {
     // Clamp (stile Prime Video, vedi ClampDecodeInterceptor): le card sono
