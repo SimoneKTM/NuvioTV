@@ -155,7 +155,7 @@ class TmdbCollectionSourceResolverTest {
         val metadata = resolver.companyImportMetadata(420)
 
         assertEquals("Marvel Studios", metadata.title)
-        assertEquals("https://image.tmdb.org/t/p/w500/marvel.png", metadata.coverImageUrl)
+        assertEquals("https://image.tmdb.org/t/p/w780/marvel.png", metadata.coverImageUrl)
     }
 
     @Test
@@ -173,7 +173,7 @@ class TmdbCollectionSourceResolverTest {
         val metadata = resolver.networkImportMetadata(2552)
 
         assertEquals("Apple TV+", metadata.title)
-        assertEquals("https://image.tmdb.org/t/p/w500/apple.png", metadata.coverImageUrl)
+        assertEquals("https://image.tmdb.org/t/p/w780/apple.png", metadata.coverImageUrl)
     }
 
     @Test

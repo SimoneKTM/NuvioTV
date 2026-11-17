@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -81,6 +82,7 @@ import com.nuvio.tv.ui.components.TOP_BAR_BAND_HEIGHT
 import com.nuvio.tv.LocalSidebarExpanded
 import com.nuvio.tv.LocalContentFocusRequester
 import com.nuvio.tv.core.perf.LocalFluidMode
+import com.nuvio.tv.core.logo.HeroBackdropOverrideStore
 import com.nuvio.tv.ui.util.LocalRecompositionHighlighterEnabled
 import com.nuvio.tv.ui.util.localizedLanguageText
 import com.nuvio.tv.ui.util.StableRef
@@ -679,6 +681,11 @@ fun ModernHomeContent(
                 }
             }
 
+            // Sfondo hero: override manuale ("Imposta sfondo hero personalizzato")
+            // vince sull'artwork del catalogo. Lo State raccolto qui viene letto
+            // dentro il derivedStateOf: al salvataggio la hero si aggiorna subito.
+            val heroBackdropOverrides by HeroBackdropOverrideStore.overrides.collectAsState()
+
             val resolvedHeroState = remember(activeCarouselItemState, enrichedPreviews, enrichingItemId, heroItem, uiState.heroEnrichmentEnabled, failedEnrichmentIds) {
                 derivedStateOf {
                     val activeCarouselItem = activeCarouselItemState.value
@@ -764,11 +771,27 @@ fun ModernHomeContent(
                         item.heroPreview.backdrop?.takeIf { it.isNotBlank() }
                     }
 
-                    val heroBackdrop = firstNonBlank(
-                        resolvedHero?.backdrop,
-                        resolvedHero?.imageUrl,
-                        resolvedHero?.poster,
-                        activeRowFallbackBackdrop
+                    // Id di riserva: sul percorso "Continua a guardare" non c'è
+                    // metaPreview, quindi senza l'id dell'item CW l'override non
+                    // si applicherebbe (come già fixato per il logo).
+                    val heroOverrideId = activeItemId
+                        ?: (activeCarouselItem?.payload
+                            as? com.nuvio.tv.ui.screens.home.ModernPayload.ContinueWatching)
+                            ?.item?.contentId()
+
+                    // Lettura esplicita: registra la dipendenza dallo State
+                    // così il derivedStateOf si invalida al salvataggio.
+                    @Suppress("UNUSED_VARIABLE")
+                    val currentBackdropOverrides = heroBackdropOverrides
+
+                    val heroBackdrop = HeroBackdropOverrideStore.resolve(
+                        heroOverrideId,
+                        firstNonBlank(
+                            resolvedHero?.backdrop,
+                            resolvedHero?.imageUrl,
+                            resolvedHero?.poster,
+                            activeRowFallbackBackdrop
+                        )
                     )
 
                     Triple(heroBackdrop, resolvedHero, effectiveEnrichmentActive)
@@ -1014,9 +1037,7 @@ fun ModernHomeContent(
                     val focusedSelection = focusedCatalogSelection.value
                     val isCollectionFolder = focusedSelection?.payload is ModernPayload.CollectionFolder
 
-                    when {
-                        // Black hero for collection folders: always remove backdrop, even during scroll
-                        isCollectionFolder -> currentLive.copy(heroBackdrop = null)
+                    val selected = when {
                         // During vertical scroll: freeze stable to avoid flashing
                         // transient addon data before enrichment completes
                         isScrolling && stableHasPreview -> stable!!
@@ -1029,18 +1050,57 @@ fun ModernHomeContent(
                         // Normal: show live state
                         else -> currentLive
                     }
+
+                    // Sfondo nero per le cartelle: SOLO se c'è un metadato da
+                    // mostrare (titolo/logo/sinossi, commit e0c09cfd0 "black
+                    // hero, keep metadata"). Una cartella con titolo nascosto
+                    // (hideTitle) non ha nessun metadato: azzerare anche lo
+                    // sfondo lasciava un rettangolo nero vuoto durante lo
+                    // scroll veloce ("hero bugged"). In quel caso si tiene
+                    // l'artwork della cartella.
+                    val result = if (isCollectionFolder) {
+                        val p = selected.preview
+                        val hasVisibleMetadata = p != null && (
+                            p.title.isNotBlank() ||
+                                !p.logo.isNullOrBlank() ||
+                                !p.description.isNullOrBlank()
+                            )
+                        if (hasVisibleMetadata) selected.copy(heroBackdrop = null) else selected
+                    } else {
+                        selected
+                    }
+
+                    // Guardia anti-hero-vuoto: durante lo scroll veloce il
+                    // live può restare indietro (chiave riga/focus in debouncing
+                    // → preview e backdrop null) e la hero andava tutta nera.
+                    // Se lo stato scelto è completamente vuoto ma esiste uno
+                    // stable con contenuto, si tiene quello.
+                    val resultPreview = result.preview
+                    val resultIsEmpty = (resultPreview?.title?.isNotBlank() != true) &&
+                        resultPreview?.logo.isNullOrBlank() &&
+                        result.heroBackdrop == null
+                    val stableHasContent = stable != null && (
+                        stable.preview?.title?.isNotBlank() == true ||
+                            stable.preview?.logo.isNullOrBlank() == false ||
+                            stable.heroBackdrop != null
+                        )
+                    if (resultIsEmpty && stableHasContent) stable else result
                 }
             }
 
             // Update stableRef from composition context (not inside lambda/read-only snapshot).
             // This runs on every recomposition and captures the latest live state with real content.
-            // Only update when NOT scrolling - after scroll stops, the enrichment mechanism
-            // will gate the preview through enrichmentActive in previewProvider.
+            // Only update when NOT scrolling: lo stable è il fotogramma congelato
+            // usato durante lo scroll. Il gate su enrichmentActive è rimosso:
+            // HeroTitleBlock riceve più enrichmentActive = { false } e il gate
+            // inglese gestito da gatedHeroDescription, quindi congelarlo qui
+            // lasciava lo stable fermo sul vecchio item (o vuoto) finché TMDB
+            // non rispondeva — e allo scroll veloce la hero mostrava l'hero
+            // sbagliato oppure andava tutta nera.
             val latestLiveForStable = liveHeroSceneState.value
             if (!verticalRowListState.isScrollInProgress &&
                 !isRapidHorizontalNav.value &&
-                !heroSettlePending.value &&
-                !latestLiveForStable.enrichmentActive
+                !heroSettlePending.value
             ) {
                 val hasNewPreview = latestLiveForStable.preview?.title?.isNotBlank() == true &&
                     stableHeroSceneStateRef.value?.preview != latestLiveForStable.preview
@@ -1291,6 +1351,13 @@ fun ModernHomeContent(
                     val state = heroSceneStateLambda()
                     if (isRapidHorizontalNav.value || isScrollInProgressUpdated) null
                     else activeCarouselItemState.value?.metaPreview
+                },
+                // Le card CW non hanno metaPreview: senza l'id di riserva
+                // l'override del logo non si applicava sul loro percorso.
+                itemIdFallbackProvider = {
+                    (activeCarouselItemState.value?.payload
+                        as? com.nuvio.tv.ui.screens.home.ModernPayload.ContinueWatching)
+                        ?.item?.contentId()
                 },
                 enrichmentActive = { false },
                 portraitMode = !useLandscapePosters,

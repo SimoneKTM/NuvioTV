@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.screens.collection
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -813,27 +814,21 @@ class FolderDetailViewModel @Inject constructor(
 
             var catalog = addon.catalogs.find { it.id == source.catalogId && it.apiType == source.type }
                 ?: addon.catalogs.find { it.id == source.catalogId.substringBefore(",") && it.apiType == source.type }
-            // If the catalog wasn't found in the declared addon, search only
-            // within the pool the tab declares (anime/extra/regular): catalog
-            // ids like "popular" are generic and exist in every pool, so a
-            // cross-pool hit loaded another pool's items while the tab label
-            // still credited the declared addon (wrong attribution, e.g.
-            // Tokyo Revengers coming from an unrelated catalog).
-            var effectiveAddon: com.nuvio.tv.domain.model.Addon = addon
+            // Attribuzione STRETTA all'addon dichiarato dalla cartella: se il
+            // catalogo non c'è nell'addon dichiarato NON si cerca più in un
+            // altro addon (nemmeno della stessa pool). Prima la ricerca
+            // pool-wide trovava cataloghi generici ("top10") in addon diversi e
+            // la cartella mostrava gli item di un catalogo Home di un altro
+            // addon (es. "Tokyo Revengers" in "Top 10 Serie TV Disney").
+            // Resta solo il log diagnostico per capire il caso dal logcat.
+            val effectiveAddon: com.nuvio.tv.domain.model.Addon = addon
             if (catalog == null) {
-                val declaredPool = when {
-                    source.extraAddon -> extraAddons
-                    source.animeAddon -> animeAddons
-                    else -> regularAddons
-                }
-                for (a in declaredPool) {
-                    val match = a.catalogs.find { it.id == source.catalogId && it.apiType == source.type }
-                    if (match != null) {
-                        effectiveAddon = a
-                        catalog = match
-                        break
-                    }
-                }
+                Log.d(
+                    "FolderDetail",
+                    "catalog '$source.catalogId'(${source.type}) NOT in declared addon " +
+                        "'${addon.id}' — strict attribution: no cross-addon fallback. " +
+                        "pool candidates: ${(if (source.extraAddon) extraAddons else if (source.animeAddon) animeAddons else regularAddons).joinToString { it.id }}"
+                )
             }
             val tab = _uiState.value.tabs.getOrNull(tabIndex)
             val catalogName = catalog?.name

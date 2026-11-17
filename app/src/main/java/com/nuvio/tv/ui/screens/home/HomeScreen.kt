@@ -63,6 +63,8 @@ import com.nuvio.tv.R
 import com.nuvio.tv.core.tracking.LOCAL_LIBRARY_LIST_KEY
 import com.nuvio.tv.core.tracking.supportsMembershipFor
 import com.nuvio.tv.data.local.StartupAuthNotice
+import com.nuvio.tv.core.logo.LogoOverrideStore
+import com.nuvio.tv.ui.components.posteroptions.CustomLogoEditorDialog
 import com.nuvio.tv.ui.components.posteroptions.TrackingRemovalConfirmationDialog
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -442,6 +444,41 @@ fun HomeScreen(
         val isSeries = item.apiType.equals("series", ignoreCase = true) ||
             item.apiType.equals("tv", ignoreCase = true) ||
             item.apiType.equals("anime", ignoreCase = true)
+        // Editor immagine personalizzata (logo/poster/sfondo hero): si apre
+        // sopra il menu Azioni Titolo. Quale store usare è scelto dalla voce.
+        var editorActive by remember(item.id) { mutableStateOf(false) }
+        var editorStore by remember(item.id) {
+            mutableStateOf<com.nuvio.tv.core.logo.UrlOverrideStore?>(null)
+        }
+        var editorTitle by remember(item.id) { mutableStateOf<String?>(null) }
+        var editorSubtitle by remember(item.id) { mutableStateOf<String?>(null) }
+        var editorRemoveLabel by remember(item.id) { mutableStateOf<String?>(null) }
+        var editorInitial by remember(item.id) { mutableStateOf("") }
+        var editorHasExisting by remember(item.id) { mutableStateOf(false) }
+
+        fun openPosterEditor(
+            store: com.nuvio.tv.core.logo.UrlOverrideStore,
+            title: String?,
+            subtitle: String?,
+            removeLabel: String?
+        ) {
+            val current = store.current(item.id)
+            editorStore = store
+            editorInitial = current.orEmpty()
+            editorHasExisting = current != null
+            editorTitle = title
+            editorSubtitle = subtitle
+            editorRemoveLabel = removeLabel
+            editorActive = true
+        }
+
+        val posterEditorTitle = stringResource(R.string.custom_poster_editor_title)
+        val posterEditorSubtitle = stringResource(R.string.custom_poster_editor_subtitle)
+        val posterEditorRemove = stringResource(R.string.poster_action_remove_custom_poster)
+        val backdropEditorTitle = stringResource(R.string.custom_backdrop_editor_title)
+        val backdropEditorSubtitle = stringResource(R.string.custom_backdrop_editor_subtitle)
+        val backdropEditorRemove = stringResource(R.string.poster_action_remove_custom_backdrop)
+
         HomePosterOptionsDialog(
             title = item.name,
             isInLibrary = uiState.posterLibraryMembership[statusKey] == true,
@@ -471,8 +508,47 @@ fun HomeScreen(
                     viewModel.togglePosterSeriesWatched(item)
                 }
                 posterOptionsTarget = null
+            },
+            onSetCustomLogo = {
+                openPosterEditor(com.nuvio.tv.core.logo.LogoOverrideStore, null, null, null)
+            },
+            onSetCustomPoster = {
+                openPosterEditor(
+                    com.nuvio.tv.core.logo.PosterOverrideStore,
+                    posterEditorTitle,
+                    posterEditorSubtitle,
+                    posterEditorRemove
+                )
+            },
+            onSetCustomBackdrop = {
+                openPosterEditor(
+                    com.nuvio.tv.core.logo.HeroBackdropOverrideStore,
+                    backdropEditorTitle,
+                    backdropEditorSubtitle,
+                    backdropEditorRemove
+                )
             }
         )
+
+        if (editorActive) {
+            val store = editorStore
+            CustomLogoEditorDialog(
+                initialUrl = editorInitial,
+                hasExisting = editorHasExisting,
+                editorTitle = editorTitle,
+                editorSubtitle = editorSubtitle,
+                removeLabel = editorRemoveLabel,
+                onSave = { url ->
+                    store?.set(item.id, url)
+                    editorActive = false
+                },
+                onRemove = {
+                    store?.set(item.id, null)
+                    editorActive = false
+                },
+                onDismiss = { editorActive = false }
+            )
+        }
     }
 
     if (uiState.showPosterListPicker) {
@@ -522,7 +598,10 @@ private fun HomePosterOptionsDialog(
     onDismiss: () -> Unit,
     onDetails: () -> Unit,
     onToggleLibrary: () -> Unit,
-    onToggleWatched: () -> Unit
+    onToggleWatched: () -> Unit,
+    onSetCustomLogo: () -> Unit = {},
+    onSetCustomPoster: () -> Unit = {},
+    onSetCustomBackdrop: () -> Unit = {}
 ) {
     val primaryFocusRequester = remember { FocusRequester() }
 
@@ -588,6 +667,43 @@ private fun HomePosterOptionsDialog(
                     }
                 )
             }
+        }
+
+        // Logo manuale per titoli senza logo TMDB (o per sostituirlo):
+        // apre l'editor con il link dell'immagine, salvato per id item.
+        Button(
+            onClick = onSetCustomLogo,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.colors(
+                containerColor = NuvioTheme.colors.BackgroundCard,
+                contentColor = NuvioTheme.colors.TextPrimary
+            )
+        ) {
+            Text(stringResource(R.string.poster_action_set_custom_logo))
+        }
+
+        // Poster e sfondo hero personalizzati: stessa logica dell'override
+        // logo, store separati (PosterOverrideStore / HeroBackdropOverrideStore).
+        Button(
+            onClick = onSetCustomPoster,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.colors(
+                containerColor = NuvioTheme.colors.BackgroundCard,
+                contentColor = NuvioTheme.colors.TextPrimary
+            )
+        ) {
+            Text(stringResource(R.string.poster_action_set_custom_poster))
+        }
+
+        Button(
+            onClick = onSetCustomBackdrop,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.colors(
+                containerColor = NuvioTheme.colors.BackgroundCard,
+                contentColor = NuvioTheme.colors.TextPrimary
+            )
+        ) {
+            Text(stringResource(R.string.poster_action_set_custom_backdrop))
         }
     }
 }

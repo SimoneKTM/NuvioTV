@@ -1,6 +1,8 @@
 package com.nuvio.tv.ui.components
 
 import com.nuvio.tv.core.perf.LocalFluidMode
+import com.nuvio.tv.core.logo.LogoOverrideStore
+import com.nuvio.tv.core.logo.PosterOverrideStore
 
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.material.icons.Icons
@@ -22,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -249,17 +252,26 @@ fun ContentCard(
             with(density) { baseCardHeight.roundToPx() }.coerceAtLeast(1)
         }
 
+        // Override manuali (menu Azioni Titolo): poster e logo personalizzati
+        // vincono sull'artwork del catalogo. collectAsState: al salvataggio
+        // l'override la card si ricompone subito con la nuova immagine.
+        @Suppress("UNUSED_VARIABLE")
+        val posterOverrides by PosterOverrideStore.overrides.collectAsState()
+        @Suppress("UNUSED_VARIABLE")
+        val cardLogoOverrides by LogoOverrideStore.overrides.collectAsState()
+        val overriddenPoster = PosterOverrideStore.resolve(item.id, item.poster)
         val imageUrl = if (focusedPosterBackdropExpandEnabled && isBackdropExpanded) {
-            item.backdropUrl ?: item.poster
+            item.backdropUrl ?: overriddenPoster
         } else {
-            item.poster
+            overriddenPoster
         }
+        val effectiveLogoUrl = LogoOverrideStore.resolve(item.id, item.logo)
         val imageModel = rememberPosterImageRequest(imageUrl, requestWidthPx, requestHeightPx)
         val logoRequestHeightPx = remember(density) {
             with(density) { NuvioTheme.spacing.xxxl.roundToPx() }
         }
-        val logoModel = remember(item.logo, requestWidthPx, logoRequestHeightPx) {
-            item.logo?.let { logoUrl ->
+        val logoModel = remember(effectiveLogoUrl, requestWidthPx, logoRequestHeightPx) {
+            effectiveLogoUrl?.let { logoUrl ->
                 ImageRequest.Builder(context)
                     .data(logoUrl)
                     .crossfade(false)
@@ -268,8 +280,8 @@ fun ContentCard(
                     .build()
             }
         }
-        var logoLoadFailed by remember(item.logo) { mutableStateOf(false) }
-        val showExpandedLogo = !item.logo.isNullOrBlank() && !logoLoadFailed
+        var logoLoadFailed by remember(effectiveLogoUrl) { mutableStateOf(false) }
+        val showExpandedLogo = !effectiveLogoUrl.isNullOrBlank() && !logoLoadFailed
 
         val bgCardColor = NuvioTheme.colors.BackgroundCard
         val backgroundPainter = remember(bgCardColor) { androidx.compose.ui.graphics.painter.ColorPainter(bgCardColor) }

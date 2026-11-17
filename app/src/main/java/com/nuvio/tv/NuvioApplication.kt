@@ -111,9 +111,14 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             .getString("locale_tag", null)
         LocaleCache.localeTag = tag ?: ""
 
-        // Override logo per titolo ("Imposta logo personalizzato"): mappa in
+        // Override manuali per titolo (logo/poster/sfondo hero): mappe in
         // memoria da SharedPreferences, init sincrono e a costo zero.
-        runCatching { com.nuvio.tv.core.logo.LogoOverrideStore.init(this) }
+        runCatching {
+            com.nuvio.tv.core.logo.LogoOverrideStore.init(this)
+            com.nuvio.tv.core.logo.PosterOverrideStore.init(this)
+            com.nuvio.tv.core.logo.HeroBackdropOverrideStore.init(this)
+            preloadOverrideImages()
+        }
 
         // In-process memory telemetry (Log.i, release-safe): captures the Java/
         // Native/Graphics curve every 10s even when dumpsys times out under
@@ -242,6 +247,33 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                 runCatching { System.gc() }
             }
         }
+    }
+
+    /**
+     * Preload Coil degli override manuali (logo/poster/sfondo hero): le
+     * immagini finiscono in disco/memoria già al boot, così al primo
+     * utilizzo il logo personalizzato compare da millisecondi invece che
+     * dalla rete (da secondi a ~ms). Enqueue è asincrono e a costo nullo
+     * se la cache è già piena.
+     */
+    private fun preloadOverrideImages() {
+        val urls = linkedSetOf<String>()
+        urls.addAll(com.nuvio.tv.core.logo.LogoOverrideStore.overrides.value.values)
+        urls.addAll(com.nuvio.tv.core.logo.PosterOverrideStore.overrides.value.values)
+        urls.addAll(com.nuvio.tv.core.logo.HeroBackdropOverrideStore.overrides.value.values)
+        if (urls.isEmpty()) return
+        val loader = coil3.SingletonImageLoader.get(this)
+        urls.forEach { url ->
+            runCatching {
+                loader.enqueue(
+                    coil3.request.ImageRequest.Builder(this)
+                        .data(url)
+                        .crossfade(false)
+                        .build()
+                )
+            }
+        }
+        Log.i(TAG, "preload override images: ${urls.size}")
     }
 
     /**

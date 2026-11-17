@@ -139,7 +139,7 @@ class MetaRepositoryImpl @Inject constructor(
         namespace: String
     ): Flow<NetworkResult<Meta>> = flow {
         val ctx = context
-        val normalizedAddon = addonBaseUrl.trim().trimEnd('/').lowercase()
+        val normalizedAddon = addonCacheKey(addonBaseUrl)
         val cacheKey = "$namespace:$normalizedAddon:${metaCacheType(type)}:$id"
         metaCache[cacheKey]?.let { cached ->
             emit(NetworkResult.Success(cached))
@@ -191,14 +191,14 @@ class MetaRepositoryImpl @Inject constructor(
         val cacheKey = "$namespace:$cacheType:$id:$mode"
         val candidateIds = buildMetaCandidateIds(id, originalId, rawId)
         var bypassedCachedMeta: Meta? = null
-        val normalizedSource = sourceAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
+        val normalizedSource = sourceAddonBaseUrl?.let { addonCacheKey(it) }.orEmpty()
         fun Meta.matchesRequestedSource(): Boolean {
             if (normalizedSource.isEmpty()) return true
             // `this.sourceAddonBaseUrl` è obbligatorio: senza il qualifier il
             // nome risolve al parametro esterno della funzione (shadowing) e il
             // confronto diventa sempre true — la cache riusava metadati di un
             // addon diverso da quello richiesto (attribuzione sbagliata).
-            val cachedSource = this.sourceAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
+            val cachedSource = this.sourceAddonBaseUrl?.let { addonCacheKey(it) }.orEmpty()
             return cachedSource == normalizedSource
         }
         // Global screens must reuse whatever Home/Anime/Extra already fetched
@@ -371,14 +371,14 @@ class MetaRepositoryImpl @Inject constructor(
         val deferred = inFlightAddonMeta.getOrPut(cacheKey) {
             repositoryScope.async {
                 try {
-                    val sourceUrl = sourceAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase()
+                    val sourceUrl = sourceAddonBaseUrl?.let { addonCacheKey(it) }
 
                     if (sourceUrl != null && sourceUrl.isNotEmpty()) {
                         // Source addon is known: always fetch full meta from it first
                         // (Detail needs videos — a catalog hit is not enough). Then fall
                         // back to other addons in the same namespace only.
                         val sourceCandidate = prioritizedCandidates.firstOrNull {
-                            it.first.baseUrl.trimEnd('/').lowercase() == sourceUrl
+                            addonCacheKey(it.first.baseUrl) == sourceUrl
                         }
                         val orderedCandidates = buildList {
                             sourceCandidate?.let { add(it) }
@@ -649,6 +649,22 @@ class MetaRepositoryImpl @Inject constructor(
                 attemptedAddonNames = attemptedAddonNames,
                 failures = attemptedFailures
             )))
+        }
+    }
+
+    /**
+     * Chiave di cache per l'addon: lowercase + slash finali rimosse, anche
+     * quando stanno PRIMA della query ("…/cfg/?token=abc" == "…/cfg?token=abc").
+     * Un semplice trimEnd('/') non tocca lo slash prima di '?', quindi le due
+     * varianti finivano su voci di cache diverse (doppia rete + falso miss).
+     */
+    private fun addonCacheKey(baseUrl: String): String {
+        val trimmed = baseUrl.trim().lowercase()
+        val queryStart = trimmed.indexOf('?')
+        return if (queryStart >= 0) {
+            trimmed.substring(0, queryStart).trimEnd('/') + trimmed.substring(queryStart)
+        } else {
+            trimmed.trimEnd('/')
         }
     }
 

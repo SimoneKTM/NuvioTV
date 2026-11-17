@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -327,6 +328,11 @@ internal fun HeroTitleBlock(
     enrichmentActive: () -> Boolean = { false },
     portraitMode: Boolean,
     trailerPlaying: () -> Boolean = { false },
+    // Id di riserva per l'override del logo: le card "Continua a guardare"
+    // non hanno metaPreview (è null), quindi senza questo id l'override
+    // veniva ignorato e l'hero mostrava il logo vecchio di TMDB sul percorso
+    // CW ("su continua a guardare compare il logo vecchio").
+    itemIdFallbackProvider: () -> String? = { null },
     modifier: Modifier = Modifier
 ) {
     val currentPreview = previewProvider()
@@ -348,7 +354,7 @@ internal fun HeroTitleBlock(
     if (displayPreview == null) return
 
     val nextEpisodeLabel = metaPreviewProvider()?.let { rememberNextEpisodeDateLabel(it) }
-    val heroItemId = metaPreviewProvider()?.id
+    val heroItemId = metaPreviewProvider()?.id ?: itemIdFallbackProvider()
 
     Box(
         modifier = modifier,
@@ -428,19 +434,34 @@ private fun HeroTitleContent(
             lineHeight = bodyMedium.lineHeight * descriptionScale
         )
     }
+    // Riga premi con la stessa scala delle meta (metaScale): con
+    // labelLarge a size piena la riga "Vinti/N candidature" risultava
+    // visibilmente più grande del resto del blocco ("la riga premi
+    // stessa [è] ingrandita").
+    val heroLabelLarge = MaterialTheme.typography.labelLarge
+    val scaledAwardsStyle = remember(heroLabelLarge, metaScale) {
+        heroLabelLarge.copy(
+            fontSize = heroLabelLarge.fontSize * metaScale,
+            lineHeight = heroLabelLarge.lineHeight * metaScale
+        )
+    }
 
     Column(
-        modifier = (if (highlighterEnabled) Modifier.recompositionHighlighter() else Modifier)
-            // Il blocco sta tra la banda nera (in alto) e le righe (in basso):
-            // se il contenuto non entra, si taglia in coda invece di finire
-            // sopra la riga "Continua a guardare".
-            .clipToBounds(),
+        modifier = (if (highlighterEnabled) Modifier.recompositionHighlighter() else Modifier),
+        // NESSUN clipToBounds qui: la sinossi è informazione primaria e deve
+        // poter protrarsi di almeno UNA riga oltre il limite del blocco quando
+        // righe extra (premi, next-episode) mangiano lo spazio. I chiamanti
+        // riservano il buffer (Home: ~23dp liberi fino al titolo della prima
+        // riga; Anime: HERO_DESC_RESERVE=40dp sottratti dal bottom padding),
+        // quindi l'overflow (sempre <= 1 riga grazie a heightIn(min=1 riga)
+        // sulla sinossi) non arriva mai sulle righe sotto. Prima il clip
+        // tagliava la riga a metà o la azzerava del tutto: "quando compare
+        // 'vinti 3 premi' la descrizione non esce".
         verticalArrangement = Arrangement.spacedBy(titleSpacing)
     ) {
         var logoLoadFailed by remember(effectiveLogoUrl) { mutableStateOf(false) }
-        // Titolo visibile FINCHÉ il logo non ha caricato il primo fotogramma:
-        // prima l'area restava vuota (o il titolo spariva) finché l'immagine
-        // non arrivava — "i loghi hanno un problema a comparire".
+        // Logo TMDB in fade-in sul primo fotogramma (niente upload texture
+        // dentro il frame dello swap dell'hero).
         var logoLoaded by remember(effectiveLogoUrl) { mutableStateOf(false) }
         val showLogo = !effectiveLogoUrl.isNullOrBlank() && !logoLoadFailed
         val logoAlpha by animateFloatAsState(
@@ -448,10 +469,12 @@ private fun HeroTitleContent(
             animationSpec = tween(durationMillis = NuvioMotion.tokens.durations.overlay),
             label = "heroLogoFade"
         )
-        // Fallback testo: se TMDB non ha il logo (o il caricamento fallisce)
-        // l'hero non mostrava alcun titolo — solo awards/meta/sinossi. Il
-        // titolo stilizzato prende il posto del logo; mentre il logo carica
-        // resta visibile e fa crossfade appena arriva il primo fotogramma.
+        // NESSUN logo testuale automatico: la scritta generata compariva per
+        // pochi millisecondi durante lo scroll anche sui titoli che un logo
+        // TMDB ce l'hanno (finché l'immagine caricava) e rendeva tutti i
+        // titoli identici/standard. Ora l'area resta riservata ma vuota finché
+        // il logo non è pronto; se il logo non esiste (o il caricamento fallisce)
+        // resta vuota e si usa eventuale logo personalizzato dal menu Azioni.
         if (showLogo) {
             Box(
                 modifier = Modifier
@@ -480,25 +503,11 @@ private fun HeroTitleContent(
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.CenterStart
                 )
-                if (!logoLoaded) {
-                    HeroTitleFallbackText(
-                        title = preview.title,
-                        alpha = 1f - logoAlpha,
-                        maxLines = 1,
-                        modifier = Modifier.matchParentSize()
-                    )
-                }
             }
         } else {
-            HeroTitleFallbackText(
-                title = preview.title,
-                alpha = 1f,
-                maxLines = 2,
-                modifier = Modifier
-                    .heightIn(min = 56.dp)
-                    .widthIn(min = 100.dp, max = 256.dp)
-                    .fillMaxWidth()
-            )
+            // Spazio riservato (stessa altezza del logo): il blocco premi/meta
+            // sotto non salta quando l'item non ha logo.
+            Spacer(modifier = Modifier.height(56.dp))
         }
 
         val localizedAwards = remember(preview.awards, context) {
@@ -514,11 +523,11 @@ private fun HeroTitleContent(
                     imageVector = Icons.Outlined.EmojiEvents,
                     contentDescription = null,
                     tint = NuvioPrimitives.green500,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(18.dp * metaScale)
                 )
                 Text(
                     text = localizedAwards,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = scaledAwardsStyle,
                     color = NuvioPrimitives.green500,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -741,11 +750,15 @@ private fun HeroTitleContent(
             // Lo spazio che resta è misurato qui: le righe che entrano davvero
             // si arrotondano per difetto, così la sinossi non viene mai
             // tagliata a metà riga (richiesta "la descrizione viene tagliata").
-            // Se lo spazio non basta nemmeno per una riga intera, la sinossi
-            // salta piuttosto che essere ritagliata a metà (clipToBounds).
+            // heightIn(min = 1 riga): se i premi/next-episode consumano tutto
+            // lo spazio la sinossi continua comunque per una riga intera nel
+            // buffer riservato dai chiamanti invece di sparire ("non compare
+            // proprio"). L'overflow è quindi sempre <= 1 riga.
+            val descriptionMinHeight = with(density) { scaledDescriptionStyle.lineHeight.toDp() }
             BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f, fill = false)
+                    .heightIn(min = descriptionMinHeight)
                     .graphicsLayer { alpha = metaAlpha }
             ) {
                 val lineHeightPx = with(density) { scaledDescriptionStyle.lineHeight.toPx() }
@@ -754,8 +767,6 @@ private fun HeroTitleContent(
                 } else {
                     descriptionMaxLines
                 }
-                // Almeno una riga: la sinossi è un'informazione primaria della
-                // hero e non deve sparire quando awards/meta occupano spazio.
                 Text(
                     text = description,
                     style = scaledDescriptionStyle,
@@ -766,29 +777,6 @@ private fun HeroTitleContent(
             }
         }
     }
-}
-
-/**
- * Titolo stilizzato al posto del logo TMDB: molti titoli non hanno logo e
- * l'hero non mostrava alcun titolo. Stesso ruolo del logo (area ~56dp,
- * max 256dp di larghezza), in grassetto e con crossfade via [alpha].
- */
-@Composable
-private fun HeroTitleFallbackText(
-    title: String,
-    alpha: Float,
-    maxLines: Int,
-    modifier: Modifier = Modifier
-) {
-    if (title.isBlank()) return
-    Text(
-        text = title,
-        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-        color = NuvioTheme.colors.TextPrimary,
-        maxLines = maxLines,
-        overflow = TextOverflow.Ellipsis,
-        modifier = modifier.graphicsLayer { this.alpha = alpha }
-    )
 }
 
 @Composable

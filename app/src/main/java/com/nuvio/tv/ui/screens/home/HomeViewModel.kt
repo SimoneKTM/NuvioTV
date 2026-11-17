@@ -141,6 +141,12 @@ class HomeViewModel @Inject constructor(
         // la descrizione restava inglese a lungo anche quando il secondo
         // tentativo sarebbe riuscito subito.
         private const val PREVIEW_TRANSLATION_RETRY_DELAY_MS = 1_500L
+        // Se una rivendicazione (claim) di traduzione supera questo limite
+        // senza che l'italiano arrivi in cache, il gate della hero smette di
+        // nascondere la sinossi e pubblica il testo grezzo: meglio vedere il
+        // testo non ancora tradotto che una descrizione che "non compare
+        // proprio" per tutta la sessione (claim rimasta bloccata).
+        private const val PREVIEW_CLAIM_HIDE_MAX_MS = 8_000L
 
         private fun <K, V> createLruMap(maxSize: Int): MutableMap<K, V> {
             val lru = object : LinkedHashMap<K, V>(maxSize + 4, 0.75f, true) {
@@ -212,6 +218,9 @@ class HomeViewModel @Inject constructor(
 
     /** Last description already handed to the translator, per item. */
     private val previewTranslationProcessed: MutableMap<String, String> = createLruMap(MAX_ENRICHMENT_CACHE_SIZE)
+    // Istante in cui il claim è stato posto: serve al gate per non nascondere
+    // la sinossi per sempre se il job di traduzione muore senza cleanup.
+    private val previewTranslationClaimedAt: MutableMap<String, Long> = createLruMap(MAX_ENRICHMENT_CACHE_SIZE)
 
     /**
      * Traduzioni arrivate PRIMA che l'arricchimento pubblicasse l'item (chiave:
@@ -348,7 +357,15 @@ class HomeViewModel @Inject constructor(
         val claimed = itemId != null && synchronized(previewTranslationLock) {
             previewTranslationProcessed[itemId] == raw
         }
-        return if (claimed) null else raw
+        if (!claimed) return raw
+        // Claim recente → la traduzione è davvero in corso: la sinossi resta
+        // nascosta per l'attesa. Claim vecchia → job morto senza cleanup (o
+        // traduzione andata perduta): pubblica il grezzo invece di tenere
+        // l'hero senza descrizione per sempre.
+        val claimedAt = itemId?.let { previewTranslationClaimedAt[it] } ?: 0L
+        val freshClaim = claimedAt > 0L &&
+            (System.currentTimeMillis() - claimedAt) < PREVIEW_CLAIM_HIDE_MAX_MS
+        return if (freshClaim) null else raw
     }
 
     /**
@@ -387,10 +404,24 @@ class HomeViewModel @Inject constructor(
                     val stolen = backgroundTranslationQueue.removeAll {
                         it.first == id && it.second == description
                     }
-                    // Non in coda → già in esecuzione o tradotta: niente da fare.
-                    if (!stolen) return
+                    if (!stolen) {
+                        // Non in coda → già in esecuzione o tradotta: niente da
+                        // fare. Tranne se il claim è rimasto bloccato da un job
+                        // annullato senza cleanup e la traduzione non è nemmeno
+                        // in cache: la hero resterebbe senza sinossi per sempre,
+                        // quindi al focus rilancia subito il job.
+                        val cachedNow = runCatching {
+                            metadataTextTranslator.peekCachedTranslation(
+                                currentTmdbSettings.language,
+                                description
+                            )
+                        }.getOrNull()
+                        if (!cachedNow.isNullOrBlank() && cachedNow != description) return
+                        previewTranslationClaimedAt[id] = System.currentTimeMillis()
+                    }
                 } else {
                     previewTranslationProcessed[id] = description
+                    previewTranslationClaimedAt[id] = System.currentTimeMillis()
                 }
                 focusPreviewTranslationJob?.cancel()
                 viewModelScope.launch { runPreviewTranslation(id, description) }
@@ -398,6 +429,7 @@ class HomeViewModel @Inject constructor(
             } else {
                 if (claimed) return
                 previewTranslationProcessed[id] = description
+                previewTranslationClaimedAt[id] = System.currentTimeMillis()
                 backgroundTranslationQueue.addLast(id to description)
                 if (backgroundTranslationWorker?.isActive != true) {
                     backgroundTranslationWorker = viewModelScope.launch {
@@ -421,6 +453,7 @@ class HomeViewModel @Inject constructor(
                         if (previewTranslationProcessed[id] == description) {
                             previewTranslationProcessed.remove(id)
                         }
+                        previewTranslationClaimedAt.remove(id)
                         if (focusPreviewTranslationJob === job) focusPreviewTranslationJob = null
                     }
                 }
@@ -485,6 +518,7 @@ class HomeViewModel @Inject constructor(
                 if (previewTranslationProcessed[id] == description) {
                     previewTranslationProcessed.remove(id)
                 }
+                previewTranslationClaimedAt.remove(id)
             }
             // Fallback: un hero SENZA descrizione è peggio di un testo non
             // ancora tradotto. Se la traduzione non arriva, pubblichiamo il

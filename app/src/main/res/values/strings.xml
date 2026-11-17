@@ -196,6 +196,14 @@
     <string name="custom_logo_editor_title">Custom logo</string>
     <string name="custom_logo_editor_subtitle">Paste the image link of the logo</string>
     <string name="custom_logo_editor_hint">https://…</string>
+    <string name="poster_action_set_custom_poster">Set custom poster</string>
+    <string name="poster_action_remove_custom_poster">Remove custom poster</string>
+    <string name="poster_action_set_custom_backdrop">Set custom hero backdrop</string>
+    <string name="poster_action_remove_custom_backdrop">Remove custom hero backdrop</string>
+    <string name="custom_poster_editor_title">Custom poster</string>
+    <string name="custom_poster_editor_subtitle">Paste the image link of the poster</string>
+    <string name="custom_backdrop_editor_title">Custom hero backdrop</string>
+    <string name="custom_backdrop_editor_subtitle">Paste the image link of the background</string>
 
     <string name="action_see_all">See All</string>
     <string name="action_load_more">Load More</string>

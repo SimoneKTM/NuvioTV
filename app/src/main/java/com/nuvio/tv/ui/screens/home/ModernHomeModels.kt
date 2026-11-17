@@ -42,6 +42,16 @@ internal val MODERN_ROW_HEADER_FOCUS_INSET = 40.dp
 // card o backdrop: il blocco è ancorato in basso, quindi questo extra sul
 // padding inferiore lo sposta verso l'alto della stessa misura.
 internal val MODERN_HERO_TEXT_LIFT = 48.dp
+// Riserva di spazio per la sinossi della hero: sottratta dal padding
+// inferiore del blocco testo (ancorato in basso su Anime) regala alla
+// descrizione fino a ~4 righe in più quando righe extra (premi "vinti 3
+// premi", next-episode) consumano lo spazio residuo — con il clip di prima
+// la sinossi spariva del tutto. Dopo la sottrazione restano lg+LIFT-40dp =
+// 24dp di buffer fino al titolo della prima riga, quindi la riga in più
+// della sinossi (heightIn(min=1 riga) in ModernHomeHero) non arriva mai
+// sulle righe sotto. La Home usa un blocco TopStart con ~23dp di buffer
+// già disponibili e non ha bisogno di questa riserva.
+internal val HERO_DESC_RESERVE = 40.dp
 // Distanza tra la banda della barra alta e l'inizio del blocco testo della
 // hero: il blocco è ancorato in alto, così logo e meta restano sempre nella
 // stessa posizione anche quando la sinossi è corta.

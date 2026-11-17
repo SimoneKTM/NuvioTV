@@ -1344,7 +1344,7 @@ internal fun ModernRowSection(
  * può estendersi liberamente nella banda. Solo LTR: in RTL il bordo è sul
  * lato finale e il comportamento resta invariato.
  */
-private fun Modifier.clipPastRowStartEdge(
+internal fun Modifier.clipPastRowStartEdge(
     listState: LazyListState,
     itemKey: Any,
 ): Modifier = drawWithContent {

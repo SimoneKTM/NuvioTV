@@ -54,6 +54,7 @@ class MetadataTextTranslator @Inject constructor(
         // detail open. Budget enough for the season on screen, then keep the original.
         private const val BATCH_DEADLINE_MS = 15_000L
         private const val PARALLELISM = 4
+        private val SENTENCE_SPLIT_REGEX = Regex("(?<=[.!?])\\s+")
 
         /**
          * Coalesces disk writes: a Home row hands the translator a handful of
@@ -358,13 +359,60 @@ class MetadataTextTranslator @Inject constructor(
         if (translated == null) {
             return null
         }
-        if (looksLikeUntranslated(body, translated)) {
-            // Traduzione a metà: non la memorizziamo MAI (bastava una voce del
-            // genere per far restare l'hero in inglese per tutta la sessione).
+        if (isRejectedTranslation(body, translated, detected)) {
+            // Traduzione a metà o ancora in lingua sorgente: non va MAI
+            // pubblicata né memorizzata (bastava una voce del genere per far
+            // restare l'hero in inglese per tutta la sessione). ML Kit sul
+            // testo intero lascia a volte la testa intatta: riproviamo frase
+            // per frase, dove i pezzi brevi vengono tradotti per intero.
+            val chunked = translateBySentences(translator, body, startedAtMs)
+            if (chunked != null && !isRejectedTranslation(body, chunked, detected)) {
+                rememberTranslation(key, chunked)
+                return chunked
+            }
             return null
         }
         rememberTranslation(key, translated)
         return translated
+    }
+
+    /**
+     * Il risultato è inaccettabile se (a) la testa resta identica alla sorgente
+     * per un prefisso lungo ([looksLikeUntranslated]) oppure (b) rilevato come
+     * ancora nella lingua sorgente — il caso classico è l'ibrido EN+IT dove la
+     * divergenza inizia prima della soglia del prefisso e (a) non scatta.
+     */
+    private suspend fun isRejectedTranslation(
+        source: String,
+        translated: String,
+        sourceLanguage: String
+    ): Boolean {
+        if (looksLikeUntranslated(source, translated)) return true
+        val outputLanguage = withTimeoutOrNull(DETECT_TIMEOUT_MS) { identifyLanguage(translated) }
+        val normalizedOutput = normalizeLanguageCode(outputLanguage)
+        return normalizedOutput != null && normalizedOutput == normalizeLanguageCode(sourceLanguage)
+    }
+
+    /**
+     * Traduce il testo frase per frase e le ricompone. Usato come retry quando
+     * la traduzione dell'intero blocco viene rifiutata: sulle singole frasi
+     * brevi ML Kit non lascia mai la testa in lingua sorgente.
+     * Ritorna null se il testo non è splittabile o se si esaurisce il budget.
+     */
+    private suspend fun translateBySentences(
+        translator: Translator,
+        body: String,
+        startedAtMs: Long
+    ): String? {
+        val sentences = SENTENCE_SPLIT_REGEX.split(body).map { it.trim() }.filter { it.isNotBlank() }
+        if (sentences.size < 2) return null
+        val out = ArrayList<String>(sentences.size)
+        for (sentence in sentences) {
+            if (System.currentTimeMillis() - startedAtMs > BATCH_DEADLINE_MS) return null
+            val done = withTimeoutOrNull(TRANSLATE_TIMEOUT_MS) { translator.translate(sentence).awaitText() }
+            out += done?.takeIf { it.isNotBlank() } ?: sentence
+        }
+        return out.joinToString(" ")
     }
 
     /**

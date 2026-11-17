@@ -119,6 +119,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.nuvio.tv.core.perf.FluidModeState
 import com.nuvio.tv.core.perf.LocalFluidMode
 import com.nuvio.tv.core.runtime.PluginRuntimeHooks
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -245,6 +247,14 @@ private const val MIN_POST_PROFILE_LOADING_MS = 600L
 // finished (rows, images, trailers saved on disk) and at least this long; every
 // later launch is the fast warm path above.
 private const val MIN_STARTUP_SPLASH_FIRST_RUN_MS = 15_000L
+
+/**
+ * Scala globale dell'UI (tutta l'app): riduce insieme font e card.
+ * Unico punto da tarare — 1.0 = nessuna riduzione, 0.9 = tutto al 90%.
+ * Applicata come Density locale in [setContent]: dp e sp di ogni
+ * composizione vengono convertiti con questa densità.
+ */
+private const val UI_SCALE = 0.9f
 
 /**
  * Density scale that shrinks a Fire TV stick's UI toward the ~1280dp-wide
@@ -738,6 +748,16 @@ class MainActivity : ComponentActivity() {
                 addonRepository.getInstalledAddons()
             }.collectAsState(initial = null)
 
+            // Scala globale dell'UI: un solo fattore per tutta l'app
+            // (font + card), tarabile su UI_SCALE. La Density locale vale
+            // per tutta la composizione sotto, inclusi dialog e toast.
+            val baseDensity = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(
+                    density = baseDensity.density * UI_SCALE,
+                    fontScale = baseDensity.fontScale
+                )
+            ) {
             NuvioTheme(
                 appTheme = mainUiPrefs.theme,
                 appFont = mainUiPrefs.font,
@@ -1195,6 +1215,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             }
+            } // CompositionLocalProvider: scala globale UI_SCALE
         }
 
         jankStats = JankStats.createAndTrack(window) { frameData ->

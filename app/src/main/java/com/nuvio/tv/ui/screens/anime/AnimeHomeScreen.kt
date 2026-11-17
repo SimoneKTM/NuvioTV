@@ -97,8 +97,10 @@ import com.nuvio.tv.ui.screens.home.ClassicFocusGradientBackdrop
 import com.nuvio.tv.ui.screens.home.ContinueWatchingItem
 import com.nuvio.tv.ui.screens.home.HeroPreview
 import com.nuvio.tv.ui.screens.home.HeroTitleBlock
+import com.nuvio.tv.ui.screens.home.HERO_DESC_RESERVE
 import com.nuvio.tv.ui.screens.home.MODERN_HERO_MEDIA_WIDTH_FRACTION
 import com.nuvio.tv.ui.screens.home.MODERN_HERO_TEXT_LIFT
+import com.nuvio.tv.ui.screens.home.clipPastRowStartEdge
 import com.nuvio.tv.ui.screens.home.MODERN_HERO_TEXT_WIDTH_FRACTION
 import com.nuvio.tv.ui.screens.home.MODERN_ROW_HEADER_FOCUS_INSET
 import com.nuvio.tv.ui.screens.home.ModernHeroScene
@@ -129,6 +131,16 @@ fun AnimeHomeScreen(
     onOpenSettings: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Menu Azioni Titolo (stesso della Home): logo/poster/sfondo personalizzati
+    // sui poster Anime via pressione prolungata.
+    val posterOptionsViewModel: com.nuvio.tv.ui.components.posteroptions.PosterOptionsViewModel =
+        hiltViewModel()
+    val posterOptionsState by posterOptionsViewModel.controller.state.collectAsStateWithLifecycle()
+    val posterOptionsController = posterOptionsViewModel.controller
+    val onCatalogItemLongPress: (MetaPreview, String?) -> Unit = { item, addonBaseUrl ->
+        posterOptionsController.show(item, addonBaseUrl)
+    }
     val rows = uiState.rows
 
     // Sfondo opaco: copre la schermata uscente finché questa non è pronta,
@@ -203,7 +215,8 @@ fun AnimeHomeScreen(
                         onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning,
                         onRemoveContinueWatching = onRemoveContinueWatching,
                         onLoadMoreCatalog = viewModel::loadMoreCatalogItems,
-                        onItemFocus = { viewModel.onEvent(AnimeHomeEvent.OnItemFocus(it)) }
+                        onItemFocus = { viewModel.onEvent(AnimeHomeEvent.OnItemFocus(it)) },
+                        onCatalogItemLongPress = onCatalogItemLongPress
                     )
                     HomeLayout.CLASSIC -> AnimeClassicContent(
                         uiState = uiState,
@@ -217,10 +230,18 @@ fun AnimeHomeScreen(
                         onRemoveContinueWatching = onRemoveContinueWatching,
                         onItemFocus = { viewModel.onEvent(AnimeHomeEvent.OnItemFocus(it)) }
                     )
-                    HomeLayout.GRID -> AnimeGridContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onContinueWatchingClick = onContinueWatchingClick, onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning, onRemoveContinueWatching = onRemoveContinueWatching)
+                    HomeLayout.GRID -> AnimeGridContent(uiState = uiState, onNavigateToDetail = onNavigateToDetail, onNavigateToSeeAll = onNavigateToSeeAll, onContinueWatchingClick = onContinueWatchingClick, onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginning, onRemoveContinueWatching = onRemoveContinueWatching, onCatalogItemLongPress = onCatalogItemLongPress)
                 }
             }
         }
+
+        // Menu Azioni Titolo (logo/poster/sfondo personalizzati), stesso
+        // host della Home: si apre sopra il contenuto Anime.
+        com.nuvio.tv.ui.components.posteroptions.PosterOptionsHost(
+            state = posterOptionsState,
+            controller = posterOptionsController,
+            onNavigateToDetail = onNavigateToDetail
+        )
     }
 }
 
@@ -254,7 +275,8 @@ private fun AnimeModernContent(
     onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
     onRemoveContinueWatching: (ContinueWatchingItem) -> Unit,
     onLoadMoreCatalog: (String, String, String) -> Unit,
-    onItemFocus: (MetaPreview) -> Unit
+    onItemFocus: (MetaPreview) -> Unit,
+    onCatalogItemLongPress: (MetaPreview, String?) -> Unit = { _, _ -> }
 ) {
     // La banda nera della top bar resta attiva anche qui: spenta, sopra
     // l'immagine hero la barra sembrava trasparente.
@@ -522,6 +544,7 @@ private fun AnimeModernContent(
                             focusedHeroItem = item
                             onItemFocus(item)
                         },
+                        onCatalogItemLongPress = onCatalogItemLongPress,
                         onLoadMoreCatalog = onLoadMoreCatalog
                     )
                 }
@@ -553,6 +576,7 @@ private fun AnimeModernCatalogRow(
     trailerPreviewAudioUrls: Map<String, String>,
     onItemClick: (String, String, String) -> Unit,
     onItemFocus: (MetaPreview) -> Unit,
+    onCatalogItemLongPress: (MetaPreview, String?) -> Unit = { _, _ -> },
     onLoadMoreCatalog: (String, String, String) -> Unit
 ) {
     val catalogContext = LocalContext.current
@@ -703,6 +727,15 @@ private fun AnimeModernCatalogRow(
                     items = catalogRow.items,
                     key = { index, _ -> catalogRow.stableItemKey(index) }
                 ) { index, item ->
+                    // Come in Home (ModernHomeRows): la card precedente uscita
+                    // dal bordo iniziale viene clip-ata e sparisce nel nero
+                    // invece di restare visibile tagliata; la focalizzata resta
+                    // non clip-ata. Solo LTR (in RTL il bordo è a destra).
+                    val itemKey = catalogRow.stableItemKey(index)
+                    Box(
+                        modifier = if (index == focusedItemIndex || isRtl) Modifier
+                        else Modifier.clipPastRowStartEdge(rowListState, itemKey)
+                    ) {
                     ContentCard(
                         item = item,
                         posterCardStyle = posterCardStyle,
@@ -718,8 +751,12 @@ private fun AnimeModernCatalogRow(
                             focusedItemIndex = index
                             onItemFocus(it)
                         },
+                        // Pressione prolungata: menu Azioni Titolo (come in Home)
+                        // con editor logo/poster/sfondo personalizzato.
+                        onLongPress = { onCatalogItemLongPress(item, catalogRow.addonBaseUrl) },
                         onClick = { onItemClick(item.id, item.apiType, catalogRow.addonBaseUrl) }
                     )
+                    }
                 }
             }
         }
@@ -837,6 +874,12 @@ private fun AnimeModernContinueWatchingRow(
                     key = { _, item -> continueWatchingItemKey(item) }
                 ) { index, item ->
                     var cardFocused by remember { mutableStateOf(false) }
+                    // Come in Home: la card precedente uscita dal bordo
+                    // iniziale viene clip-ata (banda nera), la focalizzata no.
+                    Box(
+                        modifier = if (index == focusedItemIndex || isRtl) Modifier
+                        else Modifier.clipPastRowStartEdge(rowListState, continueWatchingItemKey(item))
+                    ) {
                     ContinueWatchingCard(
                         item = item,
                         onClick = { onItemClick(item) },
@@ -865,6 +908,7 @@ private fun AnimeModernContinueWatchingRow(
                                 }
                             }
                     )
+                    }
                 }
             }
         }
@@ -1039,11 +1083,15 @@ private fun AnimeModernHero(
                 .align(Alignment.BottomStart)
                 // Tutto il blocco testo dell'hero parte sotto la banda nera
                 // della barra: il logo non resta più mezzo coperto dalla striscia.
+                // -HERO_DESC_RESERVE: lo spazio sottratto finisce alla sinossi,
+                // che altrimenti (con la riga premi in più) si riduceva a una
+                // fettina invisibile sotto i badge — "quando compare 'vinti 3
+                // premi' la descrizione non esce".
                 .padding(
                     top = TOP_BAR_BAND_HEIGHT,
                     start = 96.dp,
                     end = NuvioTheme.spacing.xxxl,
-                    bottom = rowsViewportHeight + NuvioTheme.spacing.lg + MODERN_HERO_TEXT_LIFT
+                    bottom = rowsViewportHeight + NuvioTheme.spacing.lg + MODERN_HERO_TEXT_LIFT - HERO_DESC_RESERVE
                 )
                 .fillMaxWidth(MODERN_HERO_TEXT_WIDTH_FRACTION)
         )
@@ -1187,7 +1235,8 @@ private fun AnimeGridContent(
     onNavigateToSeeAll: (String, String, String) -> Unit,
     onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
     onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
-    onRemoveContinueWatching: (ContinueWatchingItem) -> Unit
+    onRemoveContinueWatching: (ContinueWatchingItem) -> Unit,
+    onCatalogItemLongPress: (MetaPreview, String?) -> Unit = { _, _ -> }
 ) {
     val rowsListState = rememberLazyListState()
     LazyColumn(
@@ -1234,6 +1283,7 @@ private fun AnimeGridContent(
                 posterCardStyle = animePosterCardStyle(uiState),
                 showLabels = uiState.posterLabelsEnabled,
                 onItemClick = onNavigateToDetail,
+                onCatalogItemLongPress = onCatalogItemLongPress,
                 onSeeAll = {
                     onNavigateToSeeAll(row.catalogId, row.addonId, row.apiType)
                 },
@@ -1266,6 +1316,7 @@ private fun AnimeGridCatalogSection(
     onSeeAll: () -> Unit,
     showSeeAll: Boolean,
     showCatalogTypeSuffix: Boolean,
+    onCatalogItemLongPress: (MetaPreview, String?) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val catalogContext = LocalContext.current
@@ -1317,6 +1368,8 @@ private fun AnimeGridCatalogSection(
                             item = item,
                             posterCardStyle = posterCardStyle,
                             showLabels = showLabels,
+                            // Pressione prolungata: menu Azioni Titolo (come in Home).
+                            onLongPress = { onCatalogItemLongPress(item, catalogRow.addonBaseUrl) },
                             onClick = {
                                 onItemClick(item.id, item.apiType, catalogRow.addonBaseUrl)
                             }

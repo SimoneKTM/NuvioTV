@@ -1,5 +1,7 @@
 package com.nuvio.tv.core.tmdb
 
+import com.nuvio.tv.data.remote.api.TmdbAggregateCreditsResponse
+import com.nuvio.tv.data.remote.api.TmdbAlternativeTitlesResponse
 import com.nuvio.tv.data.remote.api.TmdbApi
 import com.nuvio.tv.data.remote.api.TmdbCompany
 import com.nuvio.tv.data.remote.api.TmdbCompanyDetailsResponse
@@ -77,6 +79,14 @@ class TmdbMetadataServiceTest {
                 status = "Returning Series"
             )
         )
+        // Il servizio legge i crediti da aggregate_credits (non credits):
+        // senza questo stub mockk lancia e enrichment resta null.
+        coEvery { api.getTvAggregateCredits(any(), any(), any()) } returns Response.success(
+            TmdbAggregateCreditsResponse()
+        )
+        coEvery { api.getTvAlternativeTitles(any(), any()) } returns Response.success(
+            TmdbAlternativeTitlesResponse()
+        )
         coEvery { api.getTvCredits(any(), any(), any()) } returns Response.success(TmdbCreditsResponse())
         coEvery { api.getTvImages(any(), any(), any()) } returns Response.success(TmdbImagesResponse())
         coEvery { api.getTvContentRatings(any(), any()) } returns Response.success(TmdbTvContentRatingsResponse())
@@ -104,6 +114,13 @@ class TmdbMetadataServiceTest {
                 lastAirDate = "2019-05-19",
                 status = "Ended"
             )
+        )
+        // Vedi test "ongoing": crediti da aggregate_credits + alt titles.
+        coEvery { api.getTvAggregateCredits(any(), any(), any()) } returns Response.success(
+            TmdbAggregateCreditsResponse()
+        )
+        coEvery { api.getTvAlternativeTitles(any(), any()) } returns Response.success(
+            TmdbAlternativeTitlesResponse()
         )
         coEvery { api.getTvCredits(any(), any(), any()) } returns Response.success(TmdbCreditsResponse())
         coEvery { api.getTvImages(any(), any(), any()) } returns Response.success(TmdbImagesResponse())

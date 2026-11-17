@@ -59,7 +59,9 @@ fun PosterOptionsDialog(
     onDetails: () -> Unit,
     onToggleLibrary: () -> Unit,
     onToggleWatched: () -> Unit,
-    onSetCustomLogo: () -> Unit = {}
+    onSetCustomLogo: () -> Unit = {},
+    onSetCustomPoster: () -> Unit = {},
+    onSetCustomBackdrop: () -> Unit = {}
 ) {
     val primaryFocusRequester = remember { FocusRequester() }
 
@@ -139,6 +141,30 @@ fun PosterOptionsDialog(
         ) {
             Text(stringResource(R.string.poster_action_set_custom_logo))
         }
+
+        // Poster e sfondo hero personalizzati: stessa logica dell'override
+        // logo, store separati (PosterOverrideStore / HeroBackdropOverrideStore).
+        Button(
+            onClick = onSetCustomPoster,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.colors(
+                containerColor = NuvioTheme.colors.BackgroundCard,
+                contentColor = NuvioTheme.colors.TextPrimary
+            )
+        ) {
+            Text(stringResource(R.string.poster_action_set_custom_poster))
+        }
+
+        Button(
+            onClick = onSetCustomBackdrop,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.colors(
+                containerColor = NuvioTheme.colors.BackgroundCard,
+                contentColor = NuvioTheme.colors.TextPrimary
+            )
+        ) {
+            Text(stringResource(R.string.poster_action_set_custom_backdrop))
+        }
     }
 }
 
@@ -153,7 +179,12 @@ fun CustomLogoEditorDialog(
     hasExisting: Boolean,
     onSave: (String) -> Unit,
     onRemove: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    // Personalizzazione: lo stesso editor serve per logo, poster e sfondo
+    // hero ("Imposta … personalizzato" nel menu Azioni Titolo).
+    editorTitle: String? = null,
+    editorSubtitle: String? = null,
+    removeLabel: String? = null
 ) {
     var input by remember(initialUrl) { androidx.compose.runtime.mutableStateOf(initialUrl) }
     val focusRequester = remember { FocusRequester() }
@@ -165,8 +196,8 @@ fun CustomLogoEditorDialog(
 
     NuvioDialog(
         onDismiss = onDismiss,
-        title = stringResource(R.string.custom_logo_editor_title),
-        subtitle = stringResource(R.string.custom_logo_editor_subtitle),
+        title = editorTitle ?: stringResource(R.string.custom_logo_editor_title),
+        subtitle = editorSubtitle ?: stringResource(R.string.custom_logo_editor_subtitle),
         width = 560.dp
     ) {
         BasicTextField(
@@ -233,7 +264,7 @@ fun CustomLogoEditorDialog(
                         contentColor = NuvioTheme.colors.TextPrimary
                     )
                 ) {
-                    Text(stringResource(R.string.poster_action_remove_custom_logo))
+                    Text(removeLabel ?: stringResource(R.string.poster_action_remove_custom_logo))
                 }
             }
             Button(
@@ -341,15 +372,48 @@ fun PosterOptionsHost(
     onNavigateToDetail: (id: String, type: String, addonBaseUrl: String) -> Unit
 ) {
     val target = state.target
-    // Editor logo personalizzato: stato locale, si apre sopra il menu azioni.
-    var logoEditorActive by remember(state.target?.id) { androidx.compose.runtime.mutableStateOf(false) }
-    var logoEditorInitial by remember(state.target?.id) { androidx.compose.runtime.mutableStateOf("") }
-    var logoEditorHasExisting by remember(state.target?.id) { androidx.compose.runtime.mutableStateOf(false) }
+    // Editor immagine personalizzata (logo/poster/sfondo): stato locale, si
+    // apre sopra il menu azioni. Quale store usare è scelto dalla voce premuta.
+    var editorActive by remember(state.target?.id) { androidx.compose.runtime.mutableStateOf(false) }
+    var editorStore by remember(state.target?.id) {
+        androidx.compose.runtime.mutableStateOf<com.nuvio.tv.core.logo.UrlOverrideStore?>(null)
+    }
+    var editorTitle by remember(state.target?.id) { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var editorSubtitle by remember(state.target?.id) { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var editorRemoveLabel by remember(state.target?.id) { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var editorInitial by remember(state.target?.id) { androidx.compose.runtime.mutableStateOf("") }
+    var editorHasExisting by remember(state.target?.id) { androidx.compose.runtime.mutableStateOf(false) }
+
+    fun openEditor(
+        store: com.nuvio.tv.core.logo.UrlOverrideStore,
+        itemId: String,
+        title: String?,
+        subtitle: String?,
+        removeLabel: String?
+    ) {
+        val current = store.current(itemId)
+        editorStore = store
+        editorInitial = current.orEmpty()
+        editorHasExisting = current != null
+        editorTitle = title
+        editorSubtitle = subtitle
+        editorRemoveLabel = removeLabel
+        editorActive = true
+    }
+
     if (target != null) {
         val isMovie = target.apiType.equals("movie", ignoreCase = true)
         val isSeries = target.apiType.equals("series", ignoreCase = true) ||
             target.apiType.equals("tv", ignoreCase = true) ||
             target.apiType.equals("anime", ignoreCase = true)
+        // Stringhe risolte in composizione: le lambda di onClick non sono
+        // composable, quindi non possono chiamare stringResource al volo.
+        val posterEditorTitle = androidx.compose.ui.res.stringResource(R.string.custom_poster_editor_title)
+        val posterEditorSubtitle = androidx.compose.ui.res.stringResource(R.string.custom_poster_editor_subtitle)
+        val posterEditorRemove = androidx.compose.ui.res.stringResource(R.string.poster_action_remove_custom_poster)
+        val backdropEditorTitle = androidx.compose.ui.res.stringResource(R.string.custom_backdrop_editor_title)
+        val backdropEditorSubtitle = androidx.compose.ui.res.stringResource(R.string.custom_backdrop_editor_subtitle)
+        val backdropEditorRemove = androidx.compose.ui.res.stringResource(R.string.poster_action_remove_custom_backdrop)
         PosterOptionsDialog(
             title = target.name,
             isInLibrary = state.isInLibrary,
@@ -381,26 +445,51 @@ fun PosterOptionsHost(
                 controller.dismiss()
             },
             onSetCustomLogo = {
-                val current = LogoOverrideStore.current(target.id)
-                logoEditorInitial = current.orEmpty()
-                logoEditorHasExisting = current != null
-                logoEditorActive = true
+                openEditor(
+                    LogoOverrideStore,
+                    target.id,
+                    null,
+                    null,
+                    null
+                )
+            },
+            onSetCustomPoster = {
+                openEditor(
+                    com.nuvio.tv.core.logo.PosterOverrideStore,
+                    target.id,
+                    posterEditorTitle,
+                    posterEditorSubtitle,
+                    posterEditorRemove
+                )
+            },
+            onSetCustomBackdrop = {
+                openEditor(
+                    com.nuvio.tv.core.logo.HeroBackdropOverrideStore,
+                    target.id,
+                    backdropEditorTitle,
+                    backdropEditorSubtitle,
+                    backdropEditorRemove
+                )
             }
         )
 
-        if (logoEditorActive) {
+        if (editorActive) {
+            val store = editorStore
             CustomLogoEditorDialog(
-                initialUrl = logoEditorInitial,
-                hasExisting = logoEditorHasExisting,
+                initialUrl = editorInitial,
+                hasExisting = editorHasExisting,
+                editorTitle = editorTitle,
+                editorSubtitle = editorSubtitle,
+                removeLabel = editorRemoveLabel,
                 onSave = { url ->
-                    LogoOverrideStore.set(target.id, url)
-                    logoEditorActive = false
+                    store?.set(target.id, url)
+                    editorActive = false
                 },
                 onRemove = {
-                    LogoOverrideStore.set(target.id, null)
-                    logoEditorActive = false
+                    store?.set(target.id, null)
+                    editorActive = false
                 },
-                onDismiss = { logoEditorActive = false }
+                onDismiss = { editorActive = false }
             )
         }
     }

@@ -167,6 +167,14 @@
 <string name="custom_logo_editor_title">Logo personalizzato</string>
 <string name="custom_logo_editor_subtitle">Incolla il link dell\'immagine del logo</string>
 <string name="custom_logo_editor_hint">https://…</string>
+<string name="poster_action_set_custom_poster">Imposta poster personalizzato</string>
+<string name="poster_action_remove_custom_poster">Rimuovi poster personalizzato</string>
+<string name="poster_action_set_custom_backdrop">Imposta sfondo hero personalizzato</string>
+<string name="poster_action_remove_custom_backdrop">Rimuovi sfondo hero personalizzato</string>
+<string name="custom_poster_editor_title">Poster personalizzato</string>
+<string name="custom_poster_editor_subtitle">Incolla il link dell\'immagine del poster</string>
+<string name="custom_backdrop_editor_title">Sfondo hero personalizzato</string>
+<string name="custom_backdrop_editor_subtitle">Incolla il link dell\'immagine di sfondo</string>
 
     <!-- CatalogRowSection -->
 <string name="action_see_all">Vedi tutto</string>
