@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Image
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +66,7 @@ import coil3.compose.AsyncImage
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.nuvio.tv.R
+import com.nuvio.tv.core.logo.LogoOverrideStore
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MDBListRatings
@@ -121,17 +123,22 @@ fun HeroContentSection(
     val isSeriesApi = remember(meta.apiType) {
         meta.apiType.equals("series", ignoreCase = true) || meta.apiType.equals("tv", ignoreCase = true)
     }
-    val logoModel = remember(context, meta.logo) {
-        meta.logo?.let { logo ->
+    // Override manuale del logo ("Imposta logo personalizzato" nel menu
+    // Azioni Titolo) vince su TMDB; collectAsState = aggiornamento immediato.
+    @Suppress("UNUSED_VARIABLE")
+    val logoOverrides by LogoOverrideStore.overrides.collectAsState()
+    val effectiveLogoUrl = LogoOverrideStore.resolve(meta.id, meta.logo)
+    val logoModel = remember(context, effectiveLogoUrl) {
+        effectiveLogoUrl?.let { logo ->
             ImageRequest.Builder(context)
                 .data(logo)
                 .crossfade(true)
                 .build()
         }
     }
-    var logoLoadFailed by remember(meta.logo) { mutableStateOf(false) }
+    var logoLoadFailed by remember(effectiveLogoUrl) { mutableStateOf(false) }
     val shouldShowLogo =
-        !meta.logo.isNullOrBlank() &&
+        !effectiveLogoUrl.isNullOrBlank() &&
             !logoLoadFailed &&
             !(isTrailerPlaying && hideLogoDuringTrailer)
     val libraryAddPainter = rememberRawSvgPainter(

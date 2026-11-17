@@ -239,6 +239,19 @@ class MetaDetailsViewModel @Inject constructor(
             else -> com.nuvio.tv.domain.repository.MetaRepository.META_NAMESPACE_ALL
         }
 
+    /**
+     * Tab the item-source memory belongs to: the pool the route addon was
+     * probed into by [resolveLayoutSource] (or [resolveProvenanceFallback]).
+     * Home/Anime/Extra each remember their own source for a title instead of
+     * overwriting one global entry.
+     */
+    private val itemSourceNamespace: String
+        get() = when {
+            animeLayoutActive.value -> com.nuvio.tv.data.local.ItemSourcePreferences.NS_ANIME
+            extraLayoutActive.value -> com.nuvio.tv.data.local.ItemSourcePreferences.NS_EXTRA
+            else -> com.nuvio.tv.data.local.ItemSourcePreferences.NS_HOME
+        }
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private fun <T> layoutFlow(selector: (LayoutPreferenceDataStore) -> Flow<T>): Flow<T> =
         animeLayoutActive.flatMapLatest { animeActive ->
@@ -874,13 +887,28 @@ class MetaDetailsViewModel @Inject constructor(
             val rawTmdbNumericId = extractRawNumericId(itemId)
             // Resolve the per-item addon memory (library-style) before any lookup
             // so preferredAddonBaseUrl already answers with the remembered source.
+            // Keys are namespaced per tab (A1): this detail's own pool first, then
+            // the other pools, then legacy pre-split entries — a title remembered
+            // by Home no longer hides what the Anime tab recorded for it.
             metaAliasKeys = com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(
                 itemType, itemId, metaLookupId, rawTmdbNumericId
             )
-            rememberedSource = runCatching { itemSourcePreferences.get(metaAliasKeys) }.getOrNull()
+            val memoryNamespaces = listOf(
+                itemSourceNamespace,
+                com.nuvio.tv.data.local.ItemSourcePreferences.NS_HOME,
+                com.nuvio.tv.data.local.ItemSourcePreferences.NS_ANIME,
+                com.nuvio.tv.data.local.ItemSourcePreferences.NS_EXTRA
+            ).distinct()
+            rememberedSource = runCatching {
+                itemSourcePreferences.get(
+                    com.nuvio.tv.data.local.ItemSourcePreferences.readKeys(
+                        memoryNamespaces, metaAliasKeys
+                    )
+                )
+            }.getOrNull()
             Log.d(
                 TAG,
-                "remembered source origin=$detailOrigin " +
+                "remembered source origin=$detailOrigin ns=$itemSourceNamespace " +
                     "result=${rememberedSource ?: "miss"} keys=$metaAliasKeys"
             )
             val preferExternal = activeLayoutDataStore.preferExternalMetaAddonDetail.first()
@@ -1120,7 +1148,9 @@ class MetaDetailsViewModel @Inject constructor(
     }
 
     /**
-     * Persists the winning addon under every id alias of this title.
+     * Persists the winning addon under every id alias of this title, in the
+     * namespace of the tab it was opened from (Home/Anime/Extra each keep
+     * their own entry instead of overwriting one global one).
      *
      * Read-only from Search/Discover/Calendar: their (possibly wrong) card
      * source must never overwrite what Home/Anime recorded. Only a resolution
@@ -1140,10 +1170,13 @@ class MetaDetailsViewModel @Inject constructor(
             Log.d(TAG, "skip remember: race winner '$source' != card '$route'")
             return
         }
-        val keys = (metaAliasKeys +
+        val baseKeys = (metaAliasKeys +
             com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(itemType, itemId, meta.id))
             .distinct()
-        if (keys.isEmpty()) return
+        if (baseKeys.isEmpty()) return
+        val keys = com.nuvio.tv.data.local.ItemSourcePreferences.scopedKeys(
+            itemSourceNamespace, baseKeys
+        )
         runCatching { itemSourcePreferences.remember(keys, source) }
             .onFailure { Log.w(TAG, "remember source failed: ${it.message}") }
     }

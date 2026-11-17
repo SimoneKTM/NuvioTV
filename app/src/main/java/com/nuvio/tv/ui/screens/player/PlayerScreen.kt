@@ -9,6 +9,8 @@ import com.nuvio.tv.ui.theme.NuvioMotion
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
+import com.nuvio.tv.core.logo.LogoOverrideStore
+
 import android.util.Log
 import android.view.KeyEvent
 import android.view.View
@@ -744,7 +746,7 @@ fun PlayerScreen(
         LoadingOverlay(
             visible = uiState.showLoadingOverlay && uiState.error == null,
             backdropUrl = uiState.backdrop,
-            logoUrl = uiState.logo,
+            logoUrl = LogoOverrideStore.resolve(viewModel.controller.contentId, uiState.logo),
             title = uiState.title,
             message = uiState.loadingMessage.takeIf { uiState.showPlayerLoadingStatus || uiState.isTorrentStream },
             progress = uiState.loadingProgress,
@@ -775,7 +777,7 @@ fun PlayerScreen(
             visible = uiState.showPauseOverlay && uiState.error == null && !uiState.showLoadingOverlay,
             onClose = { viewModel.onEvent(PlayerEvent.OnDismissPauseOverlay) },
             title = uiState.title,
-            logo = uiState.logo,
+            logo = LogoOverrideStore.resolve(viewModel.controller.contentId, uiState.logo),
             episodeTitle = uiState.currentEpisodeTitle,
             season = uiState.currentSeason,
             episode = uiState.currentEpisode,

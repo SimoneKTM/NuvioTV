@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -61,6 +63,7 @@ import com.nuvio.tv.ui.util.computeHeroNextEpisodeText
 import com.nuvio.tv.ui.util.recompositionHighlighter
 import coil3.request.transitionFactory
 import com.nuvio.tv.R
+import com.nuvio.tv.core.logo.LogoOverrideStore
 import com.nuvio.tv.domain.model.MetaPreview
 import kotlinx.coroutines.delay
 import com.nuvio.tv.ui.components.ImdbRatingSourceLabel
@@ -345,6 +348,7 @@ internal fun HeroTitleBlock(
     if (displayPreview == null) return
 
     val nextEpisodeLabel = metaPreviewProvider()?.let { rememberNextEpisodeDateLabel(it) }
+    val heroItemId = metaPreviewProvider()?.id
 
     Box(
         modifier = modifier,
@@ -354,7 +358,8 @@ internal fun HeroTitleBlock(
             previewProvider = { displayPreview },
             nextEpisodeLabel = nextEpisodeLabel,
             portraitMode = portraitMode,
-            trailerPlaying = trailerPlaying
+            trailerPlaying = trailerPlaying,
+            itemId = heroItemId
         )
     }
 }
@@ -364,14 +369,21 @@ private fun HeroTitleContent(
     previewProvider: () -> HeroPreview?,
     nextEpisodeLabel: String? = null,
     portraitMode: Boolean,
-    trailerPlaying: () -> Boolean = { false }
+    trailerPlaying: () -> Boolean = { false },
+    itemId: String? = null
 ) {
     val preview = previewProvider() ?: return
     val highlighterEnabled = LocalRecompositionHighlighterEnabled.current
-    val descriptionMaxLines = 4
-    val descriptionScale = if (portraitMode) 0.90f else 1f
-    val titleScale = if (portraitMode) 0.92f else 1f
-    val metaScale = 1f
+    // Meno ingrandimento su tutto il blocco: la sinossi entra per intero con
+    // più righe a disposizione ("vedo tutto troppo ingrandito", "la
+    // descrizione più completa in hero"). Secondo passaggio: ancora meno
+    // scala perché in alcuni titoli (titolo lungo + meta + sinossi) il
+    // blocco overflowava e veniva tagliato in coda ("non riesco a
+    // visualizzare le informazioni").
+    val descriptionMaxLines = 6
+    val descriptionScale = if (portraitMode) 0.78f else 0.74f
+    val titleScale = if (portraitMode) 0.82f else 0.86f
+    val metaScale = 0.86f
     val titleSpacing = NuvioTheme.spacing.xs * titleScale
     val metaSpacing = NuvioTheme.spacing.sm * metaScale
     val imdbMetaSpacing = NuvioTheme.spacing.xs * metaScale
@@ -384,9 +396,16 @@ private fun HeroTitleContent(
 
     // Logo risolto: prima il logo corrente, poi quello "congelato" della card
     // (il primo valore non vuoto vince): durante lo scroll l'hero non deve mai
-    // ricadere sul titolo scritto se esiste un logo già caricato.
-    val effectiveLogoUrl = preview.logo?.takeIf { it.isNotBlank() }
-        ?: preview.frozenLogoUrl?.takeIf { it.isNotBlank() }
+    // ricadere sul titolo scritto se esiste un logo già caricato. L'override
+    // manuale ("Imposta logo personalizzato") vince su entrambi.
+    // collectAsState: la composizione si aggiorna appena l'utente salva.
+    @Suppress("UNUSED_VARIABLE")
+    val logoOverrides by LogoOverrideStore.overrides.collectAsState()
+    val effectiveLogoUrl = LogoOverrideStore.resolve(
+        itemId,
+        preview.logo?.takeIf { it.isNotBlank() }
+            ?: preview.frozenLogoUrl?.takeIf { it.isNotBlank() }
+    )
 
     val logoModel = remember(context, effectiveLogoUrl, logoMaxWidthPx, logoHeightPx) {
         effectiveLogoUrl?.let {
@@ -429,13 +448,18 @@ private fun HeroTitleContent(
             animationSpec = tween(durationMillis = NuvioMotion.tokens.durations.overlay),
             label = "heroLogoFade"
         )
+        // Fallback testo: se TMDB non ha il logo (o il caricamento fallisce)
+        // l'hero non mostrava alcun titolo — solo awards/meta/sinossi. Il
+        // titolo stilizzato prende il posto del logo; mentre il logo carica
+        // resta visibile e fa crossfade appena arriva il primo fotogramma.
         if (showLogo) {
             Box(
                 modifier = Modifier
                     .height(56.dp)
                     .widthIn(min = 100.dp, max = 256.dp)
                     .fillMaxWidth()
-                    .clipToBounds()
+                    .clipToBounds(),
+                contentAlignment = Alignment.CenterStart
             ) {
                 AsyncImage(
                     model = logoModel,
@@ -456,7 +480,25 @@ private fun HeroTitleContent(
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.CenterStart
                 )
+                if (!logoLoaded) {
+                    HeroTitleFallbackText(
+                        title = preview.title,
+                        alpha = 1f - logoAlpha,
+                        maxLines = 1,
+                        modifier = Modifier.matchParentSize()
+                    )
+                }
             }
+        } else {
+            HeroTitleFallbackText(
+                title = preview.title,
+                alpha = 1f,
+                maxLines = 2,
+                modifier = Modifier
+                    .heightIn(min = 56.dp)
+                    .widthIn(min = 100.dp, max = 256.dp)
+                    .fillMaxWidth()
+            )
         }
 
         val localizedAwards = remember(preview.awards, context) {
@@ -724,6 +766,29 @@ private fun HeroTitleContent(
             }
         }
     }
+}
+
+/**
+ * Titolo stilizzato al posto del logo TMDB: molti titoli non hanno logo e
+ * l'hero non mostrava alcun titolo. Stesso ruolo del logo (area ~56dp,
+ * max 256dp di larghezza), in grassetto e con crossfade via [alpha].
+ */
+@Composable
+private fun HeroTitleFallbackText(
+    title: String,
+    alpha: Float,
+    maxLines: Int,
+    modifier: Modifier = Modifier
+) {
+    if (title.isBlank()) return
+    Text(
+        text = title,
+        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+        color = NuvioTheme.colors.TextPrimary,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.graphicsLayer { this.alpha = alpha }
+    )
 }
 
 @Composable

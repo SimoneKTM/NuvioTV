@@ -551,6 +551,16 @@ private suspend fun HomeViewModel.fetchExternalMetaOutcome(item: MetaPreview): E
 
 internal fun HomeViewModel.onItemFocusPipeline(item: MetaPreview) {
     if (startupGracePeriodActive) {
+        // Anche durante la grace di avvio la corsia prioritaria della
+        // traduzione deve partire: senza claim il gate della hero mostra il
+        // testo grezzo del catalogo finché il deferred non riparte
+        // ("flash inglese" al primo focus dopo l'avvio freddo). La traduzione
+        // è on-device, non aggiunge traffico a questa fase.
+        schedulePreviewDescriptionTranslation(
+            item.id,
+            _enrichedPreviews.value[item.id] ?: item,
+            priority = true
+        )
         deferredEnrichItem = item
         return
     }

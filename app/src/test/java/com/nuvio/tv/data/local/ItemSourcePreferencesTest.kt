@@ -74,4 +74,57 @@ class ItemSourcePreferencesTest {
         assertEquals(listOf("series:tt1", "series:tt2"), parsed.keys.toList())
         assertEquals("https://b", parsed["series:tt2"])
     }
+
+    @Test
+    fun `scopedKeys prefixes every alias with its namespace`() {
+        val base = ItemSourcePreferences.keysFor("series", "tt13196080", "tmdb:13196080")
+
+        val scoped = ItemSourcePreferences.scopedKeys(ItemSourcePreferences.NS_ANIME, base)
+
+        assertEquals(
+            listOf("anime|series:tt13196080", "anime|series:tmdb:13196080"),
+            scoped
+        )
+    }
+
+    @Test
+    fun `scopedKeys can never collide with a legacy key`() {
+        val legacy = ItemSourcePreferences.keysFor("series", "tt13196080")
+        val scoped = ItemSourcePreferences.scopedKeys(ItemSourcePreferences.NS_HOME, legacy)
+
+        assertTrue(scoped.none { it in legacy })
+        assertTrue(legacy.none { it.startsWith("home|") })
+    }
+
+    @Test
+    fun `readKeys keeps namespace priority and appends legacy keys last`() {
+        val base = ItemSourcePreferences.keysFor("series", "tt13196080")
+
+        val keys = ItemSourcePreferences.readKeys(
+            listOf(ItemSourcePreferences.NS_ANIME, ItemSourcePreferences.NS_HOME),
+            base
+        )
+
+        assertEquals(
+            listOf(
+                "anime|series:tt13196080",
+                "home|series:tt13196080",
+                "series:tt13196080"
+            ),
+            keys
+        )
+    }
+
+    @Test
+    fun `readKeys dedupes namespaces and survives empty input`() {
+        val base = ItemSourcePreferences.keysFor("series", "tt13196080")
+
+        val keys = ItemSourcePreferences.readKeys(
+            listOf(ItemSourcePreferences.NS_HOME, ItemSourcePreferences.NS_HOME),
+            base
+        )
+
+        assertEquals(listOf("home|series:tt13196080", "series:tt13196080"), keys)
+        assertTrue(ItemSourcePreferences.readKeys(listOf(ItemSourcePreferences.NS_HOME), emptyList()).isEmpty())
+    }
 }

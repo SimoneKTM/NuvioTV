@@ -440,16 +440,25 @@ class CalendarRepositoryImpl @Inject constructor(
 
         // Library-style per-item memory: if this title was already opened from
         // Home/Anime, enrich it with the very same addon first (4 seasons, not
-        // the generic 1 from an unrelated pool hit).
-        val rememberedSource = runCatching {
-            itemSourcePreferences.get(
-                candidates.flatMap { (candidateType, candidateId) ->
-                    com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(candidateType, candidateId)
-                } + com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(
-                    item.meta.rawType, item.meta.id
-                )
+        // the generic 1 from an unrelated pool hit). Keys are namespaced per
+        // pool (A1): each namespace query prefers its own remembered source so
+        // a Home entry can no longer steer the Anime query (wrong attribution).
+        val memoryBaseKeys = (
+            candidates.flatMap { (candidateType, candidateId) ->
+                com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(candidateType, candidateId)
+            } + com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(
+                item.meta.rawType, item.meta.id
             )
-        }.getOrNull()
+            ).distinct()
+        val rememberedFor: suspend (String) -> String? = { namespace ->
+            runCatching {
+                itemSourcePreferences.get(
+                    com.nuvio.tv.data.local.ItemSourcePreferences.readKeys(
+                        listOf(namespace), memoryBaseKeys
+                    )
+                )
+            }.getOrNull()
+        }
 
         // Anime first (same as the Anime tab), then Home/Extra. A hit with
         // artwork or a source URL wins immediately so Detail opens with the
@@ -459,7 +468,7 @@ class CalendarRepositoryImpl @Inject constructor(
             candidates = candidates,
             item = item,
             rawNumericId = rawNumericId,
-            preferredSource = rememberedSource,
+            preferredSource = rememberedFor(MetaRepository.META_NAMESPACE_ANIME),
             requireStrongFields = true
         )
         if (animeWinner != null) {
@@ -483,7 +492,7 @@ class CalendarRepositoryImpl @Inject constructor(
                 candidates = candidates,
                 item = item,
                 rawNumericId = rawNumericId,
-                preferredSource = rememberedSource,
+                preferredSource = rememberedFor(namespace),
                 requireStrongFields = false
             ) ?: continue
             val score = metaRichnessScore(result)

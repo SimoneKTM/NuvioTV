@@ -47,6 +47,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.key
@@ -67,6 +68,8 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.focus.focusProperties
@@ -129,6 +132,7 @@ import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.ContinueWatchingCardStyle
 import com.nuvio.tv.domain.model.PLACEHOLDER_IMAGE_URL
 import com.nuvio.tv.domain.model.isPlaceholder
+import com.nuvio.tv.ui.components.CardGlowElevation
 import com.nuvio.tv.ui.components.ContinueWatchingCard
 import com.nuvio.tv.ui.components.continueWatchingArtworkWidth
 import com.nuvio.tv.ui.components.continueWatchingImageCacheKey
@@ -140,6 +144,7 @@ import com.nuvio.tv.ui.components.MonochromePosterPlaceholder
 import com.nuvio.tv.ui.components.TrailerPlayer
 import com.nuvio.tv.ui.components.placeholderCardShimmer
 import com.nuvio.tv.ui.components.nuvioCardDepth
+import com.nuvio.tv.core.logo.LogoOverrideStore
 import com.nuvio.tv.ui.components.rememberArtworkBackedCardGlow
 import com.nuvio.tv.ui.components.rememberLegacyCardGlowHalo
 import com.nuvio.tv.ui.components.rememberPlaceholderShimmerOffsetState
@@ -1125,16 +1130,28 @@ internal fun ModernRowSection(
                             ?: FocusRequester.Default
                     }
                     .focusGroup()
-                    // Il viewport della riga parte dal bordo del titolo
-                    // (96dp): le card che scorrono non finiscono più sotto il
-                    // rail, a sinistra della scritta della riga.
-                    .padding(start = rowStartPadding)
+                    // Il viewport della riga parte a 68dp (96dp del titolo
+                    // meno i 28dp del bagliore): le card che scorrono non
+                    // finiscono sotto il rail, a sinistra della scritta della
+                    // riga, ma l'alone della prima card non viene più tagliato
+                    // via — con il clip a 96dp il bagliore sinistro spariva
+                    // del tutto (sembrava coperto dalla barra laterale).
+                    // offset + contentPadding top: il viewport cresce di
+                    // 28dp verso l'alto restando allineato (le card restano
+                    // alla stessa Y), così anche l'alone sopra la card non
+                    // viene più ritagliato dal bordo alto della riga.
+                    .offset(y = -CardGlowElevation)
+                    .padding(start = rowStartPadding - CardGlowElevation)
                     .clipToBounds(),
                 // Spazio di coda per la card espansa: senza questo margine la
                 // penultima/ultima immagine resta tagliata dal viewport anche
                 // dopo il bring-into-view, soprattutto vicino a fine riga.
+                // start: riporta la prima card a 96dp dopo il ritiro del
+                // viewport (68dp + 28dp del bagliore = 96dp). top: fascia
+                // alta del viewport in cui vive l'alone sopra la card.
                 contentPadding = PaddingValues(
-                    start = 0.dp,
+                    start = CardGlowElevation,
+                    top = CardGlowElevation,
                     end = rowStartPadding + if (effectiveExpandEnabled && !isTop10Row) 160.dp else 0.dp
                 ),
                 horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
@@ -1189,6 +1206,10 @@ internal fun ModernRowSection(
 
                     when (val payload = item.payload) {
                         is ModernPayload.ContinueWatching -> {
+                            Box(
+                                modifier = if (isTargetItem || isRtl) Modifier
+                                else Modifier.clipPastRowStartEdge(rowListState, item.key)
+                            ) {
                             ModernContinueWatchingRowItem(
                                 payload = payload,
                                 requester = requester,
@@ -1203,6 +1224,7 @@ internal fun ModernRowSection(
                                 onContinueWatchingClick = onContinueWatchingClick,
                                 onShowOptions = onContinueWatchingOptions
                             )
+                            }
                         }
 
                         is ModernPayload.Catalog,
@@ -1244,6 +1266,12 @@ internal fun ModernRowSection(
                             } else Modifier).then(
                                 if (isTop10Row) Modifier.width(top10SlotWidth + top10CardWidth)
                                 else Modifier
+                            ).then(
+                                // Card precedente uscita dal bordo 96dp: tagliata
+                                // (nero). La focalizzata resta non clip-ata così il
+                                // bagliore vive nella banda 68-96dp.
+                                if (isTargetItem || isRtl) Modifier
+                                else Modifier.clipPastRowStartEdge(rowListState, item.key)
                             )) {
                             if (isTop10Row) {
                                 ModernTop10RankNumber(
@@ -1304,6 +1332,33 @@ internal fun ModernRowSection(
                 }
             }
         }
+    }
+}
+
+/**
+ * Taglia le card che sono scivolate oltre il bordo iniziale delle righe
+ * (HOME_ROW_START_PADDING = 96dp, che in coordinate LazyList coincide con
+ * offset 0): la parte uscita viene clip-ata e si vede il nero dello sfondo
+ * invece della "card precedente" nella banda del bagliore (68-96dp).
+ * La card focalizzata non viene clip-ata (vedi chiamata), così il suo alone
+ * può estendersi liberamente nella banda. Solo LTR: in RTL il bordo è sul
+ * lato finale e il comportamento resta invariato.
+ */
+private fun Modifier.clipPastRowStartEdge(
+    listState: LazyListState,
+    itemKey: Any,
+): Modifier = drawWithContent {
+    val offset = listState.layoutInfo.visibleItemsInfo
+        .firstOrNull { it.key == itemKey }?.offset
+    val left = if (offset == null) 0f else -offset.toFloat()
+    if (left > 0f) {
+        // Bordo solo a sinistra: top/bottom larghissimi così l'alone e le
+        // espansioni verticali della card non vengono toccati.
+        clipRect(left = left, top = -100_000f, right = 100_000f, bottom = 100_000f) {
+            this@drawWithContent.drawContent()
+        }
+    } else {
+        drawContent()
     }
 }
 
@@ -1380,7 +1435,14 @@ private fun ModernCarouselCard(
             frozenLogoUrl.value = enrichedLogoUrl
         }
     }
-    val effectiveLogoUrl = frozenLogoUrl.value?.takeIf { !it.isPlaceholder() }
+    // Override manuale del logo ("Imposta logo personalizzato") vince sul
+    // logo congelato/TMDB; collectAsState = aggiornamento immediato al salvataggio.
+    @Suppress("UNUSED_VARIABLE")
+    val logoOverrides by LogoOverrideStore.overrides.collectAsState()
+    val effectiveLogoUrl = LogoOverrideStore.resolve(
+        item.metaPreview?.id,
+        frozenLogoUrl.value?.takeIf { !it.isPlaceholder() }
+    )
     // Freeze the backdrop URL for landscape cards - prevents image reload when enrichment updates backdrop.
     val dataFrozenBackdrop = item.heroPreview.frozenBackdropUrl?.takeIf { !it.isPlaceholder() }
     val frozenBackdropUrl = remember(item.key) { mutableStateOf(dataFrozenBackdrop ?: item.heroPreview.backdrop?.takeIf { !it.isPlaceholder() }) }

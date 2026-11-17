@@ -111,6 +111,10 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             .getString("locale_tag", null)
         LocaleCache.localeTag = tag ?: ""
 
+        // Override logo per titolo ("Imposta logo personalizzato"): mappa in
+        // memoria da SharedPreferences, init sincrono e a costo zero.
+        runCatching { com.nuvio.tv.core.logo.LogoOverrideStore.init(this) }
+
         // In-process memory telemetry (Log.i, release-safe): captures the Java/
         // Native/Graphics curve every 10s even when dumpsys times out under
         // allocation bursts — the LMK kills left us blind until now.

@@ -789,9 +789,12 @@ class FolderDetailViewModel @Inject constructor(
 
     private fun loadAddonCatalogForTab(tabIndex: Int, source: AddonCatalogCollectionSource) {
         viewModelScope.launch {
-            val addons = installedAddons()
+            // Split pools explicitly: the catalog fallback below must stay inside
+            // the pool this tab declares, and installedAddons() merges all three.
+            val regularAddons = addonRepository.enabledAddonsNow()
             val animeAddons = animeAddonRepository.enabledAnimeAddonsNow()
             val extraAddons = extraAddonRepository.enabledExtraAddonsNow()
+            val addons = (regularAddons + animeAddons + extraAddons).distinctBy { it.id }
             val addon = resolveAddonForSource(source, addons, animeAddons, extraAddons)
 
             if (addon == null) {
@@ -810,10 +813,20 @@ class FolderDetailViewModel @Inject constructor(
 
             var catalog = addon.catalogs.find { it.id == source.catalogId && it.apiType == source.type }
                 ?: addon.catalogs.find { it.id == source.catalogId.substringBefore(",") && it.apiType == source.type }
-            // If the catalog wasn't found in the declared addon, search all installed addons.
+            // If the catalog wasn't found in the declared addon, search only
+            // within the pool the tab declares (anime/extra/regular): catalog
+            // ids like "popular" are generic and exist in every pool, so a
+            // cross-pool hit loaded another pool's items while the tab label
+            // still credited the declared addon (wrong attribution, e.g.
+            // Tokyo Revengers coming from an unrelated catalog).
             var effectiveAddon: com.nuvio.tv.domain.model.Addon = addon
             if (catalog == null) {
-                for (a in addons) {
+                val declaredPool = when {
+                    source.extraAddon -> extraAddons
+                    source.animeAddon -> animeAddons
+                    else -> regularAddons
+                }
+                for (a in declaredPool) {
                     val match = a.catalogs.find { it.id == source.catalogId && it.apiType == source.type }
                     if (match != null) {
                         effectiveAddon = a

@@ -1013,6 +1013,18 @@ fun LayoutSettingsContent(
                         )
                     }
 
+                    if (showAutoplayRow && uiState.focusedPosterBackdropTrailerEnabled) {
+                        ModernTrailerQualityRow(
+                            selectedHeight = uiState.trailerMaxVideoHeight,
+                            onHeightSelected = { height ->
+                                viewModel.onEvent(
+                                    LayoutSettingsEvent.SetTrailerMaxVideoHeight(height)
+                                )
+                            },
+                            onFocused = { focusedSection = LayoutSettingsSection.FOCUSED_POSTER }
+                        )
+                    }
+
                     if (
                         isModern &&
                         showAutoplayRow &&
@@ -1330,6 +1342,45 @@ private fun ModernTrailerPlaybackTargetRow(
                 onClick = {
                     onTargetSelected(FocusedPosterTrailerPlaybackTarget.HERO_MEDIA)
                 },
+                onFocused = onFocused
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModernTrailerQualityRow(
+    selectedHeight: Int,
+    onHeightSelected: (Int) -> Unit,
+    onFocused: () -> Unit
+) {
+    Text(
+        text = stringResource(R.string.layout_trailer_quality),
+        style = MaterialTheme.typography.labelLarge,
+        color = NuvioTheme.colors.TextSecondary
+    )
+    Text(
+        text = stringResource(R.string.layout_trailer_quality_sub),
+        style = MaterialTheme.typography.bodySmall,
+        color = NuvioTheme.colors.TextTertiary
+    )
+    LazyRow(
+        contentPadding = PaddingValues(end = NuvioTheme.spacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+    ) {
+        item(key = "trailer_quality_720p") {
+            SettingsChoiceChip(
+                label = "720p",
+                selected = selectedHeight < 1080,
+                onClick = { onHeightSelected(720) },
+                onFocused = onFocused
+            )
+        }
+        item(key = "trailer_quality_1080p") {
+            SettingsChoiceChip(
+                label = "1080p",
+                selected = selectedHeight >= 1080,
+                onClick = { onHeightSelected(1080) },
                 onFocused = onFocused
             )
         }

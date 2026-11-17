@@ -191,6 +191,11 @@
     <string name="cw_action_remove">Remove</string>
     <string name="cw_dialog_subtitle">Choose what you want to do with this item.</string>
     <string name="home_poster_dialog_subtitle">Title actions</string>
+    <string name="poster_action_set_custom_logo">Set custom logo</string>
+    <string name="poster_action_remove_custom_logo">Remove custom logo</string>
+    <string name="custom_logo_editor_title">Custom logo</string>
+    <string name="custom_logo_editor_subtitle">Paste the image link of the logo</string>
+    <string name="custom_logo_editor_hint">https://…</string>
 
     <string name="action_see_all">See All</string>
     <string name="action_load_more">Load More</string>
@@ -1327,6 +1332,8 @@
     <string name="layout_trailer_location_sub">Choose where trailer preview plays in Modern Home.</string>
     <string name="layout_trailer_expanded_card">Expanded Card</string>
     <string name="layout_trailer_hero_media">Hero Media</string>
+    <string name="layout_trailer_quality">Preview Quality</string>
+    <string name="layout_trailer_quality_sub">1080p is sharper but uses more memory; devices with less than 3 GB of RAM always stay at 720p.</string>
     <string name="layout_preset_compact">Compact</string>
     <string name="layout_preset_dense">Dense</string>
     <string name="layout_preset_standard">Standard</string>

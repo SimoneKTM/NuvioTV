@@ -278,8 +278,14 @@ class HomeViewModel @Inject constructor(
         // subito: la UI vede italiano dal primo fotogramma.
         val stored = synchronized(previewTranslationLock) {
             val pending = pendingPreviewTranslations[id]
+            // Se la preview è pubblicata SENZA descrizione (nascosta in attesa
+            // di ML Kit), il testo giusto da confrontare è quello grezzo
+            // salvato sopra: confrontare con null non aggancia mai il pending
+            // e la cache, e l'hero restava vuoto.
+            val rawForMatch = preview.description?.takeIf { it.isNotBlank() }
+                ?: previewRawDescriptions[id]
             when {
-                pending != null && pending.first == preview.description ->
+                pending != null && pending.first == rawForMatch ->
                     preview.copy(description = pending.second)
                 else -> {
                     // "Flash inglese": se il traduttore ha già in cache (su
@@ -289,18 +295,22 @@ class HomeViewModel @Inject constructor(
                     // coroutine di traduzione lo sostituisce appena pronta.
                     val cached = metadataTextTranslator.peekCachedTranslation(
                         currentTmdbSettings.language,
-                        preview.description
+                        rawForMatch
                     )
-                    if (cached != null && cached != preview.description) {
+                    if (cached != null && rawForMatch != null && cached != rawForMatch) {
                         preview.copy(description = cached)
-                    } else if (
-                        cached == null &&
-                        com.nuvio.tv.data.translation.shouldTranslate(preview.description, currentTmdbSettings.language)
-                    ) {
-                        // Hide the untranslated synopsis while ML Kit prepares
-                        // Italian; already Italian text is restored by detection.
-                        preview.copy(description = null)
+                    } else if (preview.description.isNullOrBlank() && rawForMatch != null) {
+                        // L'arricchimento ha ripubblicato l'item SENZA descrizione
+                        // (es. merge TMDB su una collection): senza il testo grezzo
+                        // l'entry perderebbe la sinossi già tradotta e l'hero
+                        // svuotava per sempre. Pubblica il grezzo: la traduzione
+                        // appena pronta lo sostituisce.
+                        preview.copy(description = rawForMatch)
                     } else preview
+                    // NOTA: non si nasconde MAI la descrizione in attesa di ML
+                    // Kit: un hero senza testo è peggio di un testo che diventa
+                    // italiano un attimo dopo. La traduzione appena pronta
+                    // sostituisce il grezzo via runPreviewTranslation.
                 }
             }
         }
@@ -309,6 +319,36 @@ class HomeViewModel @Inject constructor(
             if (updated.size <= MAX_ENRICHMENT_CACHE_SIZE) updated
             else LinkedHashMap(updated).apply { while (size > MAX_ENRICHMENT_CACHE_SIZE) remove(keys.first()) }
         }
+    }
+
+    /**
+     * Gate "flash inglese" della hero: al cambio di focus la sinossi del
+     * catalogo è ancora in lingua sorgente e veniva mostrata per 1-4 s prima
+     * che ML Kit producesse l'italiano. In ordine:
+     * 1. traduzione associata a questa entry (pending) → italiano;
+     * 2. traduzione in cache (memoria/disco, precaricata da warmUp) →
+     *    italiano dal primo fotogramma;
+     * 3. traduzione rivendicata ([previewTranslationProcessed]) ma non ancora
+     *    pronta → null: la hero resta senza sinossi per l'attesa (titolo, logo
+     *    e meta restano visibili) invece di mostrare l'inglese;
+     * 4. non rivendicata (testo non traducibile, o tentativi falliti con claim
+     *    rilasciato) → testo grezzo: la hero non resta mai vuota per sempre.
+     */
+    override fun gatedHeroDescription(itemId: String?, rawDescription: String?): String? {
+        val raw = rawDescription?.takeIf { it.isNotBlank() } ?: return rawDescription
+        val language = currentTmdbSettings.language
+        synchronized(previewTranslationLock) {
+            val pending = itemId?.let { pendingPreviewTranslations[it] }
+            if (pending != null && pending.first == raw) return pending.second
+        }
+        val cached = runCatching {
+            metadataTextTranslator.peekCachedTranslation(language, raw)
+        }.getOrNull()
+        if (cached != null && cached != raw) return cached
+        val claimed = itemId != null && synchronized(previewTranslationLock) {
+            previewTranslationProcessed[itemId] == raw
+        }
+        return if (claimed) null else raw
     }
 
     /**
@@ -391,6 +431,7 @@ class HomeViewModel @Inject constructor(
     /** Corpo della traduzione di un preview: tentativi, apply e pending. */
     private suspend fun runPreviewTranslation(id: String, description: String) {
         var translated: String? = null
+        var alreadyLocalizedFast = false
         for (attempt in 0 until PREVIEW_TRANSLATION_MAX_ATTEMPTS) {
             if (attempt > 0) delay(PREVIEW_TRANSLATION_RETRY_DELAY_MS)
             val candidate = runCatching {
@@ -400,10 +441,22 @@ class HomeViewModel @Inject constructor(
                 translated = candidate
                 break
             }
+            // Una descrizione già in lingua target fa ritornare null senza
+            // errori: il ciclo completo di tentativi ci metterebbe ~3 s e nel
+            // frattempo la hero (che nasconde il grezzo in attesa del gate)
+            // resterebbe senza sinossi. Il rilevamento è locale e veloce:
+            // fermiamoci subito e rilascia il testo così com'è.
+            if (runCatching {
+                    metadataTextTranslator.isAlreadyInTargetLanguage(description, currentTmdbSettings.language)
+                }.getOrDefault(false)
+            ) {
+                alreadyLocalizedFast = true
+                break
+            }
         }
         val result = translated
         if (result == null) {
-            val alreadyLocalized = runCatching {
+            val alreadyLocalized = alreadyLocalizedFast || runCatching {
                 metadataTextTranslator.isAlreadyInTargetLanguage(description, currentTmdbSettings.language)
             }.getOrDefault(false)
             if (alreadyLocalized) {
@@ -416,6 +469,13 @@ class HomeViewModel @Inject constructor(
                 _lastEnrichedPreview.update { current ->
                     if (current?.id == id && current.description == null) current.copy(description = description) else current
                 }
+                // Il grezzo È l'italiano: registralo come pending "risolto"
+                // così gatedHeroDescription (che nasconde i testi rivendicati
+                // ma non ancora tradotti) lo rilascia invece di tenere la
+                // sinossi nascosta per sempre.
+                synchronized(previewTranslationLock) {
+                    pendingPreviewTranslations[id] = description to description
+                }
                 return
             }
             // The ML Kit models may still have been downloading — release the
@@ -425,6 +485,21 @@ class HomeViewModel @Inject constructor(
                 if (previewTranslationProcessed[id] == description) {
                     previewTranslationProcessed.remove(id)
                 }
+            }
+            // Fallback: un hero SENZA descrizione è peggio di un testo non
+            // ancora tradotto. Se la traduzione non arriva, pubblichiamo il
+            // testo grezzo invece di lasciare lo spazio vuoto; il prossimo
+            // focus riprova e lo sostituisce con l'italiano.
+            _enrichedPreviews.update { current ->
+                val existing = current[id]
+                if (existing != null && existing.description == null) {
+                    current + (id to existing.copy(description = description))
+                } else current
+            }
+            _lastEnrichedPreview.update { current ->
+                if (current?.id == id && current.description == null) {
+                    current.copy(description = description)
+                } else current
             }
             return
         }
@@ -457,6 +532,22 @@ class HomeViewModel @Inject constructor(
             // testo identico entra nella mappa.
             synchronized(previewTranslationLock) {
                 pendingPreviewTranslations[id] = description to result
+            }
+            // Se l'arricchimento non è MAI arrivato (coroutine annullata dal
+            // cambio di focus), il pending resta senza applicarsi e l'hero
+            // mostra il testo grezzo del catalogo. Pubblica in quel caso la
+            // scheda di catalogo con la traduzione già pronta.
+            val missing = _enrichedPreviews.value[id] == null
+            if (missing) {
+                val catalogItem = runCatching { findCatalogItemById(id) }.getOrNull()
+                if (catalogItem != null) {
+                    _enrichedPreviews.update { current ->
+                        if (current[id] == null) {
+                            current + (id to catalogItem.copy(description = result))
+                        } else current
+                    }
+                    applied = true
+                }
             }
         }
     }

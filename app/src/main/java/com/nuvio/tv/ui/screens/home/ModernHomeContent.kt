@@ -104,6 +104,9 @@ fun ModernHomeContent(
     lastEnrichedPreview: MetaPreview? = null,
     enrichedPreviews: Map<String, MetaPreview> = emptyMap(),
     failedEnrichmentIds: Set<String> = emptySet(),
+    // Gate traduzioni della hero (vedi HomeViewModel.gatedHeroDescription):
+    // impedisce il "flash inglese" al cambio di focus.
+    gatedHeroDescription: (String?, String?) -> String? = { _, raw -> raw },
     trailerPreviewUrls: Map<String, String> = emptyMap(),
     trailerPreviewAudioUrls: Map<String, String> = emptyMap(),
     onNavigateToDetail: (String, String, String) -> Unit,
@@ -693,7 +696,13 @@ fun ModernHomeContent(
                             logo = enrichedItem.logo
                                 ?: activeCarouselItem?.heroPreview?.logo
                                 ?: activeCarouselItem?.heroPreview?.frozenLogoUrl,
-                            description = enrichedItem.description,
+                            description = enrichedItem.description
+                                // Fallback al preview di catalogo: se
+                                // l'arricchimento non ha la sinossi (TMDB senza
+                                // overview, traduzione mancante) l'hero non deve
+                                // perdere la descrizione che già esisteva sulla
+                                // card ("Doom Patrol senza descrizione").
+                                ?: activeCarouselItem?.heroPreview?.description,
                             contentTypeText = activeCarouselItem?.heroPreview?.contentTypeText,
                             isSeries = isSeriesType(enrichedItem.apiType),
                             yearText = extractYearText(enrichedItem.type, enrichedItem.releaseInfo, enrichedItem.released)
@@ -715,11 +724,28 @@ fun ModernHomeContent(
                         )
                     } else null
 
-                    val resolvedHero = when {
+                    val resolvedHeroBase = when {
                         activeCarouselItem == null -> null
                         enrichmentActive -> activeCarouselItem.heroPreview
                         enrichedHero != null -> enrichedHero
                         else -> activeCarouselItem.heroPreview
+                    }
+
+                    // Gate "flash inglese": finché la traduzione della sinossi
+                    // non è pronta (e non c'è neppure in cache) la descrizione
+                    // resta nascosta invece di mostrare il testo in lingua
+                    // sorgente per qualche secondo al cambio di focus. Titolo,
+                    // logo e meta restano visibili: la sinossi appare un
+                    // istante dopo già in italiano.
+                    val resolvedHero = if (resolvedHeroBase == null) {
+                        null
+                    } else {
+                        val gatedDescription = gatedHeroDescription(activeItemId, resolvedHeroBase.description)
+                        if (gatedDescription == resolvedHeroBase.description) {
+                            resolvedHeroBase
+                        } else {
+                            resolvedHeroBase.copy(description = gatedDescription)
+                        }
                     }
                     
                     // Only use the real enrichmentActive flag from the ViewModel.
@@ -737,14 +763,14 @@ fun ModernHomeContent(
                     val activeRowFallbackBackdrop = activeRow?.items?.list?.firstNotNullOfOrNull { item ->
                         item.heroPreview.backdrop?.takeIf { it.isNotBlank() }
                     }
-                    
+
                     val heroBackdrop = firstNonBlank(
                         resolvedHero?.backdrop,
                         resolvedHero?.imageUrl,
                         resolvedHero?.poster,
                         activeRowFallbackBackdrop
                     )
-                    
+
                     Triple(heroBackdrop, resolvedHero, effectiveEnrichmentActive)
                 }
             }

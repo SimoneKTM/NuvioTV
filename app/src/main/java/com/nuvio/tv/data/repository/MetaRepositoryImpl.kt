@@ -194,7 +194,11 @@ class MetaRepositoryImpl @Inject constructor(
         val normalizedSource = sourceAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
         fun Meta.matchesRequestedSource(): Boolean {
             if (normalizedSource.isEmpty()) return true
-            val cachedSource = sourceAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
+            // `this.sourceAddonBaseUrl` è obbligatorio: senza il qualifier il
+            // nome risolve al parametro esterno della funzione (shadowing) e il
+            // confronto diventa sempre true — la cache riusava metadati di un
+            // addon diverso da quello richiesto (attribuzione sbagliata).
+            val cachedSource = this.sourceAddonBaseUrl?.trim()?.trimEnd('/')?.lowercase().orEmpty()
             return cachedSource == normalizedSource
         }
         // Global screens must reuse whatever Home/Anime/Extra already fetched

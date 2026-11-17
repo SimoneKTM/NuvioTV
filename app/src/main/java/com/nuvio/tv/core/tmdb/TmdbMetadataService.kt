@@ -332,7 +332,11 @@ class TmdbMetadataService(
                     selectBestLocalizedImagePath(it, normalizedLanguage)
                 }
 
-                val logo = buildImageUrl(logoPath, size = "w500")
+                // w780: compromesso qualità/peso. w500 (500px) veniva
+                // upscalato a ~1024px (256dp a densità 4) e risultava sfocato;
+                // "original" (1-4MB) era pesante sulla connessione (~10 Mbps).
+                // w780 è 4-8x più leggero e l'upscale 1,3x è quasi inavvertito.
+                val logo = buildImageUrl(logoPath, size = "w780")
 
                 val castMembers = credits?.cast
                     .orEmpty()
@@ -596,7 +600,7 @@ class TmdbMetadataService(
                     description = details?.overview?.takeIf { it.isNotBlank() },
                     genres = emptyList(),
                     backdrop = buildImageUrl(details?.backdropPath, size = "w1280"),
-                    logo = buildImageUrl(logoPath, size = "w500"),
+                    logo = buildImageUrl(logoPath, size = "w780"),
                     poster = buildImageUrl(details?.posterPath, size = "w500"),
                     directorMembers = emptyList(),
                     writerMembers = emptyList(),
@@ -1091,7 +1095,7 @@ class TmdbMetadataService(
                             name = body.name?.takeIf { it.isNotBlank() }
                                 ?: fallbackName?.takeIf { it.isNotBlank() }
                                 ?: "Unknown",
-                            logo = buildImageUrl(body.logoPath, size = "w500"),
+                            logo = buildImageUrl(body.logoPath, size = "w780"),
                             originCountry = body.originCountry?.takeIf { it.isNotBlank() },
                             secondaryLabel = body.headquarters?.takeIf { it.isNotBlank() },
                             description = body.description?.takeIf { it.isNotBlank() }
@@ -1110,7 +1114,7 @@ class TmdbMetadataService(
                             name = body.name?.takeIf { it.isNotBlank() }
                                 ?: fallbackName?.takeIf { it.isNotBlank() }
                                 ?: "Unknown",
-                            logo = buildImageUrl(body.logoPath, size = "w500"),
+                            logo = buildImageUrl(body.logoPath, size = "w780"),
                             originCountry = body.originCountry?.takeIf { it.isNotBlank() },
                             secondaryLabel = body.headquarters?.takeIf { it.isNotBlank() },
                             description = null

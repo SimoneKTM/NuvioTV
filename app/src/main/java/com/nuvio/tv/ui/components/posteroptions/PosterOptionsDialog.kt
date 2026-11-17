@@ -2,22 +2,31 @@ package com.nuvio.tv.ui.components.posteroptions
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Divider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Button
@@ -26,6 +35,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
+import com.nuvio.tv.core.logo.LogoOverrideStore
 import com.nuvio.tv.core.tracking.TrackingMembershipRemovalImpact
 import com.nuvio.tv.core.tracking.TrackingMembershipRemovalConfirmation
 import com.nuvio.tv.core.tracking.LOCAL_LIBRARY_LIST_KEY
@@ -48,7 +58,8 @@ fun PosterOptionsDialog(
     onDismiss: () -> Unit,
     onDetails: () -> Unit,
     onToggleLibrary: () -> Unit,
-    onToggleWatched: () -> Unit
+    onToggleWatched: () -> Unit,
+    onSetCustomLogo: () -> Unit = {}
 ) {
     val primaryFocusRequester = remember { FocusRequester() }
 
@@ -113,6 +124,129 @@ fun PosterOptionsDialog(
                         stringResource(R.string.hero_mark_watched)
                     }
                 )
+            }
+        }
+
+        // Logo manuale per titoli senza logo TMDB (o per sostituirlo):
+        // apre l'editor con il link dell'immagine, salvato per id item.
+        Button(
+            onClick = onSetCustomLogo,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.colors(
+                containerColor = NuvioTheme.colors.BackgroundCard,
+                contentColor = NuvioTheme.colors.TextPrimary
+            )
+        ) {
+            Text(stringResource(R.string.poster_action_set_custom_logo))
+        }
+    }
+}
+
+/**
+ * Editor del logo personalizzato: un campo di testo con il link
+ * dell'immagine, più la rimozione dell'override se già presente.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+fun CustomLogoEditorDialog(
+    initialUrl: String,
+    hasExisting: Boolean,
+    onSave: (String) -> Unit,
+    onRemove: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var input by remember(initialUrl) { androidx.compose.runtime.mutableStateOf(initialUrl) }
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    NuvioDialog(
+        onDismiss = onDismiss,
+        title = stringResource(R.string.custom_logo_editor_title),
+        subtitle = stringResource(R.string.custom_logo_editor_subtitle),
+        width = 560.dp
+    ) {
+        BasicTextField(
+            value = input,
+            onValueChange = { input = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(focusRequester),
+            singleLine = true,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                onDone = {
+                    keyboardController?.hide()
+                    onSave(input)
+                }
+            ),
+            textStyle = MaterialTheme.typography.bodyMedium.copy(color = NuvioTheme.colors.TextPrimary),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(NuvioTheme.colors.Primary),
+            decorationBox = { innerTextField ->
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(NuvioTheme.colors.BackgroundCard, RoundedCornerShape(10.dp))
+                        .border(
+                            width = NuvioTheme.spacing.hairline,
+                            color = NuvioTheme.colors.Border,
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .padding(horizontal = 14.dp, vertical = NuvioTheme.spacing.md)
+                ) {
+                    if (input.isBlank()) {
+                        Text(
+                            text = stringResource(R.string.custom_logo_editor_hint),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = NuvioTheme.colors.TextTertiary
+                        )
+                    }
+                    innerTextField()
+                }
+            }
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
+        ) {
+            Button(
+                onClick = {
+                    keyboardController?.hide()
+                    onSave(input)
+                },
+                colors = ButtonDefaults.colors(containerColor = NuvioTheme.colors.Primary)
+            ) {
+                Text(stringResource(R.string.action_save))
+            }
+            if (hasExisting) {
+                Button(
+                    onClick = {
+                        keyboardController?.hide()
+                        onRemove()
+                    },
+                    colors = ButtonDefaults.colors(
+                        containerColor = NuvioTheme.colors.BackgroundCard,
+                        contentColor = NuvioTheme.colors.TextPrimary
+                    )
+                ) {
+                    Text(stringResource(R.string.poster_action_remove_custom_logo))
+                }
+            }
+            Button(
+                onClick = {
+                    keyboardController?.hide()
+                    onDismiss()
+                },
+                colors = ButtonDefaults.colors(
+                    containerColor = NuvioTheme.colors.BackgroundCard,
+                    contentColor = NuvioTheme.colors.TextPrimary
+                )
+            ) {
+                Text(stringResource(R.string.action_cancel))
             }
         }
     }
@@ -207,6 +341,10 @@ fun PosterOptionsHost(
     onNavigateToDetail: (id: String, type: String, addonBaseUrl: String) -> Unit
 ) {
     val target = state.target
+    // Editor logo personalizzato: stato locale, si apre sopra il menu azioni.
+    var logoEditorActive by remember(state.target?.id) { androidx.compose.runtime.mutableStateOf(false) }
+    var logoEditorInitial by remember(state.target?.id) { androidx.compose.runtime.mutableStateOf("") }
+    var logoEditorHasExisting by remember(state.target?.id) { androidx.compose.runtime.mutableStateOf(false) }
     if (target != null) {
         val isMovie = target.apiType.equals("movie", ignoreCase = true)
         val isSeries = target.apiType.equals("series", ignoreCase = true) ||
@@ -241,8 +379,30 @@ fun PosterOptionsHost(
                     controller.toggleSeriesWatched()
                 }
                 controller.dismiss()
+            },
+            onSetCustomLogo = {
+                val current = LogoOverrideStore.current(target.id)
+                logoEditorInitial = current.orEmpty()
+                logoEditorHasExisting = current != null
+                logoEditorActive = true
             }
         )
+
+        if (logoEditorActive) {
+            CustomLogoEditorDialog(
+                initialUrl = logoEditorInitial,
+                hasExisting = logoEditorHasExisting,
+                onSave = { url ->
+                    LogoOverrideStore.set(target.id, url)
+                    logoEditorActive = false
+                },
+                onRemove = {
+                    LogoOverrideStore.set(target.id, null)
+                    logoEditorActive = false
+                },
+                onDismiss = { logoEditorActive = false }
+            )
+        }
     }
 
     if (state.listPickerActive) {

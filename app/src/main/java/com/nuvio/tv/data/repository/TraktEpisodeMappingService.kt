@@ -428,14 +428,26 @@ class TraktEpisodeMappingService @Inject constructor(
         // ItemSourcePreferences (or the library card's own source). Remapping
         // against a different addon's episode list would produce numbers the
         // user never sees, so ask for exactly that source first.
+        // Namespaced memory (A1): Home first (the default pool), then Anime/Extra,
+        // then legacy pre-split keys — the caller's own source is tried before
+        // this value anyway, this is only the fallback.
         val rememberedSource = runCatching {
-            val keys = buildList {
+            val baseKeys = buildList {
                 addAll(com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(contentType, contentId))
                 idCandidates.forEach { (type, id) ->
                     addAll(com.nuvio.tv.data.local.ItemSourcePreferences.keysFor(type, id))
                 }
             }.distinct()
-            itemSourcePreferences.get(keys)
+            itemSourcePreferences.get(
+                com.nuvio.tv.data.local.ItemSourcePreferences.readKeys(
+                    listOf(
+                        com.nuvio.tv.data.local.ItemSourcePreferences.NS_HOME,
+                        com.nuvio.tv.data.local.ItemSourcePreferences.NS_ANIME,
+                        com.nuvio.tv.data.local.ItemSourcePreferences.NS_EXTRA
+                    ),
+                    baseKeys
+                )
+            )
         }.getOrNull()
         val preferredSources = listOfNotNull(
             preferredSourceBaseUrl?.trim()?.trimEnd('/'),

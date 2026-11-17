@@ -101,7 +101,9 @@ class TmdbCollectionSourceResolver @Inject constructor(
             ?: error(string(R.string.tmdb_error_company_not_found))
         TmdbSourceImportMetadata(
             title = body.name?.takeIf { it.isNotBlank() },
-            coverImageUrl = imageUrl(body.logoPath, "w500")
+            // w780: la cover col logo w500 veniva upscalata sulla card;
+            // "original" era pesante su connessione lenta (vedi TmdbMetadataService).
+            coverImageUrl = imageUrl(body.logoPath, "w780")
         )
     }
 
@@ -110,7 +112,7 @@ class TmdbCollectionSourceResolver @Inject constructor(
             ?: error(string(R.string.tmdb_error_network_not_found))
         TmdbSourceImportMetadata(
             title = body.name?.takeIf { it.isNotBlank() },
-            coverImageUrl = imageUrl(body.logoPath, "w500")
+            coverImageUrl = imageUrl(body.logoPath, "w780")
         )
     }
 

@@ -144,6 +144,13 @@ class MetadataTextTranslator @Inject constructor(
      * No-op when the target language is unsupported or already English.
      */
     suspend fun warmUp(targetLanguage: String) = withContext(Dispatchers.IO) {
+        // Precarica la cache traduzioni da disco: peekCachedTranslation è
+        // lock-free e legge fastCache, che resterebbe vuoto finché nessun
+        // accesso sospeso ha caricato il file. Senza questo, al primo focus
+        // l'hero pubblicherebbe l'inglese per ~0.5 s invece dell'italiano
+        // già noto da sessioni precedenti ("per alcuni secondi esce in
+        // inglese"). Chiamato dal preloader molto prima dei cataloghi.
+        runCatching { mutex.withLock { ensureLoadedLocked() } }
         // Language identification downloads its own model on first use and has
         // its own short per-string timeout — probe it with a sample so the first
         // home-hero translation doesn't stall (or silently fail) on that download,
@@ -287,16 +294,28 @@ class MetadataTextTranslator @Inject constructor(
         // Lookup lock-free prima del mutex: sulla UI la cache in memoria è già
         // calda e non serve nemmeno toccare il caricamento da disco.
         fastCache[key]?.let { cached ->
-            if (cached.isNotBlank()) return cached
+            if (cached.isNotBlank()) {
+                if (looksLikeUntranslated(body, cached)) {
+                    // Voce avvelenata da una traduzione a metà (la testa resta
+                    // in lingua sorgente): la scartiamo e riproviamo.
+                    fastCache.remove(key)
+                    clearCachedValue(key)
+                } else {
+                    return cached
+                }
+            }
         }
         val cached = cachedValue(key)
-        if (cached != null) {
+        if (cached != null && cached.isNotBlank()) {
+            if (looksLikeUntranslated(body, cached)) {
+                clearCachedValue(key)
+            } else {
+                return cached
+            }
+        } else if (cached != null) {
             // Un negativo non dovrebbe più esistere (non lo scriviamo più), ma
             // quello lasciato in memoria da una build precedente non deve
             // bloccare per sempre il testo: lo scartiamo e ripartiamo da zero.
-            if (cached.isNotBlank()) {
-                return cached
-            }
             clearCachedValue(key)
         }
         if (System.currentTimeMillis() - startedAtMs > BATCH_DEADLINE_MS) {
@@ -339,8 +358,32 @@ class MetadataTextTranslator @Inject constructor(
         if (translated == null) {
             return null
         }
+        if (looksLikeUntranslated(body, translated)) {
+            // Traduzione a metà: non la memorizziamo MAI (bastava una voce del
+            // genere per far restare l'hero in inglese per tutta la sessione).
+            return null
+        }
         rememberTranslation(key, translated)
         return translated
+    }
+
+    /**
+     * ML Kit può restituire una traduzione a metà: la testa del testo resta
+     * nella lingua sorgente e solo la coda viene tradotta (caso reale
+     * "Part Horror Movie, ... scopri cosa succede..."). Dopo la
+     * normalizzazione (minuscole, solo lettere) un prefisso comune lungo
+     * identifica il risultato incompleto: non va pubblicato né memorizzato,
+     * altrimenti resterebbe in cache per tutta la sessione.
+     */
+    private fun looksLikeUntranslated(source: String, translated: String): Boolean {
+        fun normalize(value: String) = value.lowercase().filter { it.isLetterOrDigit() }
+        val src = normalize(source)
+        val out = normalize(translated)
+        if (src.isEmpty() || out.isEmpty()) return false
+        val threshold = 30
+        val limit = minOf(src.length, out.length, threshold)
+        if (limit < threshold) return false
+        return (0 until limit).all { src[it] == out[it] }
     }
 
     private suspend fun identifyLanguage(text: String): String? {
@@ -381,7 +424,14 @@ class MetadataTextTranslator @Inject constructor(
         val target = normalizeLanguageCode(targetLanguage) ?: return null
         if (text.isNullOrEmpty()) return null
         if (target !in TRANSLATION_SUPPORTED_LANGUAGES) return null
-        return fastCache[translationCacheKey(target, text)]
+        val cached = fastCache[translationCacheKey(target, text)] ?: return null
+        // Voce avvelenata da una traduzione a metà: la UI non deve mai
+        // pubblicarla (l'hero mostrerebbe testo ibrido EN/IT).
+        if (looksLikeUntranslated(text, cached)) {
+            fastCache.remove(translationCacheKey(target, text))
+            return null
+        }
+        return cached
     }
 
     /** Coalesces [persistCacheIfDirty] writes; never blocks the caller. */

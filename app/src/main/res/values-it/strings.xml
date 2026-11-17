@@ -162,6 +162,11 @@
 <string name="cw_action_remove">Rimuovi</string>
 <string name="cw_dialog_subtitle">Scegli cosa vuoi fare con questo elemento.</string>
 <string name="home_poster_dialog_subtitle">Azioni Titolo</string>
+<string name="poster_action_set_custom_logo">Imposta logo personalizzato</string>
+<string name="poster_action_remove_custom_logo">Rimuovi logo personalizzato</string>
+<string name="custom_logo_editor_title">Logo personalizzato</string>
+<string name="custom_logo_editor_subtitle">Incolla il link dell\'immagine del logo</string>
+<string name="custom_logo_editor_hint">https://…</string>
 
     <!-- CatalogRowSection -->
 <string name="action_see_all">Vedi tutto</string>
@@ -702,6 +707,8 @@
 <string name="layout_closed">Chiuso</string>
 <string name="layout_trailer_location">Posizione riproduzione trailer stile Modern</string>
 <string name="layout_trailer_location_sub">Scegli dove viene riprodotta l\'anteprima del trailer nella Home Modern.</string>
+<string name="layout_trailer_quality">Qualità anteprima</string>
+<string name="layout_trailer_quality_sub">1080p è più nitido ma occupa più memoria; i dispositivi con meno di 3 GB di RAM restano sempre a 720p.</string>
 <string name="layout_trailer_expanded_card">Scheda Espansa</string>
 <string name="layout_trailer_hero_media">Media Hero</string>
 <string name="layout_preset_compact">Compatto</string>

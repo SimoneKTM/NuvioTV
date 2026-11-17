@@ -2,15 +2,11 @@ package com.nuvio.tv.ui.components
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
-import android.graphics.Bitmap
 import android.os.Build
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
@@ -21,26 +17,30 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.CardGlow
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Glow
-import coil3.imageLoader
-import coil3.request.ImageRequest
-import coil3.request.allowHardware
-import coil3.request.SuccessResult
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlin.math.exp
-import kotlin.math.max
 
-/** Same elevation [rememberArtworkBackedCardGlow] asks tv-material to draw. */
-private val CardGlowElevation = 28.dp
+/**
+ * Same elevation [rememberArtworkBackedCardGlow] asks tv-material to draw.
+ * `internal`: il viewport delle righe (ModernHomeRows) si ritira di questo
+ * valore per non ritagliare più il bagliore a sinistra della prima card.
+ */
+internal val CardGlowElevation = 28.dp
+
+/**
+ * Il bagliore è volutamente bianco puro (richiesta: "lo vorrei bianco").
+ * Prima il colore veniva campionato dall'artwork e normalizzato in HSV: ne
+ * usciva una tinta diversa per ogni card (verdastro su "Attori", caldo su
+ * "Sale Cinematografiche"). Ora è costante, quindi l'alone non cambia tinta
+ * nemmeno quando l'artwork finisce di caricare. Alfa 0.5: a 0.92 attorno
+ * alle card l'alone risultava troppo intenso ("troppo bagliore attorno").
+ */
+private val GlowColor = Color.White.copy(alpha = 0.5f)
 
 /**
  * Hardware fallback for devices where [rememberArtworkBackedCardGlow] is a no-op.
@@ -103,8 +103,9 @@ internal fun rememberLegacyCardGlowHalo(
 }
 
 /**
- * Samples the card artwork down to the color the focus glow should carry, falling
- * back to a seeded accent when there is no image to sample.
+ * Colore del bagliore della card focalizzata: costante e bianco
+ * ([GlowColor]). I parametri artwork/seed restano nell'interfaccia perché
+ * usati dai call site, ma non servono più a derivare la tinta.
  */
 @Composable
 internal fun rememberArtworkGlowColor(
@@ -113,38 +114,7 @@ internal fun rememberArtworkGlowColor(
     enabled: Boolean,
     fallbackColor: Color = NuvioTheme.colors.FocusBackground
 ): State<Color> {
-    val context = LocalContext.current
-    val glowColor = remember(imageUrl, fallbackSeed, fallbackColor) {
-        mutableStateOf(deriveFallbackGlowColor(fallbackSeed, fallbackColor))
-    }
-
-    LaunchedEffect(context, imageUrl, fallbackSeed, fallbackColor, enabled) {
-        if (!enabled) {
-            glowColor.value = deriveFallbackGlowColor(fallbackSeed, fallbackColor)
-            return@LaunchedEffect
-        }
-
-        val fallback = deriveFallbackGlowColor(fallbackSeed, fallbackColor)
-        if (imageUrl.isNullOrBlank()) {
-            glowColor.value = fallback
-            return@LaunchedEffect
-        }
-
-        glowColor.value = withContext(Dispatchers.IO) {
-            val request = ImageRequest.Builder(context)
-                .data(imageUrl)
-                .allowHardware(false)
-                .size(coil3.size.Size(96, 96))
-                .build()
-            val result = context.imageLoader.execute(request)
-            val image = (result as? SuccessResult)?.image ?: return@withContext fallback
-            val bitmap = (image as? coil3.BitmapImage)?.bitmap ?: return@withContext fallback
-            sampledGlowColor(bitmap)
-                ?: fallback
-        }
-    }
-
-    return glowColor
+    return remember { mutableStateOf(GlowColor) }
 }
 
 private fun Modifier.legacyCardGlowHalo(
@@ -200,56 +170,4 @@ private fun Modifier.legacyCardGlowHalo(
             )
         }
     }
-}
-
-private fun sampledGlowColor(bitmap: Bitmap): Color? {
-    if (bitmap.width <= 0 || bitmap.height <= 0) return null
-
-    val stepX = max(1, bitmap.width / 12)
-    val stepY = max(1, bitmap.height / 12)
-    var weightedRed = 0f
-    var weightedGreen = 0f
-    var weightedBlue = 0f
-    var totalWeight = 0f
-
-    for (y in 0 until bitmap.height step stepY) {
-        for (x in 0 until bitmap.width step stepX) {
-            val pixel = bitmap.getPixel(x, y)
-            val alpha = android.graphics.Color.alpha(pixel) / 255f
-            if (alpha < 0.35f) continue
-
-            weightedRed += android.graphics.Color.red(pixel) * alpha
-            weightedGreen += android.graphics.Color.green(pixel) * alpha
-            weightedBlue += android.graphics.Color.blue(pixel) * alpha
-            totalWeight += alpha
-        }
-    }
-
-    if (totalWeight <= 0f) return null
-
-    return stabilizeGlowColor(
-        Color(
-            red = (weightedRed / totalWeight) / 255f,
-            green = (weightedGreen / totalWeight) / 255f,
-            blue = (weightedBlue / totalWeight) / 255f,
-            alpha = 0.92f
-        )
-    )
-}
-
-private fun deriveFallbackGlowColor(seed: String, fallbackColor: Color): Color {
-    if (seed.isBlank()) return stabilizeGlowColor(fallbackColor)
-    val hue = ((seed.hashCode().toLong() and 0xffffffffL) % 360L).toFloat()
-    val seededAccent = Color.hsv(hue = hue, saturation = 0.48f, value = 0.82f)
-    return stabilizeGlowColor(lerp(fallbackColor, seededAccent, 0.55f))
-}
-
-private fun stabilizeGlowColor(color: Color): Color {
-    val opaque = color.copy(alpha = 1f)
-    val balanced = when {
-        opaque.luminance() < 0.18f -> lerp(opaque, Color.White, 0.30f)
-        opaque.luminance() > 0.84f -> lerp(opaque, Color.Black, 0.18f)
-        else -> opaque
-    }
-    return balanced.copy(alpha = 0.92f)
 }

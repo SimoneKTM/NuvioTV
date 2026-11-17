@@ -45,6 +45,14 @@ interface HomeRouteViewModelInternal {
     )
     fun requestLazyCatalogLoad(catalogKey: String)
     fun preloadAdjacentItem(item: MetaPreview)
+
+    /**
+     * Gate "flash inglese" della hero: restituisce il testo che la hero può
+     * mostrare per [itemId] — la traduzione già pronta (pending o cache) al
+     * posto del grezzo, null finché ML Kit lavora, il grezzo originale solo
+     * quando non è traducibile o la traduzione è fallita.
+     */
+    fun gatedHeroDescription(itemId: String?, rawDescription: String?): String?
 }
 
 @Composable
@@ -218,6 +226,9 @@ internal fun ModernHomeRoute(
         onNavigateToFolderDetail = onNavigateToFolderDetail,
         onItemFocus = remember(viewModel) {
             { item -> viewModel.onItemFocus(item) }
+        },
+        gatedHeroDescription = remember(viewModel) {
+            { itemId: String?, raw: String? -> viewModel.gatedHeroDescription(itemId, raw) }
         },
         onPreloadAdjacentItem = preloadAdjacentItem,
         onSaveFocusState = saveModernFocusState,
