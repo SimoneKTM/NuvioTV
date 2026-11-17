@@ -367,6 +367,7 @@ fun NuvioNavHost(
                 returnFocusEpisode = returnFocusEpisode,
                 heroRestoreToken = heroRestoreToken,
                 heroBackdropUrl = heroBackdropUrl,
+                metaId = detailArgs?.getString("itemId"),
                 onReturnFocusConsumed = {
                     savedState["returnFocusSeason"] = null
                     savedState["returnFocusEpisode"] = null

@@ -658,6 +658,11 @@ class HomeViewModel @Inject constructor(
     internal var currentMdbListSettings: MDBListSettings = MDBListSettings()
     internal var heroEnrichmentJob: Job? = null
     internal var lastHeroEnrichmentSignature: String? = null
+    /**
+     * Firma della lista hero che il job IN CORSO sta elaborando: serve a non
+     * cancellare e rilanciare lo stesso lavoro a ogni caricamento di riga.
+     */
+    internal var inFlightHeroEnrichmentSignature: String? = null
     internal var lastHeroEnrichedItems: List<MetaPreview> = emptyList()
     internal var heroItemOrder: List<String> = emptyList()
     internal val modernCarouselRowBuildCache = ModernCarouselRowBuildCache()

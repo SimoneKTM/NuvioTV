@@ -146,6 +146,7 @@ class StreamScreenViewModel @Inject constructor(
             poster = poster,
             backdrop = backdrop,
             logo = logo,
+            contentId = contentId ?: videoId.substringBefore(":"),
             season = season,
             episode = episode,
             episodeName = episodeName,

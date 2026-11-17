@@ -2,6 +2,8 @@ package com.nuvio.tv.ui.components
 
 import com.nuvio.tv.core.perf.LocalFluidMode
 
+import com.nuvio.tv.core.logo.LogoOverrideStore
+import com.nuvio.tv.core.logo.PosterOverrideStore
 import com.nuvio.tv.domain.model.isPlaceholder
 import com.nuvio.tv.ui.theme.NuvioTheme
 
@@ -24,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,6 +63,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.nuvio.tv.ui.util.recompositionHighlighter
 import com.nuvio.tv.ui.util.rememberLongPressKeyTracker
 import com.nuvio.tv.ui.screens.home.rememberNextEpisodeDateLabel
+import coil3.BitmapImage
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
@@ -196,13 +200,24 @@ fun GridContentCard(
                 val context = LocalContext.current
                 val bgCardColor = NuvioTheme.colors.BackgroundCard
                 val bgPainter = remember(bgCardColor) { androidx.compose.ui.graphics.painter.ColorPainter(bgCardColor) }
+                // Override manuali (menu Azioni Titolo): senza collectAsState la
+                // card non si iscrive al flow e al salvataggio restava con la
+                // vecchia immagine finché qualcos'altro non la ricomponiva.
+                val posterOverrides by PosterOverrideStore.overrides.collectAsState()
+                val cardLogoOverrides by LogoOverrideStore.overrides.collectAsState()
+                val overriddenPoster = remember(posterOverrides, item.id, item.poster) {
+                    PosterOverrideStore.resolve(item.id, item.poster)
+                }
+                val effectiveLogoUrl = remember(cardLogoOverrides, item.id, item.logo) {
+                    LogoOverrideStore.resolve(item.id, item.logo)
+                }
                 val imageModel = rememberPosterImageRequest(
-                    item.poster,
+                    overriddenPoster,
                     requestWidthPx,
                     requestHeightPx,
                     imageCrossfade
                 )
-                if (item.poster.isPlaceholder()) {
+                if (overriddenPoster.isPlaceholder()) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -213,7 +228,7 @@ fun GridContentCard(
                                 backgroundColor = NuvioTheme.colors.BackgroundCard
                             )
                     )
-                } else if (item.poster.isNullOrBlank()) {
+                } else if (overriddenPoster.isNullOrBlank()) {
                     MonochromePosterPlaceholder()
                 } else {
                     AsyncImage(
@@ -221,13 +236,22 @@ fun GridContentCard(
                         contentDescription = item.name,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
+                        // Come per l'hero: appena decodificato, la texture viene
+                        // caricata in anticipo sul render-thread durante la sosta.
+                        // Senza questo i poster delle righe appena paginate
+                        // restavano grigi per secondi dopo l'arrivo dei dati.
+                        onSuccess = { state ->
+                            runCatching {
+                                (state.result.image as? BitmapImage)?.bitmap?.prepareToDraw()
+                            }
+                        },
                         placeholder = bgPainter,
                         error = bgPainter,
                         fallback = bgPainter
                     )
                 }
 
-                if (showLogo && !item.logo.isNullOrBlank()) {
+                if (showLogo && !effectiveLogoUrl.isNullOrBlank()) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -239,9 +263,9 @@ fun GridContentCard(
                                 )
                             )
                     )
-                    val logoRequest = remember(item.logo) {
+                    val logoRequest = remember(effectiveLogoUrl) {
                         ImageRequest.Builder(context)
-                            .data(item.logo)
+                            .data(effectiveLogoUrl)
                             .crossfade(true)
                             .build()
                     }

@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithCache
@@ -182,7 +183,7 @@ internal fun ModernHeroMediaLayer(
         // bordi vuoti dietro il crop in alto-destra invece di restare neri.
         // Il decode minuscolo è immediato, quindi la hero appare prima che
         // finisca il caricamento del backdrop grande; sotto Android 12 (niente
-        // RenderEffect) resta comunque lo stiramento morbido.
+        // RenderEffect) la sfocatura resta no-op e vale lo stiramento morbido.
         val fillModel = remember(localContext, displayedBackdrop) {
             displayedBackdrop?.let {
                 ImageRequest.Builder(localContext)
@@ -199,6 +200,10 @@ internal fun ModernHeroMediaLayer(
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxSize()
+                        // Stirata + sfocata: i bordi fuori dal crop diventano
+                        // un diffuso colorato invece di una foto allungata e
+                        // pixelata (richiesta "effetto sfocatura").
+                        .blur(20.dp)
                         .graphicsLayer { alpha = 1f - transitionProgressState.value },
                     contentScale = ContentScale.FillBounds
                 )

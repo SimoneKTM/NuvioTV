@@ -104,8 +104,11 @@ import kotlinx.coroutines.launch as coroutineLaunch
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.res.stringResource
 import com.nuvio.tv.R
+import com.nuvio.tv.core.logo.HeroBackdropOverrideStore
+import com.nuvio.tv.core.logo.LogoOverrideStore
 import android.util.Log
 
 
@@ -118,6 +121,21 @@ fun StreamScreen(
     onAutoPlayResolved: (StreamPlaybackInfo) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // Override manuali (menu Azioni Titolo): logo e sfondo personalizzati
+    // devono valere anche nello schermo sorgenti/preview, non solo in home.
+    val logoOverrides by LogoOverrideStore.overrides.collectAsState()
+    val backdropOverrides by HeroBackdropOverrideStore.overrides.collectAsState()
+    val resolvedLogo = remember(logoOverrides, uiState.contentId, uiState.logo) {
+        LogoOverrideStore.resolve(uiState.contentId, uiState.logo)
+    }
+    val resolvedBackdrop = remember(
+        backdropOverrides,
+        uiState.contentId,
+        uiState.backdrop,
+        uiState.poster
+    ) {
+        HeroBackdropOverrideStore.resolve(uiState.contentId, uiState.backdrop ?: uiState.poster)
+    }
     val playerPreference by viewModel.playerPreference.collectAsStateWithLifecycle(
         initialValue = null
     )
@@ -364,7 +382,7 @@ fun StreamScreen(
     ) {
         // Full screen backdrop
         StreamBackdrop(
-            backdrop = uiState.backdrop ?: uiState.poster,
+            backdrop = resolvedBackdrop,
             isLoading = uiState.isLoading
         )
 
@@ -375,8 +393,8 @@ fun StreamScreen(
         } else if (showOverlay) {
             LoadingOverlay(
                 visible = true,
-                backdropUrl = uiState.backdrop ?: uiState.poster,
-                logoUrl = uiState.logo,
+                backdropUrl = resolvedBackdrop,
+                logoUrl = resolvedLogo,
                 title = uiState.title,
                 message = if (uiState.directAutoPlayMessage != null) {
                     uiState.directAutoPlayMessage
@@ -394,7 +412,7 @@ fun StreamScreen(
                 // Left side - Title/Logo (centered vertically)
                 LeftContentSection(
                     title = uiState.title,
-                    logo = uiState.logo,
+                    logo = resolvedLogo,
                     isEpisode = uiState.isEpisode,
                     season = uiState.season,
                     episode = uiState.episode,

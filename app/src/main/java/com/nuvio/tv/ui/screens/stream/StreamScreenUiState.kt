@@ -19,6 +19,8 @@ data class StreamScreenUiState(
     val poster: String? = null,
     val backdrop: String? = null,
     val logo: String? = null,
+    // Id del titolo: serve a risolvere gli override manuali (logo/poster/sfondo)
+    val contentId: String? = null,
     // Episode-specific fields
     val season: Int? = null,
     val episode: Int? = null,

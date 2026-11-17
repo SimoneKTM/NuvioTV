@@ -76,6 +76,7 @@ import com.nuvio.tv.domain.model.CardDepthSurface
 import com.nuvio.tv.domain.model.MetaPreview
 import com.nuvio.tv.domain.model.PosterShape
 import com.nuvio.tv.ui.theme.NuvioTheme
+import coil3.BitmapImage
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.CachePolicy
@@ -435,7 +436,15 @@ fun ContentCard(
                         placeholder = backgroundPainter,
                         error = backgroundPainter,
                         fallback = backgroundPainter,
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Crop,
+                        // Texture caricata in anticipo sul render-thread: i poster
+                        // delle righe appena paginate comparivano con secondi di
+                        // ritardo nonostante l'immagine fosse già scaricata.
+                        onSuccess = { state ->
+                            runCatching {
+                                (state.result.image as? BitmapImage)?.bitmap?.prepareToDraw()
+                            }
+                        }
                     )
                 } else {
                     MonochromePosterPlaceholder()

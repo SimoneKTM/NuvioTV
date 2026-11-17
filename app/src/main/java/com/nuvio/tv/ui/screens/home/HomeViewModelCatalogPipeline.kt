@@ -942,45 +942,62 @@ internal suspend fun HomeViewModel.updateCatalogRowsPipeline() {
         tvdbEnabledForCurrentLayout
 
     if (shouldUseEnrichedHeroItems && baseHeroItems.isNotEmpty()) {
-        heroEnrichmentJob?.cancel()
-        heroEnrichmentJob = viewModelScope.launch {
-            val enrichmentSignature = heroEnrichmentSignaturePipeline(baseHeroItems, tmdbSettings)
-            if (lastHeroEnrichmentSignature == enrichmentSignature) {
-                val cached = lastHeroEnrichedItems
-                publishHeroItemsForTranslationPipeline(cached)
-                _uiState.update { state ->
-                    state.copy(
-                        heroItems = if (state.heroItems == cached) state.heroItems else cached,
-                        gridItems = if (currentLayout == HomeLayout.GRID) {
-                            val enrichedGrid = replaceGridHeroItemsPipeline(state.gridItems, cached)
-                            if (state.gridItems == enrichedGrid) state.gridItems else enrichedGrid
-                        } else state.gridItems
-                    )
-                }
-            } else {
-                // Avvia subito la traduzione delle descrizioni GREZZE dell'hero,
-                // in parallelo con l'arricchimento di rete: senza questo, la
-                // traduzione partiva solo al termine delle fetch (più secondi)
-                // e l'utente vedeva l'hero in inglese — stessa logica del
-                // translateDescriptionEarly dello schermo dettaglio. Se
-                // l'arricchimento pubblica la stessa descrizione, la traduzione
-                // già pronta viene applicata al volo (pendingPreviewTranslations);
-                // se la descrizione cambia, la pubblicazione riarmata la propria.
-                baseHeroItems.forEach { hero ->
-                    schedulePreviewDescriptionTranslation(hero.id, hero)
-                }
-                val enrichedItems = enrichHeroItemsPipeline(baseHeroItems, tmdbSettings)
-                lastHeroEnrichmentSignature = enrichmentSignature
-                lastHeroEnrichedItems = enrichedItems
-                publishHeroItemsForTranslationPipeline(enrichedItems)
-                _uiState.update { state ->
-                    state.copy(
-                        heroItems = if (state.heroItems == enrichedItems) state.heroItems else enrichedItems,
-                        gridItems = if (currentLayout == HomeLayout.GRID) {
-                            val enrichedGrid = replaceGridHeroItemsPipeline(state.gridItems, enrichedItems)
-                            if (state.gridItems == enrichedGrid) state.gridItems else enrichedGrid
-                        } else state.gridItems
-                    )
+        val enrichmentSignature = heroEnrichmentSignaturePipeline(baseHeroItems, tmdbSettings)
+        // Non cancellare un job che sta già elaborando la STESSA lista: ogni
+        // caricamento di riga lo rilanciava da capo e, se l'utente scorreva
+        // in fretta, l'arricchimento (sinossi dell'hero) non completava mai
+        // ("la descrizione non compare").
+        val sameWorkInFlight = heroEnrichmentJob?.isActive == true &&
+            inFlightHeroEnrichmentSignature == enrichmentSignature
+        if (!sameWorkInFlight) {
+            heroEnrichmentJob?.cancel()
+            inFlightHeroEnrichmentSignature = enrichmentSignature
+            heroEnrichmentJob = viewModelScope.launch {
+                try {
+                    if (lastHeroEnrichmentSignature == enrichmentSignature) {
+                        val cached = lastHeroEnrichedItems
+                        publishHeroItemsForTranslationPipeline(cached)
+                        _uiState.update { state ->
+                            state.copy(
+                                heroItems = if (state.heroItems == cached) state.heroItems else cached,
+                                gridItems = if (currentLayout == HomeLayout.GRID) {
+                                    val enrichedGrid = replaceGridHeroItemsPipeline(state.gridItems, cached)
+                                    if (state.gridItems == enrichedGrid) state.gridItems else enrichedGrid
+                                } else state.gridItems
+                            )
+                        }
+                    } else {
+                        // Avvia subito la traduzione delle descrizioni GREZZE dell'hero,
+                        // in parallelo con l'arricchimento di rete: senza questo, la
+                        // traduzione partiva solo al termine delle fetch (più secondi)
+                        // e l'utente vedeva l'hero in inglese — stessa logica del
+                        // translateDescriptionEarly dello schermo dettaglio. Se
+                        // l'arricchimento pubblica la stessa descrizione, la traduzione
+                        // già pronta viene applicata al volo (pendingPreviewTranslations);
+                        // se la descrizione cambia, la pubblicazione riarmata la propria.
+                        baseHeroItems.forEach { hero ->
+                            schedulePreviewDescriptionTranslation(hero.id, hero)
+                        }
+                        val enrichedItems = enrichHeroItemsPipeline(baseHeroItems, tmdbSettings)
+                        lastHeroEnrichmentSignature = enrichmentSignature
+                        lastHeroEnrichedItems = enrichedItems
+                        publishHeroItemsForTranslationPipeline(enrichedItems)
+                        _uiState.update { state ->
+                            state.copy(
+                                heroItems = if (state.heroItems == enrichedItems) state.heroItems else enrichedItems,
+                                gridItems = if (currentLayout == HomeLayout.GRID) {
+                                    val enrichedGrid = replaceGridHeroItemsPipeline(state.gridItems, enrichedItems)
+                                    if (state.gridItems == enrichedGrid) state.gridItems else enrichedGrid
+                                } else state.gridItems
+                            )
+                        }
+                    }
+                } finally {
+                    // Azzera solo se è ancora la firma di questo job: un job
+                    // sostituito non deve spegnere la marcatura di quello nuovo.
+                    if (inFlightHeroEnrichmentSignature == enrichmentSignature) {
+                        inFlightHeroEnrichmentSignature = null
+                    }
                 }
             }
         }

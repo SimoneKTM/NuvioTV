@@ -34,6 +34,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -127,6 +128,7 @@ import com.nuvio.tv.ui.components.TrailerPlayer
 import com.nuvio.tv.ui.components.posteroptions.TrackingRemovalConfirmationDialog
 import com.nuvio.tv.core.tracking.LOCAL_LIBRARY_LIST_KEY
 import com.nuvio.tv.core.tracking.supportsMembershipFor
+import com.nuvio.tv.core.logo.HeroBackdropOverrideStore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -224,6 +226,7 @@ fun MetaDetailsScreen(
     returnFocusEpisode: Int? = null,
     heroRestoreToken: Int = 0,
     heroBackdropUrl: String? = null,
+    metaId: String? = null,
     onBackPress: () -> Unit,
     onReturnFocusConsumed: () -> Unit = {},
     onNavigateToCastDetail: (personId: Int, personName: String, preferCrew: Boolean) -> Unit = { _, _, _ -> },
@@ -279,6 +282,12 @@ fun MetaDetailsScreen(
     ) -> Unit = { _, _, _, _, _, _, _, _, _, _, _, _, _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // Override manuale dello sfondo hero (menu Azioni Titolo): deve valere
+    // anche nella scheda dettaglio, non solo nell'hero della home.
+    val backdropOverrides by HeroBackdropOverrideStore.overrides.collectAsState()
+    val resolvedHeroBackdropUrl = remember(backdropOverrides, metaId, heroBackdropUrl) {
+        HeroBackdropOverrideStore.resolve(metaId, heroBackdropUrl)
+    }
     val effectiveAutoplayEnabled by viewModel.effectiveAutoplayEnabled.collectAsStateWithLifecycle(
         initialValue = false
     )
@@ -424,7 +433,7 @@ fun MetaDetailsScreen(
         when {
             uiState.isLoading -> {
                 // Show hero backdrop from ModernHome during loading to prevent visual gap
-                if (!heroBackdropUrl.isNullOrBlank()) {
+                if (!resolvedHeroBackdropUrl.isNullOrBlank()) {
                     val localContext = LocalContext.current
                     val localDensity = LocalDensity.current
                     val configuration = LocalConfiguration.current
@@ -434,9 +443,9 @@ fun MetaDetailsScreen(
                     val loadingBackdropHeightPx = remember(configuration, localDensity) {
                         with(localDensity) { configuration.screenHeightDp.dp.roundToPx() }
                     }
-                    val loadingBackdropRequest = remember(localContext, heroBackdropUrl, loadingBackdropWidthPx, loadingBackdropHeightPx) {
+                    val loadingBackdropRequest = remember(localContext, resolvedHeroBackdropUrl, loadingBackdropWidthPx, loadingBackdropHeightPx) {
                         ImageRequest.Builder(localContext)
-                            .data(heroBackdropUrl)
+                            .data(resolvedHeroBackdropUrl)
                             .crossfade(false)
                             .size(width = loadingBackdropWidthPx, height = loadingBackdropHeightPx)
                             .build()
@@ -449,7 +458,7 @@ fun MetaDetailsScreen(
                         alignment = Alignment.TopEnd
                     )
                 }
-                MetaDetailsSkeleton(backdropAware = !heroBackdropUrl.isNullOrBlank())
+                MetaDetailsSkeleton(backdropAware = !resolvedHeroBackdropUrl.isNullOrBlank())
             }
             uiState.error != null -> {
                 ErrorState(
@@ -467,7 +476,7 @@ fun MetaDetailsScreen(
                 }
 
                 MetaDetailsContent(
-                    heroBackdropUrl = heroBackdropUrl,
+                    heroBackdropUrl = resolvedHeroBackdropUrl,
                     meta = meta,
                     detailReturnEpisodeFocusRequest = DetailReturnEpisodeFocusRequest(
                         season = returnFocusSeason,
@@ -1523,7 +1532,13 @@ private fun MetaDetailsContent(
     }
     val hasHeroBackdrop = !heroBackdropUrl.isNullOrBlank()
     val seedBackdropUrl = heroBackdropUrl?.takeIf { it.isNotBlank() }
-    val backdropDataUrl = meta.backdropUrl ?: meta.poster
+    // Override manuale sfondo hero: deve valere anche qui, quando il dettaglio
+    // non riceve lo sfondo dalla home e usa quello del catalogo.
+    val backdropOverrides by HeroBackdropOverrideStore.overrides.collectAsState()
+    val overriddenMetaBackdrop = remember(backdropOverrides, meta.id, meta.backdropUrl) {
+        HeroBackdropOverrideStore.resolve(meta.id, meta.backdropUrl)
+    }
+    val backdropDataUrl = overriddenMetaBackdrop ?: meta.poster
     val shouldReuseSeedBackdrop = seedBackdropUrl != null && seedBackdropUrl == backdropDataUrl
     val shouldShowSeedBackdropUnderlay = seedBackdropUrl != null && !shouldReuseSeedBackdrop
     val heroBackdropRequest = remember(
