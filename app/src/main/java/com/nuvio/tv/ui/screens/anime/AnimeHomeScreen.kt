@@ -739,6 +739,12 @@ private fun AnimeModernCatalogRow(
                     ContentCard(
                         item = item,
                         posterCardStyle = posterCardStyle,
+                        // Parità con ModernCarouselCard (Home): stesse misure
+                        // per forma poster e stesse regole dei poster orizzontali.
+                        useLandscapePosters = useLandscapePosters,
+                        landscapeCardWidth = landscapeCardWidth,
+                        landscapeCardHeight = landscapeCardHeight,
+                        squareCardSize = portraitCardHeight,
                         showLabels = showLabels,
                         placeholderShimmerOffsetState = placeholderShimmerOffsetState,
                         focusedPosterBackdropExpandEnabled = focusedPosterBackdropExpandEnabled,

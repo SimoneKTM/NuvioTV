@@ -48,7 +48,9 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalDensity
@@ -65,6 +67,7 @@ import androidx.tv.material3.Border
 import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -99,6 +102,14 @@ fun ContentCard(
     modifier: Modifier = Modifier,
     focusRequester: FocusRequester? = null,
     posterCardStyle: PosterCardStyle = PosterCardDefaults.Style,
+    // Metriche forma: stesse regole di ModernCarouselCard/catalogCardMetrics
+    // (Home), così card LANDSCAPE/QUADRATE delle tab Anime e dettaglio hanno
+    // le stesse dimensioni della tab Home. I default mantengono invariati i
+    // call site che non passano nulla (griglia "Vedi tutti", cartelle).
+    useLandscapePosters: Boolean = false,
+    landscapeCardWidth: Dp = 260.dp,
+    landscapeCardHeight: Dp = 148.dp,
+    squareCardSize: Dp = 170.dp,
     showLabels: Boolean = true,
     placeholderShimmerOffsetState: State<Float>? = null,
     focusedPosterBackdropExpandEnabled: Boolean = false,
@@ -118,15 +129,20 @@ fun ContentCard(
 ) {
     val cardShape = remember(posterCardStyle.cornerRadius) { RoundedCornerShape(posterCardStyle.cornerRadius) }
     val cardDepthStyle = LocalCardDepthStyle.current
-    val baseCardWidth = when (item.posterShape) {
-        PosterShape.POSTER -> posterCardStyle.width
-        PosterShape.LANDSCAPE -> 260.dp
-        PosterShape.SQUARE -> 170.dp
+    // Specchio di ModernHomeModels.catalogCardMetrics: con i poster
+    // orizzontali attivi lo stile passa già in modalità landscape e vale per
+    // tutte le forme; altrimenti ogni forma usa le stesse misure della Home.
+    val baseCardWidth = when {
+        useLandscapePosters -> posterCardStyle.width
+        item.posterShape == PosterShape.LANDSCAPE -> landscapeCardWidth
+        item.posterShape == PosterShape.SQUARE -> squareCardSize
+        else -> posterCardStyle.width
     }
-    val baseCardHeight = when (item.posterShape) {
-        PosterShape.POSTER -> posterCardStyle.height
-        PosterShape.LANDSCAPE -> 148.dp
-        PosterShape.SQUARE -> 170.dp
+    val baseCardHeight = when {
+        useLandscapePosters -> posterCardStyle.height
+        item.posterShape == PosterShape.LANDSCAPE -> landscapeCardHeight
+        item.posterShape == PosterShape.SQUARE -> squareCardSize
+        else -> posterCardStyle.height
     }
     val expandedCardWidth = baseCardHeight * BACKDROP_ASPECT_RATIO
 
@@ -253,19 +269,23 @@ fun ContentCard(
         }
 
         // Override manuali (menu Azioni Titolo): poster e logo personalizzati
-        // vincono sull'artwork del catalogo. collectAsState: al salvataggio
-        // l'override la card si ricompone subito con la nuova immagine.
-        @Suppress("UNUSED_VARIABLE")
+        // vincono sull'artwork del catalogo. collectAsState DEVE essere letto
+        // (nelle remember key): senza lettura la composizione non si
+        // iscrive al flow e al salvataggio la card restava con la vecchia
+        // immagine finché qualcos'altro non la ricomponiva.
         val posterOverrides by PosterOverrideStore.overrides.collectAsState()
-        @Suppress("UNUSED_VARIABLE")
         val cardLogoOverrides by LogoOverrideStore.overrides.collectAsState()
-        val overriddenPoster = PosterOverrideStore.resolve(item.id, item.poster)
+        val overriddenPoster = remember(posterOverrides, item.id, item.poster) {
+            PosterOverrideStore.resolve(item.id, item.poster)
+        }
         val imageUrl = if (focusedPosterBackdropExpandEnabled && isBackdropExpanded) {
             item.backdropUrl ?: overriddenPoster
         } else {
             overriddenPoster
         }
-        val effectiveLogoUrl = LogoOverrideStore.resolve(item.id, item.logo)
+        val effectiveLogoUrl = remember(cardLogoOverrides, item.id, item.logo) {
+            LogoOverrideStore.resolve(item.id, item.logo)
+        }
         val imageModel = rememberPosterImageRequest(imageUrl, requestWidthPx, requestHeightPx)
         val logoRequestHeightPx = remember(density) {
             with(density) { NuvioTheme.spacing.xxxl.roundToPx() }
@@ -361,9 +381,11 @@ fun ContentCard(
                     if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
                 ),
             shape = CardDefaults.shape(shape = cardShape),
+            // Stessi colori della card Home (ModernCarouselCard): sfondo
+            // opaco anche da non focalizzata, mai trasparente.
             colors = CardDefaults.colors(
-                containerColor = Color.Transparent,
-                focusedContainerColor = Color.Transparent
+                containerColor = NuvioTheme.colors.BackgroundCard,
+                focusedContainerColor = NuvioTheme.colors.BackgroundCard
             ),
             border = CardDefaults.border(
                 focusedBorder = Border(
@@ -371,12 +393,19 @@ fun ContentCard(
                     shape = cardShape
                 )
             ),
-            scale = CardDefaults.scale(focusedScale = if (fluidMode) 1f else posterCardStyle.focusedScale)
+            scale = CardDefaults.scale(focusedScale = if (fluidMode) 1f else posterCardStyle.focusedScale),
+            // Come in Home: niente alone luminoso attorno alla card (il focus
+            // è solo l'anello bianco), altrimenti Anime e Home risultavano
+            // visibilmente diversi.
+            glow = remember { CardDefaults.glow(focusedGlow = Glow.None) }
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(baseCardHeight)
+                    // Come in Home: compositing offscreen per il clip agli
+                    // angoli (niente aloni di AA sul bordo arrotondato).
+                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                     .clip(cardShape)
                     .nuvioCardDepth(
                         shape = cardShape,
@@ -515,7 +544,7 @@ fun ContentCard(
                             FocusMarqueeText(
                                 text = item.name,
                                 focused = isFocused,
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
                                 color = Color.White,
                             )
                         }
@@ -551,6 +580,9 @@ fun ContentCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = NuvioTheme.spacing.sm)
+                    // Stesso ritmo della card Home (ModernCarouselCard):
+                    // titolo e metadati separati da spacing.xxs.
+                    .padding(horizontal = NuvioTheme.spacing.xs)
             ) {
                 if (isBackdropExpanded) {
                     if (metaTokens.isNotEmpty()) {
@@ -576,10 +608,11 @@ fun ContentCard(
                     FocusMarqueeText(
                         text = item.name,
                         focused = isFocused,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
                         color = NuvioTheme.colors.TextPrimary,
                     )
                     (nextEpisodeDateLabel ?: item.releaseInfo)?.let { info ->
+                        Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxs))
                         FocusMarqueeText(
                             text = info,
                             focused = isFocused,

@@ -358,6 +358,17 @@ class HomeViewModel @Inject constructor(
             previewTranslationProcessed[itemId] == raw
         }
         if (!claimed) return raw
+        // Nascondi la sinossi SOLO mentre la traduzione è davvero in corso
+        // (pending, in coda o job attivo): un claim rimasto bloccato da un
+        // job morto senza cleanup lasciava l'hero senza descrizione per
+        // sempre ("la descrizione non compare"). Claim senza lavoro attivo →
+        // si pubblica subito il grezzo.
+        val inFlight = itemId != null && synchronized(previewTranslationLock) {
+            pendingPreviewTranslations.containsKey(itemId) ||
+                backgroundTranslationQueue.any { it.first == itemId } ||
+                focusPreviewTranslationJob?.isActive == true
+        }
+        if (!inFlight) return raw
         // Claim recente → la traduzione è davvero in corso: la sinossi resta
         // nascosta per l'attesa. Claim vecchia → job morto senza cleanup (o
         // traduzione andata perduta): pubblica il grezzo invece di tenere

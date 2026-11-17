@@ -29,8 +29,10 @@ import com.nuvio.tv.domain.model.HomeLayout
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -76,6 +78,26 @@ class LayoutPreferenceDataStore @Inject constructor(
         featureName: String
     ) : this(factory, profileManager) {
         this.featureName = featureName
+    }
+
+    /**
+     * Store globale (quello della tab Home) da cui ereditare i valori finché
+     * QUESTO store non ha un valore esplicito. Le tab Anime/Extra devono
+     * essere graficamente identiche alla Home finché l'utente non le
+     * personalizza dalla loro schermata di layout: senza fallback vivevano
+     * sui default (card, stile "Continua a guardare", poster orizzontali…).
+     * Impostato dal modulo DI dopo il costruttore, quindi i getter lo
+     * leggono in raccolta (vedi [localExplicitOrGlobal]).
+     */
+    private var globalFallback: LayoutPreferenceDataStore? = null
+
+    internal constructor(
+        factory: ProfileDataStoreFactory,
+        profileManager: ProfileManager,
+        featureName: String,
+        globalFallback: LayoutPreferenceDataStore
+    ) : this(factory, profileManager, featureName) {
+        this.globalFallback = globalFallback
     }
 
     private fun store(profileId: Int = profileManager.activeProfileId.value) =
@@ -154,6 +176,28 @@ class LayoutPreferenceDataStore @Inject constructor(
         }
 
     /**
+     * Valore esplicito di QUESTO store se presente, altrimenti quello dello
+     * store globale (tab Home), altrimenti [default]. Il fallback viene letto
+     * a raccolta perché il modulo DI lo inietta dopo il costruttore.
+     */
+    private fun <T> localExplicitOrGlobal(
+        localExplicit: Flow<T?>,
+        default: T,
+        global: (LayoutPreferenceDataStore) -> Flow<T>
+    ): Flow<T> = flow {
+        val fallback = globalFallback
+        if (fallback == null) {
+            emitAll(localExplicit.map { it ?: default })
+        } else {
+            emitAll(
+                combine(localExplicit, global(fallback)) { local, globalValue ->
+                    local ?: globalValue
+                }
+            )
+        }
+    }
+
+    /**
      * Profile used by the catalog settings flows: secondary profiles using the primary profile's
      * addons read order/disabled/titles from profile 1, so their writes must land there too —
      * otherwise the toggle persists to a file nobody reads (appears inert after leaving the screen).
@@ -187,23 +231,25 @@ class LayoutPreferenceDataStore @Inject constructor(
     private fun positiveOrDefault(value: Int?, defaultValue: Int): Int =
         value?.takeIf { it > 0 } ?: defaultValue
 
-    val selectedLayout: Flow<HomeLayout> = profileFlow { prefs ->
-        val layoutName = prefs[layoutKey] ?: HomeLayout.MODERN.name
-        try {
-            HomeLayout.valueOf(layoutName)
-        } catch (e: IllegalArgumentException) {
-            HomeLayout.MODERN
-        }
-    }
+    val selectedLayout: Flow<HomeLayout> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs ->
+            prefs[layoutKey]?.let { name ->
+                runCatching { HomeLayout.valueOf(name) }.getOrNull()
+            }
+        },
+        default = HomeLayout.MODERN,
+        global = { it.selectedLayout }
+    )
 
-    val continueWatchingCardStyle: Flow<ContinueWatchingCardStyle> = profileFlow { prefs ->
-        val styleName = prefs[continueWatchingCardStyleKey] ?: ContinueWatchingCardStyle.CARD.name
-        try {
-            ContinueWatchingCardStyle.valueOf(styleName)
-        } catch (e: IllegalArgumentException) {
-            ContinueWatchingCardStyle.CARD
-        }
-    }
+    val continueWatchingCardStyle: Flow<ContinueWatchingCardStyle> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs ->
+            prefs[continueWatchingCardStyleKey]?.let { name ->
+                runCatching { ContinueWatchingCardStyle.valueOf(name) }.getOrNull()
+            }
+        },
+        default = ContinueWatchingCardStyle.CARD,
+        global = { it.continueWatchingCardStyle }
+    )
 
     val hasChosenLayout: Flow<Boolean> = profileFlow { prefs ->
         prefs[hasChosenKey] ?: false
@@ -256,17 +302,23 @@ class LayoutPreferenceDataStore @Inject constructor(
         prefs[modernSidebarBlurEnabledKey] ?: false
     }
 
-    val modernLandscapePostersEnabled: Flow<Boolean> = profileFlow { prefs ->
-        prefs[modernLandscapePostersEnabledKey] ?: false
-    }
+    val modernLandscapePostersEnabled: Flow<Boolean> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[modernLandscapePostersEnabledKey] },
+        default = false,
+        global = { it.modernLandscapePostersEnabled }
+    )
 
-    val modernHeroFullScreenBackdropEnabled: Flow<Boolean> = profileFlow { prefs ->
-        prefs[modernHeroFullScreenBackdropKey] ?: false
-    }
+    val modernHeroFullScreenBackdropEnabled: Flow<Boolean> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[modernHeroFullScreenBackdropKey] },
+        default = false,
+        global = { it.modernHeroFullScreenBackdropEnabled }
+    )
 
-    val heroSectionEnabled: Flow<Boolean> = profileFlow { prefs ->
-        prefs[heroSectionEnabledKey] ?: true
-    }
+    val heroSectionEnabled: Flow<Boolean> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[heroSectionEnabledKey] },
+        default = true,
+        global = { it.heroSectionEnabled }
+    )
 
     val discoverLocation: Flow<DiscoverLocation> = profileFlow { prefs ->
         val stored = prefs[discoverLocationKey] ?: DiscoverLocation.IN_SEARCH.name
@@ -284,55 +336,74 @@ class LayoutPreferenceDataStore @Inject constructor(
             .getOrDefault(DiscoverLocation.IN_SEARCH)
     }
 
-    val posterLabelsEnabled: Flow<Boolean> = profileFlow { prefs ->
-        prefs[posterLabelsEnabledKey] ?: true
-    }
+    val posterLabelsEnabled: Flow<Boolean> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[posterLabelsEnabledKey] },
+        default = true,
+        global = { it.posterLabelsEnabled }
+    )
 
-    val catalogTypeSuffixEnabled: Flow<Boolean> = profileFlow { prefs ->
-        prefs[catalogTypeSuffixEnabledKey] ?: true
-    }
+    val catalogTypeSuffixEnabled: Flow<Boolean> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[catalogTypeSuffixEnabledKey] },
+        default = true,
+        global = { it.catalogTypeSuffixEnabled }
+    )
 
     val classicFocusGradientEnabled: Flow<Boolean> = profileFlow { prefs ->
         prefs[classicFocusGradientEnabledKey] ?: false
     }
 
-    val focusedPosterBackdropExpandEnabled: Flow<Boolean> = profileFlow { prefs ->
-        prefs[focusedPosterBackdropExpandEnabledKey] ?: true
-    }
+    val focusedPosterBackdropExpandEnabled: Flow<Boolean> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[focusedPosterBackdropExpandEnabledKey] },
+        default = true,
+        global = { it.focusedPosterBackdropExpandEnabled }
+    )
 
-    val focusedPosterBackdropExpandDelaySeconds: Flow<Int> = profileFlow { prefs ->
-        (prefs[focusedPosterBackdropExpandDelaySecondsKey]
-            ?: DEFAULT_FOCUSED_POSTER_BACKDROP_EXPAND_DELAY_SECONDS)
-            .coerceAtLeast(MIN_FOCUSED_POSTER_BACKDROP_EXPAND_DELAY_SECONDS)
-    }
+    val focusedPosterBackdropExpandDelaySeconds: Flow<Int> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[focusedPosterBackdropExpandDelaySecondsKey] },
+        default = DEFAULT_FOCUSED_POSTER_BACKDROP_EXPAND_DELAY_SECONDS,
+        global = { it.focusedPosterBackdropExpandDelaySeconds }
+    ).map { seconds -> seconds.coerceAtLeast(MIN_FOCUSED_POSTER_BACKDROP_EXPAND_DELAY_SECONDS) }
 
-    val focusedPosterBackdropTrailerEnabled: Flow<Boolean> = profileFlow { prefs ->
-        prefs[focusedPosterBackdropTrailerEnabledKey] ?: false
-    }
+    val focusedPosterBackdropTrailerEnabled: Flow<Boolean> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[focusedPosterBackdropTrailerEnabledKey] },
+        default = false,
+        global = { it.focusedPosterBackdropTrailerEnabled }
+    )
 
-    val focusedPosterBackdropTrailerMuted: Flow<Boolean> = profileFlow { prefs ->
-        prefs[focusedPosterBackdropTrailerMutedKey] ?: true
-    }
+    val focusedPosterBackdropTrailerMuted: Flow<Boolean> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[focusedPosterBackdropTrailerMutedKey] },
+        default = true,
+        global = { it.focusedPosterBackdropTrailerMuted }
+    )
 
     val focusedPosterBackdropTrailerPlaybackTarget: Flow<FocusedPosterTrailerPlaybackTarget> =
-        profileFlow { prefs ->
-            val stored = prefs[focusedPosterBackdropTrailerPlaybackTargetKey]
-                ?: FocusedPosterTrailerPlaybackTarget.HERO_MEDIA.name
-            runCatching { FocusedPosterTrailerPlaybackTarget.valueOf(stored) }
-                .getOrDefault(FocusedPosterTrailerPlaybackTarget.HERO_MEDIA)
-        }
+        localExplicitOrGlobal(
+            localExplicit = profileFlow { prefs ->
+                prefs[focusedPosterBackdropTrailerPlaybackTargetKey]?.let { name ->
+                    runCatching { FocusedPosterTrailerPlaybackTarget.valueOf(name) }.getOrNull()
+                }
+            },
+            default = FocusedPosterTrailerPlaybackTarget.HERO_MEDIA,
+            global = { it.focusedPosterBackdropTrailerPlaybackTarget }
+        )
 
-    val posterCardWidthDp: Flow<Int> = profileFlow { prefs ->
-        positiveOrDefault(prefs[posterCardWidthDpKey], DEFAULT_POSTER_CARD_WIDTH_DP)
-    }
+    val posterCardWidthDp: Flow<Int> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[posterCardWidthDpKey]?.takeIf { it > 0 } },
+        default = DEFAULT_POSTER_CARD_WIDTH_DP,
+        global = { it.posterCardWidthDp }
+    )
 
-    val posterCardHeightDp: Flow<Int> = profileFlow { prefs ->
-        positiveOrDefault(prefs[posterCardHeightDpKey], DEFAULT_POSTER_CARD_HEIGHT_DP)
-    }
+    val posterCardHeightDp: Flow<Int> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[posterCardHeightDpKey]?.takeIf { it > 0 } },
+        default = DEFAULT_POSTER_CARD_HEIGHT_DP,
+        global = { it.posterCardHeightDp }
+    )
 
-    val posterCardCornerRadiusDp: Flow<Int> = profileFlow { prefs ->
-        prefs[posterCardCornerRadiusDpKey] ?: DEFAULT_POSTER_CARD_CORNER_RADIUS_DP
-    }
+    val posterCardCornerRadiusDp: Flow<Int> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[posterCardCornerRadiusDpKey] },
+        default = DEFAULT_POSTER_CARD_CORNER_RADIUS_DP,
+        global = { it.posterCardCornerRadiusDp }
+    )
 
     val cardDepthStyle: Flow<CardDepthStyle> = profileFlow { prefs ->
         CardDepthStyle(
@@ -355,9 +426,11 @@ class LayoutPreferenceDataStore @Inject constructor(
         prefs[blurUnwatchedEpisodesKey] ?: false
     }
 
-    val useEpisodeThumbnailsInCw: Flow<Boolean> = profileFlow { prefs ->
-        prefs[useEpisodeThumbnailsInCwKey] ?: true
-    }
+    val useEpisodeThumbnailsInCw: Flow<Boolean> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[useEpisodeThumbnailsInCwKey] },
+        default = true,
+        global = { it.useEpisodeThumbnailsInCw }
+    )
 
     val showUnairedNextUp: Flow<Boolean> = profileFlow { prefs ->
         prefs[showUnairedNextUpKey] ?: true
@@ -367,9 +440,11 @@ class LayoutPreferenceDataStore @Inject constructor(
         prefs[nextUpFromFurthestEpisodeKey] ?: true
     }
 
-    val blurContinueWatchingNextUp: Flow<Boolean> = profileFlow { prefs ->
-        prefs[blurContinueWatchingNextUpKey] ?: false
-    }
+    val blurContinueWatchingNextUp: Flow<Boolean> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[blurContinueWatchingNextUpKey] },
+        default = false,
+        global = { it.blurContinueWatchingNextUp }
+    )
 
     val continueWatchingSortMode: Flow<ContinueWatchingSortMode> = profileFlow { prefs ->
         val stored = prefs[continueWatchingSortModeKey] ?: ContinueWatchingSortMode.DEFAULT.name
@@ -391,13 +466,17 @@ class LayoutPreferenceDataStore @Inject constructor(
         prefs[preferExternalMetaAddonDetailKey] ?: true
     }
 
-    val hideUnreleasedContent: Flow<Boolean> = effectiveCatalogFlow { prefs ->
-        prefs[hideUnreleasedContentKey] ?: false
-    }
+    val hideUnreleasedContent: Flow<Boolean> = localExplicitOrGlobal(
+        localExplicit = effectiveCatalogFlow { prefs -> prefs[hideUnreleasedContentKey] },
+        default = false,
+        global = { it.hideUnreleasedContent }
+    )
 
-    val showFullReleaseDate: Flow<Boolean> = profileFlow { prefs ->
-        prefs[showFullReleaseDateKey] ?: true
-    }
+    val showFullReleaseDate: Flow<Boolean> = localExplicitOrGlobal(
+        localExplicit = profileFlow { prefs -> prefs[showFullReleaseDateKey] },
+        default = true,
+        global = { it.showFullReleaseDate }
+    )
 
     val smoothBringIntoViewEnabled: Flow<Boolean> = profileFlow { prefs ->
         prefs[smoothBringIntoViewEnabledKey] ?: true
@@ -748,6 +827,19 @@ class LayoutPreferenceDataStore @Inject constructor(
     suspend fun setPosterCardCornerRadiusDp(cornerRadiusDp: Int) {
         store().edit { prefs ->
             prefs[posterCardCornerRadiusDpKey] = cornerRadiusDp
+        }
+    }
+
+    /**
+     * Rimuove le tre chiavi invece di riscrivere i default: sullo store
+     * globale il risultato è identico (i getter tornano ai default), su una
+     * tab con fallback torna a seguire le impostazioni globali della Home.
+     */
+    suspend fun resetPosterCardStyle() {
+        store().edit { prefs ->
+            prefs.remove(posterCardWidthDpKey)
+            prefs.remove(posterCardHeightDpKey)
+            prefs.remove(posterCardCornerRadiusDpKey)
         }
     }
 

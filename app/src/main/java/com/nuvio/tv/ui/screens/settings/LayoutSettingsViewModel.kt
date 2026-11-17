@@ -912,9 +912,9 @@ open class LayoutSettingsViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            layoutPreferenceDataStore.setPosterCardWidthDp(126)
-            layoutPreferenceDataStore.setPosterCardHeightDp(189)
-            layoutPreferenceDataStore.setPosterCardCornerRadiusDp(12)
+            // Remove invece di riscrivere i default: su una tab con fallback
+            // "Reset" torna a seguire le impostazioni globali della Home.
+            layoutPreferenceDataStore.resetPosterCardStyle()
         }
     }
 

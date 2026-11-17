@@ -142,14 +142,20 @@ internal fun ModernHeroMediaLayer(
     val localContext = LocalContext.current
 
     // Backdrop URL is managed upstream (heroSceneStateLambda freezes it
-    // during rapid nav / scroll). Only update when enrichment is not active
+    // during rapid nav / scroll). Only update when enrichment is not active —
+    // oppure quando l'utente non sta scrollando: con il gate rigido l'hero
+    // restava sul vecchio sfondo per tutta la durata dell'enrichment ("la
+    // hero non cambia"). Lo scroll resta protetto (upstream + fast scroll).
     val rawBackdrop by remember { derivedStateOf { heroBackdrop() } }
     val enriching by remember { derivedStateOf { enrichmentActive() } }
+    val fastScrolling = LocalFastScrollActive.current.value
     var displayedBackdrop by remember { mutableStateOf(heroBackdrop()) }
     // Adopt a backdrop while enriching only when nothing is displayed yet:
     // on tab re-entry the gate opens at frame 0 (active row not restored) and
     // would otherwise freeze the hero on its initial null (black hero).
-    if (rawBackdrop != displayedBackdrop && (!enriching || displayedBackdrop == null)) {
+    if (rawBackdrop != displayedBackdrop &&
+        (!enriching || displayedBackdrop == null || !fastScrolling)
+    ) {
         displayedBackdrop = rawBackdrop
     }
     val imageModel = remember(
@@ -171,6 +177,33 @@ internal fun ModernHeroMediaLayer(
     }
 
     Box(modifier = modifier) {
+        // Effetto sfondo tipo Netflix: la STESSA immagine decodificata a
+        // ~96px e stirata a tutta l'area (ContentScale.FillBounds) riempie i
+        // bordi vuoti dietro il crop in alto-destra invece di restare neri.
+        // Il decode minuscolo è immediato, quindi la hero appare prima che
+        // finisca il caricamento del backdrop grande; sotto Android 12 (niente
+        // RenderEffect) resta comunque lo stiramento morbido.
+        val fillModel = remember(localContext, displayedBackdrop) {
+            displayedBackdrop?.let {
+                ImageRequest.Builder(localContext)
+                    .data(it)
+                    .size(96)
+                    .crossfade(false)
+                    .build()
+            }
+        }
+        if (fillModel != null) {
+            Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+                AsyncImage(
+                    model = fillModel,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = 1f - transitionProgressState.value },
+                    contentScale = ContentScale.FillBounds
+                )
+            }
+        }
         androidx.compose.animation.Crossfade(
             targetState = imageModel,
             animationSpec = tween(durationMillis = NuvioMotion.tokens.durations.overlay),
@@ -405,13 +438,16 @@ private fun HeroTitleContent(
     // ricadere sul titolo scritto se esiste un logo già caricato. L'override
     // manuale ("Imposta logo personalizzato") vince su entrambi.
     // collectAsState: la composizione si aggiorna appena l'utente salva.
-    @Suppress("UNUSED_VARIABLE")
+    // La mappa raccolta DEVE essere letta (remember key): senza lettura non
+    // c'è iscrizione al flow e il logo restava quello precedente.
     val logoOverrides by LogoOverrideStore.overrides.collectAsState()
-    val effectiveLogoUrl = LogoOverrideStore.resolve(
-        itemId,
-        preview.logo?.takeIf { it.isNotBlank() }
-            ?: preview.frozenLogoUrl?.takeIf { it.isNotBlank() }
-    )
+    val effectiveLogoUrl = remember(logoOverrides, itemId, preview.logo, preview.frozenLogoUrl) {
+        LogoOverrideStore.resolve(
+            itemId,
+            preview.logo?.takeIf { it.isNotBlank() }
+                ?: preview.frozenLogoUrl?.takeIf { it.isNotBlank() }
+        )
+    }
 
     val logoModel = remember(context, effectiveLogoUrl, logoMaxWidthPx, logoHeightPx) {
         effectiveLogoUrl?.let {

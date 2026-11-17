@@ -1436,13 +1436,16 @@ private fun ModernCarouselCard(
         }
     }
     // Override manuale del logo ("Imposta logo personalizzato") vince sul
-    // logo congelato/TMDB; collectAsState = aggiornamento immediato al salvataggio.
-    @Suppress("UNUSED_VARIABLE")
+    // logo congelato/TMDB. collectAsState letto nelle remember key: senza
+    // lettura la composizione non si iscrive e al salvataggio il logo
+    // restava quello vecchio finché qualcos'altro non ricomponiva la card.
     val logoOverrides by LogoOverrideStore.overrides.collectAsState()
-    val effectiveLogoUrl = LogoOverrideStore.resolve(
-        item.metaPreview?.id,
-        frozenLogoUrl.value?.takeIf { !it.isPlaceholder() }
-    )
+    val effectiveLogoUrl = remember(logoOverrides, item.metaPreview?.id, frozenLogoUrl.value) {
+        LogoOverrideStore.resolve(
+            item.metaPreview?.id,
+            frozenLogoUrl.value?.takeIf { !it.isPlaceholder() }
+        )
+    }
     // Freeze the backdrop URL for landscape cards - prevents image reload when enrichment updates backdrop.
     val dataFrozenBackdrop = item.heroPreview.frozenBackdropUrl?.takeIf { !it.isPlaceholder() }
     val frozenBackdropUrl = remember(item.key) { mutableStateOf(dataFrozenBackdrop ?: item.heroPreview.backdrop?.takeIf { !it.isPlaceholder() }) }

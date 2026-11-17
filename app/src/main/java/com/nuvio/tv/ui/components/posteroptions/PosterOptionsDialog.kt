@@ -240,6 +240,10 @@ fun CustomLogoEditorDialog(
             }
         )
 
+        // Due pulsanti per riga con weight(1f): "Rimuovi poster personalizzato"
+        // è troppo lungo per stare accanto agli altri in un dialog da 560dp e
+        // spingeva "Annulla" a capo ("Annul/la"). Ora ogni etichetta resta su
+        // una riga sola e la rimozione occupa una riga intera.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
@@ -249,35 +253,50 @@ fun CustomLogoEditorDialog(
                     keyboardController?.hide()
                     onSave(input)
                 },
+                modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.colors(containerColor = NuvioTheme.colors.Primary)
             ) {
-                Text(stringResource(R.string.action_save))
-            }
-            if (hasExisting) {
-                Button(
-                    onClick = {
-                        keyboardController?.hide()
-                        onRemove()
-                    },
-                    colors = ButtonDefaults.colors(
-                        containerColor = NuvioTheme.colors.BackgroundCard,
-                        contentColor = NuvioTheme.colors.TextPrimary
-                    )
-                ) {
-                    Text(removeLabel ?: stringResource(R.string.poster_action_remove_custom_logo))
-                }
+                Text(
+                    stringResource(R.string.action_save),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
             Button(
                 onClick = {
                     keyboardController?.hide()
                     onDismiss()
                 },
+                modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.colors(
                     containerColor = NuvioTheme.colors.BackgroundCard,
                     contentColor = NuvioTheme.colors.TextPrimary
                 )
             ) {
-                Text(stringResource(R.string.action_cancel))
+                Text(
+                    stringResource(R.string.action_cancel),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        if (hasExisting) {
+            Button(
+                onClick = {
+                    keyboardController?.hide()
+                    onRemove()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.colors(
+                    containerColor = NuvioTheme.colors.BackgroundCard,
+                    contentColor = NuvioTheme.colors.TextPrimary
+                )
+            ) {
+                Text(
+                    removeLabel ?: stringResource(R.string.poster_action_remove_custom_logo),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }

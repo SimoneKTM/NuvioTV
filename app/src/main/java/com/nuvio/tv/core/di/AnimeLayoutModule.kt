@@ -24,9 +24,14 @@ object AnimeLayoutModule {
     @Named("anime_layout")
     fun provideAnimeLayoutPreferenceDataStore(
         factory: ProfileDataStoreFactory,
-        profileManager: ProfileManager
+        profileManager: ProfileManager,
+        // Store globale (tab Home): la tab Anime eredita dimensioni card,
+        // stile "Continua a guardare", poster orizzontali ecc. finché non
+        // vengono personalizzati dalla schermata "Layout Anime", così le due
+        // tab restano graficamente identiche.
+        globalLayout: LayoutPreferenceDataStore
     ): LayoutPreferenceDataStore =
-        LayoutPreferenceDataStore(factory, profileManager, "anime_layout_settings")
+        LayoutPreferenceDataStore(factory, profileManager, "anime_layout_settings", globalLayout)
 
     @Provides
     @Singleton

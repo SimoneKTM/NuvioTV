@@ -124,10 +124,13 @@ fun HeroContentSection(
         meta.apiType.equals("series", ignoreCase = true) || meta.apiType.equals("tv", ignoreCase = true)
     }
     // Override manuale del logo ("Imposta logo personalizzato" nel menu
-    // Azioni Titolo) vince su TMDB; collectAsState = aggiornamento immediato.
-    @Suppress("UNUSED_VARIABLE")
+    // Azioni Titolo) vince su TMDB. collectAsState letto nelle remember key:
+    // senza lettura la composizione non si iscrive al flow e al salvataggio
+    // il logo della hero restava quello precedente.
     val logoOverrides by LogoOverrideStore.overrides.collectAsState()
-    val effectiveLogoUrl = LogoOverrideStore.resolve(meta.id, meta.logo)
+    val effectiveLogoUrl = remember(logoOverrides, meta.id, meta.logo) {
+        LogoOverrideStore.resolve(meta.id, meta.logo)
+    }
     val logoModel = remember(context, effectiveLogoUrl) {
         effectiveLogoUrl?.let { logo ->
             ImageRequest.Builder(context)
