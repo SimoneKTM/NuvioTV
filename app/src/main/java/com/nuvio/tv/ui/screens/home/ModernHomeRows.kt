@@ -145,6 +145,7 @@ import com.nuvio.tv.ui.components.TrailerPlayer
 import com.nuvio.tv.ui.components.placeholderCardShimmer
 import com.nuvio.tv.ui.components.nuvioCardDepth
 import com.nuvio.tv.core.logo.LogoOverrideStore
+import com.nuvio.tv.core.logo.PosterOverrideStore
 import com.nuvio.tv.ui.components.rememberArtworkBackedCardGlow
 import com.nuvio.tv.ui.components.rememberLegacyCardGlowHalo
 import com.nuvio.tv.ui.components.rememberPlaceholderShimmerOffsetState
@@ -1457,22 +1458,38 @@ private fun ModernCarouselCard(
         frozenBackdropUrl.value = enrichedBackdropUrl
     }
     val effectiveBackdropUrl = frozenBackdropUrl.value?.takeIf { !it.isPlaceholder() }
+    // Override manuale del poster ("Modifica poster"): la stessa chiave del
+    // logo (meta id, con fallback all'id contenuto per la riga Continua a
+    // guardare, dove non c'è metaPreview). Senza questa lettura le card della
+    // Home moderna ignoravano l'override mentre ContentCard lo applicava.
+    val posterOverrides by PosterOverrideStore.overrides.collectAsState()
+    val posterOverrideId = item.metaPreview?.id
+        ?: (item.payload as? ModernPayload.ContinueWatching)?.item?.contentId()
+    val overriddenPosterUrl = remember(posterOverrides, posterOverrideId, item.imageUrl, item.heroPreview.poster) {
+        PosterOverrideStore.resolve(
+            posterOverrideId,
+            item.imageUrl ?: item.heroPreview.poster
+        )
+    }
+    val overriddenHeroPosterUrl = remember(posterOverrides, posterOverrideId, item.heroPreview.poster) {
+        PosterOverrideStore.resolve(posterOverrideId, item.heroPreview.poster)
+    }
     var isFocused by remember { mutableStateOf(false) }
     val payload = item.payload as? ModernPayload.CollectionFolder
     val isCollectionFolder = item.payload is ModernPayload.CollectionFolder
     val baseImageUrl = if (focusedPosterBackdropExpandEnabled && isBackdropExpanded) {
         if (useLandscapeOverlayTreatment) {
-            effectiveBackdropUrl ?: item.heroPreview.backdrop ?: item.imageUrl ?: item.heroPreview.poster
+            effectiveBackdropUrl ?: item.heroPreview.backdrop ?: overriddenPosterUrl
         } else {
-            item.heroPreview.backdrop ?: item.imageUrl ?: item.heroPreview.poster
+            item.heroPreview.backdrop ?: overriddenPosterUrl
         }
     } else if (useLandscapeOverlayTreatment && !isCollectionFolder) {
-        effectiveBackdropUrl ?: item.heroPreview.poster
+        effectiveBackdropUrl ?: overriddenHeroPosterUrl
     } else if (isCollectionFolder && !payload?.coverEmoji.isNullOrBlank()) {
         // Emoji cover folders: never fall back to backdrop for the card poster
         item.imageUrl
     } else {
-        item.imageUrl ?: item.heroPreview.poster ?: item.heroPreview.backdrop
+        overriddenPosterUrl ?: item.heroPreview.backdrop
     }
     val imageUrl = when {
         payload == null -> baseImageUrl

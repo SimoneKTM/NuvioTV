@@ -35,7 +35,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithCache
@@ -60,6 +59,7 @@ import coil3.BitmapImage
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import coil3.request.transformations
 import com.nuvio.tv.ui.util.LocalRecompositionHighlighterEnabled
 import com.nuvio.tv.ui.util.computeHeroNextEpisodeText
 import com.nuvio.tv.ui.util.recompositionHighlighter
@@ -76,6 +76,9 @@ import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.tv.material3.Icon
 import com.nuvio.tv.ui.theme.NuvioPrimitives
 import com.nuvio.tv.ui.util.formatAwards
+
+/** Raggio della sfocatura pre-calcolata sul fill sfondo (bitmap 96px, stirata ~40x a schermo). */
+private const val FILL_BLUR_RADIUS_PX = 2
 
 private data class ModernHeroSecondaryMeta(
     val highlightText: String?,
@@ -182,14 +185,23 @@ internal fun ModernHeroMediaLayer(
         // ~96px e stirata a tutta l'area (ContentScale.FillBounds) riempie i
         // bordi vuoti dietro il crop in alto-destra invece di restare neri.
         // Il decode minuscolo è immediato, quindi la hero appare prima che
-        // finisca il caricamento del backdrop grande; sotto Android 12 (niente
-        // RenderEffect) la sfocatura resta no-op e vale lo stiramento morbido.
+        // finisca il caricamento del backdrop grande.
+        //
+        // Fix jank: la sfocatura è pre-calcolata nella trasformazione Coil
+        // (BlurTransformation) invece di girare un RenderEffect live su ogni
+        // frame con Modifier.blur(20.dp). Il risultato è identico — il layer
+        // è stirato ~40x, quindi 2px sulla bitmap 96px valgono ~80px ≈ 40px
+        // (20dp @ density 2) a schermo — ma la sfocatura è calcolata una
+        // volta sola e poi servita dalla cache Coil.
         val fillModel = remember(localContext, displayedBackdrop) {
             displayedBackdrop?.let {
                 ImageRequest.Builder(localContext)
                     .data(it)
                     .size(96)
                     .crossfade(false)
+                    .transformations(
+                        com.nuvio.tv.ui.util.BlurTransformation(radius = FILL_BLUR_RADIUS_PX)
+                    )
                     .build()
             }
         }
@@ -200,10 +212,6 @@ internal fun ModernHeroMediaLayer(
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxSize()
-                        // Stirata + sfocata: i bordi fuori dal crop diventano
-                        // un diffuso colorato invece di una foto allungata e
-                        // pixelata (richiesta "effetto sfocatura").
-                        .blur(20.dp)
                         .graphicsLayer { alpha = 1f - transitionProgressState.value },
                     contentScale = ContentScale.FillBounds
                 )
@@ -318,7 +326,11 @@ internal fun ModernHeroGradientLayer(
                 // Estendi la dissolvenza verso l'alto: il vecchio tratto
                 // finale, concentrato nell'ultimo 18% della scena, appariva
                 // come una fascia nera netta sopra le card.
-                val bottomStripStartY = size.height * if (fullScreen) 0.58f else 0.70f
+                // Non-fullscreen: la dissolvenza parte più in basso e resta
+                // più trasparente, così la foto arriva a coprire fino alle
+                // card invece di spegnersi in una fascia nera ("l'immagine
+                // hero viene tagliata, non mi piace lo spazio nero sotto").
+                val bottomStripStartY = size.height * if (fullScreen) 0.58f else 0.74f
                 val verticalGradient = Brush.verticalGradient(
                     colorStops = if (fullScreen) {
                         arrayOf(
@@ -330,9 +342,9 @@ internal fun ModernHeroGradientLayer(
                     } else {
                         arrayOf(
                             0.0f to Color.Transparent,
-                            0.42f to bgColor.copy(alpha = 0.18f),
-                            0.76f to bgColor.copy(alpha = 0.52f),
-                            1.0f to bgColor.copy(alpha = 0.92f)
+                            0.45f to bgColor.copy(alpha = 0.14f),
+                            0.82f to bgColor.copy(alpha = 0.38f),
+                            1.0f to bgColor.copy(alpha = 0.72f)
                         )
                     },
                     startY = bottomStripStartY,

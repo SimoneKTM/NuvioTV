@@ -234,6 +234,8 @@ val LocalFocusSectionTopBar = compositionLocalOf<(() -> Boolean)?> { null }
 val LocalFocusPrimeRail = compositionLocalOf<(() -> Boolean)?> { null }
 
 private const val SIDEBAR_AUTO_COLLAPSE_DELAY_MS = 4_000L
+/** Finestra per il secondo BACK di conferma dell'uscita (stile Netflix). */
+private const val EXIT_CONFIRM_WINDOW_MS = 2_500L
 
 // Fluid Mode: the short holds tuned for a Fire TV stick.
 private const val MIN_STARTUP_SPLASH_FLUID_MS = 1_500L
@@ -1903,11 +1905,30 @@ private fun ModernSidebarScaffold(
         }
     }
 
+    // Uscita stile Netflix: dal contenuto BACK sposta il focus sul rail; da
+    // lì BACK non esce più subito ma mostra la conferma, e solo un secondo
+    // BACK entro la finestra chiude davvero l'app. Così una pressione
+    // accidentale (o il BACK "a caso" mentre si naviga) non chiude Nuvio.
+    var exitConfirmPending by remember { mutableStateOf(false) }
+    var exitConfirmShownAt by remember { mutableStateOf(0L) }
+    LaunchedEffect(exitConfirmPending, exitConfirmShownAt) {
+        if (!exitConfirmPending) return@LaunchedEffect
+        delay(EXIT_CONFIRM_WINDOW_MS)
+        exitConfirmPending = false
+    }
+
     BackHandler(enabled = currentRoute in rootRoutes && !isSidebarExpanded && !sidebarCollapsePending) {
         // Rail stile Prime: nessun pannello con le etichette. Il primo BACK
-        // porta il focus sul rail; se è già lì (o il rail non ha voci) esce.
+        // porta il focus sul rail; se è già lì parte la conferma d'uscita e
+        // solo un secondo BACK (entro EXIT_CONFIRM_WINDOW_MS) esce.
         if (primeRailHasFocus || !focusPrimeRail()) {
-            onExitApp()
+            val now = SystemClock.uptimeMillis()
+            if (exitConfirmPending && now - exitConfirmShownAt < EXIT_CONFIRM_WINDOW_MS) {
+                onExitApp()
+            } else {
+                exitConfirmPending = true
+                exitConfirmShownAt = now
+            }
         }
     }
 
@@ -2455,6 +2476,26 @@ private fun ModernSidebarScaffold(
                             transformOrigin = TransformOrigin(0f, 0f)
                         }
                 )
+            }
+            // Conferma d'uscita stile Netflix: appare solo quando il secondo
+            // BACK è in arrivo, scompare da sola se non si conferma.
+            if (exitConfirmPending) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = NuvioTheme.spacing.xxxl)
+                        .background(
+                            color = NuvioTheme.colors.BackgroundCard.copy(alpha = 0.96f),
+                            shape = RoundedCornerShape(999.dp)
+                        )
+                        .padding(horizontal = NuvioTheme.spacing.xxl, vertical = NuvioTheme.spacing.lg)
+                ) {
+                    Text(
+                        text = stringResource(R.string.exit_confirm_hint),
+                        color = NuvioTheme.colors.TextPrimary,
+                        fontSize = 20.sp
+                    )
+                }
             }
         }
     }

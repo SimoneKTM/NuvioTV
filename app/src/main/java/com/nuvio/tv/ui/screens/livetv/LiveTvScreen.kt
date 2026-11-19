@@ -90,6 +90,10 @@ fun LiveTvScreen(
                 )
                 LiveTvAddButton(
                     enabled = !uiState.isAdding,
+                    // All'ingresso la pagina non ha altro punto focusabile:
+                    // senza questa richiesta il focus restava sul rail e la
+                    // CTA "Aggiungi playlist" restava irraggiungibile.
+                    focusRequester = LocalContentFocusRequester.current,
                     onClick = { showAddDialog = true }
                 )
             }
@@ -187,12 +191,18 @@ fun LiveTvScreen(
 @Composable
 private fun LiveTvAddButton(
     enabled: Boolean,
+    focusRequester: FocusRequester? = null,
     onClick: () -> Unit
 ) {
     Button(
         onClick = onClick,
         enabled = enabled,
-        colors = ButtonDefaults.colors(containerColor = NuvioTheme.colors.Primary)
+        colors = ButtonDefaults.colors(containerColor = NuvioTheme.colors.Primary),
+        modifier = if (focusRequester != null) {
+            Modifier.focusRequester(focusRequester)
+        } else {
+            Modifier
+        }
     ) {
         Text(stringResource(R.string.live_tv_add_playlist))
     }

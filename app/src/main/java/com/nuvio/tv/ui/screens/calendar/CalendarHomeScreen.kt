@@ -145,7 +145,17 @@ fun CalendarHomeScreen(
         while (uiState.sections.isEmpty() && !uiState.hasLoaded) delay(100)
         if (uiState.sections.isEmpty()) return@LaunchedEffect
         delay(50)
-        runCatching { firstCardFocusRequester.requestFocusAfterFrames(2) }
+        // Primo punto della pagina = primo poster della prima sezione (come
+        // sulla Home moderna, che atterra sulla prima card di Continua a
+        // guardare). Prima la richiesta puntava a firstCardFocusRequester,
+        // che in questa branch è agganciato solo all'hero: il focus partiva
+        // dall'area hero con il bordo che bordava mezza schermata.
+        val requested = runCatching {
+            firstSectionPosterFocusRequester.requestFocusAfterFrames(2)
+        }.getOrDefault(false)
+        if (!requested) {
+            runCatching { firstCardFocusRequester.requestFocusAfterFrames(2) }
+        }
         initialFocusApplied = true
     }
 

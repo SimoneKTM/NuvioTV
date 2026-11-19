@@ -370,7 +370,11 @@ fun SearchScreen(
     // The left input panel (search bar + virtual keyboard + recents) collapses while focus is
     // on the results grid, giving the posters the full width (4 -> 6 columns transition).
     val focusManager = LocalFocusManager.current
-    var inputAreaActive by remember { mutableStateOf(true) }
+    // Tastiera nascosta all'ingresso: si apre solo quando il focus arriva
+    // sulla barra (focus del campo) o scende da "Scopri" con GIÙ. Prima era
+    // true e la schermata si apriva già con la tastiera su tutta la colonna
+    // sinistra, rubando la scena al primo punto ("Scopri").
+    var inputAreaActive by remember { mutableStateOf(false) }
     var pendingKeyboardFocus by remember { mutableStateOf(false) }
     LaunchedEffect(inputAreaActive, pendingKeyboardFocus) {
         if (inputAreaActive && pendingKeyboardFocus) {
@@ -600,7 +604,16 @@ fun SearchScreen(
                 } else if (!latestShouldKeepSearchFocus) {
                     coroutineScope.launch {
                         repeat(2) { withFrameNanos { } }
-                        runCatching { searchFocusRequester.requestFocus() }
+                        // Il primo punto della pagina è "Scopri" (quando
+                        // visibile), non la barra: puntare al campo qui
+                        // sovrascriveva il focus iniziale dopo ~2 frame e
+                        // apriva subito la tastiera.
+                        val resumeTarget = if (uiState.discoverLocation == DiscoverLocation.IN_SEARCH) {
+                            discoverFocusRequester
+                        } else {
+                            searchFocusRequester
+                        }
+                        runCatching { resumeTarget.requestFocus() }
                     }
                 }
             } else if (event == Lifecycle.Event.ON_PAUSE) {

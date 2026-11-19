@@ -2191,6 +2191,7 @@
   <string name="still_watching_title">Ci sei ancora?</string>
   <string name="still_watching_continue">Riproduci</string>
   <string name="still_watching_exit">Esci</string>
+  <string name="exit_confirm_hint">Premi ancora INDIETRO per uscire</string>
   <string name="still_watching_countdown">Interruzione tra %1$d</string>
   <string name="still_watching_setting_title">Ci sei ancora?</string>
   <string name="still_watching_setting_sub">Chiedi conferma dopo diversi episodi riprodotti automaticamente.</string>

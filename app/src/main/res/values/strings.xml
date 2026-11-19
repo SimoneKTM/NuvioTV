@@ -2075,6 +2075,7 @@
     <string name="still_watching_title">Are you still watching?</string>
     <string name="still_watching_continue">Play</string>
     <string name="still_watching_exit">Exit</string>
+    <string name="exit_confirm_hint">Press BACK again to exit</string>
     <string name="still_watching_countdown">Stopping in %1$d</string>
     <string name="still_watching_setting_title">Are You Still Watching?</string>
     <string name="still_watching_setting_sub">Prompt after consecutive auto-played episodes.</string>

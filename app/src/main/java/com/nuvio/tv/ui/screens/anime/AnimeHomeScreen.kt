@@ -64,6 +64,7 @@ import com.nuvio.tv.ui.util.rowsListDownRecovery
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.collectAsState
 import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
@@ -1022,13 +1023,24 @@ private fun AnimeModernHero(
         }
     }
     val shouldPlayTrailer = trailerPreviewUrl != null && trailerDwellPassed && !trailerEnded
+    // Override manuale dello sfondo hero ("Modifica hero"): stessa store e
+    // stessa chiave della Home moderna. Senza questa lettura l'override
+    // salvato non compariva mai sull'hero di Anime.
+    val backdropOverrides by com.nuvio.tv.core.logo.HeroBackdropOverrideStore.overrides.collectAsState()
+    // Lettura esplicita: registra la dipendenza dallo State così la
+    // ricomposizione scatta subito al salvataggio dell'override.
+    @Suppress("UNUSED_VARIABLE")
+    val currentBackdropOverrides = backdropOverrides
     val liveHeroSceneState by rememberUpdatedState(
         ModernHeroSceneState(
-            heroBackdrop = firstNonBlank(
-                item.backdropUrl,
-                item.background,
-                item.landscapePoster,
-                item.poster
+            heroBackdrop = com.nuvio.tv.core.logo.HeroBackdropOverrideStore.resolve(
+                item.id,
+                firstNonBlank(
+                    item.backdropUrl,
+                    item.background,
+                    item.landscapePoster,
+                    item.poster
+                )
             ),
             preview = heroPreview,
             enrichmentActive = false,
